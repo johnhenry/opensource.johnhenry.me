@@ -33,10 +33,14 @@ jobs:
 
       # Build here rather than trusting Dokku's Nixpacks build, so a broken
       # build fails the job before anything is pushed to the live app.
+      # No `cache: npm`. On a persistent self-hosted runner ~/.npm survives
+      # between jobs, so actions/cache adds nothing — and restoring a saved
+      # entry reliably hung this step (blocked in epoll with no open sockets,
+      # 35s CPU over 12min). The first run passed only because there was no
+      # cache to restore yet.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
 
       - run: npm ci
 
