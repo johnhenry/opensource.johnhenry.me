@@ -1,0 +1,65 @@
+---
+title: Color
+description: Neutral scale, semantic states, and the nine-hue registry.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Neutral scale
+
+Fixed — never rotates with `--hue`. Twelve stops; `750` and `900` are dark-mode-only (panel separation and the deepest code-background surface).
+
+| Token | Hex | Swatch |
+|---|---|---|
+| `--n-0`   | `#f8fafc` | <span style="display:inline-block;width:60px;height:18px;border:1px solid #e2e8f0;background:#f8fafc;vertical-align:middle;border-radius:4px" /> |
+| `--n-50`  | `#f1f5f9` | <span style="display:inline-block;width:60px;height:18px;border:1px solid #e2e8f0;background:#f1f5f9;vertical-align:middle;border-radius:4px" /> |
+| `--n-100` | `#e2e8f0` | <span style="display:inline-block;width:60px;height:18px;border:1px solid #e2e8f0;background:#e2e8f0;vertical-align:middle;border-radius:4px" /> |
+| `--n-200` | `#cbd5e1` | <span style="display:inline-block;width:60px;height:18px;background:#cbd5e1;vertical-align:middle;border-radius:4px" /> |
+| `--n-300` | `#94a3b8` | <span style="display:inline-block;width:60px;height:18px;background:#94a3b8;vertical-align:middle;border-radius:4px" /> |
+| `--n-400` | `#64748b` | <span style="display:inline-block;width:60px;height:18px;background:#64748b;vertical-align:middle;border-radius:4px" /> |
+| `--n-500` | `#475569` | <span style="display:inline-block;width:60px;height:18px;background:#475569;vertical-align:middle;border-radius:4px" /> |
+| `--n-600` | `#334155` | <span style="display:inline-block;width:60px;height:18px;background:#334155;vertical-align:middle;border-radius:4px" /> |
+| `--n-700` | `#1e293b` | <span style="display:inline-block;width:60px;height:18px;background:#1e293b;vertical-align:middle;border-radius:4px" /> |
+| `--n-750` | `#16203a` | <span style="display:inline-block;width:60px;height:18px;background:#16203a;vertical-align:middle;border-radius:4px" /> |
+| `--n-800` | `#0f172a` | <span style="display:inline-block;width:60px;height:18px;background:#0f172a;vertical-align:middle;border-radius:4px" /> |
+| `--n-900` | `#0b1120` | <span style="display:inline-block;width:60px;height:18px;background:#0b1120;vertical-align:middle;border-radius:4px" /> |
+
+## Semantic states
+
+Fixed across every theme — `success`, `warning`, `error`, and `info` never rotate with `--hue`.
+
+<Aside type="tip">This page's own `:::tip` and `:::caution` asides (like this one) are rendered using these exact tokens, remapped onto Starlight's built-in aside colors — see the <a href="https://github.com/erisera-code/circuit/blob/main/docs/src/styles/circuit-bridge.css">bridge CSS</a>.</Aside>
+
+| Token | Light | Dark |
+|---|---|---|
+| `--success` | `#0f9d63` | `#3ecf8e` |
+| `--warning` | `#b45f06` | `#e0a84a` |
+| `--error`   | `#d13c30` | `#f0665a` |
+| `--info`    | `#1d6fbf` | `#5fa8e8` |
+
+## Hue registry
+
+Nine erisera products, one color wheel, zero collisions. The three existing closed products — nominos, nominos-core, the blog — each reserve their hue plus a ±20° buffer; every new OSS theme sits outside all buffers.
+
+| Product | Hue | Status |
+|---|---|---|
+| erisera (default) / matey | 25° | shipped |
+| nominos | 199° | existing, closed |
+| nominos-core | 142° | existing, closed |
+| blog | 160° | existing, closed |
+| objectify | 70° | shipped |
+| andbox | 95° | shipped |
+| mcp-query | 250° | shipped |
+| ecmanim | 285° | shipped |
+| clawser | 340° | shipped |
+
+Blocked union: `[122°, 219°]`. Free arcs: `(45°, 122°)` and `(219°, 365°)`. Adding a 7th OSS tool? Pick a hue in a free arc, ≥20° from every existing stop. The [showcase](/circuit/showcase/) has the full wheel diagram.
+
+## Accent formula
+
+```css
+--accent: hsl(var(--hue) 95% 46%);        /* light */
+--accent: hsl(var(--hue) 92% 58%);        /* dark */
+```
+
+Every other color derived from the accent — `--accent-hover`, `--accent-soft`, `--accent-border`, `--shadow-accent` — is computed from this one value, so a theme is a single number.

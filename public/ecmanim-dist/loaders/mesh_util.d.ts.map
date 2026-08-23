@@ -1,0 +1,1 @@
+{"version":3,"file":"mesh_util.d.ts","sourceRoot":"","sources":["../../src/loaders/mesh_util.ts"],"names":[],"mappings":"AAMA;;;+CAG+C;AAC/C,wBAAgB,qBAAqB,IAAI,OAAO,CAE/C;AAED;sCACsC;AACtC,wBAAgB,eAAe,IAAI,IAAI,CAEtC;AAED;;;;;sCAKsC;AACtC,wBAAgB,2BAA2B,CACzC,QAAQ,EAAE,GAAG,EACb,SAAS,SAAI,GACZ;IAAE,YAAY,EAAE,MAAM,EAAE,EAAE,CAAC;IAAC,SAAS,EAAE,MAAM,EAAE,EAAE,CAAA;CAAE,CA0BrD"}

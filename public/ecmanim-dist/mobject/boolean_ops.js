@@ -1,0 +1,205 @@
+// Boolean (constructive area geometry) operations on VMobjects, mirroring
+// ManimCommunity's manim/mobject/geometry/boolean_ops.py. Each op flattens its
+// input VMobjects' outlines to 2D polygon rings, runs a polygon-clipping
+// operation (union / intersection / difference / xor), then rebuilds this
+// VMobject's points/subpaths from the resulting MultiPolygon.
+import { VMobject } from "./VMobject.js";
+import { flattenMobject } from "../renderer/geometry_util.js";
+// polygon-clipping is loaded via a caught top-level dynamic import so this module
+// (and thus the whole library) still LOADS in an unbundled browser where the bare
+// "polygon-clipping" specifier can't resolve without an import map. In Node it
+// resolves before any op is constructed, keeping the sync constructor API. In the
+// browser (no import map) it stays null and the boolean ops throw a clear error.
+let polygonClipping = null;
+try {
+    const _pc = await import("polygon-clipping");
+    polygonClipping = _pc.default ?? _pc;
+}
+catch { /* browser without an import map for polygon-clipping */ }
+function requirePC() {
+    if (!polygonClipping) {
+        throw new Error("Boolean ops require the 'polygon-clipping' package. In Node it loads " +
+            "automatically; in an unbundled browser add it to your import map (or use a bundler).");
+    }
+    return polygonClipping;
+}
+// Turn one VMobject into a polygon-clipping "polygon": a list of rings, where
+// each ring is a closed list of [x, y] points. Subpaths become separate rings
+// (outer boundary + holes). z is dropped. Requires >= 3 distinct points.
+function vmobjectToRings(vmobject) {
+    const rings = [];
+    const loops = flattenMobject(vmobject); // world-space [x,y,z] loops
+    for (const loop of loops) {
+        if (loop.length < 3)
+            continue;
+        const ring = loop.map((p) => [p[0], p[1]]);
+        rings.push(ring);
+    }
+    return rings;
+}
+// Rebuild `target`'s points/subpaths from a polygon-clipping MultiPolygon.
+// Every ring (outer boundary or hole) becomes one closed subpath. Empty input
+// leaves the target with no points.
+function outlineFromMultipolygon(target, multipolygon) {
+    target.points = [];
+    target.subpathStarts = [];
+    target._straightPath = true;
+    for (const polygon of multipolygon) {
+        for (const ring of polygon) {
+            if (!ring || ring.length < 3)
+                continue;
+            // polygon-clipping repeats the first vertex at the end to close the ring;
+            // drop that duplicate so we don't emit a zero-length segment.
+            let pts = ring;
+            const first = pts[0];
+            const last = pts[pts.length - 1];
+            if (pts.length > 1 &&
+                first[0] === last[0] &&
+                first[1] === last[1]) {
+                pts = pts.slice(0, pts.length - 1);
+            }
+            if (pts.length < 3)
+                continue;
+            const corners = pts.map((p) => [p[0], p[1], 0]);
+            // Close the ring back to its start with a straight segment.
+            corners.push([corners[0][0], corners[0][1], 0]);
+            outlineAppendClosedSubpath(target, corners);
+        }
+    }
+}
+// Append `corners` (already closed) as one straight-segment subpath, matching
+// setPointsAsCorners' bezier layout (anchor + straight control/control/anchor).
+function outlineAppendClosedSubpath(target, corners) {
+    if (corners.length < 2)
+        return;
+    const tmp = new VMobject();
+    tmp.setPointsAsCorners(corners);
+    target.appendBezierPoints(tmp.points, target.points.length > 0);
+}
+// Copy fill/stroke style from a source VMobject to `target`.
+function copyStyle(target, source) {
+    target.setStyle({
+        fillColor: source.fillColor,
+        fillOpacity: source.fillOpacity,
+        strokeColor: source.strokeColor,
+        strokeWidth: source.strokeWidth,
+        strokeOpacity: source.strokeOpacity,
+    });
+    // Confirmed bug: this allowlist previously omitted gradientColors/
+    // sheenDirection, so a gradient-filled shape silently lost its gradient
+    // (falling back to fillColor's already-set first-stop color) whenever it
+    // passed through ANY boolean op -- most visibly SVGMobject's clip-path
+    // support, which wraps a gradient-filled shape in an Intersection to
+    // apply the clip. Found by actually rendering an SVG with both a
+    // <linearGradient> fill AND a <clipPath> on the same element (untested
+    // combination: the existing gradient and clipPath tests each cover their
+    // feature in isolation, never together).
+    if (source.gradientColors)
+        target.gradientColors = source.gradientColors;
+    target.sheenDirection = source.sheenDirection;
+}
+// Shared base for the boolean operations. Holds the flattened input rings and
+// applies a polygon-clipping operation, populating this VMobject's outline.
+export class _BooleanOps extends VMobject {
+    constructor(config = {}) {
+        super(config);
+    }
+    // Convert a VMobject to the polygon-clipping "polygon" (ring list) form.
+    _convertVmobjectToPolygon(vmobject) {
+        return vmobjectToRings(vmobject);
+    }
+    // Rebuild this VMobject's outline from a MultiPolygon result.
+    _applyResult(multipolygon) {
+        outlineFromMultipolygon(this, multipolygon ?? []);
+    }
+}
+// manim parity: boolean ops accept a trailing style config
+// (`Intersection(a, b, { color: GREEN, fillOpacity: 0.5 })`). Split it off
+// the varargs (a plain object that isn't a VMobject) and apply after build.
+function splitStyleArg(args) {
+    if (args.length && args[args.length - 1] && typeof args[args.length - 1] === "object" && !(args[args.length - 1] instanceof VMobject)) {
+        return { mobs: args.slice(0, -1), style: args[args.length - 1] };
+    }
+    return { mobs: args, style: null };
+}
+function applyStyleConfig(target, style) {
+    if (!style)
+        return;
+    if (style.color != null)
+        target.setColor(style.color);
+    if (style.fillColor != null)
+        target.setFill(style.fillColor);
+    if (style.fillOpacity != null)
+        target.fillOpacity = style.fillOpacity;
+    if (style.strokeColor != null)
+        target.setStroke(style.strokeColor);
+    if (style.strokeWidth != null)
+        target.strokeWidth = style.strokeWidth;
+    if (style.strokeOpacity != null)
+        target.strokeOpacity = style.strokeOpacity;
+}
+// Union of all input VMobjects (their combined filled area).
+export class Union extends _BooleanOps {
+    constructor(...args) {
+        super();
+        const { mobs: vmobjects, style } = splitStyleArg(args);
+        if (vmobjects.length < 2) {
+            throw new Error("At least 2 mobjects are needed for a Union.");
+        }
+        const polys = vmobjects.map((v) => this._convertVmobjectToPolygon(v));
+        const [first, ...rest] = polys;
+        const result = requirePC().union(first, ...rest);
+        this._applyResult(result);
+        copyStyle(this, vmobjects[0]);
+        applyStyleConfig(this, style);
+    }
+}
+// Intersection of all input VMobjects (area common to every input).
+export class Intersection extends _BooleanOps {
+    constructor(...args) {
+        super();
+        const { mobs: vmobjects, style } = splitStyleArg(args);
+        if (vmobjects.length < 2) {
+            throw new Error("At least 2 mobjects are needed for an Intersection.");
+        }
+        const polys = vmobjects.map((v) => this._convertVmobjectToPolygon(v));
+        const [first, ...rest] = polys;
+        const result = requirePC().intersection(first, ...rest);
+        this._applyResult(result);
+        copyStyle(this, vmobjects[0]);
+        applyStyleConfig(this, style);
+    }
+}
+// Difference: the subject minus each of the clip VMobjects.
+export class Difference extends _BooleanOps {
+    constructor(subject, ...args) {
+        super();
+        const { mobs: clips, style } = splitStyleArg(args);
+        if (clips.length < 1) {
+            throw new Error("At least 2 mobjects are needed for a Difference.");
+        }
+        const subjectPoly = this._convertVmobjectToPolygon(subject);
+        const clipPolys = clips.map((v) => this._convertVmobjectToPolygon(v));
+        const result = requirePC().difference(subjectPoly, ...clipPolys);
+        this._applyResult(result);
+        copyStyle(this, subject);
+        applyStyleConfig(this, style);
+    }
+}
+// Exclusion (symmetric difference / XOR): area in an odd number of inputs.
+export class Exclusion extends _BooleanOps {
+    constructor(...args) {
+        super();
+        const { mobs: vmobjects, style } = splitStyleArg(args);
+        if (vmobjects.length < 2) {
+            throw new Error("At least 2 mobjects are needed for an Exclusion.");
+        }
+        const polys = vmobjects.map((v) => this._convertVmobjectToPolygon(v));
+        const [first, ...rest] = polys;
+        const result = requirePC().xor(first, ...rest);
+        this._applyResult(result);
+        copyStyle(this, vmobjects[0]);
+        applyStyleConfig(this, style);
+    }
+}
+//# sourceMappingURL=boolean_ops.js.map

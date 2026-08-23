@@ -1,0 +1,36 @@
+---
+title: Search palette
+description: A supplementary command palette alongside Starlight's native search.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Starlight ships its own full-text search (Pagefind) — this site uses it natively for page search, so nothing here duplicates that. Circuit's `palette.js` is a **supplementary layer**: a family-wide jump hub and a home for agent-facing actions that a generic per-repo search box wouldn't have.
+
+<Aside type="note">
+  This page doesn't mount a live instance — layering `palette.js` onto Starlight's own search UI (rather than replacing it) is scoped as follow-up work, tracked alongside the rest of the docs-sites program. The [showcase](/circuit/showcase/) page has a fully working standalone instance you can try with <kbd>/</kbd>.
+</Aside>
+
+## Why a supplementary layer, not a replacement
+
+Pagefind indexes real page content — replacing it with `palette.js`'s hand-seeded demo data would be a regression, not an upgrade. What Pagefind *can't* do on its own:
+
+- **Jump across the family.** Search from matey's docs, land on an mcp-query page.
+- **Agent-facing actions.** "Copy this page as Markdown," "Open `llms.txt` for this page" — the same positioning erisera's docs-for-agents story depends on everywhere else.
+
+## API
+
+```js
+import { createCommandPalette } from '@erisera-code/circuit/palette.js';
+
+createCommandPalette({
+  trigger: document.getElementById('search-trigger'),
+  pages: [{ title: 'Quickstart', path: 'docs / getting-started', href: '/quickstart' }],
+  actions: [
+    { title: 'Toggle dark mode', icon: '◐', run: () => document.documentElement.classList.toggle('dark') },
+    { title: 'Copy page as Markdown', run: () => navigator.clipboard.writeText(pageMarkdown), feedback: 'Copied' },
+  ],
+});
+```
+
+Full behavior reference — keyboard nav, matching, empty state — is in the [README](https://github.com/erisera-code/circuit#search--command-palette).

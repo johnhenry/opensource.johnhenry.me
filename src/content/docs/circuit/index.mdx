@@ -1,0 +1,49 @@
+---
+title: Circuit
+description: The erisera OSS design system — one set of tokens, one accent hue per tool.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+One system, six tools. Circuit is a single set of tokens — neutrals, type, spacing, components — with exactly one dimension that changes per project: an accent hue. Everything else stays fixed, so switching between [matey](https://github.com/johnhenry/ai.matey), [mcp-query](https://github.com/johnhenry/mcp-query), [ecmanim](https://github.com/johnhenry/ecmanim), [clawser](https://github.com/johnhenry/clawser), [andbox](https://github.com/johnhenry/andbox), and [objectify](https://github.com/johnhenry/objectify) feels like moving between rooms in the same building, not different buildings.
+
+This site is itself a Circuit consumer — it imports `@erisera-code/circuit` and remaps [Starlight's](https://starlight.astro.build) own theme variables onto it. Nothing here is a mockup.
+
+## The three rules
+
+<Aside type="note" title="Neutrals are hue-stable">
+  The gray scale never rotates with the accent — scaffolding shouldn't clash with whichever tool's hue is active.
+</Aside>
+
+<Aside type="tip" title="Semantic color is fixed">
+  `success` / `warning` / `error` / `info` mean the same thing on every site, always the same color — including inside third-party components like this very callout.
+</Aside>
+
+<Aside type="caution" title="Syntax highlighting is fixed">
+  Code reads identically whether you're on matey's docs or ecmanim's.
+</Aside>
+
+Only `--accent` (derived from `--hue`) changes per tool. See [Color](/circuit/color/) for the full token reference.
+
+## Try it live
+
+The [interactive showcase](/circuit/showcase/) has the full token spec, a live hue picker, and a working search palette you can open with <kbd>/</kbd>.
+
+## Install
+
+```sh
+npm install @erisera-code/circuit
+```
+
+```css
+@import '@erisera-code/circuit/tokens.css';
+@import '@erisera-code/circuit/themes.css';
+@import '@erisera-code/circuit/components.css';
+```
+
+```html
+<html class="theme-matey">        <!-- or theme-mcp-query, theme-ecmanim, theme-clawser, theme-andbox, theme-objectify -->
+<html class="theme-matey dark">   <!-- dark mode -->
+```
+
+Source: [github.com/erisera-code/circuit](https://github.com/erisera-code/circuit)

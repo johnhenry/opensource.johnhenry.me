@@ -1,0 +1,1 @@
+{"version":3,"file":"scene_renderer.d.ts","sourceRoot":"","sources":["../../src/renderer/scene_renderer.ts"],"names":[],"mappings":"AAQA,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,uBAAuB,CAAC;AAErD,MAAM,WAAW,aAAa;IAC5B,WAAW,CAAC,QAAQ,EAAE,OAAO,EAAE,GAAG,IAAI,GAAG,MAAM,CAAC;CACjD"}

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# Mirrored from the installed @erisera-code/circuit at build time.
+public/src/
 .astro/
 .DS_Store
 *.log

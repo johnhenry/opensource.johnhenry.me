@@ -1,0 +1,155 @@
+// Standalone chart mobjects that don't need an Axes coordinate system.
+// (BarChart lives in probability.ts as an Axes subclass; line plots come from
+// Axes.plotLineGraph. This module holds the axis-free charts — currently
+// PieChart.)
+import { VGroup } from "./VMobject.js";
+import { Sector, AnnularSector } from "./arcs.js";
+import { Text } from "./text/Text.js";
+import { TAU } from "../core/math/vector.js";
+import { BLUE, YELLOW, RED, GREEN, PURPLE, ORANGE, TEAL, PINK } from "../core/color.js";
+import { scaleLinear, scaleRadial } from "../core/scales.js";
+const DEFAULT_SLICE_COLORS = [BLUE, YELLOW, RED, GREEN, PURPLE, ORANGE, TEAL, PINK];
+/**
+ * A pie / donut chart: one sector per value, angles proportional to the
+ * values, laid out clockwise from `startAngle`. `slices` (and `labels`, when
+ * enabled) are addressable for per-slice animation; `setValues()` rebuilds
+ * the geometry IN PLACE — the slice mobjects keep their identity, so
+ * updaters, Transforms, and references to `chart.slices[i]` stay valid.
+ */
+export class PieChart extends VGroup {
+    values;
+    slices = [];
+    labels = [];
+    _config;
+    _slicesGroup = new VGroup();
+    _labelsGroup = new VGroup();
+    constructor(values, config = {}) {
+        super();
+        this.values = [...values];
+        this._config = config;
+        this.add(this._slicesGroup, this._labelsGroup);
+        this._build();
+    }
+    _sliceGeometry() {
+        const { startAngle = TAU / 4, gapAngle = 0, roseType, radius = 2, innerRadius = 0 } = this._config;
+        const total = this.values.reduce((s, v) => s + Math.max(0, v), 0) || 1;
+        const out = [];
+        // roseType: equal angle per slice; radius scales with value (linear for
+        // 'radius', sqrt/area-true for 'area') instead of one shared radius.
+        const radiusScale = roseType
+            ? (roseType === "area" ? scaleRadial : scaleLinear)([0, Math.max(...this.values, 0)], [innerRadius, radius])
+            : undefined;
+        let cursor = startAngle;
+        const n = this.values.length || 1;
+        for (const raw of this.values) {
+            const fraction = Math.max(0, raw) / total;
+            const sweep = roseType ? TAU / n : fraction * TAU;
+            // Clockwise: angles decrease. Gap is split evenly on both sides.
+            const gap = Math.min(gapAngle, sweep);
+            out.push({
+                startAngle: cursor - sweep + gap / 2,
+                angle: sweep - gap,
+                midAngle: cursor - sweep / 2,
+                fraction,
+                ...(radiusScale ? { radius: radiusScale(Math.max(0, raw)) } : {}),
+            });
+            cursor -= sweep;
+        }
+        return out;
+    }
+    _makeSlice(geo, i) {
+        const { radius: configRadius = 2, innerRadius = 0, colors = DEFAULT_SLICE_COLORS, strokeColor, strokeWidth = 0, fillOpacity = 1, } = this._config;
+        const radius = geo.radius ?? configRadius;
+        const color = colors[i % colors.length];
+        const common = {
+            startAngle: geo.startAngle, angle: geo.angle,
+            color, fillOpacity, strokeWidth,
+            ...(strokeColor !== undefined ? { strokeColor } : {}),
+        };
+        return innerRadius > 0
+            ? new AnnularSector({ ...common, innerRadius, outerRadius: radius })
+            : new Sector({ ...common, radius });
+    }
+    _labelText(value, i, fraction) {
+        const { labels, labelFormat } = this._config;
+        if (labelFormat)
+            return labelFormat(value, i, fraction);
+        if (Array.isArray(labels))
+            return labels[i] ?? null;
+        if (labels)
+            return `${Math.round(fraction * 100)}%`;
+        return null;
+    }
+    _labelRadius(sliceRadius) {
+        const { radius = 2, innerRadius = 0 } = this._config;
+        const r = sliceRadius ?? radius;
+        // Mid-ring for donuts; a bit past halfway for full pies (visual center of
+        // mass of a slice sits outward of r/2).
+        return innerRadius > 0 ? (innerRadius + r) / 2 : r * 0.6;
+    }
+    _buildLabels(geos) {
+        const { labels, labelFormat, labelFontSize = 0.4, labelColor } = this._config;
+        this._labelsGroup.submobjects.length = 0;
+        this.labels.length = 0;
+        if (!labels && !labelFormat)
+            return;
+        geos.forEach((geo, i) => {
+            const text = this._labelText(this.values[i], i, geo.fraction);
+            if (text == null || geo.angle <= 0)
+                return;
+            const label = new Text(text, {
+                fontSize: labelFontSize,
+                ...(labelColor !== undefined ? { color: labelColor } : {}),
+            });
+            // roseType slices carry their own radius (geo.radius); regular pies
+            // share one config radius — _labelRadius(undefined) falls back to it.
+            const lr = this._labelRadius(geo.radius);
+            label.moveTo([lr * Math.cos(geo.midAngle), lr * Math.sin(geo.midAngle), 0]);
+            this.labels.push(label);
+        });
+        this._labelsGroup.add(...this.labels);
+    }
+    _build() {
+        const geos = this._sliceGeometry();
+        geos.forEach((geo, i) => {
+            this.slices.push(this._makeSlice(geo, i));
+        });
+        this._slicesGroup.add(...this.slices);
+        this._buildLabels(geos);
+    }
+    /**
+     * Update the chart to new values, rebuilding geometry in place. With the
+     * same number of values, each existing slice mobject's points are rewritten
+     * (identity preserved — Transform-friendly); a changed count replaces the
+     * slice list. Labels are always regenerated.
+     */
+    setValues(values) {
+        this.values = [...values];
+        const geos = this._sliceGeometry();
+        if (geos.length === this.slices.length) {
+            geos.forEach((geo, i) => {
+                const fresh = this._makeSlice(geo, i);
+                const slice = this.slices[i];
+                slice.points = fresh.points;
+                slice.subpathStarts = fresh.subpathStarts;
+                slice._straightPath = fresh._straightPath;
+                if (slice instanceof AnnularSector && fresh instanceof AnnularSector) {
+                    slice.startAngle = fresh.startAngle;
+                    slice.angle = fresh.angle;
+                    slice.outerRadius = fresh.outerRadius;
+                    slice.innerRadius = fresh.innerRadius;
+                }
+            });
+        }
+        else {
+            this._slicesGroup.submobjects.length = 0;
+            this.slices.length = 0;
+            geos.forEach((geo, i) => this.slices.push(this._makeSlice(geo, i)));
+            this._slicesGroup.add(...this.slices);
+        }
+        // Labels: regenerate (cheap, and their texts change with the values).
+        this._buildLabels(geos);
+        return this;
+    }
+}
+//# sourceMappingURL=charts.js.map

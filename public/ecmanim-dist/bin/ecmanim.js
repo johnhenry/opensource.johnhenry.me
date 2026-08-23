@@ -1,0 +1,672 @@
+#!/usr/bin/env node
+// ecmanim CLI — a JavaScript port of manim's `manim` command.
+//
+//   ecmanim render <file> [scene] [flags]
+//   ecmanim cfg [--write]
+//   ecmanim init [file]
+//   ecmanim plugins
+//   ecmanim checkhealth
+//
+// The scene file may either:
+//   (a) export a Scene subclass (default export, or named via [scene]/-a), or
+//   (b) export default an async function (scene) => { ... }, or
+//   (c) render itself on import (fallback).
+var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExtension) || function (path, preserveJsx) {
+    if (typeof path === "string" && /^\.\.?\//.test(path)) {
+        return path.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function (m, tsx, d, ext, cm) {
+            return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m : (d + ext + "." + cm.toLowerCase() + "js");
+        });
+    }
+    return path;
+};
+import { pathToFileURL } from "node:url";
+import { resolve, basename, dirname, join } from "node:path";
+import { existsSync, writeFileSync, mkdirSync } from "node:fs";
+// ---------------------------------------------------------------------------
+// argv parsing
+// ---------------------------------------------------------------------------
+// Short flags that take a value.
+const SHORT_VALUE = {
+    o: "output",
+    q: "quality",
+    r: "resolution",
+    f: "format",
+    n: "from_upto",
+    c: "config",
+};
+// Short boolean flags.
+const SHORT_BOOL = {
+    s: "save_last_frame",
+    t: "transparent",
+    a: "write_all",
+    v: "verbose",
+    h: "help",
+};
+function parseArgs(argv) {
+    const args = { _: [] };
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--") {
+            args._.push(...argv.slice(i + 1));
+            break;
+        }
+        if (a.startsWith("--")) {
+            const key = a.slice(2);
+            const next = argv[i + 1];
+            // Value-taking long flags: anything whose next token isn't another flag.
+            if (next !== undefined && !next.startsWith("-") && !BOOL_LONG.has(key)) {
+                args[key] = next;
+                i++;
+            }
+            else {
+                args[key] = true;
+            }
+        }
+        else if (a.startsWith("-") && a.length >= 2) {
+            // Possibly bundled short flags, e.g. -st. Handle each char.
+            const chars = a.slice(1).split("");
+            for (let c = 0; c < chars.length; c++) {
+                const ch = chars[c];
+                if (SHORT_VALUE[ch]) {
+                    // consumes the next argv token (only valid as the last char of a bundle)
+                    args[SHORT_VALUE[ch]] = argv[++i];
+                }
+                else if (SHORT_BOOL[ch]) {
+                    args[SHORT_BOOL[ch]] = true;
+                }
+                else {
+                    args[ch] = true;
+                }
+            }
+        }
+        else {
+            args._.push(a);
+        }
+    }
+    return args;
+}
+// Long flags that are always boolean (never consume the next token).
+const BOOL_LONG = new Set([
+    "save_last_frame", "transparent", "write_all", "verbose", "help",
+    "disable_caching", "flush_cache", "save_sections", "write",
+    "wait", "watch",
+]);
+// ---------------------------------------------------------------------------
+// help text
+// ---------------------------------------------------------------------------
+const HELP = `ecmanim — a JavaScript port of manim (Mathematical Animation Engine)
+
+Usage:
+  ecmanim render <file> [scene] [options]
+  ecmanim serve --project <dir> [--port 5990] [--host 127.0.0.1]
+  ecmanim worker --coordinator <url> --project <dir>
+  ecmanim submit <scene> [--coordinator <url>] [options]
+  ecmanim jobs [--coordinator <url>] [--status <state>] [--watch]
+  ecmanim cfg [--write]
+  ecmanim init [file]
+  ecmanim plugins
+  ecmanim checkhealth
+
+Render options:
+  -o, --output <path>        Output file (default: media/<Scene>.<ext>)
+  -q, --quality <preset>     low | medium | high | fourk | production  (default: medium)
+  -r, --resolution <WxH>     Explicit resolution, e.g. 1920x1080 (overrides quality)
+      --fps <n>              Frames per second (overrides preset)
+  -f, --format <fmt>         mp4 | webm | gif | mov | png  (default: mp4)
+  -s, --save_last_frame      Write only the final frame as a PNG (no video)
+  -t, --transparent          Preserve alpha (mp4 falls back to .mov / ProRes 4444)
+  -a, --write_all            Render every exported Scene in the file
+  -n, --from_upto <a,b>      Render only play() indices in [a, b]  (e.g. -n 2,5)
+      --disable_caching      Bypass the partial-movie-file cache
+      --flush_cache          Delete the media/partial cache before rendering
+      --save_sections        Also write per-section videos + a JSON index
+  -c, --config <file>        Load a manim.config.{js,json}
+      --bg <color>           Background color (default: #000000)
+      --renderer <r>         canvas | webgl  (canvas default; webgl documented)
+      --workers <n>          Render segments across N worker threads (renderParallel)
+  -v, --verbose              Verbose ffmpeg output
+  -h, --help                 Show this help
+
+Render service:
+  serve   --project <dir>    Start the coordinator (queue + artifact store + webhooks)
+          [--port 5990] [--host 127.0.0.1] [--data <dir>]
+          Auth via ECMANIM_API_TOKEN / ECMANIM_WORKER_TOKEN env vars.
+  worker  --coordinator <url> --project <dir>   Start a pull-model render worker
+  submit  <scene> [--coordinator <url>] [--export <name>] [--params <json>]
+          [--params-file <path>] [--webhook <url>] [--priority <n>]
+          [--wait] [--download <path>] [-q --quality, -f --format, --fps ...]
+  jobs    [--coordinator <url>] [--status <state>] [--watch]
+
+Subcommands:
+  cfg          Print the resolved default config (--write to save manim.config.json)
+  init [file]  Scaffold a starter scene file (default: scene.js)
+  plugins      List registered mobjects/animations/scenes from the registry
+  checkhealth  Report node / ffmpeg / @napi-rs/canvas / font availability
+
+Examples:
+  ecmanim render examples/basic.ts BasicScene -q high -o out.mp4
+  ecmanim render myscene.js --scene IntroScene --format webm
+  ecmanim render scene.js -s               # just the final frame as PNG
+  ecmanim render scene.js -n 2,5           # only animations 2..5
+`;
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
+// Resolve a "../src/X.ts"-shaped path relative to this file, for both:
+//   - dev: this file running as bin/ecmanim.ts, "../src/X.ts" is correct as-is.
+//   - published: this file running as the compiled dist/bin/ecmanim.js (Node
+//     refuses type-stripping for anything under node_modules, so published
+//     bins must be plain JS) — the library itself compiles to dist/X.js (no
+//     "src/" segment), so "../src/X.ts" becomes "../X.js" relative to dist/bin/.
+function nodePath(rel) {
+    const resolved = import.meta.url.endsWith(".js")
+        ? rel.replace(/^\.\.\/src\//, "../").replace(/\.ts$/, ".js")
+        : rel;
+    return pathToFileURL(resolve(new URL(resolved, import.meta.url).pathname)).href;
+}
+function parseResolution(s) {
+    const m = /^(\d+)\s*[xX]\s*(\d+)$/.exec(String(s).trim());
+    return m ? [Number(m[1]), Number(m[2])] : undefined;
+}
+function parseFromUpto(s) {
+    const parts = String(s).split(",").map((x) => x.trim());
+    const from = parts[0] !== "" && parts[0] !== undefined ? Number(parts[0]) : null;
+    const upto = parts[1] !== "" && parts[1] !== undefined ? Number(parts[1]) : null;
+    return { from: Number.isFinite(from) ? from : null, upto: Number.isFinite(upto) ? upto : null };
+}
+// ---------------------------------------------------------------------------
+// subcommands
+// ---------------------------------------------------------------------------
+async function cmdCfg(args) {
+    const cfg = await import(__rewriteRelativeImportExtension(nodePath("../src/_config.ts")));
+    if (args.config)
+        await cfg.loadConfigFile(args.config);
+    const resolved = cfg.resolveConfig({
+        quality: args.quality,
+        format: args.format,
+        background: args.bg,
+    });
+    if (args.write) {
+        const out = resolve("manim.config.json");
+        writeFileSync(out, JSON.stringify(resolved, null, 2));
+        console.log(`Wrote ${out}`);
+    }
+    else {
+        console.log(cfg.configToJSON(resolved));
+    }
+}
+const STARTER = `// A starter ecmanim scene. Render with:
+//   ecmanim render scene.js MyScene -q medium
+import { Scene, Circle, Square, Text, Create, Transform, FadeOut, BLUE, YELLOW } from "ecmanim/node";
+
+export class MyScene extends Scene {
+  async construct() {
+    const title = new Text("Hello, ecmanim", { fontSize: 0.8, color: YELLOW, point: [0, 3, 0] });
+    await this.play(new Create(title));
+
+    const circle = new Circle({ radius: 1.5, color: BLUE, fillColor: BLUE, fillOpacity: 0.5 });
+    await this.play(new Create(circle));
+
+    this.nextSection("transform");
+    const square = new Square({ sideLength: 2.4 });
+    await this.play(new Transform(circle, square));
+    await this.wait(0.5);
+    await this.play(new FadeOut(circle), new FadeOut(title));
+  }
+}
+`;
+function cmdInit(args) {
+    const file = args._[1] ?? "scene.js";
+    const out = resolve(file);
+    if (existsSync(out) && !args.force) {
+        console.error(`Refusing to overwrite existing file: ${out} (pass --force)`);
+        process.exit(1);
+    }
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, STARTER);
+    console.log(`Scaffolded starter scene -> ${out}`);
+    console.log(`Render it with:  ecmanim render ${file} MyScene`);
+}
+async function cmdPlugins() {
+    const mod = await import(__rewriteRelativeImportExtension(nodePath("../src/index.ts")));
+    const reg = mod.registry;
+    const kinds = [
+        ["mobject", "Mobjects"],
+        ["animation", "Animations"],
+        ["scene", "Scenes"],
+        ["rateFunction", "Rate functions"],
+        ["renderer", "Renderers"],
+        ["color", "Colors"],
+    ];
+    console.log(`Registered plugins: ${reg.plugins.length}`);
+    for (const p of reg.plugins) {
+        console.log(`  - ${p.name ?? "(anonymous)"}${p.version ? " v" + p.version : ""}`);
+    }
+    for (const [kind, label] of kinds) {
+        const names = reg.list(kind);
+        console.log(`\n${label} (${names.length}):`);
+        if (names.length)
+            console.log("  " + names.sort().join(", "));
+    }
+}
+async function cmdCheckhealth() {
+    const rows = [];
+    // node
+    rows.push(["node", true, process.version]);
+    // ffmpeg
+    let ffmpegOk = false, ffmpegVer = "not found";
+    try {
+        const { execFileSync } = await import("node:child_process");
+        const out = execFileSync("ffmpeg", ["-version"], { encoding: "utf8" });
+        ffmpegVer = out.split("\n")[0];
+        ffmpegOk = true;
+    }
+    catch { /* not found */ }
+    rows.push(["ffmpeg", ffmpegOk, ffmpegVer]);
+    // ffprobe
+    let ffprobeOk = false, ffprobeVer = "not found";
+    try {
+        const { execFileSync } = await import("node:child_process");
+        ffprobeVer = execFileSync("ffprobe", ["-version"], { encoding: "utf8" }).split("\n")[0];
+        ffprobeOk = true;
+    }
+    catch { /* not found */ }
+    rows.push(["ffprobe", ffprobeOk, ffprobeVer]);
+    // @napi-rs/canvas
+    let canvasOk = false, canvasInfo = "not installed";
+    try {
+        const c = await import("@napi-rs/canvas");
+        canvasOk = true;
+        canvasInfo = typeof c.createCanvas === "function" ? "available" : "loaded (no createCanvas?)";
+    }
+    catch (e) {
+        canvasInfo = e?.message?.split("\n")[0] ?? "not installed";
+    }
+    rows.push(["@napi-rs/canvas", canvasOk, canvasInfo]);
+    // fonts
+    let fontOk = false, fontInfo = "unknown";
+    try {
+        const c = await import("@napi-rs/canvas");
+        const { autoRegisterFonts } = await import(__rewriteRelativeImportExtension(nodePath("../src/renderer/fonts-node.ts")));
+        autoRegisterFonts(c.GlobalFonts);
+        const n = c.GlobalFonts?.families?.length ?? 0;
+        fontOk = n > 0;
+        fontInfo = `${n} font family(ies) registered`;
+    }
+    catch (e) {
+        fontInfo = e?.message?.split("\n")[0] ?? "unavailable";
+    }
+    rows.push(["fonts", fontOk, fontInfo]);
+    // Optional external tools — reported for information, never fail the check.
+    // (See docs/external-tools.md for what each enables and the fallback.)
+    const opt = [];
+    const which = async (bin) => {
+        try {
+            const { execFileSync } = await import("node:child_process");
+            execFileSync("sh", ["-c", `command -v ${bin}`], { stdio: "ignore" });
+            return true;
+        }
+        catch {
+            return false;
+        }
+    };
+    const sayOk = await which("say");
+    const espeakOk = (await which("espeak-ng")) || (await which("espeak"));
+    opt.push(["system TTS", sayOk || espeakOk,
+        sayOk ? "say (macOS)" : espeakOk ? "espeak-ng" : "not found — voiceover falls back to silent pacing"]);
+    const latexOk = (await which("latex")) || (await which("pdflatex"));
+    const dvisvgmOk = await which("dvisvgm");
+    opt.push(["TeX toolchain", latexOk && dvisvgmOk,
+        latexOk && dvisvgmOk ? "latex + dvisvgm" : "not found — MathTex uses MathJax (default)"]);
+    const cdpUrl = process.env.MANIM_CDP_URL ?? "http://localhost:9222";
+    let cdpOk = false;
+    try {
+        const { probeCDP } = await import(__rewriteRelativeImportExtension(nodePath("../src/renderer/cdp.ts")));
+        cdpOk = await probeCDP(cdpUrl, 1500);
+    }
+    catch { /* unreachable */ }
+    opt.push(["Chrome (CDP)", cdpOk, cdpOk ? `reachable at ${cdpUrl}` : `no DevTools endpoint at ${cdpUrl} — renderGL unavailable`]);
+    console.log("ecmanim checkhealth\n");
+    for (const [name, ok, info] of rows) {
+        console.log(`  [${ok ? "OK " : "!! "}] ${name.padEnd(16)} ${info}`);
+    }
+    console.log("\n  optional:");
+    for (const [name, ok, info] of opt) {
+        console.log(`  [${ok ? "OK " : " - "}] ${name.padEnd(16)} ${info}`);
+    }
+    const allOk = rows.every((r) => r[1]);
+    console.log(`\n${allOk ? "All required checks passed." : "Some required checks failed (see above)."}`);
+    return allOk;
+}
+// ---------------------------------------------------------------------------
+// render
+// ---------------------------------------------------------------------------
+// `ecmanim plan scene.ts [Scene]` — dry-run a scene into a plan IR (JSON) without
+// rendering; prints to stdout or --output.
+async function cmdPlan(args) {
+    const file = args._[1];
+    if (!file || !existsSync(resolve(file))) {
+        console.error(`Scene file not found: ${file}`);
+        process.exit(1);
+    }
+    const { isSceneLike } = await import(__rewriteRelativeImportExtension(nodePath("../src/scene/orchestrate.ts")));
+    const { toPlanIR } = await import(__rewriteRelativeImportExtension(nodePath("../src/authoring.ts")));
+    const mod = await import(__rewriteRelativeImportExtension(pathToFileURL(resolve(file)).href));
+    const sceneName = args.scene ?? args._[2];
+    const target = (sceneName && mod[sceneName]) || mod.default ||
+        Object.values(mod).find((v) => isSceneLike(v));
+    if (!target) {
+        console.error("No scene found in " + file);
+        process.exit(1);
+    }
+    const plan = await toPlanIR(target, { fps: args.fps ? Number(args.fps) : 30, promise: args.promise, name: sceneName });
+    const json = JSON.stringify(plan, null, 2);
+    if (args.output) {
+        const { writeFileSync } = await import("node:fs");
+        writeFileSync(resolve(args.output), json);
+        console.error(`Wrote plan -> ${args.output}`);
+    }
+    else
+        console.log(json);
+}
+async function cmdRender(args) {
+    const file = args._[1];
+    if (!file || !existsSync(resolve(file))) {
+        console.error(`Scene file not found: ${file}`);
+        process.exit(1);
+    }
+    const nodeMod = await import(__rewriteRelativeImportExtension(nodePath("../src/node.ts")));
+    const { render, flushCache } = nodeMod;
+    const { isSceneLike } = await import(__rewriteRelativeImportExtension(nodePath("../src/scene/orchestrate.ts")));
+    // Load a config file if requested, so its defaults participate.
+    if (args.config)
+        await nodeMod.loadConfigFile(args.config);
+    const mod = await import(__rewriteRelativeImportExtension(pathToFileURL(resolve(file)).href));
+    // Which scene(s) to render.
+    const positionalScene = args._[2]; // `render file Scene`
+    const sceneName = args.scene ?? positionalScene;
+    const isScene = isSceneLike;
+    // Build the list of targets.
+    let targets = [];
+    if (args.write_all) {
+        for (const [k, v] of Object.entries(mod))
+            if (isScene(v))
+                targets.push({ name: k, target: v });
+        if (!targets.length && isScene(mod.default))
+            targets.push({ name: "default", target: mod.default });
+    }
+    else if (sceneName && mod[sceneName]) {
+        targets.push({ name: sceneName, target: mod[sceneName] });
+    }
+    else if (mod.default) {
+        targets.push({ name: sceneName ?? "default", target: mod.default });
+    }
+    else {
+        for (const [k, v] of Object.entries(mod)) {
+            if (isScene(v)) {
+                targets.push({ name: k, target: v });
+                break;
+            }
+        }
+    }
+    if (!targets.length) {
+        console.log("No exported Scene found — assuming the file renders on import.");
+        return;
+    }
+    // Resolve common options.
+    const quality = args.quality ?? "medium";
+    let format = args.format ?? "mp4";
+    const saveLastFrame = !!args.save_last_frame;
+    const transparent = !!args.transparent;
+    const resolution = args.resolution ? parseResolution(args.resolution) : undefined;
+    const { from: fromAnimationNumber, upto: uptoAnimationNumber } = args.from_upto ? parseFromUpto(args.from_upto) : { from: null, upto: null };
+    const disableCaching = !!args.disable_caching;
+    const saveSections = !!args.save_sections;
+    // Choose output extension.
+    const extFor = (fmt) => {
+        if (saveLastFrame)
+            return "png";
+        if (fmt === "png")
+            return "png-sequence-dir";
+        if (transparent && fmt === "mp4")
+            return "mov";
+        return fmt === "png-sequence" ? "mp4" : fmt;
+    };
+    if (args.renderer && args.renderer === "webgl") {
+        console.log("Note: the WebGL renderer runs in the browser (see examples/browser-three). " +
+            "The Node CLI renders with the canvas renderer.");
+    }
+    const workers = args.workers ? Number(args.workers) : 0;
+    for (const { name, target } of targets) {
+        const ext = extFor(format);
+        const baseName = name && name !== "default" ? name : basename(file).replace(/\.[^.]+$/, "");
+        const defaultOut = join("media", `${baseName}.${ext === "png-sequence-dir" ? "mp4" : ext}`);
+        const output = (targets.length === 1 && args.output) ? args.output : defaultOut;
+        if (args.flush_cache) {
+            try {
+                flushCache(output);
+                console.log(`Flushed cache for ${output}`);
+            }
+            catch { /* ignore */ }
+        }
+        // --workers N: segment-parallel render across worker threads. Falls back
+        // to the sequential path automatically when it wouldn't pay off.
+        if (workers > 1) {
+            const { renderParallel } = await import(__rewriteRelativeImportExtension(nodePath("../src/node-parallel.ts")));
+            const res = await renderParallel(resolve(file), name, {
+                outPath: output,
+                quality,
+                format,
+                resolution,
+                background: args.bg ?? undefined,
+                fps: args.fps ? Number(args.fps) : undefined,
+                workers,
+                verbose: !!args.verbose,
+            });
+            console.log(`✓ ${res.outPath} (${res.segments} segments, ${res.workers} workers, ${res.reused} reused)`);
+            continue;
+        }
+        await render(target, {
+            output,
+            quality,
+            format,
+            resolution,
+            background: args.bg ?? undefined,
+            fps: args.fps ? Number(args.fps) : undefined,
+            saveLastFrame,
+            transparent,
+            fromAnimationNumber,
+            uptoAnimationNumber,
+            disableCaching,
+            saveSections,
+            verbose: !!args.verbose,
+        });
+    }
+}
+// ---------------------------------------------------------------------------
+// render-service subcommands
+// ---------------------------------------------------------------------------
+function coordinatorUrl(args) {
+    return String(args.coordinator ?? process.env.ECMANIM_COORDINATOR_URL ?? "http://127.0.0.1:5990");
+}
+function apiHeaders() {
+    const token = process.env.ECMANIM_API_TOKEN;
+    return token ? { authorization: `Bearer ${token}` } : {};
+}
+async function cmdServe(args) {
+    if (!args.project) {
+        console.error("serve: --project <dir> is required");
+        process.exit(1);
+    }
+    const { startCoordinator } = await import(__rewriteRelativeImportExtension(nodePath("../src/service/coordinator.ts")));
+    const c = await startCoordinator({
+        projectDir: String(args.project),
+        ...(args.data ? { dataDir: String(args.data) } : {}),
+        ...(args.host ? { host: String(args.host) } : {}),
+        ...(args.port ? { port: Number(args.port) } : {}),
+        verbose: true,
+    });
+    console.log(`ecmanim render service: ${c.url}`);
+    if (!process.env.ECMANIM_API_TOKEN)
+        console.log("warning: ECMANIM_API_TOKEN unset — client API is unauthenticated");
+    if (!process.env.ECMANIM_WORKER_TOKEN)
+        console.log("warning: ECMANIM_WORKER_TOKEN unset — worker API is unauthenticated");
+    await new Promise(() => { }); // run until killed
+}
+async function cmdWorker(args) {
+    if (!args.project) {
+        console.error("worker: --project <dir> is required");
+        process.exit(1);
+    }
+    const { ServiceWorker } = await import(__rewriteRelativeImportExtension(nodePath("../src/service/worker.ts")));
+    const worker = new ServiceWorker({
+        coordinatorUrl: coordinatorUrl(args),
+        projectDir: String(args.project),
+        verbose: true,
+    });
+    console.log(`worker ${worker.workerId} polling ${coordinatorUrl(args)}`);
+    process.on("SIGINT", () => { worker.stop(); process.exit(0); });
+    await worker.run();
+}
+async function cmdSubmit(args) {
+    const scene = args._[1];
+    if (!scene) {
+        console.error("submit: scene path (relative to the deployed project) is required");
+        process.exit(1);
+    }
+    const base = coordinatorUrl(args);
+    let params;
+    if (args.params_file ?? args["params-file"]) {
+        const { readFileSync } = await import("node:fs");
+        params = JSON.parse(readFileSync(String(args.params_file ?? args["params-file"]), "utf8"));
+    }
+    else if (args.params) {
+        params = JSON.parse(String(args.params));
+    }
+    const renderOpts = {};
+    if (args.quality)
+        renderOpts.quality = args.quality;
+    if (args.format)
+        renderOpts.format = args.format;
+    if (args.fps)
+        renderOpts.fps = Number(args.fps);
+    if (args.resolution)
+        renderOpts.resolution = parseResolution(args.resolution);
+    if (args.bg)
+        renderOpts.background = args.bg;
+    const body = {
+        scene: String(scene),
+        ...(args.export ? { exportName: String(args.export) } : {}),
+        ...(params !== undefined ? { params } : {}),
+        ...(Object.keys(renderOpts).length ? { render: renderOpts } : {}),
+        ...(args.webhook ? { webhook: { url: String(args.webhook), ...(args.webhook_secret ? { secret: String(args.webhook_secret) } : {}) } } : {}),
+        ...(args.priority ? { priority: Number(args.priority) } : {}),
+    };
+    const res = await fetch(`${base}/api/v1/jobs`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...apiHeaders() },
+        body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (res.status !== 201) {
+        console.error(`submit failed (HTTP ${res.status}): ${JSON.stringify(json)}`);
+        process.exit(1);
+    }
+    const job = json.job;
+    console.log(`job ${job.id} queued (${job.scene})`);
+    if (!args.wait && !args.download)
+        return;
+    // --wait: poll with a progress line until terminal.
+    let lastLine = "";
+    for (;;) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const j = (await (await fetch(`${base}/api/v1/jobs/${job.id}`, { headers: apiHeaders() })).json()).job;
+        const progress = j.progress ? ` ${j.progress.segmentsDone}/${j.progress.segmentsTotal} segments` : "";
+        const line = `  ${j.state}${progress}`;
+        if (line !== lastLine) {
+            console.log(line);
+            lastLine = line;
+        }
+        if (["done", "failed", "canceled"].includes(j.state)) {
+            if (j.state !== "done") {
+                console.error(`job ${j.state}${j.error ? `: ${j.error}` : ""}`);
+                process.exit(1);
+            }
+            if (args.download) {
+                const { createWriteStream } = await import("node:fs");
+                const { Readable } = await import("node:stream");
+                const { pipeline } = await import("node:stream/promises");
+                const artifact = await fetch(`${base}/api/v1/jobs/${job.id}/artifact`, { headers: apiHeaders() });
+                if (artifact.status !== 200 || !artifact.body) {
+                    console.error(`download failed: HTTP ${artifact.status}`);
+                    process.exit(1);
+                }
+                await pipeline(Readable.fromWeb(artifact.body), createWriteStream(String(args.download)));
+                console.log(`✓ downloaded ${args.download}`);
+            }
+            return;
+        }
+    }
+}
+async function cmdJobs(args) {
+    const base = coordinatorUrl(args);
+    const list = async () => {
+        const q = args.status ? `?state=${encodeURIComponent(String(args.status))}` : "";
+        const res = await fetch(`${base}/api/v1/jobs${q}`, { headers: apiHeaders() });
+        if (res.status !== 200) {
+            console.error(`jobs failed: HTTP ${res.status}`);
+            process.exit(1);
+        }
+        const { jobs } = await res.json();
+        if (!jobs.length) {
+            console.log("(no jobs)");
+            return;
+        }
+        for (const j of jobs) {
+            const progress = j.progress ? ` ${j.progress.segmentsDone}/${j.progress.segmentsTotal}` : "";
+            console.log(`${j.id}  ${j.state.padEnd(9)}${progress}  ${j.scene}${j.error ? `  (${j.error.split("\n")[0]})` : ""}`);
+        }
+    };
+    await list();
+    if (args.watch) {
+        for (;;) {
+            await new Promise((r) => setTimeout(r, 2000));
+            console.log("---");
+            await list();
+        }
+    }
+}
+// ---------------------------------------------------------------------------
+// main
+// ---------------------------------------------------------------------------
+async function main() {
+    const args = parseArgs(process.argv.slice(2));
+    const cmd = args._[0];
+    // Exit 0 for an explicit --help (with or without a subcommand); exit 1 only
+    // for a genuinely missing-usage invocation (bare `ecmanim`, no help flag).
+    if (args.help || (!cmd)) {
+        console.log(HELP);
+        process.exit(!cmd && !args.help ? 1 : 0);
+    }
+    switch (cmd) {
+        case "render": return cmdRender(args);
+        case "serve": return cmdServe(args);
+        case "worker": return cmdWorker(args);
+        case "submit": return cmdSubmit(args);
+        case "jobs": return cmdJobs(args);
+        case "plan": return cmdPlan(args);
+        case "cfg": return cmdCfg(args);
+        case "init": return cmdInit(args);
+        case "plugins": return cmdPlugins();
+        case "checkhealth": {
+            const ok = await cmdCheckhealth();
+            process.exit(ok ? 0 : 1);
+        }
+        default:
+            console.error(`Unknown command: ${cmd}\n`);
+            console.log(HELP);
+            process.exit(1);
+    }
+}
+main().catch((e) => { console.error(e); process.exit(1); });
+//# sourceMappingURL=ecmanim.js.map

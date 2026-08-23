@@ -1,0 +1,49 @@
+---
+title: Spacing & elevation
+description: A 4px base unit, five radii, and a shadow system that changes strategy in dark mode.
+---
+
+## Spacing scale
+
+4px base unit.
+
+| Token | Value |
+|---|---|
+| `--sp-1` | 4px |
+| `--sp-2` | 8px |
+| `--sp-3` | 12px |
+| `--sp-4` | 16px |
+| `--sp-5` | 20px |
+| `--sp-6` | 24px |
+| `--sp-8` | 32px |
+| `--sp-10` | 40px |
+| `--sp-14` | 56px |
+| `--sp-20` | 80px |
+
+## Corner radius
+
+| Token | Value |
+|---|---|
+| `--r-sm` | 6px |
+| `--r` | 8px |
+| `--r-lg` | 12px |
+| `--r-xl` | 16px |
+| `--r-2xl` | 24px |
+| `--r-full` | 999px (pill) |
+
+## Elevation
+
+Shadows change strategy in dark mode — a soft drop shadow reads as fog on a dark background, so dark mode swaps to a 1px border plus an accent-tinted glow instead of blur.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--shadow-sm` | subtle drop shadow | `none` |
+| `--shadow-md` | panel elevation | `0 0 0 1px var(--line)` |
+| `--shadow-lg` | modal elevation | border + large soft shadow |
+| `--shadow-accent` | glow tinted by the live accent | same, brighter dark-mode accent |
+
+```css
+--shadow-accent: 0 6px 18px -4px hsl(var(--hue) 95% 46% / 0.35);
+```
+
+This is the one shadow that changes per tool — it's derived from `--hue` like everything else in the accent family.

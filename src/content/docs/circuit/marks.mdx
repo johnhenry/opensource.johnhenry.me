@@ -1,0 +1,49 @@
+---
+title: Logo & marks
+description: One construction grammar, seven distinct marks.
+---
+
+One construction grammar — a small orthogonal trace on a 5-point grid, straight strokes only — one mark per product, each encoding an idea from what it represents.
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;margin-top:16px">
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/circuit.svg" width="48" height="48" alt="Circuit mark" /><br/>
+    <strong>circuit</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">hub · 25°</span>
+  </div>
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/matey.svg" width="48" height="48" alt="matey mark" /><br/>
+    <strong>matey</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">four-way junction · 25°</span>
+  </div>
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/mcp-query.svg" width="48" height="48" alt="mcp-query mark" /><br/>
+    <strong>mcp-query</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">closed loop · 250°</span>
+  </div>
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/ecmanim.svg" width="48" height="48" alt="ecmanim mark" /><br/>
+    <strong>ecmanim</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">zigzag · 285°</span>
+  </div>
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/clawser.svg" width="48" height="48" alt="clawser mark" /><br/>
+    <strong>clawser</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">converging claw · 340°</span>
+  </div>
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/andbox.svg" width="48" height="48" alt="andbox mark" /><br/>
+    <strong>andbox</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">nested box · 95°</span>
+  </div>
+  <div style="border:1px solid var(--sl-color-hairline);border-radius:12px;padding:16px;text-align:center">
+    <img src="/src/marks/objectify.svg" width="48" height="48" alt="objectify mark" /><br/>
+    <strong>objectify</strong><br/><span style="font-size:11px;color:var(--sl-color-gray-3)">stored object · 70°</span>
+  </div>
+</div>
+
+## Usage
+
+Each mark ships as a standalone SVG in `src/marks/` with its tool hue baked in — safe to use directly as a favicon, in an OG image template, or in a header lockup:
+
+```html
+<span class="c-logo">
+  <span class="co">erisera</span><span class="tool">matey</span><span class="ver">v4.2.0</span>
+</span>
+```
+
+The favicon and OG-image treatments are demonstrated on the [showcase](/circuit/showcase/) page.

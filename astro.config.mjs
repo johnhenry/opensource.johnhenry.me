@@ -36,6 +36,7 @@ export default defineConfig({
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/johnhenry' },
       ],
+      favicon: '/favicon.svg',
       customCss: ['./src/styles/circuit-bridge.css'],
       components: { Head: './src/components/Head.astro' },
       expressiveCode: { themes: [circuitShikiTheme] },

@@ -1,0 +1,844 @@
+// Coordinate systems: NumberLine, Axes, NumberPlane. These map "data" numbers
+// onto world-space points via a simple affine mapping, and build the visible
+// mobjects (axis lines, ticks, grid, labels) as submobjects of a VGroup.
+import { VMobject, VGroup } from "./VMobject.js";
+import * as V from "../core/math/vector.js";
+import { Line, Arrow, Dot, Circle, Polygon, Rectangle } from "./geometry.js";
+import { Text } from "./text/Text.js";
+import { MathTex } from "./mathtex.js";
+import { LinearBase } from "./graphing_scale.js";
+import { Color } from "../core/color.js";
+// Inclusive-ish range: values from start up to (and including, within eps) stop.
+function makeTickRange([start, stop, step]) {
+    const out = [];
+    if (step === 0)
+        return out;
+    const eps = 1e-6 * Math.abs(step);
+    if (step > 0)
+        for (let x = start; x <= stop + eps; x += step)
+            out.push(x);
+    else
+        for (let x = start; x >= stop - eps; x += step)
+            out.push(x);
+    return out;
+}
+export class NumberLine extends VGroup {
+    xMin;
+    xMax;
+    xStep;
+    length;
+    tickSize;
+    includeNumbers;
+    includeTip;
+    fontSize;
+    /** manim parity: show numbers ONLY at these values (implies numbers on). */
+    numbersToInclude;
+    /** manim parity: draw these values' ticks 2x long. */
+    numbersWithElongatedTicks;
+    unit;
+    _leftX;
+    scaling;
+    /** Position-space (post-scaling) range endpoints used for the affine map. */
+    _sMin;
+    _sMax;
+    axisLine;
+    ticks;
+    numbers;
+    constructor(config = {}) {
+        super();
+        const range = config.xRange ?? config.range ?? [-5, 5, 1];
+        this.xMin = range[0];
+        this.xMax = range[1];
+        this.xStep = range[2] ?? 1;
+        this.scaling = config.scaling ?? new LinearBase();
+        // Position-space endpoints (identity for a linear scale).
+        this._sMin = this.scaling.functionOf(this.xMin);
+        this._sMax = this.scaling.functionOf(this.xMax);
+        // Default: 1 world unit per position unit.
+        this.length = config.length ?? (this._sMax - this._sMin);
+        this.color = (config.color ?? "#FFFFFF");
+        this.tickSize = config.tickSize ?? 0.1;
+        this.numbersToInclude = config.numbersToInclude ?? null;
+        this.numbersWithElongatedTicks = config.numbersWithElongatedTicks ?? null;
+        // numbersToInclude implies numbers on (manim behavior).
+        this.includeNumbers = config.includeNumbers ?? (this.numbersToInclude != null);
+        this.includeTip = config.includeTip ?? false;
+        this.fontSize = config.fontSize ?? 0.35;
+        // Unit scale: world units per position unit along this line.
+        this.unit = this._sMax === this._sMin ? 1 : this.length / (this._sMax - this._sMin);
+        // The line is horizontal, centered on the origin, from -length/2 to +length/2.
+        this._leftX = -this.length / 2;
+        this._build();
+    }
+    _build() {
+        const start = [this._leftX, 0, 0];
+        const end = [this._leftX + this.length, 0, 0];
+        this.axisLine = this.includeTip
+            ? new Arrow(start, end, { color: this.color, strokeColor: this.color })
+            : new Line(start, end, { color: this.color, strokeColor: this.color });
+        this.add(this.axisLine);
+        // Tick marks. Values listed in numbersWithElongatedTicks (and any
+        // extra values from numbersToInclude that fall off the tick grid) get
+        // their own, longer ticks -- manim's x_axis_config parity.
+        this.ticks = new VGroup();
+        const eps = 1e-6 * Math.max(1, Math.abs(this.xStep));
+        const elongated = this.numbersWithElongatedTicks ?? [];
+        const tickValues = [...this.getTickRange()];
+        for (const x of elongated) {
+            if (!tickValues.some((t) => Math.abs(t - x) < eps))
+                tickValues.push(x);
+        }
+        for (const x of tickValues) {
+            const p = this.numberToPoint(x);
+            const size = elongated.some((e) => Math.abs(e - x) < eps) ? this.tickSize * 2 : this.tickSize;
+            const tick = new Line([p[0], p[1] - size, 0], [p[0], p[1] + size, 0], { color: this.color, strokeColor: this.color });
+            this.ticks.add(tick);
+        }
+        this.add(this.ticks);
+        if (this.includeNumbers)
+            this._addNumbers();
+    }
+    _addNumbers() {
+        this.numbers = new VGroup();
+        const values = this.numbersToInclude ?? this.getTickRange();
+        for (const x of values) {
+            const p = this.numberToPoint(x);
+            const label = new Text(this._formatNumber(x), {
+                fontSize: this.fontSize,
+                color: this.color,
+                point: [p[0], p[1] - this.tickSize - this.fontSize, 0],
+            });
+            this.numbers.add(label);
+        }
+        this.add(this.numbers);
+    }
+    _formatNumber(x) {
+        // Trim floating noise; drop trailing zeros.
+        const r = Math.round(x * 1e6) / 1e6;
+        return Number.isInteger(r) ? String(r) : String(parseFloat(r.toFixed(3)));
+    }
+    getTickRange() {
+        return makeTickRange([this.xMin, this.xMax, this.xStep]);
+    }
+    // Data number -> world point on the line. Applies the scale base first,
+    // then interpolates between the axis line's CURRENT endpoints (rather than
+    // the frozen construction-time _leftX/unit scalars) so the result stays in
+    // sync with any shift()/rotate()/scale() applied after construction, or to
+    // a parent group this NumberLine has been nested in (issue #2).
+    numberToPoint(x) {
+        const s = this.scaling.functionOf(x);
+        const alpha = this._sMax === this._sMin ? 0 : (s - this._sMin) / (this._sMax - this._sMin);
+        return V.lerp(this.axisLine.getStart(), this.axisLine.getEnd(), alpha);
+    }
+    n2p(x) { return this.numberToPoint(x); }
+    // World point -> data number. Projects p onto the axis line's CURRENT
+    // direction vector (not just its x-coordinate), so this works whether the
+    // line is horizontal, vertical (rotated), or has been shifted/scaled.
+    pointToNumber(p) {
+        const start = this.axisLine.getStart();
+        const end = this.axisLine.getEnd();
+        const dir = V.sub(end, start);
+        const denom = V.dot(dir, dir);
+        const alpha = denom === 0 ? 0 : V.dot(V.sub(p, start), dir) / denom;
+        const s = this._sMin + alpha * (this._sMax - this._sMin);
+        return this.scaling.inverseFunctionOf(s);
+    }
+    p2n(p) { return this.pointToNumber(p); }
+    getUnitSize() { return this.unit; }
+}
+export class Axes extends VGroup {
+    xRange;
+    yRange;
+    xLength;
+    yLength;
+    xAxis;
+    yAxis;
+    constructor(config = {}) {
+        super();
+        this.xRange = config.xRange ?? [-5, 5, 1];
+        this.yRange = config.yRange ?? [-5, 5, 1];
+        this.xLength = config.xLength ?? (this.xRange[1] - this.xRange[0]);
+        this.yLength = config.yLength ?? (this.yRange[1] - this.yRange[0]);
+        this.color = (config.color ?? "#FFFFFF");
+        const axisConfig = config.axisConfig ?? {};
+        // manim parity: a top-level `tips` flag toggles arrow tips on both axes
+        // (axis_config.include_tip still wins when explicitly set).
+        const tip = axisConfig.includeTip ?? config.tips ?? false;
+        this.xAxis = new NumberLine({
+            xRange: this.xRange,
+            length: this.xLength,
+            color: this.color,
+            includeTip: tip,
+            ...axisConfig,
+            ...(config.xAxisConfig ?? {}),
+        });
+        this.yAxis = new NumberLine({
+            xRange: this.yRange,
+            length: this.yLength,
+            color: this.color,
+            includeTip: tip,
+            ...axisConfig,
+            ...(config.yAxisConfig ?? {}),
+        });
+        // Rotate the y-axis to be vertical (about the origin, its own zero-crossing).
+        this.yAxis.rotate(Math.PI / 2, { axis: V.OUT, aboutPoint: V.ORIGIN });
+        // Shift each axis so its origin-reference sits at the world origin, making
+        // the two axes cross there. For a log axis (where value 0 has no finite
+        // position) the reference falls back to the axis minimum. numberToPoint
+        // reads live axisLine geometry, so this correctly accounts for the
+        // rotate() just applied to yAxis.
+        this.xAxis.shift(V.neg(this.xAxis.numberToPoint(this._xRef())));
+        this.yAxis.shift(V.neg(this.yAxis.numberToPoint(this._yRef())));
+        this.add(this.xAxis, this.yAxis);
+        // The y-axis NumberLine's OWN _addNumbers() (triggered inside its
+        // constructor above if includeNumbers was set via yAxisConfig/
+        // axisConfig) ran BEFORE the rotate() call: it positions each label at a
+        // LOCAL offset assuming a horizontal line ("below the tick"). After the
+        // 90° rotation that offset lands sideways -- INSIDE the plot area
+        // instead of to the axis's left (the bug addCoordinates() already works
+        // around for its own call path, below). Discard those mispositioned
+        // labels here; they get rebuilt correctly (post-rotation, world-space)
+        // after centering, same as addCoordinates().
+        if (this.yAxis.includeNumbers && this.yAxis.numbers) {
+            this.yAxis.remove(this.yAxis.numbers);
+            this.yAxis.numbers = undefined;
+        }
+        // manim parity: Axes centers ITSELF on screen after construction (its
+        // data origin is wherever the ranges put it). Asymmetric ranges like
+        // xRange [0, 5] used to hang off-screen up-right because the data origin
+        // sat at the world origin. coordsToPoint reads live axis geometry, so
+        // the mapping follows the shift.
+        this.center();
+        if (this.yAxis.includeNumbers && !this.yAxis.numbers) {
+            this._buildYNumbers();
+        }
+    }
+    /** Build y-axis number labels in WORLD space via coordsToPoint (correct
+     *  regardless of the y-axis's post-construction rotation) -- shared by the
+     *  constructor (when yAxisConfig.includeNumbers is set) and
+     *  addCoordinates(). */
+    _buildYNumbers() {
+        const numbers = new VGroup();
+        for (const y of makeTickRange(this.yRange)) {
+            if (Math.abs(y) < 1e-9)
+                continue;
+            const p = this.coordsToPoint(0, y);
+            const t = new Text(this.xAxis._formatNumber(y), {
+                fontSize: this.yAxis.fontSize,
+                color: this.yAxis.color,
+                point: [p[0] - 0.3, p[1], 0],
+            });
+            numbers.add(t);
+        }
+        this.yAxis.numbers = numbers;
+        this.yAxis.add(numbers);
+        return numbers;
+    }
+    // Data value used as each axis's crossing reference: 0 when it's actually
+    // within the axis's configured range, otherwise the axis minimum.
+    //
+    // Bug found while fixing issue #31 (ThreeDAxes' identical problem): this
+    // used to check `Number.isFinite(this.xAxis.scaling.functionOf(0))`,
+    // which only catches a TRUE log-scale axis (functionOf(0) = log(0) =
+    // -Infinity) -- not the far more common case of a plain LINEAR range that
+    // simply doesn't straddle 0 (e.g. xRange: [1.1, 3.4]), where
+    // functionOf(0) is still a perfectly finite (if off-segment) number.
+    // Confirmed via direct repro: `new Axes({ xRange: [1.1, 3.4, 0.5], ... })`
+    // rendered its x-axis spanning world x∈[4.07, 12.57] -- nowhere near the
+    // y-axis's crossing at world x=0 -- exactly the "disconnected axes" bug
+    // issue #31 reports for ThreeDAxes, just not previously noticed here.
+    _xRef() {
+        return this.xAxis.xMin <= 0 && 0 <= this.xAxis.xMax ? 0 : this.xAxis.xMin;
+    }
+    _yRef() {
+        return this.yAxis.xMin <= 0 && 0 <= this.yAxis.xMax ? 0 : this.yAxis.xMin;
+    }
+    // Data coords (x,y) -> world point. Mirrors upstream manim's
+    // CoordinateSystem.coords_to_point: sum each axis's displacement from its
+    // own reference point onto a shared origin. Since every piece is read from
+    // the axes' CURRENT (possibly shifted/rotated/scaled/nested) geometry via
+    // numberToPoint, this stays correct after any transform applied post
+    // construction — see issue #2 — not just the constructor's own shift.
+    coordsToPoint(x, y) {
+        const origin = this.xAxis.numberToPoint(this._xRef());
+        const dx = V.sub(this.xAxis.numberToPoint(x), origin);
+        const dy = V.sub(this.yAxis.numberToPoint(y), this.yAxis.numberToPoint(this._yRef()));
+        return V.add(origin, V.add(dx, dy));
+    }
+    c2p(x, y) { return this.coordsToPoint(x, y); }
+    // Horizontal/vertical world coordinate for data value x/y, i.e. the point
+    // on that axis's own current line (used by labels/grid, which anchor
+    // directly on an axis rather than needing a full (x,y) pair).
+    _xWorld(x) { return this.xAxis.numberToPoint(x)[0]; }
+    _yWorld(y) { return this.yAxis.numberToPoint(y)[1]; }
+    // World point -> data coords: project onto each axis independently.
+    pointToCoords(p) {
+        return [this.xAxis.pointToNumber(p), this.yAxis.pointToNumber(p)];
+    }
+    p2c(p) { return this.pointToCoords(p); }
+    // Sample y=fn(x) across the x range and build a poly-line curve.
+    plot(fn, config = {}) {
+        const range = config.xRange ?? this.xRange;
+        const color = config.color ?? "#FFFF00";
+        const start = range[0];
+        const stop = range[1];
+        // Sampling density: an EXPLICIT step in config.xRange wins; otherwise
+        // sample densely (manim samples per-pixel-ish and smooths). The axis's
+        // own xRange step is a TICK step, not a sampling step -- using it made
+        // plot(sin) a jagged 1-unit polyline (found porting SinAndCosFunctionPlot).
+        const step = config.xRange?.[2] ?? (stop - start) / 200;
+        const corners = [];
+        const domainSamples = [];
+        const eps = 1e-6 * Math.abs(step || 1);
+        for (let x = start; x <= stop + eps; x += step) {
+            const y = fn(x);
+            if (Number.isFinite(y)) {
+                corners.push(this.coordsToPoint(x, y));
+                domainSamples.push([x, y]);
+            }
+        }
+        const graph = new VMobject({ strokeColor: color, color });
+        graph.setPointsAsCorners(corners);
+        graph.fillOpacity = 0;
+        graph.underlyingFunction = fn;
+        // manim parity: plots carry their domain bounds (FollowingGraphCamera
+        // does `axes.i2gp(graph.t_min, graph)`).
+        graph.tMin = start;
+        graph.tMax = stop;
+        graph.t_min = start;
+        graph.t_max = stop;
+        // Hidden tag (mirrors the matchId/autoId convention elsewhere) recording
+        // the domain-space samples that produced this curve, so
+        // reprojectCurve(curve, targetSystem) can rebuild it against a different
+        // coordinate system without the caller having to re-supply the samples.
+        graph._domainSamples = domainSamples;
+        return graph;
+    }
+    getGraph(fn, config = {}) { return this.plot(fn, config); }
+    // A straight line in data space between two coord pairs.
+    plotLine([x1, y1], [x2, y2], config = {}) {
+        const color = config.color ?? this.color;
+        return new Line(this.coordsToPoint(x1, y1), this.coordsToPoint(x2, y2), {
+            color,
+            strokeColor: color,
+        });
+    }
+    // Vertical segment from the x-axis up to the graph at data-x.
+    getVerticalLine(xOrPoint, graphOrY, config = {}) {
+        // manim's primary form is a world POINT (usually from i2gp/c2p):
+        // `ax.get_vertical_line(ax.i2gp(2, curve), color=YELLOW)`. The (x, graph)
+        // form is kept as the ecmanim-native overload.
+        if (Array.isArray(xOrPoint)) {
+            const point = xOrPoint;
+            const cfg = (graphOrY != null && typeof graphOrY === "object" && !graphOrY.underlyingFunction ? graphOrY : config);
+            const [xd] = this.pointToCoords(point);
+            const base = this.coordsToPoint(xd, 0);
+            const color = cfg.color ?? this.color;
+            const LineCtor = cfg.lineFunc ?? Line;
+            return new LineCtor(base, point, { color, strokeColor: color, ...(cfg.lineConfig ?? {}) });
+        }
+        const x = xOrPoint;
+        const y = typeof graphOrY === "function"
+            ? graphOrY(x)
+            : (graphOrY?.underlyingFunction ? graphOrY.underlyingFunction(x) : graphOrY);
+        const color = config.color ?? this.color;
+        const LineCtor = config.lineFunc ?? Line;
+        return new LineCtor(this.coordsToPoint(x, 0), this.coordsToPoint(x, y), {
+            color,
+            strokeColor: color,
+        });
+    }
+    // --- Axis accessors ------------------------------------------------------
+    getAxes() { const g = new VGroup(); g.add(this.xAxis, this.yAxis); return g; }
+    getXAxis() { return this.xAxis; }
+    getYAxis() { return this.yAxis; }
+    getOrigin() { return this.coordsToPoint(0, 0); }
+    getXUnitSize() { return this.xAxis.unit; }
+    getYUnitSize() { return this.yAxis.unit; }
+    // --- Polar / cartesian conversions ---------------------------------------
+    polarToPoint(radius, azimuth) {
+        return this.coordsToPoint(radius * Math.cos(azimuth), radius * Math.sin(azimuth));
+    }
+    pr2pt(radius, azimuth) { return this.polarToPoint(radius, azimuth); }
+    pointToPolar(point) {
+        const [x, y] = this.pointToCoords(point);
+        return [Math.hypot(x, y), Math.atan2(y, x)];
+    }
+    pt2pr(point) { return this.pointToPolar(point); }
+    // --- Graph sampling helpers ----------------------------------------------
+    /** Resolve the underlying y=f(x) for a graph mobject (or a bare function). */
+    _funcOf(graph) {
+        if (typeof graph === "function")
+            return graph;
+        if (graph && typeof graph.underlyingFunction === "function")
+            return graph.underlyingFunction;
+        throw new Error("graph has no underlyingFunction");
+    }
+    inputToGraphCoords(x, graph) {
+        return [x, this._funcOf(graph)(x)];
+    }
+    i2gc(x, graph) { return this.inputToGraphCoords(x, graph); }
+    inputToGraphPoint(x, graph) {
+        const [gx, gy] = this.inputToGraphCoords(x, graph);
+        return this.coordsToPoint(gx, gy);
+    }
+    i2gp(x, graph) { return this.inputToGraphPoint(x, graph); }
+    slopeOfTangent(x, graph, dx = 1e-6) {
+        const f = this._funcOf(graph);
+        return (f(x + dx) - f(x - dx)) / (2 * dx);
+    }
+    angleOfTangent(x, graph, dx = 1e-6) {
+        // Angle in *world* space, accounting for the axes' unit scaling.
+        const f = this._funcOf(graph);
+        const p0 = this.coordsToPoint(x, f(x));
+        const p1 = this.coordsToPoint(x + dx, f(x + dx));
+        return Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+    }
+    // --- Labels --------------------------------------------------------------
+    _mkLabel(label, color) {
+        if (label instanceof VMobject)
+            return label;
+        if (typeof label === "string") {
+            return new MathTex(label, { color: color ?? this.color });
+        }
+        return new Text(String(label), { color: color ?? this.color });
+    }
+    getGraphLabel(graph, label, opts = {}) {
+        const lbl = this._mkLabel(label, opts.color);
+        const direction = opts.direction ?? V.RIGHT;
+        const buff = opts.buff ?? 0.25;
+        let x = opts.x ?? opts.xVal; // manim spells it x_val
+        if (x == null) {
+            // Default near the right end of the graph's x-range.
+            x = this.xRange[1] - 0.1 * (this.xRange[1] - this.xRange[0]);
+        }
+        const anchor = this.inputToGraphPoint(x, graph);
+        lbl.nextTo(anchor, direction, buff);
+        return lbl;
+    }
+    getAxisLabels(xLabel = "x", yLabel = "y") {
+        const g = new VGroup();
+        g.add(this.getXAxisLabel(xLabel), this.getYAxisLabel(yLabel));
+        return g;
+    }
+    getXAxisLabel(label, opts = {}) {
+        const lbl = this._mkLabel(label);
+        // Live geometry (the Axes recenters itself after construction).
+        const end = this.xAxis.axisLine.getEnd();
+        lbl.nextTo(end, opts.direction ?? V.UR, opts.buff ?? 0.2);
+        return lbl;
+    }
+    getYAxisLabel(label, opts = {}) {
+        const lbl = this._mkLabel(label);
+        const end = this.yAxis.axisLine.getEnd();
+        lbl.nextTo(end, opts.direction ?? V.UR, opts.buff ?? 0.2);
+        return lbl;
+    }
+    /** Attach number labels to the axes (via each NumberLine's numbers). */
+    addCoordinates(...args) {
+        this.xAxis.includeNumbers = true;
+        if (!this.xAxis.numbers)
+            this.xAxis._addNumbers();
+        this.yAxis.includeNumbers = true;
+        // Build y numbers as free labels positioned by the axes mapping (the
+        // y-axis was rotated, so its own _addNumbers would place them wrong —
+        // see _buildYNumbers()'s doc comment / the constructor's matching fix).
+        if (!this.yAxis.numbers)
+            this._buildYNumbers();
+        return this;
+    }
+    // --- Area under a graph --------------------------------------------------
+    getArea(graph, opts = {}) {
+        const f = this._funcOf(graph);
+        const xr = opts.xRange ?? [this.xRange[0], this.xRange[1]];
+        const x0 = xr[0], x1 = xr[1];
+        const n = 60;
+        const g = opts.boundedGraph ? this._funcOf(opts.boundedGraph) : null;
+        const top = [];
+        const bottom = [];
+        for (let i = 0; i <= n; i++) {
+            const x = x0 + (x1 - x0) * (i / n);
+            top.push(this.coordsToPoint(x, f(x)));
+            bottom.push(this.coordsToPoint(x, g ? g(x) : 0));
+        }
+        const verts = [...top, ...bottom.reverse()];
+        // manim parity: color may be a GRADIENT tuple `(BLUE, GREEN)` -- rendered
+        // via the sheen/gradient fields the renderers already support.
+        // (ColorLike itself admits arrays, so an explicit cast keeps TS honest:
+        // a top-level array here is always a list of color stops.)
+        const colors = Array.isArray(opts.color) ? opts.color : null;
+        const color = ((colors ? colors[0] : opts.color) ?? "#58C4DD");
+        const poly = new Polygon(verts, { color, fillColor: color, strokeWidth: 0 });
+        if (colors && colors.length > 1) {
+            poly.gradientColors = colors.map((c) => Color.parse(c));
+            poly.sheenDirection = V.RIGHT;
+        }
+        poly.fillOpacity = opts.opacity ?? 0.75;
+        return poly;
+    }
+    // --- Riemann rectangles --------------------------------------------------
+    getRiemannRectangles(graph, opts = {}) {
+        const f = this._funcOf(graph);
+        const xr = opts.xRange ?? [this.xRange[0], this.xRange[1]];
+        const dx = opts.dx ?? this.xRange[2] ?? 0.1;
+        const sample = opts.inputSampleType ?? "left";
+        const strokeWidth = opts.strokeWidth ?? opts.stroke ?? 1;
+        const fillOpacity = opts.fillOpacity ?? 1;
+        const colors = Array.isArray(opts.color)
+            ? opts.color
+            : [opts.color ?? "#58C4DD"];
+        const group = new VGroup();
+        const eps = 1e-9;
+        let i = 0;
+        for (let x = xr[0]; x < xr[1] - eps; x += dx, i++) {
+            const xr2 = Math.min(x + dx, xr[1]);
+            const sx = sample === "left" ? x : sample === "right" ? xr2 : (x + xr2) / 2;
+            const y = f(sx);
+            const p0 = this.coordsToPoint(x, 0);
+            const p1 = this.coordsToPoint(xr2, y);
+            const w = Math.abs(p1[0] - p0[0]);
+            const h = Math.abs(p1[1] - p0[1]);
+            if (w === 0 || h === 0)
+                continue;
+            const color = colors[i % colors.length];
+            const rect = new Rectangle({ width: w, height: h, color, fillColor: color, strokeWidth });
+            rect.fillOpacity = fillOpacity;
+            rect.moveTo([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, 0]);
+            group.add(rect);
+        }
+        return group;
+    }
+    // --- Secant slope group --------------------------------------------------
+    getSecantSlopeGroup(x, graph, opts = {}) {
+        const f = this._funcOf(graph);
+        const dx = opts.dx ?? 0.1;
+        const secantColor = opts.secantLineColor ?? "#83C167";
+        const p1 = this.coordsToPoint(x, f(x));
+        const p2 = this.coordsToPoint(x + dx, f(x + dx));
+        const group = new VGroup();
+        // dx segment (horizontal) and df segment (vertical) forming the triangle.
+        const corner = [p2[0], p1[1], 0];
+        const dxLine = new Line(p1, corner, { color: opts.dxLineColor ?? "#8888ff" });
+        const dfLine = new Line(corner, p2, { color: opts.dfLineColor ?? "#8888ff" });
+        group.add(dxLine, dfLine);
+        // Extend the secant to the requested length.
+        const len = opts.secantLineLength ?? 3;
+        const dir = V.normalize(V.sub(p2, p1));
+        const mid = V.midpoint(p1, p2);
+        const a = V.sub(mid, V.scale(dir, len / 2));
+        const b = V.add(mid, V.scale(dir, len / 2));
+        const secant = new Line(a, b, { color: secantColor });
+        group.add(secant);
+        if (opts.dxLabel != null) {
+            const lbl = this._mkLabel(opts.dxLabel);
+            lbl.nextTo(dxLine, V.DOWN, 0.1);
+            group.add(lbl);
+        }
+        if (opts.dfLabel != null) {
+            const lbl = this._mkLabel(opts.dfLabel);
+            lbl.nextTo(dfLine, V.RIGHT, 0.1);
+            group.add(lbl);
+        }
+        return group;
+    }
+    // --- Assorted line helpers -----------------------------------------------
+    getVerticalLinesToGraph(graph, opts = {}) {
+        const xr = opts.xRange ?? [this.xRange[0], this.xRange[1]];
+        const n = opts.numLines ?? 20;
+        const group = new VGroup();
+        for (let i = 0; i < n; i++) {
+            const x = xr[0] + (xr[1] - xr[0]) * (i / Math.max(1, n - 1));
+            group.add(this.getVerticalLine(x, graph, { color: opts.color }));
+        }
+        return group;
+    }
+    getHorizontalLine(point, opts = {}) {
+        const [, y] = this.pointToCoords(point);
+        const start = this.coordsToPoint(0, y);
+        const color = opts.color ?? this.color;
+        return new Line(start, [point[0], start[1], 0], { color, strokeColor: color });
+    }
+    getVerticalLineToPoint(point, opts = {}) {
+        const [x] = this.pointToCoords(point);
+        const start = this.coordsToPoint(x, 0);
+        const color = opts.color ?? this.color;
+        return new Line(start, [start[0], point[1], 0], { color, strokeColor: color });
+    }
+    getLinesToPoint(point, opts = {}) {
+        const g = new VGroup();
+        g.add(this.getHorizontalLine(point, opts), this.getVerticalLineToPoint(point, opts));
+        return g;
+    }
+    getTLabel(x, graph, label) {
+        const lbl = this._mkLabel(label);
+        lbl.nextTo(this.inputToGraphPoint(x, graph), V.UR, 0.2);
+        return lbl;
+    }
+    // --- Extra plotting variants ---------------------------------------------
+    plotParametricCurve(fn, opts = {}) {
+        const tr = opts.tRange ?? [0, 2 * Math.PI, 0.02];
+        const step = tr[2] ?? (tr[1] - tr[0]) / 200;
+        const corners = [];
+        const eps = 1e-6 * Math.abs(step || 1);
+        for (let t = tr[0]; t <= tr[1] + eps; t += step) {
+            const [x, y] = fn(t);
+            if (Number.isFinite(x) && Number.isFinite(y))
+                corners.push(this.coordsToPoint(x, y));
+        }
+        const color = opts.color ?? "#FFFF00";
+        const graph = new VMobject({ strokeColor: color, color });
+        graph.setPointsAsCorners(corners);
+        graph.fillOpacity = 0;
+        graph.underlyingParametric = fn;
+        return graph;
+    }
+    plotPolarGraph(rFn, opts = {}) {
+        const tr = opts.thetaRange ?? [0, 2 * Math.PI, 0.02];
+        return this.plotParametricCurve((theta) => {
+            const r = rFn(theta);
+            return [r * Math.cos(theta), r * Math.sin(theta)];
+        }, { tRange: tr, color: opts.color });
+    }
+    plotImplicitCurve(fn, opts = {}) {
+        // Marching squares over the plane: emit a short segment in every grid cell
+        // that the zero contour of fn crosses.
+        const n = opts.n ?? 60;
+        const [xa, xb] = [this.xRange[0], this.xRange[1]];
+        const [ya, yb] = [this.yRange[0], this.yRange[1]];
+        const dx = (xb - xa) / n;
+        const dy = (yb - ya) / n;
+        const color = opts.color ?? "#FFFF00";
+        const group = new VGroup();
+        const interp = (xA, yA, vA, xB, yB, vB) => {
+            const t = vA === vB ? 0.5 : vA / (vA - vB);
+            return this.coordsToPoint(xA + (xB - xA) * t, yA + (yB - yA) * t);
+        };
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                const x0 = xa + i * dx, x1 = x0 + dx;
+                const y0 = ya + j * dy, y1 = y0 + dy;
+                const v00 = fn(x0, y0), v10 = fn(x1, y0), v11 = fn(x1, y1), v01 = fn(x0, y1);
+                const edges = [];
+                if ((v00 > 0) !== (v10 > 0))
+                    edges.push(interp(x0, y0, v00, x1, y0, v10));
+                if ((v10 > 0) !== (v11 > 0))
+                    edges.push(interp(x1, y0, v10, x1, y1, v11));
+                if ((v11 > 0) !== (v01 > 0))
+                    edges.push(interp(x1, y1, v11, x0, y1, v01));
+                if ((v01 > 0) !== (v00 > 0))
+                    edges.push(interp(x0, y1, v01, x0, y0, v00));
+                if (edges.length >= 2) {
+                    const seg = new Line(edges[0], edges[1], { color, strokeColor: color });
+                    group.add(seg);
+                }
+            }
+        }
+        return group;
+    }
+    plotLineGraph(xValues, yValues, opts = {}) {
+        const color = opts.lineColor ?? "#FFFF00";
+        const points = xValues.map((x, i) => this.coordsToPoint(x, yValues[i]));
+        const line = new VMobject({ strokeColor: color, color });
+        if (opts.smooth)
+            line.setPointsSmoothly(points);
+        else
+            line.setPointsAsCorners(points);
+        line.fillOpacity = 0;
+        const group = new VGroup();
+        group.add(line);
+        if (opts.addVertexDots ?? true) {
+            const dots = new VGroup();
+            const style = opts.vertexDotStyle ?? {};
+            for (const p of points) {
+                dots.add(new Dot({ point: p, color: style.color ?? color, radius: style.radius ?? 0.06 }));
+            }
+            group.add(dots);
+        }
+        group.lineGraphPoints = points;
+        return group;
+    }
+}
+export class NumberPlane extends Axes {
+    bgColor;
+    bgStrokeWidth;
+    bgStrokeOpacity;
+    backgroundLines;
+    constructor(config = {}) {
+        super(config);
+        const bg = config.backgroundLineStyle ?? {};
+        // manim's key is stroke_color; accept both spellings.
+        this.bgColor = bg.strokeColor ?? bg.color ?? "#29ABCA";
+        this.bgStrokeWidth = bg.strokeWidth ?? 1;
+        this.bgStrokeOpacity = bg.strokeOpacity ?? 0.3;
+        this._buildGrid();
+    }
+    _buildGrid() {
+        const grid = new VGroup();
+        const yTop = this._yWorld(this.yRange[1]);
+        const yBot = this._yWorld(this.yRange[0]);
+        const xLeft = this.coordsToPoint(this.xRange[0], 0)[0];
+        const xRight = this.coordsToPoint(this.xRange[1], 0)[0];
+        // Vertical grid lines at each x step.
+        for (const x of makeTickRange(this.xRange)) {
+            const px = this.coordsToPoint(x, 0)[0];
+            grid.add(this._faintLine([px, yBot, 0], [px, yTop, 0]));
+        }
+        // Horizontal grid lines at each y step.
+        for (const y of makeTickRange(this.yRange)) {
+            const py = this._yWorld(y);
+            grid.add(this._faintLine([xLeft, py, 0], [xRight, py, 0]));
+        }
+        this.backgroundLines = grid;
+        // Insert grid behind the axes.
+        this.submobjects = [grid, ...this.submobjects];
+    }
+    _faintLine(start, end) {
+        const line = new Line(start, end, {
+            strokeColor: this.bgColor,
+            color: this.bgColor,
+            strokeWidth: this.bgStrokeWidth,
+        });
+        line.strokeOpacity = this.bgStrokeOpacity;
+        return line;
+    }
+}
+/**
+ * A polar coordinate grid: concentric circles at each radius step and radial
+ * spokes at each azimuth step, plus optional azimuth labels. `c2p` interprets
+ * (radius, azimuth) pairs.
+ */
+export class PolarPlane extends VGroup {
+    size;
+    radiusMax;
+    radiusStep;
+    azimuthUnits;
+    azimuthStep;
+    lineColor;
+    faintColor;
+    fontSize;
+    circles;
+    radialLines;
+    azimuthLabels;
+    constructor(config = {}) {
+        super();
+        this.size = config.size ?? 6;
+        this.radiusMax = config.radiusMax ?? config.radius_max ?? this.size / 2;
+        this.radiusStep = config.radiusStep ?? 1;
+        this.azimuthUnits = config.azimuthUnits ?? config.azimuth_units ?? "PI radians";
+        this.azimuthStep =
+            config.azimuthStep ?? config.azimuth_step ?? (this.azimuthUnits === "degrees" ? 12 : 20);
+        this.lineColor = (config.color ?? "#FFFFFF");
+        this.faintColor = (config.faintColor ?? "#888888");
+        this.fontSize = config.fontSize ?? 0.3;
+        // World units per radius unit.
+        this._unit = this.radiusMax === 0 ? 1 : this.size / 2 / this.radiusMax;
+        this._build(config.includeAzimuthLabels ?? true);
+    }
+    _unit;
+    /** (radius, azimuth) -> world point. */
+    polarToPoint(radius, azimuth) {
+        const r = radius * this._unit;
+        return [r * Math.cos(azimuth), r * Math.sin(azimuth), 0];
+    }
+    pr2pt(radius, azimuth) { return this.polarToPoint(radius, azimuth); }
+    coordsToPoint(radius, azimuth) { return this.polarToPoint(radius, azimuth); }
+    c2p(radius, azimuth) { return this.polarToPoint(radius, azimuth); }
+    pointToPolar(point) {
+        const r = Math.hypot(point[0], point[1]) / this._unit;
+        return [r, Math.atan2(point[1], point[0])];
+    }
+    pt2pr(point) { return this.pointToPolar(point); }
+    _build(includeLabels) {
+        // Concentric circles.
+        this.circles = new VGroup();
+        for (let r = this.radiusStep; r <= this.radiusMax + 1e-9; r += this.radiusStep) {
+            this.circles.add(new Circle({ radius: r * this._unit, color: this.faintColor, strokeColor: this.faintColor }));
+        }
+        this.add(this.circles);
+        // Radial spokes.
+        this.radialLines = new VGroup();
+        const n = Math.max(1, Math.round(this.azimuthStep));
+        for (let i = 0; i < n; i++) {
+            const theta = (2 * Math.PI * i) / n;
+            this.radialLines.add(new Line(V.ORIGIN, this.polarToPoint(this.radiusMax, theta), {
+                color: this.faintColor,
+                strokeColor: this.faintColor,
+            }));
+        }
+        this.add(this.radialLines);
+        // Azimuth labels.
+        this.azimuthLabels = new VGroup();
+        if (includeLabels) {
+            for (let i = 0; i < n; i++) {
+                const theta = (2 * Math.PI * i) / n;
+                const p = this.polarToPoint(this.radiusMax + 0.5, theta);
+                this.azimuthLabels.add(new Text(this._azimuthLabel(theta, n, i), {
+                    fontSize: this.fontSize,
+                    color: this.lineColor,
+                    point: p,
+                }));
+            }
+            this.add(this.azimuthLabels);
+        }
+    }
+    _azimuthLabel(theta, n, i) {
+        if (this.azimuthUnits === "degrees")
+            return `${Math.round((theta * 180) / Math.PI)}`;
+        if (this.azimuthUnits === "gradians")
+            return `${Math.round((theta * 200) / Math.PI)}`;
+        if (this.azimuthUnits === "TAU radians")
+            return `${(i / n).toFixed(2)}`;
+        // PI radians (default).
+        return `${(theta / Math.PI).toFixed(2)}π`;
+    }
+}
+/**
+ * A NumberPlane whose points are complex numbers. `numberToPoint` maps a
+ * complex value to a world point; `pointToNumber` recovers it.
+ */
+export class ComplexPlane extends NumberPlane {
+    constructor(config = {}) {
+        super(config);
+    }
+    _reIm(z) {
+        if (Array.isArray(z))
+            return [z[0], z[1]];
+        return [z.re, z.im];
+    }
+    numberToPoint(z) {
+        const [re, im] = this._reIm(z);
+        return this.coordsToPoint(re, im);
+    }
+    n2p(z) { return this.numberToPoint(z); }
+    pointToNumber(point) {
+        const [re, im] = this.pointToCoords(point);
+        return { re, im };
+    }
+    p2n(point) { return this.pointToNumber(point); }
+    /** Add real-axis numbers and imaginary-axis (i-suffixed) labels. */
+    addCoordinates() {
+        // Real axis: reuse NumberLine numbers.
+        this.xAxis.includeNumbers = true;
+        if (!this.xAxis.numbers)
+            this.xAxis._addNumbers();
+        // Imaginary axis: `k i` labels placed along the (rotated) y-axis.
+        const numbers = new VGroup();
+        for (const y of makeTickRange(this.yRange)) {
+            if (Math.abs(y) < 1e-9)
+                continue;
+            const p = this.coordsToPoint(0, y);
+            const txt = `${this.xAxis._formatNumber(y)}i`;
+            numbers.add(new Text(txt, { fontSize: this.yAxis.fontSize, color: this.yAxis.color, point: [p[0] - 0.3, p[1], 0] }));
+        }
+        this.yAxis.numbers = numbers;
+        this.yAxis.add(numbers);
+        return this;
+    }
+}
+/** A NumberLine over [0, 1] with 0.1 ticks — manim's UnitInterval preset. */
+export class UnitInterval extends NumberLine {
+    constructor(config = {}) {
+        super({ xRange: [0, 1, 0.1], length: 6, includeNumbers: true, ...config });
+    }
+}
+//# sourceMappingURL=coordinate_systems.js.map

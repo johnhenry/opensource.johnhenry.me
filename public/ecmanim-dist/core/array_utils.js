@@ -1,0 +1,215 @@
+// d3-array essentials (D3-parity campaign, cluster D1): the grouping /
+// statistics helpers the gallery scenes lean on. Pure, isomorphic, no deps.
+// Naming follows d3 so ports read 1:1; Map keys follow JS Map semantics
+// (identity for objects — d3's InternMap string-interning divergence is
+// documented in the campaign README).
+export function ascending(a, b) {
+    return a == null || b == null ? NaN : a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+}
+export function descending(a, b) {
+    return a == null || b == null ? NaN : b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
+}
+export function extent(values, accessor) {
+    let min = Infinity, max = -Infinity, i = 0;
+    for (const d of values) {
+        const v = accessor ? accessor(d, i++) : d;
+        if (v == null || Number.isNaN(+v))
+            continue;
+        if (+v < min)
+            min = +v;
+        if (+v > max)
+            max = +v;
+    }
+    return min <= max ? [min, max] : [NaN, NaN];
+}
+export function max(values, accessor) {
+    return extent(values, accessor)[1];
+}
+export function min(values, accessor) {
+    return extent(values, accessor)[0];
+}
+export function sum(values, accessor) {
+    let s = 0, i = 0;
+    for (const d of values) {
+        const v = accessor ? accessor(d, i++) : d;
+        if (v != null && !Number.isNaN(+v))
+            s += +v;
+    }
+    return s;
+}
+export function mean(values, accessor) {
+    let s = 0, n = 0, i = 0;
+    for (const d of values) {
+        const v = accessor ? accessor(d, i++) : d;
+        if (v != null && !Number.isNaN(+v)) {
+            s += +v;
+            n++;
+        }
+    }
+    return n ? s / n : NaN;
+}
+/** d3.range: arithmetic progression [start, stop) by step. */
+export function rangeOf(start, stop, step = 1) {
+    if (stop === undefined) {
+        stop = start;
+        start = 0;
+    }
+    const n = Math.max(0, Math.ceil((stop - start) / step));
+    const out = new Array(n);
+    for (let i = 0; i < n; i++)
+        out[i] = start + i * step;
+    return out;
+}
+/** R-7 quantile on an UNSORTED copy (matches d3.quantile). */
+export function quantile(values, p, accessor) {
+    let arr = [];
+    let i = 0;
+    for (const d of values) {
+        const v = accessor ? accessor(d, i++) : d;
+        if (v != null && !Number.isNaN(+v))
+            arr.push(+v);
+    }
+    arr.sort((a, b) => a - b);
+    const n = arr.length;
+    if (!n)
+        return NaN;
+    if (p <= 0 || n < 2)
+        return arr[0];
+    if (p >= 1)
+        return arr[n - 1];
+    const h = (n - 1) * p;
+    const i0 = Math.floor(h);
+    return arr[i0] + (arr[i0 + 1] - arr[i0]) * (h - i0);
+}
+/** Simple moving average over a fixed window (ECharts MA5/MA10-style). Output
+ *  has the same length as `values`; entries before the window fills (i <
+ *  window-1) are NaN, matching a chart's "no MA yet" convention. */
+export function movingAverage(values, window) {
+    const out = new Array(values.length).fill(NaN);
+    if (window <= 0)
+        return out;
+    let sum = 0;
+    for (let i = 0; i < values.length; i++) {
+        sum += values[i];
+        if (i >= window)
+            sum -= values[i - window];
+        if (i >= window - 1)
+            out[i] = sum / window;
+    }
+    return out;
+}
+export function group(values, key) {
+    const m = new Map();
+    for (const d of values) {
+        const k = key(d);
+        const g = m.get(k);
+        if (g)
+            g.push(d);
+        else
+            m.set(k, [d]);
+    }
+    return m;
+}
+export function groups(values, key) {
+    return [...group(values, key)];
+}
+export function rollup(values, reduce, key) {
+    const m = new Map();
+    for (const [k, g] of group(values, key))
+        m.set(k, reduce(g));
+    return m;
+}
+export function rollups(values, reduce, key) {
+    return [...rollup(values, reduce, key)];
+}
+/** d3.groupSort: keys of group(values, key) sorted by comparing reduced groups. */
+export function groupSort(values, reduceOrCompare, key) {
+    const grouped = groups(values, key);
+    // Heuristic matching d3: arity 1 = reducer (sort by reduced value),
+    // arity 2 = comparator over the group arrays.
+    if (reduceOrCompare.length === 1) {
+        const reduce = reduceOrCompare;
+        return grouped
+            .map(([k, g]) => [k, reduce(g)])
+            .sort((a, b) => ascending(a[1], b[1]))
+            .map(([k]) => k);
+    }
+    const compare = reduceOrCompare;
+    return grouped.sort((a, b) => compare(a[1], b[1])).map(([k]) => k);
+}
+/** d3.pairs: consecutive pairs [[a,b],[b,c],...]. */
+export function pairs(values, reducer) {
+    const out = [];
+    let prev;
+    let first = true;
+    for (const d of values) {
+        if (!first)
+            out.push(reducer ? reducer(prev, d) : [prev, d]);
+        prev = d;
+        first = false;
+    }
+    return out;
+}
+// --- d3's tick algorithm (powers of 10 x {1, 2, 5}) -------------------------
+const E10 = Math.sqrt(50), E5 = Math.sqrt(10), E2 = Math.sqrt(2);
+/** The step d3 would pick for ~count ticks across [start, stop].
+ *  Negative return = inverse step (1/-step), exactly like d3.tickIncrement. */
+export function tickIncrement(start, stop, count) {
+    const step = (stop - start) / Math.max(0, count);
+    const power = Math.floor(Math.log(step) / Math.LN10);
+    const error = step / Math.pow(10, power);
+    return power >= 0
+        ? (error >= E10 ? 10 : error >= E5 ? 5 : error >= E2 ? 2 : 1) * Math.pow(10, power)
+        : -Math.pow(10, -power) / (error >= E10 ? 10 : error >= E5 ? 5 : error >= E2 ? 2 : 1);
+}
+export function tickStep(start, stop, count) {
+    const inc = tickIncrement(start, stop, count);
+    return inc < 0 ? 1 / -inc : inc;
+}
+/** d3.ticks: nice round values covering [start, stop] with ~count entries. */
+export function ticks(start, stop, count) {
+    if (!(count > 0))
+        return [];
+    if (start === stop)
+        return [start];
+    const reverse = stop < start;
+    if (reverse)
+        [start, stop] = [stop, start];
+    const inc = tickIncrement(start, stop, count);
+    if (inc === 0 || !isFinite(inc))
+        return [];
+    let out;
+    if (inc > 0) {
+        const lo = Math.ceil(start / inc);
+        const hi = Math.floor(stop / inc);
+        out = rangeOf(lo, hi + 1).map((i) => i * inc);
+    }
+    else {
+        const lo = Math.ceil(start * -inc);
+        const hi = Math.floor(stop * -inc);
+        out = rangeOf(lo, hi + 1).map((i) => i / -inc);
+    }
+    return reverse ? out.reverse() : out;
+}
+/** Expand [start, stop] outward to tick-aligned bounds (d3.nice). */
+export function niceExtent(start, stop, count) {
+    let prestep;
+    for (let iter = 0; iter < 10; iter++) {
+        const step = tickIncrement(start, stop, count);
+        if (step === prestep || step === 0 || !isFinite(step))
+            break;
+        if (step > 0) {
+            start = Math.floor(start / step) * step;
+            stop = Math.ceil(stop / step) * step;
+        }
+        else {
+            // Inverse (fractional) step: multiply by -step, expand OUTWARD
+            // (floor the start, ceil the stop), divide back.
+            start = Math.floor(start * -step) / -step;
+            stop = Math.ceil(stop * -step) / -step;
+        }
+        prestep = step;
+    }
+    return [start, stop];
+}
+//# sourceMappingURL=array_utils.js.map

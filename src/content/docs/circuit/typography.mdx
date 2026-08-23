@@ -1,0 +1,35 @@
+---
+title: Typography
+description: Two families, one deliberate risk.
+---
+
+Two families carry the whole system: **JetBrains Mono** for anything structural (headings, labels, code, logotype), **IBM Plex Sans** for anything read at length. The mono display face is the one deliberate risk — it makes every heading read as *engineered*, which is the point for a suite of dev tools.
+
+## Display scale — JetBrains Mono Variable
+
+| Role | Size / weight |
+|---|---|
+| h1 / display | 36px / 700 |
+| h2 | 26px / 650 |
+| h3 | 19px / 650 |
+| label / nav | 15px / 600 |
+| eyebrow / caption | 11px / 600 |
+
+## Body scale — IBM Plex Sans Variable
+
+| Role | Size / weight |
+|---|---|
+| body large | 16px / 400 |
+| body | 14.5px / 400 |
+| small / meta | 13px / 400 |
+| caption | 11.5px / 500 |
+
+## Tokens
+
+```css
+--f-display: 'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', monospace;
+--f-body: 'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif;
+--f-mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', monospace;
+```
+
+`--f-mono` and `--f-display` are the same family on purpose — code and headings should look like they come from the same instrument.

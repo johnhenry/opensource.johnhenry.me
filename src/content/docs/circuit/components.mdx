@@ -1,0 +1,89 @@
+---
+title: Components
+description: Admonitions, code groups, API references, and the primitives Starlight doesn't ship.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+## Admonitions — Starlight's own
+
+Starlight ships `note` / `tip` / `caution` / `danger` asides natively. Circuit doesn't reimplement them — it remaps their colors (see [Color](/circuit/color/)) so they use the same fixed semantic palette as everything else in the family.
+
+<Aside type="note">Uses the live accent — the only admonition type that changes per tool.</Aside>
+<Aside type="tip">Always success-green, everywhere.</Aside>
+<Aside type="caution">Always amber, everywhere.</Aside>
+<Aside type="danger">Always error-red, everywhere.</Aside>
+
+```mdx
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip">Always success-green, everywhere.</Aside>
+```
+
+## Code groups — Starlight's own `<Tabs>`
+
+<Tabs syncKey="pkg">
+  <TabItem label="npm">
+    ```sh
+    npm install @erisera-code/circuit
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm add @erisera-code/circuit
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn add @erisera-code/circuit
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```sh
+    bun add @erisera-code/circuit
+    ```
+  </TabItem>
+</Tabs>
+
+Syntax highlighting above is a custom Shiki theme built from Circuit's fixed `--sx-*` palette (see `astro.config.mjs`) — not a stock Shiki theme.
+
+## API parameter list — Circuit's own
+
+Starlight has no built-in pattern for API reference tables, so this one is Circuit's: a denser layout than a markdown table, built for scanning a long options list.
+
+<div class="c-paramlist">
+  <div class="c-paramrow">
+    <span class="pname">providers</span><span class="ptype">Provider[]</span><span class="preq required">required</span>
+    <p class="pdesc">Backends to route through, in priority order — becomes the fallback chain.</p>
+  </div>
+  <div class="c-paramrow">
+    <span class="pname">fallback</span><span class="ptype">"cascade" | "race" | "none"</span><span class="pdefault">= "cascade"</span><span class="preq optional">optional</span>
+    <p class="pdesc">Try providers in order, race them concurrently, or fail on the first error.</p>
+  </div>
+</div>
+
+```html
+<div class="c-paramlist">
+  <div class="c-paramrow">
+    <span class="pname">providers</span><span class="ptype">Provider[]</span>
+    <span class="preq required">required</span>
+    <p class="pdesc">Backends to route through, in priority order.</p>
+  </div>
+</div>
+```
+
+## Buttons, inputs, badges — Circuit's own
+
+<p>
+  <button class="c-btn primary">Publish</button>{' '}
+  <button class="c-btn secondary">Cancel</button>{' '}
+  <button class="c-btn ghost">Learn more</button>
+</p>
+<p>
+  <span class="c-badge accent">accent</span>{' '}
+  <span class="c-badge success">deployed</span>{' '}
+  <span class="c-badge warning">degraded</span>{' '}
+  <span class="c-badge error">failed</span>
+</p>
+
+All from `@erisera-code/circuit/components.css` — see the [full showcase](/circuit/showcase/) for every state (hover/active/focus/disabled) side by side.

@@ -28,6 +28,13 @@
 
   --sl-color-text: var(--ink);
   --sl-color-text-accent: var(--accent);
+  /* Starlight's dark theme defines --sl-color-text-invert as accent-low, and
+     uses it for text on an accent-filled background (the current sidebar
+     link). Remapping accent-low to Circuit's translucent --accent-soft
+     therefore paints that label in its own background color and it vanishes.
+     The upstream bridge this file came from never mapped it, so all six of
+     the docs sites this replaces had an unreadable active sidebar entry. */
+  --sl-color-text-invert: var(--bg);
   --sl-color-bg: var(--bg);
   --sl-color-bg-nav: var(--bg-panel);
   --sl-color-bg-sidebar: var(--bg-panel);
@@ -80,3 +87,10 @@
 header.header {
   border-top: 2px solid var(--accent);
 }
+
+/* Theme-specific images. Keyed to data-theme rather than
+   prefers-color-scheme so they follow the site's own theme selector — the
+   two disagree whenever a reader overrides their OS preference. */
+.only-dark { display: none; }
+[data-theme='dark'] .only-dark { display: inline; }
+[data-theme='dark'] .only-light { display: none; }

@@ -1,0 +1,1 @@
+{"version":3,"file":"pixel_array.d.ts","sourceRoot":"","sources":["../../src/core/pixel_array.ts"],"names":[],"mappings":"AAMA,MAAM,WAAW,gBAAgB;IAC/B,KAAK,EAAE,MAAM,CAAC;IACd,MAAM,EAAE,MAAM,CAAC;IACf,6CAA6C;IAC7C,IAAI,EAAE,iBAAiB,CAAC;CACzB;AAID;;;;;GAKG;AACH,wBAAgB,mBAAmB,CAAC,KAAK,EAAE,GAAG,GAAG,gBAAgB,CA8BhE"}

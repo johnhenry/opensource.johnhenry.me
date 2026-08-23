@@ -1,0 +1,160 @@
+// Opt-in Flexbox layout via Yoga (Meta/React's portable WASM Flexbox engine,
+// also what Vercel's Satori uses) -- a concretely low-risk way to get real
+// flexbox semantics instead of building a layout engine from scratch.
+//
+// Fully additive: a Mobject outside a FlexGroup is completely unaffected; a
+// child inside one can still opt out of stretch/grow by pinning its own
+// dimensions (Yoga only overrides what it's told to control).
+//
+// ASYNC INIT is the one sharp edge here: layout() must load Yoga's WASM
+// before it can compute anything, mirroring the lazy-loader pattern already
+// used by src/wasm.ts. Nothing is computed until `await group.layout()`.
+import { Group } from "./Mobject.js";
+const DIRECTION_KEY = {
+    row: "FLEX_DIRECTION_ROW",
+    "row-reverse": "FLEX_DIRECTION_ROW_REVERSE",
+    column: "FLEX_DIRECTION_COLUMN",
+    "column-reverse": "FLEX_DIRECTION_COLUMN_REVERSE",
+};
+const JUSTIFY_KEY = {
+    "flex-start": "JUSTIFY_FLEX_START",
+    center: "JUSTIFY_CENTER",
+    "flex-end": "JUSTIFY_FLEX_END",
+    "space-between": "JUSTIFY_SPACE_BETWEEN",
+    "space-around": "JUSTIFY_SPACE_AROUND",
+    "space-evenly": "JUSTIFY_SPACE_EVENLY",
+};
+const ALIGN_KEY = {
+    "flex-start": "ALIGN_FLEX_START",
+    center: "ALIGN_CENTER",
+    "flex-end": "ALIGN_FLEX_END",
+    stretch: "ALIGN_STRETCH",
+    baseline: "ALIGN_BASELINE",
+};
+let _yoga = null;
+/** True once Yoga's WASM has been loaded (via a prior layout() call). */
+export function isYogaLoaded() {
+    return _yoga != null;
+}
+let _yogaConfig = null;
+async function loadYogaOnce() {
+    if (_yoga)
+        return _yoga;
+    // yoga-layout resolves its own WASM at import time (top-level await inside
+    // the package) -- an optionalDependency, mirroring @napi-rs/canvas/three's
+    // graceful-degrade pattern elsewhere in this codebase.
+    const mod = await import("yoga-layout");
+    _yoga = mod.default;
+    // Yoga rounds computed layout to whole "pixels" by default
+    // (pointScaleFactor 1) -- catastrophic for WORLD-unit inputs (~0.1-10):
+    // children snapped to 0.5-unit grid spacing and gaps vanished. Disable
+    // rounding; ecmanim's coordinates are continuous.
+    try {
+        _yogaConfig = _yoga.Config.create();
+        _yogaConfig.setPointScaleFactor(0);
+    }
+    catch {
+        _yogaConfig = null; // older yoga-layout: fall back to default rounding
+    }
+    return _yoga;
+}
+function makeNode(Yoga) {
+    return _yogaConfig ? Yoga.Node.create(_yogaConfig) : Yoga.Node.create();
+}
+export class FlexGroup extends Group {
+    flexConfig;
+    _childConfig = new WeakMap();
+    constructor(config = {}) {
+        super();
+        this.flexConfig = config;
+    }
+    /** Per-child flex config (flexGrow/flexShrink/flexBasis/margin). A child
+     *  with no config here just uses its own current size as a fixed basis. */
+    setChildFlex(child, config) {
+        this._childConfig.set(child, config);
+        return this;
+    }
+    /**
+     * Compute the flex layout and reposition every direct child accordingly.
+     * Necessarily async -- Yoga's WASM must be loaded first. Safe to call
+     * repeatedly (e.g. after adding/removing children or resizing the
+     * container); each call builds a fresh Yoga node tree.
+     */
+    async layout() {
+        const Yoga = await loadYogaOnce();
+        const children = this.submobjects;
+        const width = this.flexConfig.width ?? this.getWidth();
+        const height = this.flexConfig.height ?? this.getHeight();
+        // The group's own world-space top-left corner (world Y-up; Yoga's own
+        // coordinate system is Y-down from a top-left origin), computed BEFORE
+        // any repositioning below.
+        const center = this.getCenter();
+        const originX = center[0] - width / 2;
+        const originY = center[1] + height / 2;
+        const root = makeNode(Yoga);
+        root.setWidth(width);
+        root.setHeight(height);
+        root.setFlexDirection(Yoga[DIRECTION_KEY[this.flexConfig.direction ?? "row"]]);
+        if (this.flexConfig.justifyContent)
+            root.setJustifyContent(Yoga[JUSTIFY_KEY[this.flexConfig.justifyContent]]);
+        if (this.flexConfig.alignItems)
+            root.setAlignItems(Yoga[ALIGN_KEY[this.flexConfig.alignItems]]);
+        if (this.flexConfig.gap != null)
+            root.setGap(Yoga.GUTTER_ALL, this.flexConfig.gap);
+        if (this.flexConfig.padding != null)
+            root.setPadding(Yoga.EDGE_ALL, this.flexConfig.padding);
+        const nodes = children.map((child) => {
+            const node = makeNode(Yoga);
+            const cfg = this._childConfig.get(child) ?? {};
+            node.setWidth(cfg.flexBasis ?? child.getWidth());
+            node.setHeight(child.getHeight());
+            if (cfg.flexGrow != null)
+                node.setFlexGrow(cfg.flexGrow);
+            if (cfg.flexShrink != null)
+                node.setFlexShrink(cfg.flexShrink);
+            if (cfg.margin != null)
+                node.setMargin(Yoga.EDGE_ALL, cfg.margin);
+            return node;
+        });
+        nodes.forEach((node, i) => root.insertChild(node, i));
+        root.calculateLayout(width, height, Yoga.DIRECTION_LTR);
+        const direction = this.flexConfig.direction ?? "row";
+        const mainAxisIsWidth = direction === "row" || direction === "row-reverse";
+        for (let i = 0; i < children.length; i++) {
+            const node = nodes[i];
+            const left = node.getComputedLeft();
+            const top = node.getComputedTop();
+            const w = node.getComputedWidth();
+            const h = node.getComputedHeight();
+            const child = children[i];
+            const cfg = this._childConfig.get(child) ?? {};
+            const z = child.getCenter()[2];
+            // Bug (issue #23), confirmed via direct repro: a child with
+            // flexGrow/flexShrink got a bigger/smaller box in Yoga's computed
+            // layout, and was correctly REPOSITIONED to that box's center below,
+            // but was never actually RESIZED to fill it -- unlike real CSS
+            // flexbox, where a growing child visibly expands. Resize on the MAIN
+            // axis only (matching CSS flexbox: flexGrow/flexShrink only ever
+            // affect the main-axis size; the cross axis is a separate concern
+            // this fix does not touch) via setWidth/setHeight's stretch=true
+            // (axis-only, non-uniform scale), and only for children that opted
+            // in via flexGrow/flexShrink -- a child with neither stays exactly
+            // its own authored size, matching this file's documented "fixed
+            // size unless you say so" contract for setChildFlex().
+            if (cfg.flexGrow != null || cfg.flexShrink != null) {
+                if (mainAxisIsWidth)
+                    child.setWidth(w, true);
+                else
+                    child.setHeight(h, true);
+            }
+            // Yoga's (left, top) is the child's top-left corner, Y-down from the
+            // container's own top-left -- convert to a world-space (Y-up) center.
+            const worldX = originX + left + w / 2;
+            const worldY = originY - (top + h / 2);
+            child.moveTo([worldX, worldY, z]);
+        }
+        root.freeRecursive();
+        return this;
+    }
+}
+//# sourceMappingURL=flex_group.js.map
