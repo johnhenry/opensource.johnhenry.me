@@ -98,6 +98,11 @@ const SOURCES = [
         // "Class constructor Rotate cannot be invoked without 'new'" partway
         // through and never finished. The early frames rendered, which is why
         // it looked fine; the rejection was unhandled, so nothing surfaced.
+        //
+        // Reported upstream as johnhenry/ecmanim#40: the repo's own
+        // examples/browser/index.html has the `new`, and only the website
+        // copy of the same demo lost it. Once that lands, this patch stops
+        // matching and the import fails loudly — delete it at that point.
         find: /      Rotate\(poly, Math\.PI\),\n      Transform\(sq, /,
         replace: '      new Rotate(poly, Math.PI),\n      new Transform(sq, ',
       },
