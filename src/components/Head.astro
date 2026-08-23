@@ -1,0 +1,14 @@
+---
+import Default from '@astrojs/starlight/components/Head.astro';
+
+// The first path segment names the section; circuit-bridge.css keys the
+// accent hue off it. Starlight owns the <html> tag, so the attribute is set
+// from here instead — the script is inline and synchronous in <head>, so it
+// lands before first paint rather than flashing the default accent.
+const tool = Astro.url.pathname.split('/').filter(Boolean)[0] ?? '';
+---
+
+<Default><slot /></Default>
+<script is:inline define:vars={{ tool }}>
+  document.documentElement.dataset.tool = tool;
+</script>

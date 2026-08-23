@@ -1,0 +1,67 @@
+---
+title: John Henry · Open Source
+description: Documentation for John Henry's open-source JavaScript libraries and tools.
+template: splash
+hero:
+  tagline: Libraries and tools for AI clients, agent protocols, math, and animation — all MIT-licensed, all on npm.
+  actions:
+    - text: Browse the libraries
+      link: '#the-libraries'
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/johnhenry
+      icon: external
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## The libraries
+
+<CardGrid>
+  <LinkCard
+    title="ai.matey"
+    href="/ai-matey/"
+    description="A unified client for the browser's built-in AI APIs and remote model providers, with a matching mock and test harness."
+  />
+  <LinkCard
+    title="Agent Query"
+    href="/agent-query/"
+    description="Query and inspect MCP, A2A, and ACP servers through one interface — plus TanStack bindings and a policy gate."
+  />
+  <LinkCard
+    title="Math"
+    href="/math/"
+    description="Geometry, intervals, tensors, signals, and units — a core package plus a wide family of focused extensions."
+  />
+  <LinkCard
+    title="ecmanim"
+    href="/ecmanim/"
+    description="Programmatic animation for the web: scenes, shapes, and transforms rendered to canvas."
+  />
+  <LinkCard
+    title="andbox"
+    href="/andbox/"
+    description="A small sandboxing helper for running untrusted JavaScript."
+  />
+  <LinkCard
+    title="objectify"
+    href="/objectify/"
+    description="Turn a directory tree into a structured object — designed to be legible to agents."
+  />
+  <LinkCard
+    title="Circuit"
+    href="/circuit/"
+    description="The design system behind these docs and the erisera product sites."
+  />
+</CardGrid>
+
+## About
+
+These are personal open-source projects, maintained under
+[github.com/johnhenry](https://github.com/johnhenry) and published to npm. New
+packages use the `@johnhenry/*` scope; several older ones keep their original
+unscoped names.
+
+Commercial products live separately at [erisera.com](https://erisera.com).

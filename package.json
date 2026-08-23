@@ -1,0 +1,23 @@
+{
+  "name": "opensource-johnhenry-me",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Documentation hub for John Henry's open-source projects",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "serve dist -l tcp://0.0.0.0:${PORT:-3000}"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.41.7",
+    "@erisera-code/circuit": "^0.1.0",
+    "astro": "^7.2.4",
+    "serve": "^14.2.4",
+    "sharp": "^0.33.5"
+  }
+}

@@ -1,0 +1,1 @@
+web: npx serve dist -l tcp://0.0.0.0:$PORT
