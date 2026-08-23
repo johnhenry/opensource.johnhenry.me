@@ -1,0 +1,63 @@
+name: Deploy
+
+# Deploys the built site to Dokku on trycooy, which serves
+# https://opensource.johnhenry.me.
+#
+# Runs on a SELF-HOSTED runner because Dokku's git endpoint listens on
+# localhost:3022 and is not exposed publicly — a GitHub-hosted runner has
+# nothing to connect to. The runner dials out to GitHub, so no inbound port
+# is opened.
+#
+# SECURITY: `push` to main only, never `pull_request`. This job runs on a
+# machine with the owner's SSH key and Dokku access, so it must never be
+# triggerable by an untrusted fork. Keep it that way.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-opensource
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trycooy]
+    steps:
+      # Full history: Dokku's receiver rejects the shallow clone actions/checkout
+      # produces by default.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Build here rather than trusting Dokku's Nixpacks build, so a broken
+      # build fails the job before anything is pushed to the live app.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Check internal links
+        run: npm run check:links
+
+      - name: Push to Dokku
+        run: git push --force dokku:opensource HEAD:refs/heads/main
+
+      - name: Verify the site responds
+        run: |
+          for i in $(seq 1 20); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 20 https://opensource.johnhenry.me/ || true)
+            if [ "$CODE" = "200" ]; then
+              echo "::notice title=Deployed::https://opensource.johnhenry.me returned 200"
+              exit 0
+            fi
+            echo "attempt $i: got ${CODE:-no response}; retrying"
+            sleep 6
+          done
+          echo "site did not return 200 after deploy" >&2
+          exit 1
