@@ -47,10 +47,36 @@ for (const page of pages) {
   }
 }
 
-if (broken.size === 0) {
+// The six per-tool docs subdomains were retired when this site replaced them.
+// A reference to one can survive as plain display text — in a code sample, a
+// screenshot mockup — where no link checker would look, because it isn't a
+// link. One did exactly that. Only the two still-served hosts are allowed.
+const LIVE_ERISERA_HOSTS = new Set(['erisera.com', 'www.erisera.com', 'clawser.erisera.com']);
+const retired = new Map();
+for (const page of pages) {
+  const html = fs.readFileSync(page, 'utf8');
+  const from = '/' + path.relative(DIST, page).replace(/index\.html$/, '').replace(/\/+$/, '');
+  for (const [, host] of html.matchAll(/\b([a-z0-9-]+(?:\.[a-z0-9-]+)*\.erisera\.com)\b/gi)) {
+    if (LIVE_ERISERA_HOSTS.has(host.toLowerCase())) continue;
+    if (!retired.has(host)) retired.set(host, new Set());
+    retired.get(host).add(from || '/');
+  }
+}
+
+if (retired.size > 0) {
+  console.log(`${retired.size} reference(s) to retired erisera.com hosts:\n`);
+  for (const [host, sources] of [...retired].sort()) {
+    console.log(`  ${host}`);
+    for (const src of [...sources].sort().slice(0, 4)) console.log(`      on ${src}`);
+  }
+  console.log('');
+}
+
+if (broken.size === 0 && retired.size === 0) {
   console.log(`No broken internal links. ${routes.size} routes checked.`);
   process.exit(0);
 }
+if (broken.size === 0) process.exit(1);
 
 console.log(`${broken.size} broken link target(s):\n`);
 for (const [target, sources] of [...broken].sort()) {

@@ -37,8 +37,8 @@ class Demo extends Scene {
     sq.moveTo([3, -0.5, 0]);
     await this.play(new Create(poly), new Create(sq));
     await this.play(
-      Rotate(poly, Math.PI),
-      Transform(sq, new Circle({ radius: 1.3, color: RED, fillColor: RED, fillOpacity: 0.4 }).moveTo([3, -0.5, 0])),
+      new Rotate(poly, Math.PI),
+      new Transform(sq, new Circle({ radius: 1.3, color: RED, fillColor: RED, fillOpacity: 0.4 }).moveTo([3, -0.5, 0])),
     );
     await this.wait(0.4);
     await this.play(new FadeOut(poly), new FadeOut(sq), new FadeOut(title));
@@ -46,11 +46,19 @@ class Demo extends Scene {
 }
 
 const canvas = document.getElementById('stage');
-const run = () => play(Demo, { canvas, quality: 'medium', background: '#0d1117' });
+const run = () =>
+  play(Demo, { canvas, quality: 'medium', background: '#0d1117' })
+    .catch((err) => console.warn('ecmanim demo playback stopped:', err));
 run();
 document.getElementById('replay').addEventListener('click', run);
 document.getElementById('download').addEventListener('click', async () => {
-  const blob = await record(Demo, { quality: 'high', background: '#0d1117' });
+  let blob;
+  try {
+    blob = await record(Demo, { quality: 'high', background: '#0d1117' });
+  } catch (err) {
+    console.warn('ecmanim demo recording failed:', err);
+    return;
+  }
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
   a.href = url;

@@ -52,3 +52,19 @@ mirror({
   from: 'dist',
   to: 'public/ecmanim-dist',
 });
+
+// The showcase is a plain HTML page (not an Astro route) that displays the
+// version of the design system it's demonstrating. That was hardcoded and had
+// already drifted three releases behind, which defeats the point of mirroring
+// the package — so it's rendered from a template alongside the assets it uses.
+{
+  const tokens = require.resolve('@erisera-code/circuit/tokens.css');
+  const pkgRoot = path.dirname(path.dirname(tokens));
+  const { version } = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'));
+
+  const template = fs.readFileSync(path.join(SITE_ROOT, 'src/showcase/index.html'), 'utf8');
+  const out = path.join(SITE_ROOT, 'public/circuit/showcase/index.html');
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, template.replaceAll('{{CIRCUIT_VERSION}}', version));
+  console.log(`showcase rendered at circuit v${version}`);
+}

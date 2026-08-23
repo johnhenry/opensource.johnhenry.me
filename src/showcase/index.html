@@ -131,13 +131,13 @@
 <body>
 
 <div id="bar">
-  <span><b>Circuit</b> v0.0.1 — live showcase, importing the real <code>src/*</code> package files</span>
+  <span><b>Circuit</b> v{{CIRCUIT_VERSION}} — live showcase, importing the real <code>src/*</code> package files</span>
   <div class="right"><button class="mode" id="mode" aria-pressed="false" title="Cycle: auto (follows system) → dark → light">◐ auto</button></div>
 </div>
 
 <div id="canvas" class="circuit-grid">
   <header class="c-header">
-    <span class="c-logo"><span class="co">erisera</span><span class="tool">circuit</span><span class="ver">v0.0.1</span></span>
+    <span class="c-logo"><span class="co">erisera</span><span class="tool">circuit</span><span class="ver">v{{CIRCUIT_VERSION}}</span></span>
     <span class="tag">design system showcase</span>
   </header>
 
@@ -166,7 +166,7 @@
     <article class="art">
 
       <section id="overview">
-        <p class="eyebrow">erisera / circuit · v0.0.1 — pre-release</p>
+        <p class="eyebrow">erisera / circuit · v{{CIRCUIT_VERSION}} — pre-release</p>
         <h1>Circuit — the erisera OSS design system</h1>
         <p class="lede">One system, six tools. Circuit is a single set of tokens — neutrals, type, spacing, components — with exactly one dimension that changes per project: an accent hue. This page imports <code>src/index.css</code> and <code>src/palette.js</code> directly — every component below is the real, shipped thing.</p>
         <div class="rule">Three rules hold the system together: <b>neutrals are hue-stable</b> so scaffolding never clashes with whichever accent is active; <b>semantic color is fixed</b> (success/warning/error/info never rotate); <b>syntax highlighting is fixed</b>. Only <code>--accent</code> moves. See <a href="https://github.com/erisera-code/circuit#readme">README.md</a> for the full writeup.</div>
@@ -308,7 +308,7 @@
             <div class="ogtop"><div class="ogtile" id="ogtile"></div><span class="ogword"><span class="co">erisera /</span> <b id="ogname">matey</b></span></div>
             <div>
               <div class="ogtitle">Write once, run anywhere — a universal client for 12+ model providers</div>
-              <div class="ogsub">Quickstart guide · matey.erisera.com</div>
+              <div class="ogsub">Quickstart guide · opensource.johnhenry.me/ai-matey</div>
             </div>
             <div class="ogfoot">circuit design system · erisera.com</div>
           </div>

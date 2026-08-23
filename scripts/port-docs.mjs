@@ -75,6 +75,45 @@ const SOURCES = [
           '     src="/assets/ecmanim-logo-dark.png">',
         ].join('\n'),
       },
+      {
+        file: 'index.md',
+        // play() and record() return promises that nothing awaited, so an
+        // interrupted animation surfaced as an argument-less
+        // "Uncaught (in promise)" in the console. Harmless to the render, but
+        // it's the first thing a reader sees if they open devtools on the
+        // page that is meant to showcase the library.
+        find: /const run = \(\) => play\(Demo[\s\S]*?document\.getElementById\('replay'\)\.addEventListener\('click', run\);/,
+        replace: [
+          "const run = () =>",
+          "  play(Demo, { canvas, quality: 'medium', background: '#0d1117' })",
+          "    .catch((err) => console.warn('ecmanim demo playback stopped:', err));",
+          'run();',
+          "document.getElementById('replay').addEventListener('click', run);",
+        ].join('\n'),
+      },
+      {
+        file: 'index.md',
+        // Rotate and Transform are classes, like the Create/Write/FadeOut
+        // calls a few lines up that do use `new` — so the demo threw
+        // "Class constructor Rotate cannot be invoked without 'new'" partway
+        // through and never finished. The early frames rendered, which is why
+        // it looked fine; the rejection was unhandled, so nothing surfaced.
+        find: /      Rotate\(poly, Math\.PI\),\n      Transform\(sq, /,
+        replace: '      new Rotate(poly, Math.PI),\n      new Transform(sq, ',
+      },
+      {
+        file: 'index.md',
+        find: /  const blob = await record\(Demo, \{ quality: 'high', background: '#0d1117' \}\);/,
+        replace: [
+          '  let blob;',
+          '  try {',
+          "    blob = await record(Demo, { quality: 'high', background: '#0d1117' });",
+          '  } catch (err) {',
+          "    console.warn('ecmanim demo recording failed:', err);",
+          '    return;',
+          '  }',
+        ].join('\n'),
+      },
     ],
   },
   {

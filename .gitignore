@@ -5,3 +5,4 @@ public/src/
 .astro/
 .DS_Store
 *.log
+public/circuit/showcase/
