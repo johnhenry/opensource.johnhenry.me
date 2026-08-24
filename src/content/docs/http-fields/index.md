@@ -12,7 +12,8 @@ with strict parsing, bidirectional translation, zero dependencies, and full
 TypeScript definitions.
 
 > Previously published as `http-fields` (deprecated at 0.1.0). Same library,
-> same API — the version line continues under the new name.
+> same API — the scoped package restarts its version line at 0.0.0: a new
+> address and era, not a maturity signal.
 
 ## Install
 
