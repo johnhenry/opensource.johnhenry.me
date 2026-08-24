@@ -46,11 +46,29 @@ class Demo extends Scene {
 }
 
 const canvas = document.getElementById('stage');
-const run = () =>
-  play(Demo, { canvas, quality: 'medium', background: '#0d1117' })
-    .catch((err) => console.warn('ecmanim demo playback stopped:', err));
-run();
-document.getElementById('replay').addEventListener('click', run);
+const run = () => play(Demo, { canvas, quality: 'medium', background: '#0d1117' });
+
+// Loop: the scene ends on a FadeOut, so a single pass leaves an empty
+// canvas for anyone who arrives a few seconds late. Re-running keeps the
+// homepage demo showing something. `loop` guards against overlapping runs
+// if a manual replay lands mid-cycle.
+let looping = false;
+const loop = async () => {
+  if (looping) return;
+  looping = true;
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      await run();
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  } finally {
+    looping = false;
+  }
+};
+loop().catch((err) => console.warn('ecmanim demo playback stopped:', err));
+document.getElementById('replay').addEventListener('click', () =>
+  run().catch((err) => console.warn('ecmanim demo replay failed:', err)));
 document.getElementById('download').addEventListener('click', async () => {
   let blob;
   try {

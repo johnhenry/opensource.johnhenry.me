@@ -77,34 +77,19 @@ const SOURCES = [
       },
       {
         file: 'index.md',
-        // play() and record() return promises that nothing awaited, so an
-        // interrupted animation surfaced as an argument-less
-        // "Uncaught (in promise)" in the console. Harmless to the render, but
-        // it's the first thing a reader sees if they open devtools on the
-        // page that is meant to showcase the library.
-        find: /const run = \(\) => play\(Demo[\s\S]*?document\.getElementById\('replay'\)\.addEventListener\('click', run\);/,
+        // Neither the loop nor the replay handler catches, and `loop()` is
+        // called bare — so a playback failure becomes an argument-less
+        // "Uncaught (in promise)", which is what hid ecmanim#40 (a missing
+        // `new` that threw mid-animation) until a .catch was added here.
+        // Upstream fixed the `new`; the swallowed-rejection path is still
+        // open, and it is the first thing a reader sees if they open devtools
+        // on the page meant to showcase the library.
+        find: /^loop\(\);\ndocument\.getElementById\('replay'\)\.addEventListener\('click', run\);$/m,
         replace: [
-          "const run = () =>",
-          "  play(Demo, { canvas, quality: 'medium', background: '#0d1117' })",
-          "    .catch((err) => console.warn('ecmanim demo playback stopped:', err));",
-          'run();',
-          "document.getElementById('replay').addEventListener('click', run);",
+          "loop().catch((err) => console.warn('ecmanim demo playback stopped:', err));",
+          "document.getElementById('replay').addEventListener('click', () =>",
+          "  run().catch((err) => console.warn('ecmanim demo replay failed:', err)));",
         ].join('\n'),
-      },
-      {
-        file: 'index.md',
-        // Rotate and Transform are classes, like the Create/Write/FadeOut
-        // calls a few lines up that do use `new` — so the demo threw
-        // "Class constructor Rotate cannot be invoked without 'new'" partway
-        // through and never finished. The early frames rendered, which is why
-        // it looked fine; the rejection was unhandled, so nothing surfaced.
-        //
-        // Reported upstream as johnhenry/ecmanim#40: the repo's own
-        // examples/browser/index.html has the `new`, and only the website
-        // copy of the same demo lost it. Once that lands, this patch stops
-        // matching and the import fails loudly — delete it at that point.
-        find: /      Rotate\(poly, Math\.PI\),\n      Transform\(sq, /,
-        replace: '      new Rotate(poly, Math.PI),\n      new Transform(sq, ',
       },
       {
         file: 'index.md',
