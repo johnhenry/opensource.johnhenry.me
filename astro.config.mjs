@@ -49,6 +49,7 @@ export default defineConfig({
           { label: 'Agent Query', directory: 'agent-query' },
           { label: 'Math', directory: 'math' },
           { label: 'ecmanim', directory: 'ecmanim' },
+          { label: 'http-fields', directory: 'http-fields' },
           { label: 'andbox', directory: 'andbox' },
           { label: 'objectify', directory: 'objectify' },
           { label: 'Circuit', directory: 'circuit' },
