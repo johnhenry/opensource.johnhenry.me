@@ -15,7 +15,8 @@
     "check:links": "node scripts/check-links.mjs",
     "port:docs": "node scripts/port-docs.mjs",
     "preview": "astro preview",
-    "start": "serve dist -l tcp://0.0.0.0:${PORT:-3000}"
+    "start": "serve dist -l tcp://0.0.0.0:${PORT:-3000}",
+    "check:external": "node scripts/check-external-links.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.7",
