@@ -3,7 +3,7 @@ title: Math
 description: Geometry, intervals, tensors, signals, and units — a core mathematics library plus a family of focused extensions.
 ---
 
-Four separately published families, all MIT-licensed, all on npm under `@johnhenry/*`.
+Five separately published families, all MIT-licensed, all on npm under `@johnhenry/*`.
 
 | Package | What it is |
 |---|---|
@@ -11,6 +11,7 @@ Four separately published families, all MIT-licensed, all on npm under `@johnhen
 | [`@johnhenry/math-plus-*`](/math/math-plus/) | 17 focused packages for numeric computing: tensors, autograd, WASM/WebGPU kernels, dataframes, FFT, signal, image, units |
 | [`@johnhenry/math-grapher`](/math/math-grapher/) | A headless reactive-cell runtime, drivable by an AI agent over MCP |
 | [`@johnhenry/iteration`](/math/iteration/) | Sync and async iterator algebra — transducers, itertools parity, bounded concurrency |
+| [`@johnhenry/math-prototype-patch`](/math/math-prototype-patch/) | Opt-in `Number.prototype` patch adding `ComplexNumber`'s fluent arithmetic to plain numbers |
 
 ## Which one do I want?
 

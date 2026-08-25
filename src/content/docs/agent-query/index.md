@@ -12,16 +12,19 @@ The premise: most code that talks to an MCP or A2A server **is not itself an age
 | [`@johnhenry/mcp-query`](/agent-query/mcp-query/) | Reactive, cached MCP client. TanStack Query keys + RTK Query tags + LSP-client lifecycle, on the official MCP SDK. |
 | [`@johnhenry/mcp-query-tanstack`](/agent-query/mcp-query-tanstack/) | TanStack Query bridge — `queryOptions`/`mutationOptions` factories with zero extra refetches |
 | [`@johnhenry/mcp-gate`](/agent-query/mcp-gate/) | Config-driven MCP security proxy — authorization, DLP redaction, rate limiting, circuit breaking, audit |
+| [`@johnhenry/a2a-query`](/agent-query/a2a-query/) | Reactive A2A client — multi-agent registry, task-handle store, approval broker, on the official A2A SDK |
+| [`@johnhenry/a2a-query-tanstack`](/agent-query/a2a-query-tanstack/) | TanStack Query bridge for a2a-query |
+| [`@johnhenry/acp-query`](/agent-query/acp-query/) | Reactive session/turn store and permission broker for the Agent Client Protocol |
 
 ## The wider family
 
-Three sibling clients share a protocol-agnostic engine, `@johnhenry/agent-query-core` — a reactive cache, a human-in-the-loop broker, and instrumentation:
+All three clients share a protocol-agnostic engine, `@johnhenry/agent-query-core` — a reactive cache, a human-in-the-loop broker (`InteractionBroker`), and instrumentation. Wiring one `InteractionBroker` instance into clients for more than one protocol in the same app unifies approvals, policy, and audit across them.
 
 - **`@johnhenry/mcp-query`** — Model Context Protocol
 - **`@johnhenry/a2a-query`** — Agent2Agent: agent-card registry, task-handle store, approvals
 - **`@johnhenry/acp-query`** — Agent Client Protocol: session/turn store and permission broker
 
-Each has a matching TanStack binding (`*-tanstack`). This section documents the MCP packages in depth; the A2A and ACP clients follow the same shapes.
+Each has a matching TanStack binding (`*-tanstack`), except acp-query, which doesn't have one yet.
 
 ## Renamed 2026-08-23
 
@@ -41,4 +44,6 @@ The rename went deeper than the package name: CLI binaries, cache namespaces, st
 
 ## Versions
 
-The renamed packages restarted at `0.0.0` with `^0.0.0` internal ranges. Under npm's pre-1.0 caret rules that matches **only** `0.0.0`. Pin exact versions. `@johnhenry/mcp-gate` is the exception at `0.2.1`, continuing its original line.
+The renamed packages restarted at `0.0.0` with `^0.0.0` internal ranges. Under npm's pre-1.0 caret rules that matches **only** `0.0.0`. Pin exact versions. Two exceptions continue their own version lines instead of the shared `0.0.0` restart: `@johnhenry/mcp-gate` (`0.2.1`) and `@johnhenry/acp-query` (`0.0.2`, after `agent-query-core` was promoted to a stable `0.1.0`).
+
+Both `a2a-query` and `acp-query` published early releases before the rename that recommended installing via an `@rc` dist-tag — that dist-tag and those versions no longer exist. Plain `npm install @johnhenry/a2a-query` / `acp-query` gets the current code; ignore any `@rc` instruction you find in an older cached copy of either README.
