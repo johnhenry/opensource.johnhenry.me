@@ -70,6 +70,7 @@
 :root[data-tool='ai-matey']     { --hue: 25; }
 :root[data-tool='objectify']    { --hue: 70; }
 :root[data-tool='andbox']       { --hue: 95; }
+:root[data-tool='oat']           { --hue: 115; }
 :root[data-tool='agent-query']  { --hue: 250; }
 :root[data-tool='ecmanim']      { --hue: 285; }
 :root[data-tool='math']         { --hue: 315; }

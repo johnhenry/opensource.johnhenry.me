@@ -51,6 +51,7 @@ export default defineConfig({
           { label: 'ecmanim', directory: 'ecmanim' },
           { label: 'http-fields', directory: 'http-fields' },
           { label: 'wsh', directory: 'wsh' },
+          { label: 'Optical Artifact Transport', directory: 'oat' },
           { label: 'andbox', directory: 'andbox' },
           { label: 'objectify', directory: 'objectify' },
           { label: 'Circuit', directory: 'circuit' },
