@@ -75,6 +75,7 @@
 :root[data-tool='math']         { --hue: 315; }
 :root[data-tool='circuit']      { --hue: 45; }
 :root[data-tool='http-fields']  { --hue: 220; }
+:root[data-tool='wsh']          { --hue: 340; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

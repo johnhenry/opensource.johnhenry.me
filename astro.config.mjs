@@ -50,6 +50,7 @@ export default defineConfig({
           { label: 'Math', directory: 'math' },
           { label: 'ecmanim', directory: 'ecmanim' },
           { label: 'http-fields', directory: 'http-fields' },
+          { label: 'wsh', directory: 'wsh' },
           { label: 'andbox', directory: 'andbox' },
           { label: 'objectify', directory: 'objectify' },
           { label: 'Circuit', directory: 'circuit' },
