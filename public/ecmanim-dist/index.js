@@ -141,6 +141,10 @@ export { parseDeckMarkdown, deckFromMarkdown } from "./loaders/deck_markdown.js"
 // --- Lottie campaign (v0.7.0) ---------------------------------------------------
 export { loadLottie, LottieMobject } from "./mobject/lottie_mobject.js";
 export { parseLottie, cubicBezierEase, evalProperty } from "./loaders/lottie_loader.js";
+// --- ASS/SSA subtitle campaign ---------------------------------------------------
+export { loadASS, ASSMobject } from "./mobject/ass_mobject.js";
+export { parseASS, parseAssColor, parseAssTime, tokenizeOverrideText } from "./loaders/ass_loader.js";
+export { wordCaptionTrackToAss, vmobjectToAssDrawing } from "./interchange/ass.js";
 // Scene templates + themes (pure factories; compose with Timeline/transitions).
 export { resolveTheme } from "./templates/theme.js";
 export { titleCard, lowerThird, statCounter, socialShort, chartReveal, outroCard } from "./templates/templates.js";

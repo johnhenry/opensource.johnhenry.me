@@ -96,6 +96,10 @@ export interface ThreeDAxesConfig {
     zLength?: number;
     axisColors?: string[];
     axisConfig?: NumberLineConfig;
+    /** Per-axis overrides applied on top of `axisConfig`, same merge order as 2D Axes's identically-named config fields (ecmanim#38). */
+    xAxisConfig?: NumberLineConfig;
+    yAxisConfig?: NumberLineConfig;
+    zAxisConfig?: NumberLineConfig;
     [key: string]: any;
 }
 export declare class ThreeDAxes extends VGroup {
@@ -112,6 +116,16 @@ export declare class ThreeDAxes extends VGroup {
     _yUnit: number;
     _zUnit: number;
     constructor(config?: ThreeDAxesConfig);
+    /**
+     * Build one axis's number labels in WORLD space via coordsToPoint --
+     * correct regardless of that axis's post-construction rotation (mirrors
+     * 2D Axes's `_buildYNumbers()`). `coordIndex` selects which of
+     * coordsToPoint's (x, y, z) arguments `axis`'s own range varies;
+     * `worldOffset` nudges the label beside its tick rather than on top of
+     * the axis line, in WORLD space (unlike the buggy pre-rotation local
+     * offset this replaces).
+     */
+    private _buildAxisNumbers;
     _xRef(): number;
     _yRef(): number;
     _zRef(): number;

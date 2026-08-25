@@ -9,7 +9,7 @@ import { MathTex } from "./mathtex.js";
 import { LinearBase } from "./graphing_scale.js";
 import { Color } from "../core/color.js";
 // Inclusive-ish range: values from start up to (and including, within eps) stop.
-function makeTickRange([start, stop, step]) {
+export function makeTickRange([start, stop, step]) {
     const out = [];
     if (step === 0)
         return out;

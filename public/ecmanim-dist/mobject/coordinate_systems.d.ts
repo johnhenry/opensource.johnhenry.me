@@ -48,6 +48,7 @@ export interface NumberPlaneConfig extends AxesConfig {
         [key: string]: any;
     };
 }
+export declare function makeTickRange([start, stop, step]: number[]): number[];
 export declare class NumberLine extends VGroup {
     xMin: number;
     xMax: number;

@@ -47,8 +47,8 @@ mirror({
 });
 
 mirror({
-  pkg: 'ecmanim',
-  probe: 'ecmanim/browser',
+  pkg: '@johnhenry/ecmanim',
+  probe: '@johnhenry/ecmanim/browser',
   from: 'dist',
   to: 'public/ecmanim-dist',
 });
