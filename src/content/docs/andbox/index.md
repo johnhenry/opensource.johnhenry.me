@@ -6,22 +6,26 @@ andbox runs untrusted JavaScript in an isolated Web Worker with a structured bri
 
 Zero dependencies. Uses only Web Workers and standard browser APIs.
 
+> Previously published as `andbox` (last unscoped version 0.1.1). Same
+> library, same API — the scoped package restarts its version line at
+> 0.0.0: a new address and era, not a maturity signal.
+
 ## Install
 
 ```bash
-npm install andbox
+npm install @johnhenry/andbox
 ```
 
 Or via CDN (no bundler needed):
 
 ```js
-import { createSandbox } from 'https://esm.sh/andbox';
+import { createSandbox } from 'https://esm.sh/@johnhenry/andbox';
 ```
 
 ## Quick Start
 
 ```js
-import { createSandbox } from 'andbox';
+import { createSandbox } from '@johnhenry/andbox';
 
 const sandbox = await createSandbox({
   capabilities: {

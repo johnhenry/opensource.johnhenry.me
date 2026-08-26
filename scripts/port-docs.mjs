@@ -111,6 +111,48 @@ const SOURCES = [
     repo: path.join(PROJECTS, '@johnhenry/andbox'),
     ref: 'origin/docs-site',
     subdir: 'docs-site/src/content/docs',
+    // The docs-site branch predates the @johnhenry scope adoption (PR #2) and
+    // is dead (superseded, closed unmerged as PR #1) — it will never be
+    // updated with the new install commands itself, so the fix has to live
+    // here rather than upstream.
+    patches: [
+      {
+        file: 'index.md',
+        find: /Zero dependencies\. Uses only Web Workers and standard browser APIs\./,
+        replace: [
+          'Zero dependencies. Uses only Web Workers and standard browser APIs.',
+          '',
+          '> Previously published as `andbox` (last unscoped version 0.1.1). Same',
+          '> library, same API — the scoped package restarts its version line at',
+          '> 0.0.0: a new address and era, not a maturity signal.',
+        ].join('\n'),
+      },
+      {
+        file: 'index.md',
+        find: /npm install andbox/,
+        replace: 'npm install @johnhenry/andbox',
+      },
+      {
+        file: 'index.md',
+        find: /import \{ createSandbox \} from 'https:\/\/esm\.sh\/andbox';/,
+        replace: "import { createSandbox } from 'https://esm.sh/@johnhenry/andbox';",
+      },
+      {
+        file: 'index.md',
+        find: /import \{ createSandbox \} from 'andbox';/,
+        replace: "import { createSandbox } from '@johnhenry/andbox';",
+      },
+      {
+        file: 'api.md',
+        find: /import \{ gateCapabilities \} from 'andbox';/,
+        replace: "import { gateCapabilities } from '@johnhenry/andbox';",
+      },
+      {
+        file: 'api.md',
+        find: /import \{ createNetworkFetch \} from 'andbox';/,
+        replace: "import { createNetworkFetch } from '@johnhenry/andbox';",
+      },
+    ],
   },
   {
     section: 'objectify',

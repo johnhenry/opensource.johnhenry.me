@@ -56,7 +56,7 @@ Returns runtime statistics including pending evaluations, virtual modules, and g
 Wraps host functions with rate limiting and payload caps.
 
 ```js
-import { gateCapabilities } from 'andbox';
+import { gateCapabilities } from '@johnhenry/andbox';
 
 const { gated, stats } = gateCapabilities(
   { fetch: async (url) => (await fetch(url)).text() },
@@ -76,7 +76,7 @@ Resolves a module specifier against an import map, following the browser import 
 Creates a fetch function that only allows requests to specified hostnames.
 
 ```js
-import { createNetworkFetch } from 'andbox';
+import { createNetworkFetch } from '@johnhenry/andbox';
 
 const safeFetch = createNetworkFetch(['api.example.com']);
 await safeFetch('https://api.example.com/data'); // OK
