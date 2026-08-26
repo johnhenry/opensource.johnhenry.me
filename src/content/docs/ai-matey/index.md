@@ -5,6 +5,21 @@ description: "Introduction to ai.matey, the Universal AI Adapter System: one int
 
 Welcome to **ai.matey** - the Universal AI Adapter System that lets you write once and run anywhere.
 
+> Previously published as the unscoped `ai.matey.*` family (e.g.
+> `ai.matey.core@0.3.4`, `ai.matey.backend@0.9.0`). Renamed to
+> `@johnhenry/aimatey-*` and restarted at 0.0.0 — a new address and era, not a
+> maturity signal.
+
+## Install
+
+```bash
+npm install @johnhenry/aimatey
+```
+
+The umbrella package includes the commonly-used adapters and utilities. For
+finer-grained installs (core, frontends, backends, middleware, and more), see
+[Installation](/ai-matey/getting-started/installation).
+
 ## What is ai.matey?
 
 ai.matey is a comprehensive TypeScript/JavaScript framework that provides a unified interface for interacting with multiple AI providers. Write your code once using any standard format (OpenAI, Anthropic, Google, etc.) and seamlessly switch between 24+ AI providers without changing your application code.
@@ -161,6 +176,15 @@ ai.matey is built as a monorepo of 24 packages — 23 published to npm under the
 | **@johnhenry/aimatey-types** | TypeScript definitions | ✅ Production |
 
 [View all packages →](/ai-matey/packages/overview)
+
+## Status
+
+- **23 packages published** to npm under the `@johnhenry` scope, all currently
+  at 0.0.0 — the first release cycle under the new names (see the provenance
+  note above).
+- **1522 tests** pass across the monorepo (`npm test`).
+- Developed in the open in the
+  [johnhenry/ai.matey monorepo](https://github.com/johnhenry/ai.matey).
 
 ## Community & Support
 
