@@ -55,6 +55,11 @@ export default defineConfig({
           { label: 'andbox', directory: 'andbox' },
           { label: 'objectify', directory: 'objectify' },
           { label: 'Circuit', directory: 'circuit' },
+          { label: 'jth', directory: 'jth' },
+          { label: 'temporals', directory: 'temporals' },
+          { label: 'semantic-chunker', directory: 'semantic-chunker' },
+          { label: 'spintax', directory: 'spintax' },
+          { label: 'tester', directory: 'tester' },
         ].map(({ label, directory }) => ({
           label,
           collapsed: true,
