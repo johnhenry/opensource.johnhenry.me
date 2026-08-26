@@ -64,19 +64,30 @@
   --sl-color-red-high: var(--error);
 }
 
-/* Hue registry. Chosen to avoid the closed nominos family's arc
-   ([122°,219°] including buffers); each stop is ≥20° from its neighbours.
-   A new section picks a free hue in (45°,122°) or (219°,365°). */
-:root[data-tool='ai-matey']     { --hue: 25; }
-:root[data-tool='objectify']    { --hue: 70; }
-:root[data-tool='andbox']       { --hue: 95; }
-:root[data-tool='oat']           { --hue: 115; }
-:root[data-tool='agent-query']  { --hue: 250; }
-:root[data-tool='ecmanim']      { --hue: 285; }
-:root[data-tool='math']         { --hue: 315; }
-:root[data-tool='circuit']      { --hue: 45; }
-:root[data-tool='http-fields']  { --hue: 220; }
-:root[data-tool='wsh']          { --hue: 340; }
+/* Hue registry. The nominos arc ([122°,219°]) was reserved while that
+   family might have appeared here; nominos is now a private erisera product
+   and the arc is open. The registry is a 20°-spaced grid — a new section
+   takes the next free grid stop (agent-query/ecmanim/math were nudged ≤10°
+   onto the grid during the 2026-08 expansion; theme hues carry no meaning,
+   so a small nudge is invisible). At 17 stops the wheel is full — an 18th
+   section needs a policy change (≈15° spacing, or hue-sharing). */
+:root[data-tool='ai-matey']         { --hue: 25; }
+:root[data-tool='circuit']          { --hue: 45; }
+:root[data-tool='objectify']        { --hue: 70; }
+:root[data-tool='andbox']           { --hue: 95; }
+:root[data-tool='oat']              { --hue: 115; }
+:root[data-tool='isomorphic-jj']    { --hue: 135; }
+:root[data-tool='temporals']        { --hue: 155; }
+:root[data-tool='semantic-chunker'] { --hue: 175; }
+:root[data-tool='spintax']          { --hue: 195; }
+:root[data-tool='http-fields']      { --hue: 220; }
+:root[data-tool='agent-query']      { --hue: 240; }
+:root[data-tool='jth']              { --hue: 260; }
+:root[data-tool='ecmanim']          { --hue: 280; }
+:root[data-tool='raijin']           { --hue: 300; }
+:root[data-tool='math']             { --hue: 320; }
+:root[data-tool='wsh']              { --hue: 340; }
+:root[data-tool='tester']           { --hue: 0; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

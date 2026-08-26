@@ -16,6 +16,10 @@ import path from 'node:path';
 const SITE_ROOT = path.resolve(import.meta.dirname, '..');
 const DOCS_ROOT = path.join(SITE_ROOT, 'src/content/docs');
 const PROJECTS = path.join(process.env.HOME, 'Projects');
+// Library repos were consolidated under ~/Packages/@johnhenry during the
+// 2026-08 reorg; the docs site itself (and andbox/objectify) stayed in
+// ~/Projects. A SOURCES entry must point wherever its repo actually lives.
+const PACKAGES = path.join(process.env.HOME, 'Packages');
 
 /**
  * `git` source: read from a ref so a busy working tree is never touched.
@@ -24,7 +28,7 @@ const PROJECTS = path.join(process.env.HOME, 'Projects');
 const SOURCES = [
   {
     section: 'ai-matey',
-    repo: path.join(PROJECTS, 'ai.matey'),
+    repo: path.join(PACKAGES, '@johnhenry/ai.matey'),
     ref: 'origin/main',
     subdir: 'packages/ai.matey.docs/src/content/docs',
     // 958 generated TypeDoc pages; regenerating them needs all 21 packages
@@ -53,7 +57,7 @@ const SOURCES = [
   },
   {
     section: 'ecmanim',
-    repo: path.join(PROJECTS, '@johnhenry/ecmanim'),
+    repo: path.join(PACKAGES, '@johnhenry/ecmanim'),
     ref: 'origin/main',
     subdir: 'website/src/content/docs',
     // Logo images referenced from the index page's <picture> element.
@@ -159,6 +163,68 @@ const SOURCES = [
     repo: path.join(PROJECTS, '@johnhenry/objectify'),
     ref: 'origin/docs-site',
     subdir: 'docs-site/src/content/docs',
+    // The docs-site branch predates the npm binary distribution (objectify
+    // PR #2) and is dead — like andbox's, it will never learn the npm
+    // install story itself, so the site's hand-edits (this repo's PR #1)
+    // are re-applied here to survive a re-port.
+    patches: [
+      {
+        file: 'index.md',
+        find: /Requires \[Rust\]\(https:\/\/rustup\.rs\) 1\.70\+\./,
+        replace: [
+          'The easiest way, if you have Node.js 18+:',
+          '',
+          '```sh',
+          'npm install -g @johnhenry/objectify',
+          '# or run it without installing:',
+          'npx @johnhenry/objectify --help',
+          '```',
+          '',
+          'This installs a small platform-detection shim plus a prebuilt binary for your',
+          'OS/architecture — no Rust toolchain required. Prebuilt binaries currently',
+          'ship for macOS (Apple Silicon and Intel), Linux (x64 and arm64, glibc), and',
+          'Windows (x64); see the [CLI reference](/cli-reference/) for the',
+          'full platform list and how the package works internally.',
+          '',
+          'Or build from source, if you have [Rust](https://rustup.rs) 1.70+:',
+        ].join('\n'),
+      },
+      {
+        file: 'cli-reference.md',
+        find: /Run `objectify --help` or `objectify <command> --help` for built-in documentation including examples\. Every command has a `--help` flag with a description, per-argument docs, format reference, and examples\.\n/,
+        replace: [
+          'Run `objectify --help` or `objectify <command> --help` for built-in documentation including examples. Every command has a `--help` flag with a description, per-argument docs, format reference, and examples.',
+          '',
+          '### How the npm package works',
+          '',
+          '`npm install -g @johnhenry/objectify` does not compile anything — objectify',
+          'is a Rust binary, and `@johnhenry/objectify` is a thin Node.js shim',
+          '(`bin/objectify.js`) that detects your OS/CPU at install time and delegates',
+          'to a prebuilt binary shipped in one of five tiny per-platform packages,',
+          'installed automatically as `optionalDependencies` (the same pattern used by',
+          '`esbuild`, `@swc/core`, and `turbo`):',
+          '',
+          '| Platform | Package |',
+          '|---|---|',
+          '| macOS, Apple Silicon | `@johnhenry/objectify-darwin-arm64` |',
+          '| macOS, Intel | `@johnhenry/objectify-darwin-x64` |',
+          '| Linux, x64 (glibc) | `@johnhenry/objectify-linux-x64` |',
+          '| Linux, arm64 (glibc) | `@johnhenry/objectify-linux-arm64` |',
+          '| Windows, x64 | `@johnhenry/objectify-win32-x64` |',
+          '',
+          'No postinstall script runs and no binary is downloaded over the network at',
+          "install time — npm's own `os`/`cpu`-based optional-dependency filtering picks",
+          'the right package, and the compiled binary ships inside its tarball like any',
+          'other npm package asset. There is currently no `musl` build (e.g. for',
+          'Alpine-based Docker images); if you need one, open an issue on the repo.',
+          '',
+          "If you'd rather build from source or need a platform not listed above, see",
+          '[Installation](/#installation) for the `cargo build --release`',
+          'path.',
+          '',
+        ].join('\n'),
+      },
+    ],
   },
   {
     section: 'circuit',
@@ -248,6 +314,30 @@ function copyAssets(repo, ref, assetDir, section) {
     );
   }
   return files.length;
+}
+
+// Validate every source before touching anything. The per-section rmSync
+// below is destructive, so a single bad entry (a moved repo, a deleted
+// branch) must fail the whole run up front — not after earlier sections have
+// already been wiped. A missing cwd makes execFileSync throw ENOENT with a
+// message indistinguishable from "git is not installed", which is how a
+// stale repo path once deleted 29 pages and then lied about why.
+const problems = [];
+for (const { section, repo, ref, subdir } of SOURCES) {
+  if (!fs.existsSync(repo)) {
+    problems.push(`${section}: repo path does not exist: ${repo}`);
+    continue;
+  }
+  try {
+    listFiles(repo, ref, subdir);
+  } catch (err) {
+    problems.push(`${section}: git ls-tree ${ref} ${subdir} failed in ${repo}: ${err.message}`);
+  }
+}
+if (problems.length) {
+  console.error('Refusing to run — fix these SOURCES entries first:\n');
+  for (const p of problems) console.error(`  - ${p}`);
+  process.exit(1);
 }
 
 let total = 0;

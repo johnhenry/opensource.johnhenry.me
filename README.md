@@ -15,16 +15,27 @@ hue (see `src/styles/circuit-bridge.css`).
 | Section | Directory | Hue |
 |---|---|---|
 | ai.matey | `ai-matey/` | 25° |
-| Agent Query (mcp-query, a2a-query, acp-query, mcp-gate) | `agent-query/` | 250° |
-| Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 315° |
-| ecmanim | `ecmanim/` | 285° |
+| Agent Query (mcp-query, a2a-query, acp-query, mcp-gate) | `agent-query/` | 240° |
+| Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 320° |
+| ecmanim | `ecmanim/` | 280° |
+| http-fields | `http-fields/` | 220° |
+| wsh | `wsh/` | 340° |
+| Optical Artifact Transport | `oat/` | 115° |
 | andbox | `andbox/` | 95° |
 | objectify | `objectify/` | 70° |
 | Circuit | `circuit/` | 45° |
+| isomorphic-jj | `isomorphic-jj/` | 135° |
+| jth | `jth/` | 260° |
+| raijin | `raijin/` | 300° |
+| temporals | `temporals/` | 155° |
+| semantic-chunker | `semantic-chunker/` | 175° |
+| spintax | `spintax/` | 195° |
+| tester | `tester/` | 0° |
 
-Hues avoid the arc reserved by the closed nominos family (`[122°, 219°]`); a new
-section should pick a free hue in `(45°, 122°)` or `(219°, 365°)`, at least 20°
-from every existing stop.
+The registry is a 20°-spaced grid (the nominos arc `[122°, 219°]`, once
+reserved, is open — nominos is a private erisera product and will never appear
+here). At 17 stops with ≥20° spacing the wheel is full: an 18th section needs
+a policy change (relax spacing to ~15°, or share a hue with a related family).
 
 Styling comes from [`@erisera-code/circuit`](https://github.com/erisera-code/circuit)
 via `src/styles/circuit-bridge.css`, which maps Circuit's tokens onto Starlight's
