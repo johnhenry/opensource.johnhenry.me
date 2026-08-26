@@ -12,6 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SITE_ROOT = path.resolve(import.meta.dirname, '..');
 const DOCS_ROOT = path.join(SITE_ROOT, 'src/content/docs');
@@ -114,8 +115,13 @@ const SHARED_ROOTS = ['/src/', '/ecmanim-dist/'];
  * site". Here it has to mean "this section". Covers markdown links and the
  * HTML src/srcset/href attributes the pages also use — the ecmanim logo is
  * an <img>, not a markdown image, and would silently 404 otherwise.
+ *
+ * src/href/srcset are matched with either quote style — a source site is
+ * under no obligation to use double quotes, and a single-quoted attribute
+ * passing through unrewritten would silently keep pointing at the old
+ * site's root.
  */
-function rewritePaths(body, section) {
+export function rewritePaths(body, section) {
   const prefix = (href) =>
     href.startsWith('//') || SHARED_ROOTS.some((r) => href.startsWith(r))
       ? null
@@ -126,13 +132,31 @@ function rewritePaths(body, section) {
       const next = prefix(href);
       return next ? `](${next})` : whole;
     })
-    .replace(/\b(src|href)="(\/[^"]*)"/g, (whole, attr, href) => {
+    .replace(/\b(src|href)=(?:"(\/[^"]*)"|'(\/[^']*)')/g, (whole, attr, dq, sq) => {
+      const quote = dq !== undefined ? '"' : "'";
+      const href = dq !== undefined ? dq : sq;
       const next = prefix(href);
-      return next ? `${attr}="${next}"` : whole;
+      return next ? `${attr}=${quote}${next}${quote}` : whole;
     })
-    .replace(/\bsrcset="(\/[^"]*)"/g, (whole, href) => {
-      const next = prefix(href);
-      return next ? `srcset="${next}"` : whole;
+    .replace(/\bsrcset=(?:"([^"]*)"|'([^']*)')/g, (whole, dq, sq) => {
+      const quote = dq !== undefined ? '"' : "'";
+      const value = dq !== undefined ? dq : sq;
+      // A candidate is `url` or `url descriptor` (e.g. `/img-2x.png 2x`); each
+      // one is a separate URL and must be rewritten independently, not just
+      // the first, or later candidates 404 post-port.
+      const rewritten = value
+        .split(',')
+        .map((candidate) => {
+          const trimmed = candidate.trim();
+          const spaceIdx = trimmed.search(/\s/);
+          const url = spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx);
+          const descriptor = spaceIdx === -1 ? '' : trimmed.slice(spaceIdx);
+          if (!url.startsWith('/')) return trimmed;
+          const next = prefix(url);
+          return next ? `${next}${descriptor}` : trimmed;
+        })
+        .join(', ');
+      return `srcset=${quote}${rewritten}${quote}`;
     });
 }
 
@@ -142,7 +166,7 @@ function rewritePaths(body, section) {
  * for a section inside a larger site, so it's dropped along with the hero
  * block that only renders under it.
  */
-function normalizeIndex(raw) {
+export function normalizeIndex(raw) {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return raw;
   const [, frontmatter, body] = match;
@@ -150,7 +174,7 @@ function normalizeIndex(raw) {
     .split('\n')
     .filter((line) => !/^template:\s*splash\s*$/.test(line))
     .join('\n')
-    .replace(/^hero:\n(?:[ \t]+.*\n?)*/m, '');
+    .replace(/^hero:\n(?:(?:[ \t]+.*)?\n?)*/m, '');
   return `---\n${cleaned.trimEnd()}\n---\n${body}`;
 }
 
@@ -187,82 +211,91 @@ function copyAssets(repo, ref, assetDir, section) {
   return files.length;
 }
 
-// Validate every source before touching anything. The per-section rmSync
-// below is destructive, so a single bad entry (a moved repo, a deleted
-// branch) must fail the whole run up front — not after earlier sections have
-// already been wiped. A missing cwd makes execFileSync throw ENOENT with a
-// message indistinguishable from "git is not installed", which is how a
-// stale repo path once deleted 29 pages and then lied about why.
-const problems = [];
-for (const { section, repo, ref, subdir } of SOURCES) {
-  if (!fs.existsSync(repo)) {
-    problems.push(`${section}: repo path does not exist: ${repo}`);
-    continue;
+// Everything below is guarded so importing this module (e.g. from tests, to
+// exercise the pure functions above in isolation) never touches the
+// filesystem or runs the destructive rmSync calls — only running the file
+// directly does.
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+function main() {
+  // Validate every source before touching anything. The per-section rmSync
+  // below is destructive, so a single bad entry (a moved repo, a deleted
+  // branch) must fail the whole run up front — not after earlier sections have
+  // already been wiped. A missing cwd makes execFileSync throw ENOENT with a
+  // message indistinguishable from "git is not installed", which is how a
+  // stale repo path once deleted 29 pages and then lied about why.
+  const problems = [];
+  for (const { section, repo, ref, subdir } of SOURCES) {
+    if (!fs.existsSync(repo)) {
+      problems.push(`${section}: repo path does not exist: ${repo}`);
+      continue;
+    }
+    try {
+      listFiles(repo, ref, subdir);
+    } catch (err) {
+      problems.push(`${section}: git ls-tree ${ref} ${subdir} failed in ${repo}: ${err.message}`);
+    }
   }
-  try {
-    listFiles(repo, ref, subdir);
-  } catch (err) {
-    problems.push(`${section}: git ls-tree ${ref} ${subdir} failed in ${repo}: ${err.message}`);
+  if (problems.length) {
+    console.error('Refusing to run — fix these SOURCES entries first:\n');
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
   }
-}
-if (problems.length) {
-  console.error('Refusing to run — fix these SOURCES entries first:\n');
-  for (const p of problems) console.error(`  - ${p}`);
-  process.exit(1);
-}
 
-let total = 0;
-let patchesApplied = 0;
-let assetCount = 0;
-for (const { section, repo, ref, subdir, exclude, patches, assets } of SOURCES) {
-  const dest = path.join(DOCS_ROOT, section);
-  fs.rmSync(dest, { recursive: true, force: true });
+  let total = 0;
+  let patchesApplied = 0;
+  let assetCount = 0;
+  for (const { section, repo, ref, subdir, exclude, patches, assets } of SOURCES) {
+    const dest = path.join(DOCS_ROOT, section);
+    fs.rmSync(dest, { recursive: true, force: true });
 
-  if (assets) assetCount += copyAssets(repo, ref, assets, section);
+    if (assets) assetCount += copyAssets(repo, ref, assets, section);
 
-  const files = listFiles(repo, ref, subdir);
-  let count = 0;
+    const files = listFiles(repo, ref, subdir);
+    let count = 0;
 
-  for (const file of files) {
-    const rel = path.relative(subdir, file);
-    if (exclude?.(rel)) continue;
+    for (const file of files) {
+      const rel = path.relative(subdir, file);
+      if (exclude?.(rel)) continue;
 
-    const raw = execFileSync('git', ['show', `${ref}:${file}`], {
-      cwd: repo,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    });
+      const raw = execFileSync('git', ['show', `${ref}:${file}`], {
+        cwd: repo,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      });
 
-    const isIndex = rel === 'index.md' || rel === 'index.mdx';
-    let staged = isIndex ? normalizeIndex(raw) : raw;
+      const isIndex = rel === 'index.md' || rel === 'index.mdx';
+      let staged = isIndex ? normalizeIndex(raw) : raw;
 
-    // Patches repair links that were already broken upstream, so they run
-    // before the section prefix is applied and fail loudly if the upstream
-    // text they target has changed.
-    for (const patch of patches ?? []) {
-      if (patch.file !== rel) continue;
-      if (!patch.find.test(staged)) {
-        throw new Error(
-          `Patch for ${section}/${rel} did not match — upstream content changed, re-check it.`
-        );
+      // Patches repair links that were already broken upstream, so they run
+      // before the section prefix is applied and fail loudly if the upstream
+      // text they target has changed.
+      for (const patch of patches ?? []) {
+        if (patch.file !== rel) continue;
+        if (!patch.find.test(staged)) {
+          throw new Error(
+            `Patch for ${section}/${rel} did not match — upstream content changed, re-check it.`
+          );
+        }
+        staged = staged.replace(patch.find, patch.replace);
+        patchesApplied += 1;
       }
-      staged = staged.replace(patch.find, patch.replace);
-      patchesApplied += 1;
+
+      const content = rewritePaths(staged, section);
+
+      const target = path.join(dest, rel);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, content);
+      count += 1;
     }
 
-    const content = rewritePaths(staged, section);
-
-    const target = path.join(dest, rel);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, content);
-    count += 1;
+    console.log(`${section.padEnd(10)} ${String(count).padStart(3)} pages  (${ref})`);
+    total += count;
   }
 
-  console.log(`${section.padEnd(10)} ${String(count).padStart(3)} pages  (${ref})`);
-  total += count;
+  console.log(
+    `\n${total} pages imported, ${assetCount} asset(s) copied, ` +
+      `${patchesApplied} upstream link fix(es) applied.`
+  );
 }
 
-console.log(
-  `\n${total} pages imported, ${assetCount} asset(s) copied, ` +
-    `${patchesApplied} upstream link fix(es) applied.`
-);
+if (isMain) main();

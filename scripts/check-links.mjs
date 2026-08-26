@@ -25,10 +25,6 @@ const routes = new Set(
     return rel.replace(/\/+$/, '') || '/';
   })
 );
-const assets = new Set(
-  walk(DIST).length ? [] : []
-);
-
 const broken = new Map();
 for (const page of pages) {
   const html = fs.readFileSync(page, 'utf8');
