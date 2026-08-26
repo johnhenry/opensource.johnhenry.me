@@ -6,6 +6,33 @@ title: "CLI reference"
 
 Run `objectify --help` or `objectify <command> --help` for built-in documentation including examples. Every command has a `--help` flag with a description, per-argument docs, format reference, and examples.
 
+### How the npm package works
+
+`npm install -g @johnhenry/objectify` does not compile anything — objectify
+is a Rust binary, and `@johnhenry/objectify` is a thin Node.js shim
+(`bin/objectify.js`) that detects your OS/CPU at install time and delegates
+to a prebuilt binary shipped in one of five tiny per-platform packages,
+installed automatically as `optionalDependencies` (the same pattern used by
+`esbuild`, `@swc/core`, and `turbo`):
+
+| Platform | Package |
+|---|---|
+| macOS, Apple Silicon | `@johnhenry/objectify-darwin-arm64` |
+| macOS, Intel | `@johnhenry/objectify-darwin-x64` |
+| Linux, x64 (glibc) | `@johnhenry/objectify-linux-x64` |
+| Linux, arm64 (glibc) | `@johnhenry/objectify-linux-arm64` |
+| Windows, x64 | `@johnhenry/objectify-win32-x64` |
+
+No postinstall script runs and no binary is downloaded over the network at
+install time — npm's own `os`/`cpu`-based optional-dependency filtering picks
+the right package, and the compiled binary ships inside its tarball like any
+other npm package asset. There is currently no `musl` build (e.g. for
+Alpine-based Docker images); if you need one, open an issue on the repo.
+
+If you'd rather build from source or need a platform not listed above, see
+[Installation](/objectify/#installation) for the `cargo build --release`
+path.
+
 | Command | Description |
 |---------|-------------|
 | `init` | Create `.objectify/` in cwd or `~/.objectify/` globally |

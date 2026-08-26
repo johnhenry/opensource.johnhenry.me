@@ -28,7 +28,21 @@ objectify log 3fa8
 
 ## Installation
 
-Requires [Rust](https://rustup.rs) 1.70+.
+The easiest way, if you have Node.js 18+:
+
+```sh
+npm install -g @johnhenry/objectify
+# or run it without installing:
+npx @johnhenry/objectify --help
+```
+
+This installs a small platform-detection shim plus a prebuilt binary for your
+OS/architecture — no Rust toolchain required. Prebuilt binaries currently
+ship for macOS (Apple Silicon and Intel), Linux (x64 and arm64, glibc), and
+Windows (x64); see the [CLI reference](/objectify/cli-reference/) for the
+full platform list and how the package works internally.
+
+Or build from source, if you have [Rust](https://rustup.rs) 1.70+:
 
 ```sh
 git clone <repo>
