@@ -18,6 +18,20 @@ const artifact = await buildArtifact(payload, { signingKey: key });
 const ok = await verifyArtifact(artifact); // checks digest AND signature
 ```
 
+The envelope's shape (`OatArtifact`) is small enough to hold in your head:
+
+| Field | Shape | Notes |
+| --- | --- | --- |
+| `version` | `1` | |
+| `id` / `createdAt` / `expiresAt?` | strings (ISO timestamps) | |
+| `mediaType` | string | a `Blob`/`File` source carries its own `type` here |
+| `payload` | `Uint8Array` | optionally gzipped when `compression: 'gzip'` |
+| `digest` | `{ algorithm: 'sha256', value }` | always present; computed with `digest`/`signature` excluded |
+| `signature?` | `{ algorithm: 'ed25519', publicKey, value, keyId? }` | covers everything but itself — payload *and* digest bound together |
+| `encryption?` | `{ scheme, keyEnvelope, recipientHint? }` | |
+| `uiProposal?` | `UiProposalEnvelope` | the negotiated-UI path |
+| `metadata?` | `Record<string, unknown>` | |
+
 **The signature carries the signer's public key inline.** There's no separate key-exchange step for cross-device use — a valid signature alone tells you *some* key signed it. Whether that key is one you should trust is a separate question, handled by trust-on-first-use (see [Security model](/oat/security/)).
 
 ## Capabilities

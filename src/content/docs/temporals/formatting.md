@@ -56,6 +56,24 @@ const [event] = fromICS(ics); // Temporal values + the RRULE string
 icsToSeq(event).toArray();    // expand DTSTART + RRULE + EXDATE/RDATE → Seq
 ```
 
+### How Temporal types map to the wire
+
+Four Temporal point types round-trip through `DTSTART`/`DTEND`/`EXDATE`/`RDATE`,
+each with its own wire form — most surprises live in this table:
+
+| Temporal value | On the wire | Meaning |
+| --- | --- | --- |
+| `PlainDate` | `DTSTART;VALUE=DATE:20260101` | All-day event |
+| `ZonedDateTime` | `DTSTART;TZID=America/New_York:20260101T090000` | Wall-clock time in a named zone |
+| `Instant` | `DTSTART:20260101T140000Z` | Absolute UTC moment |
+| `PlainDateTime` | `DTSTART:20260101T090000` | "Floating" time — no zone at all |
+
+Parsing runs the same table in reverse: `VALUE=DATE` → `PlainDate`, a `TZID`
+param → `ZonedDateTime`, a trailing `Z` → `Instant`, and a bare datetime →
+`PlainDateTime`. Which type you feed `toICS` is therefore a semantic choice,
+not a formatting one — a floating `PlainDateTime` and an `Instant` render one
+character apart but mean different things to every calendar that imports them.
+
 ### Round-trips are tested, zones included
 
 `toICS(fromICS(x))` is exercised in the suite for all-day events *and* zoned

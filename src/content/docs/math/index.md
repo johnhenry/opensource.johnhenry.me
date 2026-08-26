@@ -33,3 +33,10 @@ Five separately published families, all MIT-licensed, all on npm under `@johnhen
 The math packages are early: most sit at `0.0.0` and use `^0.0.0` ranges internally. Under npm's pre-1.0 caret rules `^0.0.0` matches **only** `0.0.0` — it is not a range. Pin exact versions and expect a coordinated move to `0.1.x` before these are dependable in production.
 
 `@johnhenry/iteration` is the mature one: it has shipped under three names across several years (see its page for the provenance).
+
+## Source
+
+Three repos, each with runnable examples:
+[`math`](https://github.com/johnhenry/math) (core + iteration + prototype-patch, [examples](https://github.com/johnhenry/math/tree/main/examples)) ·
+[`math-plus`](https://github.com/johnhenry/math-plus) ([examples](https://github.com/johnhenry/math-plus/tree/main/examples)) ·
+[`math-grapher`](https://github.com/johnhenry/math-grapher) ([examples](https://github.com/johnhenry/math-grapher/tree/main/examples))

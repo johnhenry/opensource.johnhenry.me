@@ -102,6 +102,15 @@ With RFC 5545 `exclude` (EXDATE) in play, `count: 10` yields 10 occurrences
 *after* exclusions — not 10-minus-the-excluded. `include` (RDATE) merges extra
 dates in sorted order, deduplicated.
 
+## Not a scheduler — nothing here runs
+
+`temporals` computes *when*; it never owns a timer, a queue, or a running
+process. A `Schedule` tells you the next occurrences — actually firing a job
+at those times is your layer. The repo's
+[`examples/scheduler/`](https://github.com/johnhenry/temporals/tree/main/examples/scheduler)
+is a minimal reference implementation of exactly that boundary (see
+[Examples](/temporals/examples/)).
+
 ## The subpaths
 
 The core entry stays lean; heavier domains live behind subpaths:

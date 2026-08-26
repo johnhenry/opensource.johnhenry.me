@@ -58,3 +58,7 @@ The library itself imposes no maximum payload size. The practical limit comes fr
 ## Status
 
 Implements the full M0–M6 milestone set from the project's design doc — protocol spec, transport simulator, both custom elements, receiver-owned safe UI rendering, bootstrap workflows (verified release-manifest fetch, real WebRTC offer/answer), and the M6 unsafe-HTML break-glass profile. BitTorrent/content-addressed bootstrap was scoped in M5 but not built — the pattern generalizes to it.
+
+Source: [github.com/johnhenry/optical-artifact-transport](https://github.com/johnhenry/optical-artifact-transport) ·
+Runnable examples in [`examples/`](https://github.com/johnhenry/optical-artifact-transport/tree/main/examples) —
+round trip, lossy channel, signature rejection, bootstrap manifest — all camera-free via the simulator.

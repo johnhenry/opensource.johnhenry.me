@@ -47,6 +47,14 @@ pick(0); // "Hello world!"
 pick();  // random: "Hello world!" or "Hello nurse!"
 ```
 
+## Not a template engine, not an article spinner
+
+There are no variables, conditionals, loops, or per-option weights — just the
+exhaustive cross product of the patterns, in a guaranteed order. If you want
+to interpolate data, use template literals *around* spintax, not instead of
+it. If you want weighted random variants, repeat an option (`{a|a|b}` makes
+`a` twice as likely under `choose()`).
+
 ## Braces are structural everywhere — there is no escape syntax
 
 Every `{...}` in the template is consumed as a pattern, and the scan is flat:
@@ -117,4 +125,6 @@ The API is five functions (`parse` — also the default export — `compile`,
 `range`, `count`, `choose`) and has been unchanged since the 1.x line of the
 unscoped package.
 
-Source: [github.com/johnhenry/spintax](https://github.com/johnhenry/spintax)
+Source: [github.com/johnhenry/spintax](https://github.com/johnhenry/spintax) ·
+Runnable examples in [`examples/`](https://github.com/johnhenry/spintax/tree/main/examples) —
+each named for the behavior it demonstrates.

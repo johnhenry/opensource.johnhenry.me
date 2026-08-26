@@ -78,6 +78,6 @@ A seventh workspace package, `raijin-test-harness`, is internal multi-node test 
 
 ## Status
 
-Experimental consensus research, unaudited, APIs unstable at `0.0.0`. What's real: 123 deterministic tests across the six packages, seven runnable single-node examples smoke-tested in CI, and a multi-node scenario harness (partitions, leader crashes, churn) that runs in-repo. What's not: state-root commitment in headers, verified consensus signatures, view-change proofs, any persistence or transport implementation, `EthBlobDA` (a stub that throws with instructions).
+Experimental consensus research, unaudited, APIs unstable at `0.0.0`. What's real: 123 deterministic tests across the six packages, [seven runnable single-node examples](https://github.com/johnhenry/raijin/tree/main/examples) smoke-tested in CI, and a multi-node scenario harness (partitions, leader crashes, churn) that runs in-repo. What's not: state-root commitment in headers, verified consensus signatures, view-change proofs, any persistence or transport implementation, `EthBlobDA` (a stub that throws with instructions).
 
 Source: [github.com/johnhenry/raijin](https://github.com/johnhenry/raijin)

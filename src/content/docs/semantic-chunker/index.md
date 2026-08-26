@@ -63,6 +63,18 @@ Three strategies share the same `[text, embedding]` output shape:
 `sentence` and `full` never look at the embeddings — they work fine without
 an embedder. Only `semantic` needs one, which leads to the first trap.
 
+## Honest math: when naive splitting is fine
+
+Semantic chunking isn't free — `semantic` makes one `embed` call per segment
+plus one per emitted chunk, so a 300-sentence document costs 300+ embedding
+calls before you've indexed anything. If your documents are short, uniform in
+topic, or a reranker sits downstream anyway, fixed-size splitting with
+overlap (`full({ split })` here, or any string slicer) is dramatically
+cheaper and often retrieves nearly as well. `semantic` earns its cost on
+long, topic-mixed documents where a fixed window would routinely cut ideas in
+half. The repo's first example runs all three strategies on the same
+document, so you can see the difference before paying for it.
+
 ## No embedder means no boundaries — and no error
 
 `embed` defaults to a null embedder that returns `[]` for every text. Cosine
@@ -115,4 +127,6 @@ suite (deterministic mock embedder, fully predictable boundaries) plus gated
 integration tests against real Xenova and Ollama embedders. CI runs the unit
 suite and TypeScript checks on Node 20 and 22.
 
-Source: [github.com/johnhenry/semantic-chunker](https://github.com/johnhenry/semantic-chunker)
+Source: [github.com/johnhenry/semantic-chunker](https://github.com/johnhenry/semantic-chunker) ·
+Runnable examples in [`examples/`](https://github.com/johnhenry/semantic-chunker/tree/main/examples) —
+each named for the behavior it demonstrates.

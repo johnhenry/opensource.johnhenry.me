@@ -49,7 +49,10 @@ await client.connect('wss://shell.example.com', {
 - [Guide](/wsh/guide/) — connect, PTY sessions, one-shot exec, keys
 - [API](/wsh/api/) — every export, grouped
 
-Source: [github.com/johnhenry/wsh](https://github.com/johnhenry/wsh). The
+Source: [github.com/johnhenry/wsh](https://github.com/johnhenry/wsh) ·
+Runnable examples in [`examples/`](https://github.com/johnhenry/wsh/tree/main/examples) —
+each named for the behavior it proves (frames surviving a fragmented
+transport, a tampered challenge failing auth, …). The
 protocol is specified machine-readably in the repo's `spec/wsh-v1.yaml`, from
 which the message constants are code-generated — the wire format is a contract,
 not folklore.

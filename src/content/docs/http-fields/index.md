@@ -71,6 +71,7 @@ Two traps worth knowing on day one:
   the one deliberate spec deviation each library makes
 
 Source: [github.com/johnhenry/http-fields](https://github.com/johnhenry/http-fields) ·
+Runnable examples in [`examples/`](https://github.com/johnhenry/http-fields/tree/main/examples) ·
 The test suite runs the official
 [httpwg structured-field-tests](https://github.com/httpwg/structured-field-tests)
 vectors — 2,214 tests.

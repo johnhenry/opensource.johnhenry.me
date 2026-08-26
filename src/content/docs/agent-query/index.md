@@ -47,3 +47,13 @@ The rename went deeper than the package name: CLI binaries, cache namespaces, st
 The renamed packages restarted at `0.0.0` with `^0.0.0` internal ranges. Under npm's pre-1.0 caret rules that matches **only** `0.0.0`. Pin exact versions. Two exceptions continue their own version lines instead of the shared `0.0.0` restart: `@johnhenry/mcp-gate` (`0.2.1`) and `@johnhenry/acp-query` (`0.0.2`, after `agent-query-core` was promoted to a stable `0.1.0`).
 
 Both `a2a-query` and `acp-query` published early releases before the rename that recommended installing via an `@rc` dist-tag — that dist-tag and those versions no longer exist. Plain `npm install @johnhenry/a2a-query` / `acp-query` gets the current code; ignore any `@rc` instruction you find in an older cached copy of either README.
+
+## Source & examples
+
+Annotated, runnable examples for the whole family are indexed at
+[Examples](/agent-query/examples/). Sources:
+[`mcp-query`](https://github.com/johnhenry/mcp-query) (monorepo — also home of mcp-gate and mcp-query-tanstack) ·
+[`a2a-query`](https://github.com/johnhenry/a2a-query) ·
+[`a2a-query-tanstack`](https://github.com/johnhenry/a2a-query-tanstack) ·
+[`acp-query`](https://github.com/johnhenry/acp-query) ·
+[`agent-query-core`](https://github.com/johnhenry/agent-query-core)
