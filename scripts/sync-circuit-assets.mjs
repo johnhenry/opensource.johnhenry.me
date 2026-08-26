@@ -14,9 +14,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const SITE_ROOT = path.resolve(import.meta.dirname, '..');
+
+// A missing/blank version would otherwise `replaceAll` in the literal string
+// "undefined" — a malformed package.json should fail the build loudly
+// instead of silently shipping "v undefined" on the showcase page.
+export function requireVersion(pkgLabel, version) {
+  if (typeof version !== 'string' || version.trim() === '') {
+    throw new Error(`${pkgLabel}'s package.json is missing a version field`);
+  }
+  return version;
+}
 
 function mirror({ pkg, probe, from, to }) {
   // A package's `exports` map may not expose package.json, so the root is
@@ -39,32 +50,41 @@ function mirror({ pkg, probe, from, to }) {
   console.log(`${pkg}@${version} ${from} → ${to} (${count} entries)`);
 }
 
-mirror({
-  pkg: '@erisera-code/circuit',
-  probe: '@erisera-code/circuit/tokens.css',
-  from: 'src',
-  to: 'public/src',
-});
+// Guarded so importing this module (e.g. from tests, to exercise
+// requireVersion() in isolation) doesn't also run the mirror/showcase side
+// effects — only running the file directly does.
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+function main() {
+  mirror({
+    pkg: '@erisera-code/circuit',
+    probe: '@erisera-code/circuit/tokens.css',
+    from: 'src',
+    to: 'public/src',
+  });
 
-mirror({
-  pkg: '@johnhenry/ecmanim',
-  probe: '@johnhenry/ecmanim/browser',
-  from: 'dist',
-  to: 'public/ecmanim-dist',
-});
+  mirror({
+    pkg: '@johnhenry/ecmanim',
+    probe: '@johnhenry/ecmanim/browser',
+    from: 'dist',
+    to: 'public/ecmanim-dist',
+  });
 
-// The showcase is a plain HTML page (not an Astro route) that displays the
-// version of the design system it's demonstrating. That was hardcoded and had
-// already drifted three releases behind, which defeats the point of mirroring
-// the package — so it's rendered from a template alongside the assets it uses.
-{
-  const tokens = require.resolve('@erisera-code/circuit/tokens.css');
-  const pkgRoot = path.dirname(path.dirname(tokens));
-  const { version } = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'));
+  // The showcase is a plain HTML page (not an Astro route) that displays the
+  // version of the design system it's demonstrating. That was hardcoded and had
+  // already drifted three releases behind, which defeats the point of mirroring
+  // the package — so it's rendered from a template alongside the assets it uses.
+  {
+    const tokens = require.resolve('@erisera-code/circuit/tokens.css');
+    const pkgRoot = path.dirname(path.dirname(tokens));
+    const { version } = JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'));
+    requireVersion('@erisera-code/circuit', version);
 
-  const template = fs.readFileSync(path.join(SITE_ROOT, 'src/showcase/index.html'), 'utf8');
-  const out = path.join(SITE_ROOT, 'public/circuit/showcase/index.html');
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, template.replaceAll('{{CIRCUIT_VERSION}}', version));
-  console.log(`showcase rendered at circuit v${version}`);
+    const template = fs.readFileSync(path.join(SITE_ROOT, 'src/showcase/index.html'), 'utf8');
+    const out = path.join(SITE_ROOT, 'public/circuit/showcase/index.html');
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, template.replaceAll('{{CIRCUIT_VERSION}}', version));
+    console.log(`showcase rendered at circuit v${version}`);
+  }
 }
+
+if (isMain) main();
