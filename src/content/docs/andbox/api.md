@@ -7,7 +7,7 @@ description: "Full API reference for @johnhenry/andbox: createSandbox, capabilit
 
 ### `createSandbox(options?)`
 
-Creates a new sandboxed runtime. Returns a promise (Worker mode) or object (inline/data-uri mode).
+Creates a new runtime in its own execution context. Returns a promise (Worker mode) or object (inline/data-uri mode). See [Security model](/andbox/#security-model) for what Worker mode does and doesn't protect against.
 
 **Options:**
 
@@ -54,7 +54,7 @@ Returns runtime statistics including pending evaluations, virtual modules, and g
 
 ### `gateCapabilities(capabilities, policy?)`
 
-Wraps host functions with rate limiting and payload caps.
+Wraps host functions with rate limiting and payload caps for cooperative callers — not a defense against code specifically trying to bypass it (see [Security model](/andbox/#security-model): the gate's check is bypassable via the prototype chain).
 
 ```js
 import { gateCapabilities } from '@johnhenry/andbox';
@@ -74,14 +74,14 @@ Resolves a module specifier against an import map, following the browser import 
 
 ### `createNetworkFetch(allowedHosts?, fetchFn?)`
 
-Creates a fetch function that only allows requests to specified hostnames.
+Creates a fetch function that checks the request hostname against an allowlist before calling through. Useful for keeping cooperative code pointed at the hosts you intend — **not redirect-safe** (see [Security model](/andbox/#security-model)): an allowlisted host that responds with a redirect is followed without re-checking the final URL.
 
 ```js
 import { createNetworkFetch } from '@johnhenry/andbox';
 
-const safeFetch = createNetworkFetch(['api.example.com']);
-await safeFetch('https://api.example.com/data'); // OK
-await safeFetch('https://evil.com/steal');        // throws
+const gatedFetch = createNetworkFetch(['api.example.com']);
+await gatedFetch('https://api.example.com/data'); // OK
+await gatedFetch('https://evil.com/steal');        // throws
 ```
 
 ### `createStdio()`
