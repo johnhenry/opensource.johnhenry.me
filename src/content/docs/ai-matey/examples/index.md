@@ -1,5 +1,6 @@
 ---
 title: "Examples Overview"
+description: "Catalog of runnable ai.matey examples, organized from beginner basics to advanced production patterns."
 ---
 
 Explore **35+ runnable examples** demonstrating every feature of ai.matey, organized by complexity from beginner to advanced.
@@ -50,11 +51,12 @@ Work with different AI providers.
 
 | Example | Description | Provider |
 |---------|-------------|----------|
-| [01-openai](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/01-openai.ts) | OpenAI integration | OpenAI (GPT-4, GPT-3.5) |
-| [02-anthropic](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/02-anthropic.ts) | Anthropic Claude | Anthropic (Claude 3.5) |
-| [03-gemini](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/03-gemini.ts) | Google Gemini | Google (Gemini 1.5) |
-| [04-local-ollama](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/04-local-ollama.ts) | Local models | Ollama (Llama 3, Mistral) |
-| [05-multi-provider](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/05-multi-provider.ts) | Multiple providers | Router pattern |
+| [01-anthropic](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/01-anthropic.ts) | Anthropic Claude | Anthropic (Claude 3.5) |
+| [02-openai](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/02-openai.ts) | OpenAI integration | OpenAI (GPT-4, GPT-3.5) |
+| [03-google-gemini](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/03-google-gemini.ts) | Google Gemini | Google (Gemini 1.5) |
+| [04-local-models](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/04-local-models.ts) | Local models | Ollama, LMStudio |
+| [05-multiple-providers](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/05-multiple-providers.ts) | Multiple providers | Router pattern |
+| [06-provider-switching](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/06-provider-switching.ts) | Switch providers at runtime | Any provider |
 
 **Start here if:** You want to understand provider-specific features.
 
@@ -91,9 +93,9 @@ Intelligently route requests across providers.
 |---------|-------------|----------|
 | [01-round-robin](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/01-round-robin.ts) | Load balancing | Distribute load |
 | [02-fallback](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/02-fallback.ts) | Automatic failover | High availability |
-| [03-complexity-based](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/03-complexity-based.ts) | Route by query complexity | Cost optimization |
-| [04-parallel-dispatch](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/04-parallel-dispatch.ts) | Fan-out to multiple backends | Comparison/consensus |
-| [05-cost-optimized](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/05-cost-optimized.ts) | Choose cheapest provider | 84% cost savings |
+| [03-weighted-routing](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/03-weighted-routing.ts) | Weighted load distribution | Gradual rollouts |
+| [04-cost-based-routing](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/04-cost-based-routing.ts) | Choose cheapest provider | Cost optimization |
+| [05-custom-strategy](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/05-custom-strategy.ts) | Build your own routing logic | Custom strategies |
 
 **Start here if:** You need multi-provider routing or failover.
 
@@ -108,10 +110,10 @@ Integrate with web frameworks.
 
 | Example | Description | Framework |
 |---------|-------------|-----------|
-| [01-node-http](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/01-node-http.ts) | Native Node.js HTTP | Node.js http |
-| [02-express](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/02-express.ts) | Express.js integration | Express |
-| [03-hono](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/03-hono.ts) | Edge-ready server | Hono |
-| [04-streaming-http](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/04-streaming-http.ts) | SSE streaming | Server-Sent Events |
+| [01-express](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/01-express.ts) | Express.js integration | Express |
+| [02-hono](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/02-hono.ts) | Edge-ready server | Hono |
+| [03-node-http](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/03-node-http.ts) | Native Node.js HTTP | Node.js http |
+| [websocket-server](https://github.com/johnhenry/ai.matey/tree/main/examples/http/websocket-server.ts) | WebSocket streaming chat | WebSockets |
 
 **Start here if:** You're building an HTTP API.
 
@@ -128,8 +130,7 @@ Drop-in replacements for official SDKs.
 |---------|-------------|---------------|
 | [01-openai-sdk](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/06-sdk-wrappers/01-openai-sdk.ts) | OpenAI SDK wrapper | 100% compatible |
 | [02-anthropic-sdk](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/06-sdk-wrappers/02-anthropic-sdk.ts) | Anthropic SDK wrapper | 100% compatible |
-| [03-chrome-ai](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/06-sdk-wrappers/03-chrome-ai.ts) | Chrome AI compatibility | Chrome AI API |
-| [04-wrapper-utils](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/06-sdk-wrappers/04-wrapper-utils.ts) | Stream utilities | 50+ functions |
+| [chrome-ai-wrapper](https://github.com/johnhenry/ai.matey/tree/main/examples/chrome-ai-wrapper.js) | Chrome AI compatibility | Chrome AI API |
 
 **Start here if:** You want SDK compatibility.
 
@@ -145,10 +146,13 @@ Production-ready patterns for real-world applications.
 | Example | Description | Performance |
 |---------|-------------|-------------|
 | [01-streaming-aggregation](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/01-streaming-aggregation.ts) | Parallel streaming | Real-time comparison |
-| [02-websocket-chat](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/02-websocket-chat.ts) | WebSocket chat | Multi-client support |
-| [03-batch-processing](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/03-batch-processing.ts) | Batch requests | 21+ req/s throughput |
-| [04-health-monitoring](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/04-health-monitoring.ts) | Provider health checks | Real-time dashboard |
-| [05-middleware-chain](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/05-middleware-chain.ts) | Complex middleware | Chain of Responsibility |
+| [02-observability](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/02-observability.ts) | Metrics and tracing | Production monitoring |
+| [03-testing](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/03-testing.ts) | Testing AI integrations | Mock adapters |
+| [04-cli-tool](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/04-cli-tool.ts) | Build a CLI tool | Command-line apps |
+| [05-react-integration](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/05-react-integration.ts) | React patterns | Hooks, streaming UI |
+| [06-performance](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/06-performance.ts) | Performance tuning | Benchmarks |
+| [07-production](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/07-production.ts) | Production deployment | Best practices |
+| [08-edge-deployment](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/08-edge-deployment.ts) | Edge deployment | Workers, Deno |
 
 **Start here if:** You're building production systems.
 
@@ -163,10 +167,10 @@ Monitor and trace your AI requests.
 
 | Example | Description | Platform |
 |---------|-------------|----------|
-| [01-jaeger](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/08-observability/01-jaeger.ts) | OpenTelemetry + Jaeger | Local (Docker) |
-| [02-honeycomb](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/08-observability/02-honeycomb.ts) | Honeycomb integration | SaaS |
-| [03-sampling](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/08-observability/03-sampling.ts) | Sampling strategies | Configurable |
-| [04-multi-provider](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/08-observability/04-multi-provider.ts) | Multi-provider tracing | All providers |
+| [basic-jaeger](https://github.com/johnhenry/ai.matey/tree/main/examples/opentelemetry/basic-jaeger.ts) | OpenTelemetry + Jaeger | Local (Docker) |
+| [honeycomb](https://github.com/johnhenry/ai.matey/tree/main/examples/opentelemetry/honeycomb.ts) | Honeycomb integration | SaaS |
+| [sampling](https://github.com/johnhenry/ai.matey/tree/main/examples/opentelemetry/sampling.ts) | Sampling strategies | Configurable |
+| [multi-provider](https://github.com/johnhenry/ai.matey/tree/main/examples/opentelemetry/multi-provider.ts) | Multi-provider tracing | All providers |
 
 **Start here if:** You need monitoring and observability.
 
@@ -181,7 +185,8 @@ Frontend integration with React.
 
 | Example | Description | Hooks |
 |---------|-------------|-------|
-| [01-hooks](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/09-react/01-hooks.ts) | React hooks | useChat, useCompletion, useObject |
+| [react-hooks](https://github.com/johnhenry/ai.matey/tree/main/examples/monorepo/07-react-hooks.tsx) | React hooks | useChat, useCompletion, useObject |
+| [05-react-integration](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/05-react-integration.ts) | React integration patterns | Custom hooks, streaming |
 
 **Start here if:** You're building React applications.
 
@@ -196,7 +201,7 @@ Command-line utilities.
 
 | Example | Description | Tools |
 |---------|-------------|-------|
-| [01-cli-basics](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/10-cli-tools/01-cli-basics.ts) | CLI tools | Format conversion, backend generation |
+| [04-cli-tool](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/04-cli-tool.ts) | CLI tools | Format conversion, interactive prompts |
 
 **Start here if:** You need CLI tooling.
 
@@ -221,9 +226,9 @@ GOOGLE_API_KEY=...
 ### Run Any Example
 
 ```bash
-npx tsx examples/01-basics/01-hello-world.ts
-npx tsx examples/03-middleware/01-logging.ts
-npx tsx examples/07-advanced-patterns/01-streaming-aggregation.ts
+npx tsx packages/ai.matey.docs/examples/01-basics/01-hello-world.ts
+npx tsx packages/ai.matey.docs/examples/03-middleware/01-logging.ts
+npx tsx packages/ai.matey.docs/examples/07-advanced-patterns/01-streaming-aggregation.ts
 ```
 
 ## 📚 Learning Paths
@@ -231,20 +236,20 @@ npx tsx examples/07-advanced-patterns/01-streaming-aggregation.ts
 ### Beginner Path (Recommended for Newcomers)
 1. [01-basics/01-hello-world](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/01-basics/01-hello-world.ts)
 2. [01-basics/02-streaming](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/01-basics/02-streaming.ts)
-3. [02-providers/01-openai](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/01-openai.ts)
-4. [02-providers/05-multi-provider](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/05-multi-provider.ts)
+3. [02-providers/02-openai](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/02-openai.ts)
+4. [02-providers/05-multiple-providers](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/02-providers/05-multiple-providers.ts)
 
 ### Intermediate Path
 1. [03-middleware/01-logging](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/03-middleware/01-logging.ts)
 2. [03-middleware/02-caching](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/03-middleware/02-caching.ts)
 3. [04-routing/01-round-robin](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/01-round-robin.ts)
-4. [05-http-servers/02-express](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/02-express.ts)
+4. [05-http-servers/01-express](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/05-http-servers/01-express.ts)
 
 ### Advanced Path
-1. [04-routing/05-cost-optimized](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/05-cost-optimized.ts)
+1. [04-routing/04-cost-based-routing](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/04-routing/04-cost-based-routing.ts)
 2. [07-advanced-patterns/01-streaming-aggregation](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/01-streaming-aggregation.ts)
-3. [07-advanced-patterns/04-health-monitoring](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/04-health-monitoring.ts)
-4. [08-observability/01-jaeger](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/08-observability/01-jaeger.ts)
+3. [07-advanced-patterns/07-production](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/07-production.ts)
+4. [opentelemetry/basic-jaeger](https://github.com/johnhenry/ai.matey/tree/main/examples/opentelemetry/basic-jaeger.ts)
 
 ## 💡 Tips
 

@@ -1,5 +1,6 @@
 ---
 title: "Testing Guide"
+description: "Testing ai.matey integrations with mock adapters, test bridges, and the @johnhenry/aimatey-testing utilities."
 ---
 
 Comprehensive testing strategy and practices for ai.matey applications.
@@ -16,16 +17,16 @@ Comprehensive testing strategy and practices for ai.matey applications.
 
 | Package | Unit Tests | Integration Tests | Pass Rate | Status |
 |---------|------------|-------------------|-----------|--------|
-| ai.matey.core | ✅ Yes | ✅ Yes (4/4) | 100% | Production-ready |
-| ai.matey.backend | ✅ Yes | ✅ Yes (24 providers) | 100% | Production-ready |
-| ai.matey.frontend | ✅ Yes | ✅ Yes (7 adapters) | 100% | Production-ready |
-| ai.matey.middleware | ✅ Yes | ✅ Yes (4/4 types) | 100% | Production-ready |
-| ai.matey.http | ✅ Yes | ✅ Yes (6/6 tests) | 100% | Production-ready |
-| ai.matey.wrapper | ✅ Yes | ✅ Yes (28/28) | 100% | Production-ready |
-| ai.matey.cli | ✅ Yes | ✅ Yes (9/9) | 100% | Production-ready |
-| ai.matey.react.hooks | ✅ Yes | ✅ Yes (build) | 100% | Production-ready |
-| ai.matey.utils | ✅ Yes | ✅ Yes (50+ utils) | 100% | Production-ready |
-| ai.matey.types | ✅ Yes | ✅ Yes | 100% | Production-ready |
+| @johnhenry/aimatey-core | ✅ Yes | ✅ Yes (4/4) | 100% | Production-ready |
+| @johnhenry/aimatey-backend | ✅ Yes | ✅ Yes (24 providers) | 100% | Production-ready |
+| @johnhenry/aimatey-frontend | ✅ Yes | ✅ Yes (7 adapters) | 100% | Production-ready |
+| @johnhenry/aimatey-middleware | ✅ Yes | ✅ Yes (4/4 types) | 100% | Production-ready |
+| @johnhenry/aimatey-http | ✅ Yes | ✅ Yes (6/6 tests) | 100% | Production-ready |
+| @johnhenry/aimatey-wrapper | ✅ Yes | ✅ Yes (28/28) | 100% | Production-ready |
+| @johnhenry/aimatey-cli | ✅ Yes | ✅ Yes (9/9) | 100% | Production-ready |
+| @johnhenry/aimatey-react-hooks | ✅ Yes | ✅ Yes (build) | 100% | Production-ready |
+| @johnhenry/aimatey-utils | ✅ Yes | ✅ Yes (50+ utils) | 100% | Production-ready |
+| @johnhenry/aimatey-types | ✅ Yes | ✅ Yes | 100% | Production-ready |
 
 ## Testing Strategy
 
@@ -34,7 +35,7 @@ Comprehensive testing strategy and practices for ai.matey applications.
 Test individual components in isolation with mocked dependencies.
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
+import { Bridge } from '@johnhenry/aimatey-core';
 import { MockBackendAdapter } from '../test-utils';
 
 describe('Bridge', () => {
@@ -65,9 +66,9 @@ describe('Bridge', () => {
 Test multiple components working together.
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
 
 describe('OpenAI Integration', () => {
   it('should make real API calls', async () => {
@@ -305,7 +306,7 @@ dotenv.config({ path: '.env.test' });
 ### 2. Mock External Dependencies
 
 ```typescript
-jest.mock('ai.matey.backend/openai', () => ({
+jest.mock('@johnhenry/aimatey-backend/openai', () => ({
   OpenAIBackendAdapter: jest.fn().mockImplementation(() => ({
     chat: jest.fn().mockResolvedValue({ /* mock response */ })
   }))

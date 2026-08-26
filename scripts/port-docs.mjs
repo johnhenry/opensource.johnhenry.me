@@ -31,29 +31,11 @@ const SOURCES = [
     repo: path.join(PACKAGES, '@johnhenry/ai.matey'),
     ref: 'origin/main',
     subdir: 'packages/ai.matey.docs/src/content/docs',
-    // 958 generated TypeDoc pages; regenerating them needs all 21 packages
+    // Generated TypeDoc pages; regenerating them needs the whole monorepo
     // built, so the API reference is deliberately out of this pass.
     exclude: (p) => p.startsWith('reference/'),
-    patches: [
-      {
-        file: 'api/index.md',
-        // These eight `/api/packages/*` targets never existed upstream — the
-        // links were already dead on ai.matey's own docs site. Four have a
-        // real equivalent under packages/; the rest are covered by the
-        // overview page.
-        find: /- \[ai\.matey\.core\]\(\/api\/packages\/ai\.matey\.core\)[\s\S]*?- \[ai\.matey\.cli\]\(\/api\/packages\/cli\) - CLI tools/,
-        // Paths here are pre-rewrite (section prefix is added afterwards).
-        replace: [
-          '- [ai.matey.core](/packages/core) - Bridge, Router, Middleware',
-          '- [ai.matey.frontend](/packages/frontend) - Frontend adapters',
-          '- [ai.matey.backend](/packages/backend) - Backend adapters',
-          '- [ai.matey.middleware](/packages/middleware) - Middleware',
-          '',
-          'For every package in the monorepo, including `http`, `react-core`,',
-          '`wrapper` and `cli`, see the [full package list](/packages/overview).',
-        ].join('\n'),
-      },
-    ],
+    // The api/index.md dead-link patch that used to live here was retired
+    // 2026-08-26: ai.matey PR #34 fixed those links properly upstream.
   },
   {
     section: 'ecmanim',

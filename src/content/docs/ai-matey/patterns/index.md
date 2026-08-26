@@ -1,8 +1,9 @@
 ---
 title: "Integration Patterns"
+description: "Production integration patterns for ai.matey: complexity routing, parallel aggregation, failover, cost optimization, and batching."
 ---
 
-Production-validated integration patterns for ai.matey, discovered and tested through comprehensive integration testing.
+Production-validated integration patterns for ai.matey, discovered and tested through comprehensive integration testing. Ready-made implementations of several of these patterns ship in the [`@johnhenry/aimatey-patterns`](https://www.npmjs.com/package/@johnhenry/aimatey-patterns) package (`createComplexityRouter`, `createParallelAggregator`, `createFailoverMiddleware`, `createCostOptimizer`, `createBatchProcessor`).
 
 :::note Validation
 - **Source**: 8 advanced test applications (50+ scenarios)
@@ -40,7 +41,7 @@ Analyze query complexity and route to appropriate providers based on a complexit
 ### Implementation
 
 ```typescript
-import { Router } from 'ai.matey.core';
+import { Router } from '@johnhenry/aimatey-core';
 
 // Complexity analyzer
 function analyzeComplexity(query: string): number {
@@ -104,7 +105,7 @@ Execute the same request to multiple providers in parallel and aggregate streami
 ### Implementation
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
+import { Bridge } from '@johnhenry/aimatey-core';
 import { EventEmitter } from 'events';
 
 class ParallelAggregator extends EventEmitter {
@@ -181,7 +182,7 @@ Custom middleware that automatically retries failed requests with the next provi
 ### Implementation
 
 ```typescript
-import { Router } from 'ai.matey.core';
+import { Router } from '@johnhenry/aimatey-core';
 
 const router = new Router(new OpenAIFrontendAdapter(), {
   backends: [
@@ -300,7 +301,7 @@ WebSocket server with per-client conversation history and real-time streaming de
 
 ```typescript
 import WebSocket from 'ws';
-import { Bridge } from 'ai.matey.core';
+import { Bridge } from '@johnhenry/aimatey-core';
 
 const wss = new WebSocket.Server({ port: 8080 });
 
@@ -446,7 +447,7 @@ import {
   createRetryMiddleware,
   createCachingMiddleware,
   createCostTrackingMiddleware,
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),

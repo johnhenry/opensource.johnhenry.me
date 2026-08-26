@@ -1,5 +1,6 @@
 ---
 title: "Tutorial 01: Simple Bridge"
+description: "Beginner tutorial: create a minimal Bridge connecting an OpenAI-format frontend to a backend provider."
 ---
 
 Learn the core concept of ai.matey by building your first Bridge.
@@ -45,7 +46,7 @@ Create a new project and install the required packages:
 mkdir my-first-bridge
 cd my-first-bridge
 npm init -y
-npm install ai.matey.core ai.matey.frontend ai.matey.backend
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend
 ```
 
 ## Step 2: Create Your First Bridge
@@ -53,9 +54,9 @@ npm install ai.matey.core ai.matey.frontend ai.matey.backend
 Create a file called `index.js`:
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 // Create the bridge
 const bridge = new Bridge(
@@ -149,7 +150,7 @@ const response = await bridge.chat({
 Use local models for development:
 
 ```typescript
-import { OllamaBackendAdapter } from 'ai.matey.backend/ollama';
+import { OllamaBackendAdapter } from '@johnhenry/aimatey-backend/ollama';
 
 const devBridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -243,7 +244,7 @@ npm install dotenv
 
 ```typescript
 import 'dotenv/config';
-import { Bridge } from 'ai.matey.core';
+import { Bridge } from '@johnhenry/aimatey-core';
 // ... rest of code
 ```
 
@@ -251,7 +252,7 @@ import { Bridge } from 'ai.matey.core';
 Make sure you installed all packages:
 
 ```bash
-npm install ai.matey.core ai.matey.frontend ai.matey.backend
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend
 ```
 
 ### "Cannot use import statement"
@@ -262,9 +263,9 @@ Add `"type": "module"` to your `package.json`:
   "name": "my-first-bridge",
   "type": "module",
   "dependencies": {
-    "ai.matey.core": "latest",
-    "ai.matey.frontend": "latest",
-    "ai.matey.backend": "latest"
+    "@johnhenry/aimatey-core": "latest",
+    "@johnhenry/aimatey-frontend": "latest",
+    "@johnhenry/aimatey-backend": "latest"
   }
 }
 ```
@@ -285,9 +286,9 @@ Here's the complete working example:
 ```typescript
 // index.js
 import 'dotenv/config';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 async function main() {
   // Create bridge
@@ -345,9 +346,9 @@ ANTHROPIC_API_KEY=sk-ant-...
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "ai.matey.core": "latest",
-    "ai.matey.frontend": "latest",
-    "ai.matey.backend": "latest",
+    "@johnhenry/aimatey-core": "latest",
+    "@johnhenry/aimatey-frontend": "latest",
+    "@johnhenry/aimatey-backend": "latest",
     "dotenv": "^16.0.0"
   }
 }

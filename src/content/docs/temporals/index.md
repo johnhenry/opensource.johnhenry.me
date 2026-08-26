@@ -137,5 +137,5 @@ opaque occurrence function — serialize its *source* (cron string,
 ## Source
 
 [github.com/johnhenry/temporals](https://github.com/johnhenry/temporals) ·
-Generated API reference for every export (all subpaths) at
-[johnhenry.github.io/temporals](https://johnhenry.github.io/temporals/).
+A typedoc config covering every export (all subpaths) ships in the repo —
+`npm run docs` generates the full API reference locally.

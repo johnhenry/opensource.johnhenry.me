@@ -1,5 +1,6 @@
 ---
-title: "ai.matey.core"
+title: "@johnhenry/aimatey-core"
+description: "Guide to @johnhenry/aimatey-core: Bridge, Router, and the middleware stack."
 ---
 
 The foundational package providing the Bridge and Router classes - the heart of ai.matey's universal adapter system.
@@ -7,12 +8,12 @@ The foundational package providing the Bridge and Router classes - the heart of 
 ## Installation
 
 ```bash
-npm install ai.matey.core ai.matey.frontend ai.matey.backend
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend
 ```
 
 ## Overview
 
-`ai.matey.core` provides two main classes:
+`@johnhenry/aimatey-core` provides two main classes:
 
 - **Bridge**: Connects a single frontend adapter to a single backend adapter
 - **Router**: Connects a frontend adapter to multiple backend adapters with intelligent routing
@@ -22,9 +23,9 @@ npm install ai.matey.core ai.matey.frontend ai.matey.backend
 ### Basic Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -124,7 +125,7 @@ use(middleware: Middleware): void
 
 **Example:**
 ```typescript
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(createLoggingMiddleware({ level: 'info' }));
 bridge.use(createCachingMiddleware({ ttl: 3600 }));
@@ -155,10 +156,10 @@ The Router extends Bridge functionality to support multiple backend adapters wit
 ### Basic Usage
 
 ```typescript
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const router = new Router(new OpenAIFrontendAdapter(), {
   backends: [
@@ -500,7 +501,7 @@ async function chat(message) {
 Take advantage of full type safety:
 
 ```typescript
-import type { IRChatCompletionRequest, IRChatCompletionResponse } from 'ai.matey.types';
+import type { IRChatCompletionRequest, IRChatCompletionResponse } from '@johnhenry/aimatey-types';
 
 async function chat(request: IRChatCompletionRequest): Promise<IRChatCompletionResponse> {
   return await bridge.chat(request);
@@ -526,7 +527,7 @@ try {
 Add production features with middleware:
 
 ```typescript
-import { createLoggingMiddleware, createRetryMiddleware, createCachingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware, createRetryMiddleware, createCachingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(createLoggingMiddleware({ level: 'info' }));
 bridge.use(createRetryMiddleware({ maxAttempts: 3 }));

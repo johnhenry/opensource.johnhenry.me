@@ -1,5 +1,6 @@
 ---
 title: "Middleware API"
+description: "API reference for all built-in middleware factories and the Middleware interface."
 ---
 
 Complete API reference for all built-in middleware and the Middleware interface.
@@ -72,7 +73,7 @@ interface LoggingMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const logger = createLoggingMiddleware({
   level: 'info',
@@ -139,7 +140,7 @@ interface CachingMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createCachingMiddleware } from 'ai.matey.middleware';
+import { createCachingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const cache = createCachingMiddleware({
   ttl: 3600,           // Cache for 1 hour
@@ -217,7 +218,7 @@ interface RetryMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createRetryMiddleware } from 'ai.matey.middleware';
+import { createRetryMiddleware } from '@johnhenry/aimatey-middleware';
 
 const retry = createRetryMiddleware({
   maxAttempts: 3,
@@ -270,7 +271,7 @@ interface TransformMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createTransformMiddleware } from 'ai.matey.middleware';
+import { createTransformMiddleware } from '@johnhenry/aimatey-middleware';
 
 const transform = createTransformMiddleware({
   transformRequest: (request) => {
@@ -343,7 +344,7 @@ interface CostTrackingMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createCostTrackingMiddleware } from 'ai.matey.middleware';
+import { createCostTrackingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const costTracker = createCostTrackingMiddleware({
   budgetLimit: 100,      // $100 budget
@@ -378,7 +379,7 @@ Adds distributed tracing with OpenTelemetry.
 
 ```typescript
 interface OpenTelemetryMiddlewareOptions {
-  /** Service name (default: 'ai.matey') */
+  /** Service name (default: '@johnhenry/aimatey') */
   serviceName?: string;
 
   /** Tracer provider */
@@ -400,7 +401,7 @@ interface OpenTelemetryMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createOpenTelemetryMiddleware } from 'ai.matey.middleware';
+import { createOpenTelemetryMiddleware } from '@johnhenry/aimatey-middleware';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 
 const provider = new NodeTracerProvider();
@@ -445,7 +446,7 @@ interface RateLimitMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createRateLimitMiddleware } from 'ai.matey.middleware';
+import { createRateLimitMiddleware } from '@johnhenry/aimatey-middleware';
 
 const rateLimit = createRateLimitMiddleware({
   maxRequests: 60,       // 60 requests
@@ -490,7 +491,7 @@ interface ValidationMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createValidationMiddleware } from 'ai.matey.middleware';
+import { createValidationMiddleware } from '@johnhenry/aimatey-middleware';
 
 const validation = createValidationMiddleware({
   requestSchema: {
@@ -552,7 +553,7 @@ interface ConversationHistoryMiddlewareOptions {
 **Example:**
 
 ```typescript
-import { createConversationHistoryMiddleware } from 'ai.matey.middleware';
+import { createConversationHistoryMiddleware } from '@johnhenry/aimatey-middleware';
 
 const history = createConversationHistoryMiddleware({
   maxMessages: 100,
@@ -586,7 +587,7 @@ await bridge.chat({
 ### Creating Custom Middleware
 
 ```typescript
-import { Middleware, IRChatCompletionRequest, IRChatCompletionResponse } from 'ai.matey.types';
+import { Middleware, IRChatCompletionRequest, IRChatCompletionResponse } from '@johnhenry/aimatey-types';
 
 function createCustomMiddleware(options: CustomOptions): Middleware {
   return {
@@ -745,7 +746,7 @@ import {
   createCachingMiddleware,
   createCostTrackingMiddleware,
   createValidationMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(frontend, backend);
 

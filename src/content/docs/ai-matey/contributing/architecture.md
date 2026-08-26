@@ -1,5 +1,6 @@
 ---
 title: "Architecture Guide"
+description: "Architecture overview of the ai.matey monorepo: package layers, data flow, and design decisions."
 ---
 
 Deep dive into ai.matey's architecture, design patterns, and implementation details.

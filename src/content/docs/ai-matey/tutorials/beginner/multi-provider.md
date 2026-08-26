@@ -1,5 +1,6 @@
 ---
 title: "Tutorial 03: Multi-Provider Routing"
+description: "Beginner tutorial: route requests across multiple AI providers with the Router."
 ---
 
 Learn how to use the Router to automatically distribute requests across multiple AI providers for load balancing, failover, and cost optimization.
@@ -45,10 +46,10 @@ OpenAI Anthropic Groq
 
 ## Step 1: Install Packages
 
-You already have `ai.matey.core`, now install more backend adapters:
+You already have `@johnhenry/aimatey-core`, now install more backend adapters:
 
 ```bash
-npm install ai.matey.backend
+npm install @johnhenry/aimatey-backend
 ```
 
 ## Step 2: Create a Basic Router
@@ -56,10 +57,10 @@ npm install ai.matey.backend
 Create a Router with multiple backends:
 
 ```typescript
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const router = new Router(
   new OpenAIFrontendAdapter(),
@@ -190,11 +191,11 @@ const router = new Router(new OpenAIFrontendAdapter(), {
 Handle provider failures gracefully:
 
 ```typescript
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { GroqBackendAdapter } from 'ai.matey.backend/groq';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { GroqBackendAdapter } from '@johnhenry/aimatey-backend/groq';
 
 const router = new Router(new OpenAIFrontendAdapter(), {
   backends: [
@@ -353,7 +354,7 @@ await router.chat({
 You can add middleware to Routers just like Bridges:
 
 ```typescript
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const router = new Router(new OpenAIFrontendAdapter(), {
   backends: [backend1, backend2],
@@ -498,12 +499,12 @@ Excellent! You now know how to use multi-provider routing.
 ```typescript
 // multi-provider-router.js
 import 'dotenv/config';
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { GroqBackendAdapter } from 'ai.matey.backend/groq';
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { GroqBackendAdapter } from '@johnhenry/aimatey-backend/groq';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 // Create router with multiple backends
 const router = new Router(new OpenAIFrontendAdapter(), {

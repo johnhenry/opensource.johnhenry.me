@@ -1,5 +1,6 @@
 ---
 title: "Core Concepts"
+description: "The core ideas behind ai.matey: frontend and backend adapters, the intermediate representation (IR), Bridge, Router, and middleware."
 ---
 
 Understanding the four fundamental concepts in ai.matey: **Bridge**, **Router**, **Middleware**, and **Intermediate Representation (IR)**.
@@ -92,7 +93,7 @@ interface IRChatCompletionRequest {
 
 ```typescript
 // Your code uses IR directly (no frontend adapter needed)
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const backend = new AnthropicBackendAdapter({
   apiKey: process.env.ANTHROPIC_API_KEY
@@ -119,9 +120,9 @@ The **Bridge** connects a **Frontend Adapter** (input format) with a **Backend A
 ### Bridge Pattern
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),    // Accept OpenAI format
@@ -154,7 +155,7 @@ Backend adapters convert IR to provider-specific formats:
 Add middleware to enhance functionality:
 
 ```typescript
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -172,9 +173,9 @@ The **Router** routes requests to multiple backends based on strategies.
 ### Basic Router
 
 ```typescript
-import { createRouter } from 'ai.matey.core';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { createRouter } from '@johnhenry/aimatey-core';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const router = createRouter({
   routingStrategy: 'round-robin'
@@ -280,12 +281,12 @@ const health = await router.checkHealth();
 ### Middleware Pattern
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
+import { Bridge } from '@johnhenry/aimatey-core';
 import {
   createLoggingMiddleware,
   createCachingMiddleware,
   createRetryMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(
   frontend,
@@ -423,16 +424,16 @@ Response Flow:
 Here's a production-ready example combining all concepts:
 
 ```typescript
-import { Bridge, createRouter } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge, createRouter } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 import {
   createLoggingMiddleware,
   createCachingMiddleware,
   createRetryMiddleware,
   createCostTrackingMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 // 1. Create backends
 const openaiBackend = new OpenAIBackendAdapter({

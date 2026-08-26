@@ -1,5 +1,6 @@
 ---
-title: "ai.matey.frontend"
+title: "@johnhenry/aimatey-frontend"
+description: "Guide to the frontend adapters in @johnhenry/aimatey-frontend: accept requests in OpenAI, Anthropic, Gemini, and other formats."
 ---
 
 Frontend adapters define the input format for your AI requests. Write code in any API format you prefer - OpenAI, Anthropic, Google Gemini, or others.
@@ -7,7 +8,7 @@ Frontend adapters define the input format for your AI requests. Write code in an
 ## Installation
 
 ```bash
-npm install ai.matey.frontend
+npm install @johnhenry/aimatey-frontend
 ```
 
 ## Overview
@@ -30,15 +31,15 @@ Use OpenAI's API format as input.
 ### Installation
 
 ```typescript
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -96,15 +97,15 @@ Use Anthropic's API format as input.
 ### Installation
 
 ```typescript
-import { AnthropicFrontendAdapter } from 'ai.matey.frontend/anthropic';
+import { AnthropicFrontendAdapter } from '@johnhenry/aimatey-frontend/anthropic';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { AnthropicFrontendAdapter } from 'ai.matey.frontend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { AnthropicFrontendAdapter } from '@johnhenry/aimatey-frontend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const bridge = new Bridge(
   new AnthropicFrontendAdapter(),
@@ -147,15 +148,15 @@ Use Google's Gemini API format as input.
 ### Installation
 
 ```typescript
-import { GeminiFrontendAdapter } from 'ai.matey.frontend/gemini';
+import { GeminiFrontendAdapter } from '@johnhenry/aimatey-frontend/gemini';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { GeminiFrontendAdapter } from 'ai.matey.frontend/gemini';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { GeminiFrontendAdapter } from '@johnhenry/aimatey-frontend/gemini';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const bridge = new Bridge(
   new GeminiFrontendAdapter(),
@@ -204,15 +205,15 @@ Use Ollama's API format (compatible with local models).
 ### Installation
 
 ```typescript
-import { OllamaFrontendAdapter } from 'ai.matey.frontend/ollama';
+import { OllamaFrontendAdapter } from '@johnhenry/aimatey-frontend/ollama';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OllamaFrontendAdapter } from 'ai.matey.frontend/ollama';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OllamaFrontendAdapter } from '@johnhenry/aimatey-frontend/ollama';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const bridge = new Bridge(
   new OllamaFrontendAdapter(),
@@ -244,15 +245,15 @@ Use Cohere's API format as input.
 ### Installation
 
 ```typescript
-import { CohereFrontendAdapter } from 'ai.matey.frontend/cohere';
+import { CohereFrontendAdapter } from '@johnhenry/aimatey-frontend/cohere';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { CohereFrontendAdapter } from 'ai.matey.frontend/cohere';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { CohereFrontendAdapter } from '@johnhenry/aimatey-frontend/cohere';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const bridge = new Bridge(
   new CohereFrontendAdapter(),
@@ -285,15 +286,15 @@ Use Mistral's API format (very similar to OpenAI).
 ### Installation
 
 ```typescript
-import { MistralFrontendAdapter } from 'ai.matey.frontend/mistral';
+import { MistralFrontendAdapter } from '@johnhenry/aimatey-frontend/mistral';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { MistralFrontendAdapter } from 'ai.matey.frontend/mistral';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { MistralFrontendAdapter } from '@johnhenry/aimatey-frontend/mistral';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const bridge = new Bridge(
   new MistralFrontendAdapter(),
@@ -317,15 +318,15 @@ Use Groq's API format (OpenAI-compatible).
 ### Installation
 
 ```typescript
-import { GroqFrontendAdapter } from 'ai.matey.frontend/groq';
+import { GroqFrontendAdapter } from '@johnhenry/aimatey-frontend/groq';
 ```
 
 ### Usage
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { GroqFrontendAdapter } from 'ai.matey.frontend/groq';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { GroqFrontendAdapter } from '@johnhenry/aimatey-frontend/groq';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const bridge = new Bridge(
   new GroqFrontendAdapter(),
@@ -381,8 +382,8 @@ const response = await bridge.chat({
 You can create your own frontend adapter:
 
 ```typescript
-import { FrontendAdapter } from 'ai.matey.core';
-import type { IRChatCompletionRequest, IRChatCompletionResponse } from 'ai.matey.types';
+import { FrontendAdapter } from '@johnhenry/aimatey-core';
+import type { IRChatCompletionRequest, IRChatCompletionResponse } from '@johnhenry/aimatey-types';
 
 export class CustomFrontendAdapter implements FrontendAdapter {
   name = 'custom';
@@ -460,7 +461,7 @@ new Bridge(new GeminiFrontendAdapter(), new GroqBackendAdapter({ apiKey }));
 Use TypeScript for frontend-specific request types:
 
 ```typescript
-import type { OpenAIChatRequest, OpenAIChatResponse } from 'ai.matey.frontend/openai';
+import type { OpenAIChatRequest, OpenAIChatResponse } from '@johnhenry/aimatey-frontend/openai';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),

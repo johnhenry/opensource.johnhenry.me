@@ -1,5 +1,6 @@
 ---
-title: "ai.matey.middleware"
+title: "@johnhenry/aimatey-middleware"
+description: "Guide to the built-in middleware in @johnhenry/aimatey-middleware: logging, caching, retry, cost tracking, and more."
 ---
 
 Production-ready middleware for logging, caching, retry logic, cost tracking, and more. Transform your Bridge into a production-grade AI application.
@@ -7,7 +8,7 @@ Production-ready middleware for logging, caching, retry logic, cost tracking, an
 ## Installation
 
 ```bash
-npm install ai.matey.middleware
+npm install @johnhenry/aimatey-middleware
 ```
 
 ## Overview
@@ -24,14 +25,14 @@ Middleware intercepts requests and responses as they flow through your Bridge or
 ## Quick Start
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 import {
   createLoggingMiddleware,
   createCachingMiddleware,
   createRetryMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -57,7 +58,7 @@ Track all requests and responses for debugging and monitoring.
 ### Basic Usage
 
 ```typescript
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createLoggingMiddleware({
@@ -150,7 +151,7 @@ Cache responses to reduce API costs and latency.
 ### Basic Usage
 
 ```typescript
-import { createCachingMiddleware } from 'ai.matey.middleware';
+import { createCachingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createCachingMiddleware({
@@ -246,7 +247,7 @@ Automatically retry failed requests with exponential backoff.
 ### Basic Usage
 
 ```typescript
-import { createRetryMiddleware } from 'ai.matey.middleware';
+import { createRetryMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createRetryMiddleware({
@@ -350,7 +351,7 @@ Monitor API costs and set budgets.
 ### Basic Usage
 
 ```typescript
-import { createCostTrackingMiddleware } from 'ai.matey.middleware';
+import { createCostTrackingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createCostTrackingMiddleware({
@@ -427,7 +428,7 @@ Modify requests and responses on-the-fly.
 ### Basic Usage
 
 ```typescript
-import { createTransformMiddleware } from 'ai.matey.middleware';
+import { createTransformMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createTransformMiddleware({
@@ -521,7 +522,7 @@ Prevent API abuse with rate limiting.
 ### Basic Usage
 
 ```typescript
-import { createRateLimitMiddleware } from 'ai.matey.middleware';
+import { createRateLimitMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createRateLimitMiddleware({
@@ -578,7 +579,7 @@ Stop making requests to failing services.
 ### Basic Usage
 
 ```typescript
-import { createCircuitBreakerMiddleware } from 'ai.matey.middleware';
+import { createCircuitBreakerMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createCircuitBreakerMiddleware({
@@ -764,7 +765,7 @@ import {
   createRetryMiddleware,
   createCachingMiddleware,
   createCostTrackingMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 function createProductionBridge(apiKey) {
   const bridge = new Bridge(

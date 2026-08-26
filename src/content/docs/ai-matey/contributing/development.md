@@ -1,5 +1,6 @@
 ---
 title: "Development Guide"
+description: "Development guide for the ai.matey monorepo: building, testing, linting, and creating new packages."
 ---
 
 Detailed guide for setting up your development environment and working with the ai.matey codebase.
@@ -74,10 +75,10 @@ All packages are in `packages/`. Dependencies between packages are managed autom
 Packages have internal dependencies:
 
 ```
-ai.matey.core → ai.matey.types
-ai.matey.frontend → ai.matey.types
-ai.matey.backend → ai.matey.types
-ai.matey.middleware → ai.matey.core, ai.matey.types
+@johnhenry/aimatey-core → @johnhenry/aimatey-types
+@johnhenry/aimatey-frontend → @johnhenry/aimatey-types
+@johnhenry/aimatey-backend → @johnhenry/aimatey-types
+@johnhenry/aimatey-middleware → @johnhenry/aimatey-core, @johnhenry/aimatey-types
 ```
 
 ## Development Commands
@@ -89,7 +90,7 @@ ai.matey.middleware → ai.matey.core, ai.matey.types
 npm run build
 
 # Build specific package
-npm run build --workspace=ai.matey.core
+npm run build --workspace=@johnhenry/aimatey-core
 
 # Build in watch mode
 npm run dev
@@ -102,7 +103,7 @@ npm run dev
 npm test
 
 # Run tests for specific package
-npm test --workspace=ai.matey.core
+npm test --workspace=@johnhenry/aimatey-core
 
 # Run tests in watch mode
 npm test -- --watch
@@ -121,7 +122,7 @@ npm run lint
 npm run lint:fix
 
 # Lint specific package
-npm run lint --workspace=ai.matey.core
+npm run lint --workspace=@johnhenry/aimatey-core
 ```
 
 ### Format
@@ -150,15 +151,15 @@ npm run clean && npm run build
 
 1. Create package directory:
    ```bash
-   mkdir packages/ai.matey.newpackage
-   cd packages/ai.matey.newpackage
+   mkdir packages/newpackage
+   cd packages/newpackage
    ```
 
 2. Initialize package.json:
    ```json
    {
-     "name": "ai.matey.newpackage",
-     "version": "0.1.0",
+     "name": "@johnhenry/aimatey-newpackage",
+     "version": "0.0.0",
      "main": "./dist/index.js",
      "types": "./dist/index.d.ts",
      "scripts": {
@@ -166,7 +167,7 @@ npm run clean && npm run build
        "test": "jest"
      },
      "dependencies": {
-       "ai.matey.types": "*"
+       "@johnhenry/aimatey-types": "*"
      },
      "devDependencies": {
        "typescript": "^5.0.0",
@@ -197,7 +198,7 @@ npm run clean && npm run build
 
 ```bash
 # Add to specific package
-npm install package-name --workspace=ai.matey.core
+npm install package-name --workspace=@johnhenry/aimatey-core
 
 # Add to root (dev dependencies)
 npm install -D package-name
@@ -210,7 +211,7 @@ Packages automatically link in the monorepo:
 ```json
 {
   "dependencies": {
-    "ai.matey.core": "*"  // Uses local version
+    "@johnhenry/aimatey-core": "*"  // Uses local version
   }
 }
 ```
@@ -439,7 +440,7 @@ npx turbo run build --force
 
 1. **Create adapter file:**
    ```bash
-   cd packages/ai.matey.backend
+   cd packages/backend
    touch src/adapters/newprovider.ts
    ```
 
@@ -464,14 +465,14 @@ npx turbo run build --force
 
 5. **Test:**
    ```bash
-   npm test --workspace=ai.matey.backend
+   npm test --workspace=@johnhenry/aimatey-backend
    ```
 
 ### Adding New Middleware
 
 1. **Create middleware file:**
    ```bash
-   cd packages/ai.matey.middleware
+   cd packages/middleware
    touch src/newmiddleware.ts
    ```
 
@@ -518,7 +519,7 @@ npm test -- -u
 npx tsc --noEmit
 
 # Rebuild types
-npm run build --workspace=ai.matey.types
+npm run build --workspace=@johnhenry/aimatey-types
 ```
 
 ### Dependency Issues

@@ -1,5 +1,6 @@
 ---
 title: "Contributing to ai.matey"
+description: "How to contribute to ai.matey: repository layout, workflow, commit conventions, and where to start."
 ---
 
 Thank you for your interest in contributing to ai.matey! This guide will help you get started.
@@ -51,13 +52,15 @@ ai.matey is a monorepo containing multiple packages:
 ai.matey/
 ├── packages/
 │   ├── ai.matey.core/          # Bridge and Router
-│   ├── ai.matey.frontend/      # Frontend adapters (7)
-│   ├── ai.matey.backend/       # Backend adapters (24+)
-│   ├── ai.matey.middleware/    # Middleware (logging, caching, etc.)
-│   ├── ai.matey.http/          # HTTP server integrations
-│   ├── ai.matey.wrapper/       # SDK wrappers
-│   ├── ai.matey.cli/           # Command-line interface
-│   ├── ai.matey.react.hooks/   # React hooks
+│   ├── frontend/               # Frontend adapters (7)
+│   ├── backend/                # Backend adapters
+│   ├── middleware/             # Middleware (logging, caching, etc.)
+│   ├── patterns/               # Production integration patterns
+│   ├── mcp/                    # MCP tool calling
+│   ├── http/                   # HTTP server integrations
+│   ├── wrapper/                # SDK wrappers
+│   ├── cli/                    # Command-line interface
+│   ├── react-hooks/            # React hooks
 │   ├── ai.matey.utils/         # Shared utilities
 │   ├── ai.matey.types/         # TypeScript type definitions
 │   └── ai.matey.docs/          # Documentation site (this site!)
@@ -135,7 +138,7 @@ test(frontend): add OpenAI adapter tests
 npm test
 
 # Run tests for specific package
-npm test --workspace=ai.matey.core
+npm test --workspace=@johnhenry/aimatey-core
 
 # Run tests in watch mode
 npm test -- --watch
@@ -250,12 +253,12 @@ npm start  # Start dev server
 
 1. Create adapter file:
    ```
-   packages/ai.matey.backend/src/adapters/newprovider.ts
+   packages/backend/src/adapters/newprovider.ts
    ```
 
 2. Implement `BackendAdapter` interface:
    ```typescript
-   import type { BackendAdapter, IRChatCompletionRequest } from 'ai.matey.types';
+   import type { BackendAdapter, IRChatCompletionRequest } from '@johnhenry/aimatey-types';
 
    export class NewProviderBackendAdapter implements BackendAdapter {
      name = 'newprovider';
@@ -281,12 +284,12 @@ npm start  # Start dev server
 
 3. Add tests:
    ```
-   packages/ai.matey.backend/src/adapters/newprovider.test.ts
+   packages/backend/src/adapters/newprovider.test.ts
    ```
 
 4. Export adapter:
    ```typescript
-   // packages/ai.matey.backend/src/index.ts
+   // packages/backend/src/index.ts
    export { NewProviderBackendAdapter } from './adapters/newprovider';
    ```
 
@@ -304,12 +307,12 @@ npm start  # Start dev server
 
 1. Create middleware file:
    ```
-   packages/ai.matey.middleware/src/newmiddleware.ts
+   packages/middleware/src/newmiddleware.ts
    ```
 
 2. Implement middleware creator:
    ```typescript
-   import type { Middleware } from 'ai.matey.types';
+   import type { Middleware } from '@johnhenry/aimatey-types';
 
    export interface NewMiddlewareOptions {
      option1: string;

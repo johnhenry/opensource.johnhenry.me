@@ -1,5 +1,6 @@
 ---
 title: "Types API"
+description: "TypeScript type reference: IR request/response formats, adapter interfaces, and configuration types."
 ---
 
 Complete TypeScript type definitions for ai.matey.
@@ -716,7 +717,7 @@ import type {
   BackendAdapter,
   FrontendAdapter,
   Middleware
-} from 'ai.matey.types';
+} from '@johnhenry/aimatey-types';
 ```
 
 ---
@@ -724,7 +725,7 @@ import type {
 ### Using Types
 
 ```typescript
-import type { IRChatCompletionRequest, BackendAdapter } from 'ai.matey.types';
+import type { IRChatCompletionRequest, BackendAdapter } from '@johnhenry/aimatey-types';
 
 class MyBackend implements BackendAdapter {
   name = 'my-backend';

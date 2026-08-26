@@ -1,5 +1,6 @@
 ---
-title: "ai.matey.backend"
+title: "@johnhenry/aimatey-backend"
+description: "Guide to the backend adapters in @johnhenry/aimatey-backend: execute requests against cloud and local AI providers."
 ---
 
 Backend adapters connect to AI provider APIs. Switch providers without changing your application code - just swap the backend adapter.
@@ -7,7 +8,7 @@ Backend adapters connect to AI provider APIs. Switch providers without changing 
 ## Installation
 
 ```bash
-npm install ai.matey.backend
+npm install @johnhenry/aimatey-backend
 ```
 
 ## Overview
@@ -26,9 +27,9 @@ Backend adapters translate ai.matey's Intermediate Representation (IR) into prov
 ## Quick Start
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -51,7 +52,7 @@ Use OpenAI's GPT models.
 ### Installation
 
 ```typescript
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 ```
 
 ### Configuration
@@ -97,7 +98,7 @@ Use Anthropic's Claude models.
 ### Installation
 
 ```typescript
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 ```
 
 ### Configuration
@@ -142,7 +143,7 @@ Use Google's Gemini models.
 ### Installation
 
 ```typescript
-import { GeminiBackendAdapter } from 'ai.matey.backend/gemini';
+import { GeminiBackendAdapter } from '@johnhenry/aimatey-backend/gemini';
 ```
 
 ### Configuration
@@ -183,7 +184,7 @@ Use Groq's ultra-fast inference.
 ### Installation
 
 ```typescript
-import { GroqBackendAdapter } from 'ai.matey.backend/groq';
+import { GroqBackendAdapter } from '@johnhenry/aimatey-backend/groq';
 ```
 
 ### Configuration
@@ -218,7 +219,7 @@ Use DeepSeek's cost-effective models.
 ### Installation
 
 ```typescript
-import { DeepSeekBackendAdapter } from 'ai.matey.backend/deepseek';
+import { DeepSeekBackendAdapter } from '@johnhenry/aimatey-backend/deepseek';
 ```
 
 ### Configuration
@@ -257,7 +258,7 @@ Use local open-source models.
 ### Installation
 
 ```typescript
-import { OllamaBackendAdapter } from 'ai.matey.backend/ollama';
+import { OllamaBackendAdapter } from '@johnhenry/aimatey-backend/ollama';
 ```
 
 ### Configuration
@@ -310,7 +311,7 @@ const response = await bridge.chat({
 ### Cohere
 
 ```typescript
-import { CohereBackendAdapter } from 'ai.matey.backend/cohere';
+import { CohereBackendAdapter } from '@johnhenry/aimatey-backend/cohere';
 
 const backend = new CohereBackendAdapter({
   apiKey: process.env.COHERE_API_KEY
@@ -322,7 +323,7 @@ const backend = new CohereBackendAdapter({
 ### Mistral
 
 ```typescript
-import { MistralBackendAdapter } from 'ai.matey.backend/mistral';
+import { MistralBackendAdapter } from '@johnhenry/aimatey-backend/mistral';
 
 const backend = new MistralBackendAdapter({
   apiKey: process.env.MISTRAL_API_KEY
@@ -334,7 +335,7 @@ const backend = new MistralBackendAdapter({
 ### Perplexity
 
 ```typescript
-import { PerplexityBackendAdapter } from 'ai.matey.backend/perplexity';
+import { PerplexityBackendAdapter } from '@johnhenry/aimatey-backend/perplexity';
 
 const backend = new PerplexityBackendAdapter({
   apiKey: process.env.PERPLEXITY_API_KEY
@@ -346,7 +347,7 @@ const backend = new PerplexityBackendAdapter({
 ### Together AI
 
 ```typescript
-import { TogetherBackendAdapter } from 'ai.matey.backend/together';
+import { TogetherBackendAdapter } from '@johnhenry/aimatey-backend/together';
 
 const backend = new TogetherBackendAdapter({
   apiKey: process.env.TOGETHER_API_KEY
@@ -427,7 +428,7 @@ const bridge = new Bridge(new OpenAIFrontendAdapter(), backend);
 Use Router for automatic failover:
 
 ```typescript
-import { Router } from 'ai.matey.core';
+import { Router } from '@johnhenry/aimatey-core';
 
 const router = new Router(new OpenAIFrontendAdapter(), {
   backends: [
@@ -562,7 +563,7 @@ try {
 ### 4. Monitor Costs
 
 ```typescript
-import { createCostTrackingMiddleware } from 'ai.matey.middleware';
+import { createCostTrackingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(createCostTrackingMiddleware({
   budgetLimit: 100,

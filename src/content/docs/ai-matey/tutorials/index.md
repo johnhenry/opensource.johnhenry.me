@@ -1,5 +1,6 @@
 ---
 title: "Tutorials"
+description: "Guided tutorials for learning ai.matey, from a simple bridge to a production chat API."
 ---
 
 Learn ai.matey through hands-on tutorials, progressing from beginner to advanced topics.

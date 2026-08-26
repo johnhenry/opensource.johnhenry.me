@@ -1,5 +1,6 @@
 ---
 title: "Intermediate Representation (IR) Format"
+description: "Deep dive into ai.matey's Intermediate Representation (IR), the universal format every adapter converts to and from."
 ---
 
 The **Intermediate Representation (IR)** is the universal format that sits between frontend and backend adapters in ai.matey. It normalizes chat requests, responses, and streams in a provider-agnostic way.

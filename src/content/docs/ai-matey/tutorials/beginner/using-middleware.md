@@ -1,5 +1,6 @@
 ---
 title: "Tutorial 02: Using Middleware"
+description: "Beginner tutorial: add logging, caching, and retry middleware to a Bridge."
 ---
 
 Learn how to enhance your Bridge with logging, caching, and retry middleware for production-ready applications.
@@ -54,7 +55,7 @@ Response
 ## Step 1: Install Middleware Package
 
 ```bash
-npm install ai.matey.middleware
+npm install @johnhenry/aimatey-middleware
 ```
 
 ## Step 2: Add Logging Middleware
@@ -62,10 +63,10 @@ npm install ai.matey.middleware
 Logging helps you debug and monitor your application:
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -106,7 +107,7 @@ Caching reduces costs by storing responses:
 import {
   createLoggingMiddleware,
   createCachingMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 bridge.use(createLoggingMiddleware({ level: 'info' }));
 
@@ -153,7 +154,7 @@ import {
   createLoggingMiddleware,
   createCachingMiddleware,
   createRetryMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 bridge.use(createLoggingMiddleware({ level: 'info' }));
 bridge.use(createCachingMiddleware({ ttl: 3600 }));
@@ -213,14 +214,14 @@ Here's a production-ready Bridge with all three middlewares:
 
 ```typescript
 import 'dotenv/config';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 import {
   createLoggingMiddleware,
   createRetryMiddleware,
   createCachingMiddleware,
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 // Create bridge
 const bridge = new Bridge(
@@ -278,7 +279,7 @@ console.log(await chat('What is ai.matey?')); // Cached!
 Track API costs in real-time:
 
 ```typescript
-import { createCostTrackingMiddleware } from 'ai.matey.middleware';
+import { createCostTrackingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createCostTrackingMiddleware({
@@ -297,7 +298,7 @@ bridge.use(
 Modify requests/responses on-the-fly:
 
 ```typescript
-import { createTransformMiddleware } from 'ai.matey.middleware';
+import { createTransformMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(
   createTransformMiddleware({
@@ -474,15 +475,15 @@ Great work! You've learned how to use middleware to make your Bridge production-
 ```typescript
 // production-bridge.js
 import 'dotenv/config';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 import {
   createLoggingMiddleware,
   createRetryMiddleware,
   createCachingMiddleware,
   createCostTrackingMiddleware,
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 function createProductionBridge(apiKey) {
   const bridge = new Bridge(

@@ -1,5 +1,6 @@
 ---
 title: "Your First Bridge - Step-by-Step Tutorial"
+description: "Step-by-step tutorial that builds a working Bridge with streaming, error handling, and middleware."
 ---
 
 Build a complete AI application using ai.matey in this hands-on tutorial. You'll create a bridge, handle errors, add streaming, and learn best practices.
@@ -34,7 +35,7 @@ npm init -y
 ### Install Dependencies
 
 ```bash
-npm install ai.matey.core ai.matey.frontend ai.matey.backend
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend
 npm install -D tsx typescript @types/node
 ```
 
@@ -77,9 +78,9 @@ Create `src/bridge.ts`:
 
 ```typescript
 import 'dotenv/config';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 // Validate API key
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -142,9 +143,9 @@ Update `src/bridge.ts` to handle errors gracefully:
 
 ```typescript
 import 'dotenv/config';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('ANTHROPIC_API_KEY is required');
@@ -358,9 +359,9 @@ Create `src/config.ts`:
 
 ```typescript
 import 'dotenv/config';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OllamaBackendAdapter } from 'ai.matey.backend/ollama';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OllamaBackendAdapter } from '@johnhenry/aimatey-backend/ollama';
 
 export function getBackend() {
   const env = process.env.NODE_ENV || 'development';
@@ -399,8 +400,8 @@ export const backend = getBackend();
 Update `src/bridge.ts`:
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
 import { backend } from './config.js';
 
 export const bridge = new Bridge(
@@ -429,20 +430,20 @@ NODE_ENV=production npx tsx src/test.ts
 Install middleware:
 
 ```bash
-npm install ai.matey.middleware
+npm install @johnhenry/aimatey-middleware
 ```
 
 Update `src/bridge.ts`:
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
 import { backend } from './config.js';
 import {
   createLoggingMiddleware,
   createRetryMiddleware,
   createCachingMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const middleware = [
   createLoggingMiddleware({
@@ -575,7 +576,7 @@ my-ai-app/
 - **[Middleware Package](/ai-matey/packages/middleware)** - All middleware types
 
 ### Build Real Applications
-- **[React Integration](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/09-react)** - Build chat UIs
+- **[React Integration](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/05-react-integration.ts)** - Build chat UIs
 - **[Advanced Patterns](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns)** - Best practices
 - **[Testing](/ai-matey/guides/testing)** - Test your AI code
 
@@ -584,7 +585,7 @@ my-ai-app/
 ### Add Rate Limiting
 
 ```typescript
-import { createRateLimitMiddleware } from 'ai.matey.middleware';
+import { createRateLimitMiddleware } from '@johnhenry/aimatey-middleware';
 
 const middleware = [
   createRateLimitMiddleware({
@@ -597,7 +598,7 @@ const middleware = [
 ### Add Cost Tracking
 
 ```typescript
-import { createCostTrackingMiddleware } from 'ai.matey.middleware';
+import { createCostTrackingMiddleware } from '@johnhenry/aimatey-middleware';
 
 const middleware = [
   createCostTrackingMiddleware({
@@ -611,9 +612,9 @@ const middleware = [
 ### Add Multi-Provider Fallback
 
 ```typescript
-import { createRouter } from 'ai.matey.core';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { createRouter } from '@johnhenry/aimatey-core';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const router = createRouter({
   routingStrategy: 'fallback'
@@ -642,7 +643,7 @@ for await (const chunk of stream) {
 ```
 
 ### TypeScript Errors
-Run `npm install ai.matey.types` for type definitions.
+Run `npm install @johnhenry/aimatey-types` for type definitions.
 
 ## Need Help?
 

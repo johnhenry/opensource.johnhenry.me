@@ -1,5 +1,6 @@
 ---
 title: "Tutorial 04: Building a Chat API"
+description: "Beginner tutorial: expose a Bridge as an HTTP chat API with Express."
 ---
 
 Learn how to build a production-ready HTTP API server for chat completions using Express and ai.matey.
@@ -43,7 +44,7 @@ mkdir ai-matey-api
 cd ai-matey-api
 npm init -y
 npm install express cors dotenv
-npm install ai.matey.core ai.matey.frontend ai.matey.backend ai.matey.middleware
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend @johnhenry/aimatey-middleware
 npm install -D @types/express @types/cors
 ```
 
@@ -55,9 +56,9 @@ Create `server.js`:
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -124,9 +125,9 @@ Update `package.json`:
     "express": "^4.18.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
-    "ai.matey.core": "latest",
-    "ai.matey.frontend": "latest",
-    "ai.matey.backend": "latest"
+    "@johnhenry/aimatey-core": "latest",
+    "@johnhenry/aimatey-frontend": "latest",
+    "@johnhenry/aimatey-backend": "latest"
   }
 }
 ```
@@ -160,9 +161,9 @@ Streaming allows clients to receive responses in real-time:
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const app = express();
 app.use(cors());
@@ -396,7 +397,7 @@ import {
   createLoggingMiddleware,
   createCachingMiddleware,
   createCostTrackingMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 // Add middleware to bridge
 bridge.use(createLoggingMiddleware({
@@ -422,10 +423,10 @@ bridge.use(createCostTrackingMiddleware({
 Use Router for high availability:
 
 ```typescript
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const router = new Router(new OpenAIFrontendAdapter(), {
   backends: [
@@ -459,15 +460,15 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 import {
   createLoggingMiddleware,
   createCachingMiddleware,
   createRetryMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const app = express();
 const PORT = process.env.PORT || 3000;

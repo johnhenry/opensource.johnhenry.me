@@ -1,5 +1,6 @@
 ---
 title: "Installation"
+description: "Install the scoped @johnhenry/aimatey-* packages and set up API keys, TypeScript, and your environment."
 ---
 
 Get ai.matey up and running in 2 minutes.
@@ -15,7 +16,7 @@ Get ai.matey up and running in 2 minutes.
 Install the main package to get started quickly:
 
 ```bash
-npm install ai.matey
+npm install @johnhenry/aimatey
 ```
 
 This installs the umbrella package which includes commonly-used adapters and utilities.
@@ -28,10 +29,10 @@ For more control over bundle size, install only the packages you need:
 
 ```bash
 # Essential packages
-npm install ai.matey.core        # Bridge, Router, Middleware
-npm install ai.matey.types       # TypeScript type definitions
-npm install ai.matey.errors      # Error classes and utilities
-npm install ai.matey.utils       # Shared utility functions
+npm install @johnhenry/aimatey-core        # Bridge, Router, Middleware
+npm install @johnhenry/aimatey-types       # TypeScript type definitions
+npm install @johnhenry/aimatey-errors      # Error classes and utilities
+npm install @johnhenry/aimatey-utils       # Shared utility functions
 ```
 
 ### Frontend Adapters
@@ -39,13 +40,16 @@ npm install ai.matey.utils       # Shared utility functions
 Choose the input format you want to use:
 
 ```bash
-npm install ai.matey.frontend    # All frontend adapters
+npm install @johnhenry/aimatey-frontend    # All frontend adapters
+```
 
-# Or install individually:
-npm install ai.matey.frontend/openai      # OpenAI format
-npm install ai.matey.frontend/anthropic   # Anthropic format
-npm install ai.matey.frontend/gemini      # Google Gemini format
-npm install ai.matey.frontend/mistral     # Mistral format
+Each format lives at its own import subpath, so bundlers only include what you import:
+
+```typescript
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';       // OpenAI format
+import { AnthropicFrontendAdapter } from '@johnhenry/aimatey-frontend/anthropic'; // Anthropic format
+import { GeminiFrontendAdapter } from '@johnhenry/aimatey-frontend/gemini';       // Google Gemini format
+import { MistralFrontendAdapter } from '@johnhenry/aimatey-frontend/mistral';     // Mistral format
 ```
 
 ### Backend Adapters
@@ -53,47 +57,56 @@ npm install ai.matey.frontend/mistral     # Mistral format
 Choose which AI providers you want to support:
 
 ```bash
-npm install ai.matey.backend     # All backend adapters (24 providers)
+npm install @johnhenry/aimatey-backend     # All backend adapters, one package
+```
 
-# Or install individually for smaller bundle:
-npm install ai.matey.backend/openai       # OpenAI
-npm install ai.matey.backend/anthropic    # Anthropic (Claude)
-npm install ai.matey.backend/gemini       # Google Gemini
-npm install ai.matey.backend/ollama       # Ollama (local)
-npm install ai.matey.backend/groq         # Groq (fast inference)
+Each provider lives at its own import subpath, so unused providers stay out of your bundle:
+
+```typescript
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';       // OpenAI
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic'; // Anthropic (Claude)
+import { GeminiBackendAdapter } from '@johnhenry/aimatey-backend/gemini';       // Google Gemini
+import { OllamaBackendAdapter } from '@johnhenry/aimatey-backend/ollama';       // Ollama (local)
+import { GroqBackendAdapter } from '@johnhenry/aimatey-backend/groq';           // Groq (fast inference)
 ```
 
 <details>
-<summary><strong>All 24 Backend Providers</strong></summary>
+<summary><strong>All backend provider subpaths</strong></summary>
 
-```bash
-# Cloud Providers
-npm install ai.matey.backend/openai
-npm install ai.matey.backend/anthropic
-npm install ai.matey.backend/gemini
-npm install ai.matey.backend/mistral
-npm install ai.matey.backend/cohere
-npm install ai.matey.backend/groq
-npm install ai.matey.backend/ai21
-npm install ai.matey.backend/anyscale
-npm install ai.matey.backend/aws-bedrock
-npm install ai.matey.backend/azure-openai
-npm install ai.matey.backend/cerebras
-npm install ai.matey.backend/cloudflare
-npm install ai.matey.backend/deepinfra
-npm install ai.matey.backend/deepseek
-npm install ai.matey.backend/fireworks
-npm install ai.matey.backend/huggingface
-npm install ai.matey.backend/nvidia
-npm install ai.matey.backend/openrouter
-npm install ai.matey.backend/perplexity
-npm install ai.matey.backend/replicate
-npm install ai.matey.backend/together
-npm install ai.matey.backend/xai
+```
+# Cloud providers
+@johnhenry/aimatey-backend/openai
+@johnhenry/aimatey-backend/anthropic
+@johnhenry/aimatey-backend/gemini
+@johnhenry/aimatey-backend/mistral
+@johnhenry/aimatey-backend/cohere
+@johnhenry/aimatey-backend/groq
+@johnhenry/aimatey-backend/ai21
+@johnhenry/aimatey-backend/anyscale
+@johnhenry/aimatey-backend/aws-bedrock
+@johnhenry/aimatey-backend/azure-openai
+@johnhenry/aimatey-backend/cerebras
+@johnhenry/aimatey-backend/cloudflare
+@johnhenry/aimatey-backend/dashscope
+@johnhenry/aimatey-backend/deepinfra
+@johnhenry/aimatey-backend/deepseek
+@johnhenry/aimatey-backend/fireworks
+@johnhenry/aimatey-backend/github-models
+@johnhenry/aimatey-backend/huggingface
+@johnhenry/aimatey-backend/inception
+@johnhenry/aimatey-backend/moonshot
+@johnhenry/aimatey-backend/nvidia
+@johnhenry/aimatey-backend/omniroute
+@johnhenry/aimatey-backend/openrouter
+@johnhenry/aimatey-backend/perplexity
+@johnhenry/aimatey-backend/replicate
+@johnhenry/aimatey-backend/sambanova
+@johnhenry/aimatey-backend/together-ai
+@johnhenry/aimatey-backend/xai
 
 # Local/Self-Hosted
-npm install ai.matey.backend/ollama
-npm install ai.matey.backend/lmstudio
+@johnhenry/aimatey-backend/ollama
+@johnhenry/aimatey-backend/lmstudio
 ```
 
 </details>
@@ -102,23 +115,23 @@ npm install ai.matey.backend/lmstudio
 
 ```bash
 # Middleware (logging, caching, retry, etc.)
-npm install ai.matey.middleware
+npm install @johnhenry/aimatey-middleware
 
 # HTTP server integration
-npm install ai.matey.http        # Express, Fastify, Hono, Node.js http
+npm install @johnhenry/aimatey-http        # Express, Fastify, Hono, Node.js http
 
 # React hooks
-npm install ai.matey.react.core
-npm install ai.matey.react.hooks
+npm install @johnhenry/aimatey-react-core
+npm install @johnhenry/aimatey-react-hooks
 
 # SDK wrappers (drop-in replacements)
-npm install ai.matey.wrapper
+npm install @johnhenry/aimatey-wrapper
 
 # CLI tools
-npm install ai.matey.cli
+npm install @johnhenry/aimatey-cli
 
 # Testing utilities
-npm install ai.matey.testing
+npm install @johnhenry/aimatey-testing
 ```
 
 ## Verify Installation
@@ -127,9 +140,9 @@ Create a simple test file to verify installation:
 
 ```typescript
 // test.ts
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 console.log('ai.matey installed successfully!');
 
@@ -225,37 +238,56 @@ For optimal TypeScript support, configure your `tsconfig.json`:
 ### For Chat Applications
 
 ```bash
-npm install ai.matey.core \
-            ai.matey.frontend/openai \
-            ai.matey.backend/anthropic \
-            ai.matey.middleware
+npm install @johnhenry/aimatey-core \
+            @johnhenry/aimatey-frontend \
+            @johnhenry/aimatey-backend \
+            @johnhenry/aimatey-middleware
+```
+
+```typescript
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 ```
 
 ### For HTTP APIs
 
 ```bash
-npm install ai.matey.core \
-            ai.matey.frontend/openai \
-            ai.matey.backend \
-            ai.matey.http
+npm install @johnhenry/aimatey-core \
+            @johnhenry/aimatey-frontend \
+            @johnhenry/aimatey-backend \
+            @johnhenry/aimatey-http
+```
+
+```typescript
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
 ```
 
 ### For React Apps
 
 ```bash
-npm install ai.matey.core \
-            ai.matey.frontend/openai \
-            ai.matey.backend/openai \
-            ai.matey.react.core \
-            ai.matey.react.hooks
+npm install @johnhenry/aimatey-core \
+            @johnhenry/aimatey-frontend \
+            @johnhenry/aimatey-backend \
+            @johnhenry/aimatey-react-core \
+            @johnhenry/aimatey-react-hooks
+```
+
+```typescript
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 ```
 
 ### For Local Development
 
 ```bash
-npm install ai.matey.core \
-            ai.matey.frontend/openai \
-            ai.matey.backend/ollama
+npm install @johnhenry/aimatey-core \
+            @johnhenry/aimatey-frontend \
+            @johnhenry/aimatey-backend
+```
+
+```typescript
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { OllamaBackendAdapter } from '@johnhenry/aimatey-backend/ollama';
 ```
 
 Then install and run [Ollama](https://ollama.ai):
@@ -275,23 +307,23 @@ ollama pull llama3.2
 ### Module Not Found Error
 
 ```
-Error: Cannot find module 'ai.matey.core'
+Error: Cannot find module '@johnhenry/aimatey-core'
 ```
 
 **Solution:** Ensure you've installed the package:
 ```bash
-npm install ai.matey.core
+npm install @johnhenry/aimatey-core
 ```
 
 ### Type Errors in TypeScript
 
 ```
-Could not find a declaration file for module 'ai.matey.core'
+Could not find a declaration file for module '@johnhenry/aimatey-core'
 ```
 
 **Solution:** Install type definitions:
 ```bash
-npm install ai.matey.types
+npm install @johnhenry/aimatey-types
 ```
 
 ### ESM vs CommonJS Issues
@@ -313,13 +345,13 @@ Use **full import paths** including the adapter name:
 
 ✅ **Correct:**
 ```typescript
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 ```
 
 ❌ **Incorrect:**
 ```typescript
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend';
 ```
 
 ## Next Steps
@@ -335,13 +367,13 @@ All ai.matey packages use synchronized versioning. Install matching versions:
 
 ```bash
 # Good (matching versions)
-ai.matey.core@0.2.0
-ai.matey.frontend@0.2.0
-ai.matey.backend@0.2.0
+@johnhenry/aimatey-core@0.0.0
+@johnhenry/aimatey-frontend@0.0.0
+@johnhenry/aimatey-backend@0.0.0
 
 # Avoid (mismatched versions)
-ai.matey.core@0.2.0
-ai.matey.frontend@0.1.5
+@johnhenry/aimatey-core@0.0.0
+@johnhenry/aimatey-frontend@0.1.5
 ```
 
-Check the latest version on [npm](https://www.npmjs.com/package/ai.matey).
+Check the latest version on [npm](https://www.npmjs.com/package/@johnhenry/aimatey).

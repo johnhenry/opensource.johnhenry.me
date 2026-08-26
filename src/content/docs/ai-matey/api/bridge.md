@@ -1,5 +1,6 @@
 ---
 title: "Bridge API"
+description: "API reference for the Bridge class: construction, chat and streaming methods, middleware, and events."
 ---
 
 Complete API reference for the `Bridge` class - the core component for connecting frontend and backend adapters.
@@ -21,9 +22,9 @@ Creates a new Bridge instance.
 **Example:**
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -115,7 +116,7 @@ Add middleware to the bridge.
 **Example:**
 
 ```typescript
-import { createLoggingMiddleware, createCachingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware, createCachingMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge
   .use(createLoggingMiddleware({ level: 'info' }))
@@ -185,7 +186,7 @@ Replace the backend adapter.
 **Example:**
 
 ```typescript
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 // Switch from Anthropic to OpenAI
 bridge.setBackend(new OpenAIBackendAdapter({
@@ -208,7 +209,7 @@ Replace the frontend adapter.
 **Example:**
 
 ```typescript
-import { AnthropicFrontendAdapter } from 'ai.matey.frontend/anthropic';
+import { AnthropicFrontendAdapter } from '@johnhenry/aimatey-frontend/anthropic';
 
 // Switch input format to Anthropic
 bridge.setFrontend(new AnthropicFrontendAdapter());
@@ -389,7 +390,7 @@ try {
 ### Custom Backend Adapter
 
 ```typescript
-import { BackendAdapter, IRChatCompletionRequest, IRChatCompletionResponse } from 'ai.matey.types';
+import { BackendAdapter, IRChatCompletionRequest, IRChatCompletionResponse } from '@johnhenry/aimatey-types';
 
 class CustomBackend implements BackendAdapter {
   name = 'custom';
@@ -440,7 +441,7 @@ import {
   createCachingMiddleware,
   createRetryMiddleware,
   createCostTrackingMiddleware
-} from 'ai.matey.middleware';
+} from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(frontend, backend);
 

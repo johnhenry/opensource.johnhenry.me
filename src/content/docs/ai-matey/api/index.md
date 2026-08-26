@@ -1,5 +1,6 @@
 ---
 title: "API Reference"
+description: "Entry point to the ai.matey API reference: Bridge, Router, middleware, types, errors, and per-package documentation."
 ---
 
 Complete API documentation for all ai.matey packages.
@@ -78,7 +79,7 @@ Complete error handling reference.
 
 ## Core Packages
 
-### ai.matey.core
+### @johnhenry/aimatey-core
 
 The foundational package containing Bridge, Router, and core functionality.
 
@@ -89,7 +90,7 @@ The foundational package containing Bridge, Router, and core functionality.
 
 [View Package Documentation →](/ai-matey/packages/core)
 
-### ai.matey.types
+### @johnhenry/aimatey-types
 
 TypeScript type definitions for all packages.
 
@@ -103,7 +104,7 @@ TypeScript type definitions for all packages.
 
 [View Full API Documentation →](/ai-matey/api/all-packages)
 
-### ai.matey.errors
+### @johnhenry/aimatey-errors
 
 Error classes and utilities.
 
@@ -122,13 +123,13 @@ Error classes and utilities.
 
 Parse different input formats into IR.
 
-- **ai.matey.frontend/openai** - OpenAI chat completion format
-- **ai.matey.frontend/anthropic** - Anthropic messages API format
-- **ai.matey.frontend/gemini** - Google Gemini format
-- **ai.matey.frontend/mistral** - Mistral format
-- **ai.matey.frontend/ollama** - Ollama format
-- **ai.matey.frontend/groq** - Groq format
-- **ai.matey.frontend/generic** - Generic IR format
+- **@johnhenry/aimatey-frontend/openai** - OpenAI chat completion format
+- **@johnhenry/aimatey-frontend/anthropic** - Anthropic messages API format
+- **@johnhenry/aimatey-frontend/gemini** - Google Gemini format
+- **@johnhenry/aimatey-frontend/mistral** - Mistral format
+- **@johnhenry/aimatey-frontend/ollama** - Ollama format
+- **@johnhenry/aimatey-frontend/groq** - Groq format
+- **@johnhenry/aimatey-frontend/generic** - Generic IR format
 
 [View Frontend Adapters →](/ai-matey/packages/frontend)
 
@@ -137,19 +138,19 @@ Parse different input formats into IR.
 Convert IR to provider-specific formats and execute requests.
 
 **24 Supported Providers:**
-- ai.matey.backend/openai
-- ai.matey.backend/anthropic
-- ai.matey.backend/gemini
-- ai.matey.backend/mistral
-- ai.matey.backend/ollama
-- ai.matey.backend/groq
+- @johnhenry/aimatey-backend/openai
+- @johnhenry/aimatey-backend/anthropic
+- @johnhenry/aimatey-backend/gemini
+- @johnhenry/aimatey-backend/mistral
+- @johnhenry/aimatey-backend/ollama
+- @johnhenry/aimatey-backend/groq
 - ... and 18 more
 
 [View All Backend Providers →](/ai-matey/packages/backend)
 
 ## Middleware Packages
 
-### ai.matey.middleware
+### @johnhenry/aimatey-middleware
 
 Built-in middleware for common use cases.
 
@@ -169,7 +170,7 @@ Built-in middleware for common use cases.
 
 ## Integration Packages
 
-### ai.matey.http
+### @johnhenry/aimatey-http
 
 HTTP server integration for Express, Fastify, Hono, and Node.js http.
 
@@ -193,13 +194,11 @@ HTTP server integration for Express, Fastify, Hono, and Node.js http.
 
 ### By Package
 
-- [ai.matey.core](/ai-matey/packages/core) - Bridge, Router, Middleware
-- [ai.matey.frontend](/ai-matey/packages/frontend) - Frontend adapters
-- [ai.matey.backend](/ai-matey/packages/backend) - Backend adapters
-- [ai.matey.middleware](/ai-matey/packages/middleware) - Middleware
-
-For every package in the monorepo, including `http`, `react-core`,
-`wrapper` and `cli`, see the [full package list](/ai-matey/packages/overview).
+- [@johnhenry/aimatey-core](/ai-matey/packages/core) - Bridge, Router, Middleware
+- [@johnhenry/aimatey-frontend](/ai-matey/packages/frontend) - Frontend adapters
+- [@johnhenry/aimatey-backend](/ai-matey/packages/backend) - Backend adapters
+- [@johnhenry/aimatey-middleware](/ai-matey/packages/middleware) - Middleware
+- [All 23 published packages](/ai-matey/api/all-packages) - HTTP, React, patterns, MCP, wrappers, CLI, native backends, and more
 
 ## Common Interfaces
 
@@ -244,7 +243,7 @@ import type {
   BackendAdapter,
   FrontendAdapter,
   Middleware
-} from 'ai.matey.types';
+} from '@johnhenry/aimatey-types';
 ```
 
 ## Version Compatibility
@@ -254,9 +253,9 @@ All ai.matey packages use synchronized versioning. Always use matching versions 
 ```json
 {
   "dependencies": {
-    "ai.matey.core": "^0.2.0",
-    "ai.matey.frontend": "^0.2.0",
-    "ai.matey.backend": "^0.2.0"
+    "@johnhenry/aimatey-core": "^0.2.0",
+    "@johnhenry/aimatey-frontend": "^0.2.0",
+    "@johnhenry/aimatey-backend": "^0.2.0"
   }
 }
 ```
@@ -265,7 +264,7 @@ All ai.matey packages use synchronized versioning. Always use matching versions 
 
 Detailed API documentation is auto-generated from TypeScript source code using TypeDoc:
 
-- [View All Packages →](/ai-matey/api/all-packages) - Complete reference for all 21 packages with full exports
+- [View All Packages →](/ai-matey/api/all-packages) - Complete directory of all 23 published packages, with symbol-level reference generated from source
 
 ## Contributing
 

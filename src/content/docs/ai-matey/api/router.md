@@ -1,5 +1,6 @@
 ---
 title: "Router API"
+description: "API reference for the Router class: routing strategies, backend management, health checks, and failover."
 ---
 
 Complete API reference for the `Router` class - intelligent routing across multiple backend providers.
@@ -20,10 +21,10 @@ Creates a new Router instance with multiple backend adapters.
 **Example:**
 
 ```typescript
-import { Router } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { Router } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 const router = new Router(
   new OpenAIFrontendAdapter(),
@@ -103,7 +104,7 @@ Add middleware to all backend adapters.
 **Example:**
 
 ```typescript
-import { createLoggingMiddleware } from 'ai.matey.middleware';
+import { createLoggingMiddleware } from '@johnhenry/aimatey-middleware';
 
 router.use(createLoggingMiddleware({ level: 'info' }));
 ```
@@ -124,7 +125,7 @@ Add a new backend adapter to the router.
 **Example:**
 
 ```typescript
-import { GroqBackendAdapter } from 'ai.matey.backend/groq';
+import { GroqBackendAdapter } from '@johnhenry/aimatey-backend/groq';
 
 router.addBackend(
   new GroqBackendAdapter({ apiKey: process.env.GROQ_API_KEY }),

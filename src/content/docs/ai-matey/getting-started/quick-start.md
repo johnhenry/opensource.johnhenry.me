@@ -1,5 +1,6 @@
 ---
 title: "Quick Start"
+description: "Build your first ai.matey Bridge in minutes: install, wire a frontend to a backend, and make a chat request."
 ---
 
 Get started with ai.matey in less than 5 minutes. This guide will walk you through creating your first bridge and making AI requests.
@@ -7,7 +8,7 @@ Get started with ai.matey in less than 5 minutes. This guide will walk you throu
 ## 1. Install ai.matey
 
 ```bash
-npm install ai.matey.core ai.matey.frontend ai.matey.backend
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend
 ```
 
 ## 2. Get API Keys
@@ -31,9 +32,9 @@ Alternatively, use any of these providers:
 Create a file called `hello.ts`:
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 // Create a bridge: OpenAI format → Anthropic execution
 const bridge = new Bridge(
@@ -87,7 +88,7 @@ This is the power of ai.matey: **write once, run anywhere**.
 For simple use cases, use backends directly:
 
 ```typescript
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const backend = new AnthropicBackendAdapter({
   apiKey: process.env.ANTHROPIC_API_KEY
@@ -128,10 +129,10 @@ for await (const chunk of stream) {
 Route to multiple providers with automatic fallback:
 
 ```typescript
-import { Bridge, createRouter } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge, createRouter } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 const router = createRouter({
   routingStrategy: 'fallback'
@@ -161,10 +162,10 @@ const response = await bridge.chat({
 Add logging, caching, or retry logic:
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
-import { createLoggingMiddleware, createRetryMiddleware } from 'ai.matey.middleware';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
+import { createLoggingMiddleware, createRetryMiddleware } from '@johnhenry/aimatey-middleware';
 
 const bridge = new Bridge(
   new OpenAIFrontendAdapter(),
@@ -219,8 +220,8 @@ const response = await bridge.chat({
 You can also swap the **frontend** to use different API formats:
 
 ```typescript
-import { AnthropicFrontendAdapter } from 'ai.matey.frontend/anthropic';
-import { OpenAIBackendAdapter } from 'ai.matey.backend/openai';
+import { AnthropicFrontendAdapter } from '@johnhenry/aimatey-frontend/anthropic';
+import { OpenAIBackendAdapter } from '@johnhenry/aimatey-backend/openai';
 
 // Accept Anthropic format → Execute on OpenAI
 const bridge = new Bridge(
@@ -258,7 +259,7 @@ const response = await bridge.chat({
 
 ### Integration Guides
 - **[HTTP Servers](/ai-matey/tutorials/beginner/building-chat-api)** - Express, Fastify, Hono
-- **[React Hooks](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/09-react)** - useChat, useCompletion
+- **[React Hooks](https://github.com/johnhenry/ai.matey/tree/main/packages/ai.matey.docs/examples/07-advanced-patterns/05-react-integration.ts)** - useChat, useCompletion
 - **[Testing](/ai-matey/guides/testing)** - Test your AI integrations
 
 ## Common Issues
@@ -286,12 +287,12 @@ import 'dotenv/config';
 ### Module Import Errors
 
 ```
-Cannot find module 'ai.matey.core'
+Cannot find module '@johnhenry/aimatey-core'
 ```
 
 **Solution:** Make sure you've installed all required packages:
 ```bash
-npm install ai.matey.core ai.matey.frontend ai.matey.backend
+npm install @johnhenry/aimatey-core @johnhenry/aimatey-frontend @johnhenry/aimatey-backend
 ```
 
 ### Model Mapping

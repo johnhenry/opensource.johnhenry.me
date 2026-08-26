@@ -1,5 +1,6 @@
 ---
 title: "ai.matey Documentation"
+description: "Introduction to ai.matey, the Universal AI Adapter System: one interface for many AI providers with routing, middleware, and streaming."
 ---
 
 Welcome to **ai.matey** - the Universal AI Adapter System that lets you write once and run anywhere.
@@ -9,9 +10,9 @@ Welcome to **ai.matey** - the Universal AI Adapter System that lets you write on
 ai.matey is a comprehensive TypeScript/JavaScript framework that provides a unified interface for interacting with multiple AI providers. Write your code once using any standard format (OpenAI, Anthropic, Google, etc.) and seamlessly switch between 24+ AI providers without changing your application code.
 
 ```typescript
-import { Bridge } from 'ai.matey.core';
-import { OpenAIFrontendAdapter } from 'ai.matey.frontend/openai';
-import { AnthropicBackendAdapter } from 'ai.matey.backend/anthropic';
+import { Bridge } from '@johnhenry/aimatey-core';
+import { OpenAIFrontendAdapter } from '@johnhenry/aimatey-frontend/openai';
+import { AnthropicBackendAdapter } from '@johnhenry/aimatey-backend/anthropic';
 
 // Write code in OpenAI format, execute with Anthropic
 const bridge = new Bridge(
@@ -142,27 +143,29 @@ const router = new Router(new OpenAIFrontendAdapter(), {
 
 ## Packages Overview
 
-ai.matey is built as a monorepo with 21 specialized packages:
+ai.matey is built as a monorepo of 24 packages — 23 published to npm under the `@johnhenry` scope. Highlights:
 
 | Package | Purpose | Status |
 |---------|---------|--------|
-| **ai.matey.core** | Bridge & Router | ✅ Production |
-| **ai.matey.frontend** | 7 input format adapters | ✅ Production |
-| **ai.matey.backend** | 24 provider adapters | ✅ Production |
-| **ai.matey.middleware** | Logging, caching, retry, etc. | ✅ Production |
-| **ai.matey.http** | HTTP server integrations | ✅ Production |
-| **ai.matey.wrapper** | Drop-in SDK replacements | ✅ Production |
-| **ai.matey.cli** | Command-line interface | ✅ Production |
-| **ai.matey.react.hooks** | React hooks | ✅ Production |
-| **ai.matey.utils** | Shared utilities | ✅ Production |
-| **ai.matey.types** | TypeScript definitions | ✅ Production |
+| **@johnhenry/aimatey-core** | Bridge & Router | ✅ Production |
+| **@johnhenry/aimatey-frontend** | 7 input format adapters | ✅ Production |
+| **@johnhenry/aimatey-backend** | 24 provider adapters | ✅ Production |
+| **@johnhenry/aimatey-middleware** | Logging, caching, retry, etc. | ✅ Production |
+| **@johnhenry/aimatey-http** | HTTP server integrations | ✅ Production |
+| **@johnhenry/aimatey-wrapper** | Drop-in SDK replacements | ✅ Production |
+| **@johnhenry/aimatey-cli** | Command-line interface | ✅ Production |
+| **@johnhenry/aimatey-react-hooks** | React hooks | ✅ Production |
+| **@johnhenry/aimatey-patterns** | Production integration patterns | ✅ Production |
+| **@johnhenry/aimatey-mcp** | MCP (Model Context Protocol) tool calling | ✅ Production |
+| **@johnhenry/aimatey-utils** | Shared utilities | ✅ Production |
+| **@johnhenry/aimatey-types** | TypeScript definitions | ✅ Production |
 
 [View all packages →](/ai-matey/packages/overview)
 
 ## Community & Support
 
 - **[GitHub](https://github.com/johnhenry/ai.matey)** - Source code, issues, discussions
-- **[npm](https://www.npmjs.com/package/ai.matey)** - Package registry
+- **[npm](https://www.npmjs.com/package/@johnhenry/aimatey)** - Package registry
 - **[Examples](/ai-matey/examples)** - 34 working examples
 - **[API Reference](/ai-matey/api)** - Complete API documentation
 

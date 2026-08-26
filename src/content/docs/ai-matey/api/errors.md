@@ -1,5 +1,6 @@
 ---
 title: "Errors API"
+description: "Error handling reference: the AIMateyError hierarchy, error codes, and handling patterns."
 ---
 
 Complete error handling reference for ai.matey.
@@ -595,7 +596,7 @@ const response = await router.chat({ ... });
 Retry on specific errors:
 
 ```typescript
-import { createRetryMiddleware } from 'ai.matey.middleware';
+import { createRetryMiddleware } from '@johnhenry/aimatey-middleware';
 
 bridge.use(createRetryMiddleware({
   maxAttempts: 3,
