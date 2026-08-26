@@ -17,9 +17,16 @@ Five separately published families, all MIT-licensed, all on npm under `@johnhen
 
 **Doing mathematics** — geometry, complex arithmetic, exact rationals, interval bounds — start with `@johnhenry/math`.
 
-**Doing numeric computing** — n-dimensional arrays, gradients, matrix multiplication on the GPU, reading Parquet — start with `math-plus-tensor-core` and add only the extensions you need. The family is deliberately granular so you don't ship a WebGPU backend to a project that just wants an FFT.
+**Doing numeric computing** — n-dimensional arrays, gradients, matrix multiplication on the GPU, reading Parquet — start with `math-plus-tensor-core` and add only the extensions you need. The family is deliberately granular so you don't ship a WebGPU backend to a project that just wants an FFT. It's documented here in four clusters:
+
+- [Tensors](/math/math-plus-tensor/) — tensor-core, autograd, expression fusion, WASM and WebGPU kernels, and the honest answer to "how do I pick a backend?"
+- [Signal & media](/math/math-plus-signal/) — FFT, SciPy's signal slice, image ops, and every deliberate deviation from NumPy/SciPy conventions in one table
+- [Data](/math/math-plus-data/) — Arrow dataframes, Parquet with real pushdown, dataset pipelines, and the bigint/null/laziness traps
+- [Interop & telemetry](/math/math-plus-interop/) — the MCP server for agents, the PyPI-side Python bridge, and the training-telemetry stream
 
 **Iterating over things** — lazily, asynchronously, with backpressure — `@johnhenry/iteration` is independent of the rest and has zero runtime dependencies.
+
+**Letting an agent do the math** — two different shapes: [`math-plus-mcp`](/math/math-plus-interop/) for stateless symbolic + guarded numeric tool calls, [`math-grapher`](/math/math-grapher/) for stateful sessions of reactive cells.
 
 ## Versions
 

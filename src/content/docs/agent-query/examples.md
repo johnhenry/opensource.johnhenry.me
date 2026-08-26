@@ -3,7 +3,7 @@ title: 'Examples across the family'
 description: An annotated cross-index of the 40 numbered, runnable examples shipped in agent-query-core, mcp-query, a2a-query, and acp-query — grouped by task, not by package.
 ---
 
-Every repo in the family ships numbered examples under `examples/NN-name.ts`, each runnable as `npm run example:NN` (or `npx tsx examples/NN-name.ts`) against an in-process mock — no network, no API keys, no subprocess. This page indexes all of them by *what you're trying to do*, since the interesting patterns (approvals, policy, invalidation) repeat across protocols.
+Every repo in the family ships numbered examples under `examples/NN-name.ts`, runnable as `npm run example:NN` (or `npx tsx examples/NN-name.ts`) against an in-process mock — no network, no API keys, no subprocess. The two `.tsx` entries at the end of the mcp-query set are the exception: illustrative React/browser code that compiles but needs a bundler and DOM. This page indexes all of them by *what you're trying to do*, since the interesting patterns (approvals, policy, invalidation) repeat across protocols.
 
 The four sets:
 
