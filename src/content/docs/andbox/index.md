@@ -1,5 +1,6 @@
 ---
 title: "andbox"
+description: "Run untrusted JavaScript in an isolated Web Worker with capability gating, rate limits, timeouts with hard-kill, and an RPC bridge — zero dependencies."
 ---
 
 andbox runs untrusted JavaScript in an isolated Web Worker with a structured bridge back to the host. Code in the sandbox can call host-provided "capabilities" via RPC, use import-mapped packages, and define virtual modules -- all with configurable rate limits, timeouts, and hard-kill semantics.
@@ -94,6 +95,17 @@ Code runs inside a Web Worker created from a Blob URL. The worker has:
 - **Hard kill** -- On timeout, the Worker is `terminate()`d and a fresh one is created
 - **Virtual modules** -- Modules defined via `defineModule()` are available via `sandboxImport()`
 
+## Status
+
+Small and stable: 16 tests, zero runtime dependencies, Node ≥ 24 (browser use
+needs only standard Web Worker APIs). Runnable examples live in the repo's
+[`examples/`](https://github.com/johnhenry/andbox/tree/main/examples)
+directory — note they require a Worker-capable runtime, documented there.
+
 ## License
 
 MIT
+
+## Source
+
+[github.com/johnhenry/andbox](https://github.com/johnhenry/andbox)

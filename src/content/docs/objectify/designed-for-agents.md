@@ -1,5 +1,6 @@
 ---
 title: "Designed for agents"
+description: "Why objectify's output contract, versioning, and history make it a natural state layer for AI agents, including MCP integration patterns."
 ---
 
 ## Designed for agents

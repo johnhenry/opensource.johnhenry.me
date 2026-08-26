@@ -1,5 +1,6 @@
 ---
 title: "Output contract, SQLite schema & architecture"
+description: "objectify's output contract, SQLite schema, and internal architecture — what the CLI guarantees and how state is stored."
 ---
 
 ## Output contract

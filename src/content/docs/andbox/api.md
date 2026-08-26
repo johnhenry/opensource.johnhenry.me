@@ -1,5 +1,6 @@
 ---
 title: "API reference"
+description: "Full API reference for @johnhenry/andbox: createSandbox, capability gating, network fetch allowlisting, stdio, and Worker utilities."
 ---
 
 ## API

@@ -1,5 +1,6 @@
 ---
 title: "objectify"
+description: "Turn TypeScript or Python classes into stateful, versioned CLI tools backed by SQLite — create, use, log, diff, rewind, fork, gc."
 ---
 
 Write a class. Drop it in a folder. Every method becomes a shell command. Every call takes JSON arguments. Every write is versioned. State is persistent, optional, and backed by SQLite. The whole thing is a single binary — no server, no SDK, no configuration.
@@ -142,5 +143,18 @@ Both TypeScript and Python classes live together in the same `classes/` director
   deno.lock
   objectify.db        ← SQLite database; all objects + full event history
 ```
+
+## Status
+
+The Rust core is real and tested (73 tests). The `@johnhenry/objectify` npm
+distribution (platform-detection shim + per-platform prebuilt binaries) is
+built and verified but awaiting its first publish — until then, the
+`cargo build --release` path is the one that works today. The unscoped npm
+name `objectify` belongs to an unrelated 2012 package; this project was never
+published under it.
+
+## Source
+
+[github.com/johnhenry/objectify](https://github.com/johnhenry/objectify).
 
 ---

@@ -1,5 +1,6 @@
 ---
 title: "CLI reference"
+description: "Every objectify command with arguments, formats, and examples — plus how the @johnhenry/objectify npm package delivers the Rust binary."
 ---
 
 ## CLI reference
