@@ -46,6 +46,7 @@ export default defineConfig({
         { label: 'Overview', link: '/' },
         ...[
           { label: 'ai.matey', directory: 'ai-matey' },
+          { label: 'browsermesh', directory: 'browsermesh' },
           { label: 'Agent Query', directory: 'agent-query' },
           { label: 'Math', directory: 'math' },
           { label: 'ecmanim', directory: 'ecmanim' },

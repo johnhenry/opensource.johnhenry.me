@@ -88,6 +88,13 @@
 :root[data-tool='math']             { --hue: 320; }
 :root[data-tool='wsh']              { --hue: 340; }
 :root[data-tool='tester']           { --hue: 0; }
+/* The wheel is genuinely full (17 stops, every gap already 20-25°; no slot
+   is ≥20° from both neighbors — verified, not assumed). Per this file's own
+   documented fallback, browsermesh hue-shares with wsh rather than forcing
+   a ≈15° repack of every existing stop: browsermesh-netway's GatewayBackend
+   is a real wsh-proxied backend (not just a thematic pairing), so the two
+   sections already have a genuine technical link. */
+:root[data-tool='browsermesh']      { --hue: 340; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);
