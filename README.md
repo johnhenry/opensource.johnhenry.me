@@ -14,7 +14,7 @@ hue (see `src/styles/circuit-bridge.css`).
 
 | Section | Directory | Hue |
 |---|---|---|
-| ai.matey | `ai-matey/` | 25° |
+| aimatey | `aimatey/` | 25° |
 | Agent Query (mcp-query, a2a-query, acp-query, mcp-gate) | `agent-query/` | 240° |
 | Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 320° |
 | ecmanim | `ecmanim/` | 280° |

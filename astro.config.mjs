@@ -45,7 +45,7 @@ export default defineConfig({
       sidebar: [
         { label: 'Overview', link: '/' },
         ...[
-          { label: 'ai.matey', directory: 'ai-matey' },
+          { label: 'aimatey', directory: 'aimatey' },
           { label: 'browsermesh', directory: 'browsermesh' },
           { label: 'Agent Query', directory: 'agent-query' },
           { label: 'Math', directory: 'math' },

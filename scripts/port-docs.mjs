@@ -17,10 +17,8 @@ import { fileURLToPath } from 'node:url';
 const SITE_ROOT = path.resolve(import.meta.dirname, '..');
 const DOCS_ROOT = path.join(SITE_ROOT, 'src/content/docs');
 const PROJECTS = path.join(process.env.HOME, 'Projects');
-// Library repos were consolidated under ~/Packages/@johnhenry during the
-// 2026-08 reorg; the docs site itself (and andbox/objectify) stayed in
-// ~/Projects. A SOURCES entry must point wherever its repo actually lives.
-const PACKAGES = path.join(process.env.HOME, 'Packages');
+// All library repos live under ~/Projects/<org>/<repo> on this machine. A
+// SOURCES entry must point wherever its repo actually lives.
 
 /**
  * `git` source: read from a ref so a busy working tree is never touched.
@@ -28,10 +26,10 @@ const PACKAGES = path.join(process.env.HOME, 'Packages');
  */
 const SOURCES = [
   {
-    section: 'ai-matey',
-    repo: path.join(PACKAGES, '@johnhenry/ai.matey'),
+    section: 'aimatey',
+    repo: path.join(PROJECTS, '@johnhenry/aimatey'),
     ref: 'origin/main',
-    subdir: 'packages/ai.matey.docs/src/content/docs',
+    subdir: 'packages/aimatey-docs/src/content/docs',
     // Generated TypeDoc pages; regenerating them needs the whole monorepo
     // built, so the API reference is deliberately out of this pass.
     exclude: (p) => p.startsWith('reference/'),
@@ -40,7 +38,7 @@ const SOURCES = [
   },
   {
     section: 'ecmanim',
-    repo: path.join(PACKAGES, '@johnhenry/ecmanim'),
+    repo: path.join(PROJECTS, '@johnhenry/ecmanim'),
     ref: 'origin/main',
     subdir: 'website/src/content/docs',
     // Logo images referenced from the index page's <picture> element.
@@ -100,7 +98,7 @@ const SOURCES = [
   // hand-authored sections; the final ported content is committed history.
   {
     section: 'circuit',
-    repo: path.join(PROJECTS, '@erisera/circuit'),
+    repo: path.join(PROJECTS, '@erisera-code/circuit'),
     ref: 'origin/main',
     subdir: 'docs/src/content/docs',
   },
