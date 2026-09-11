@@ -12,13 +12,22 @@ blockers. It never shells out — Git compatibility comes from
 runs in Node.js, browsers, and workers. Ships a CLI (`isojj`), a `/browser`
 entry, and full TypeScript definitions.
 
-> Previously published as `isomorphic-jj` (last release 1.7.0, now
-> deprecated). Renamed to `@johnhenry/isomorphic-jj` on import into the
-> @johnhenry family and restarted at 0.0.0 — but you'll find it at **0.1.0**,
+> Previously published as `isomorphic-jj`. That package's final release is
+> **1.8.0**, a bridge release pointing at this package; it is now
+> deprecated. Renamed to `@johnhenry/isomorphic-jj` on import into the
+> @johnhenry family and restarted at 0.0.0 — but you'll find it at **0.2.0**,
 > because a jj-v0.44 parity pass (`tag.track()`/`untrack()`, the
 > `builtin_log()` revset, `file.search({ nameOnly })`) landed together with
 > the adoption. Same library, same API lineage; the version restart is a new
 > address, not a maturity signal.
+
+:::tip Used in production by JJHub
+[JJHub](https://jjhub.erisera.com) — a Jujutsu-native overlay on GitHub with
+stable change IDs, stacked PRs, platform-wide undo, and an MCP server for
+coding agents — is built on this library. If you want to see the change
+graph, oplog, and revset model at work in a real product before committing
+to it yourself, that's the place to look.
+:::
 
 ## Install
 
@@ -108,11 +117,11 @@ operations from a page also need a CORS proxy for most Git hosts. See
 
 ## Status
 
-Tracks Jujutsu through **v0.44** (as of 0.1.0): the v0.31–v0.43 revset and
+Tracks Jujutsu through **v0.44** (as of 0.2.0): the v0.31–v0.43 revset and
 command batch landed in the 1.5 lineage, and the v0.44 pass added tag
 tracking, `builtin_log()`, and `file.search({ nameOnly })` while documenting
 `git_refs()`/`git_head()` as deprecated (real jj removed them in v0.43;
-here they still work). 1714 tests passing, ~97% statement / 91% branch
+here they still work). 1730 tests passing, ~97% statement / 91% branch
 coverage. Ready for experimentation and prototyping; some edges (fetch-time
 remote-tracking import, push conflict guards) are consciously deferred —
 the repo's CHANGELOG says which and why.

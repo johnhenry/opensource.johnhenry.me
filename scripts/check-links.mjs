@@ -47,7 +47,12 @@ for (const page of pages) {
 // A reference to one can survive as plain display text — in a code sample, a
 // screenshot mockup — where no link checker would look, because it isn't a
 // link. One did exactly that. Only the two still-served hosts are allowed.
-const LIVE_ERISERA_HOSTS = new Set(['erisera.com', 'www.erisera.com', 'clawser.erisera.com']);
+const LIVE_ERISERA_HOSTS = new Set([
+  'erisera.com',
+  'www.erisera.com',
+  'clawser.erisera.com',
+  'jjhub.erisera.com', // JJHub: a live product built on isomorphic-jj, not a retired docs subdomain.
+]);
 const retired = new Map();
 for (const page of pages) {
   const html = fs.readFileSync(page, 'utf8');
