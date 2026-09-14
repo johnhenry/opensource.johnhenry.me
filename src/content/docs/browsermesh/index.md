@@ -27,7 +27,7 @@ This isn't ten libraries that happened to end up together — it's one family, c
 | [`@johnhenry/browsermesh-transport`](/browsermesh/services/) | WebSocket/WebRTC/WebTransport adapters, stream multiplexing | primitives |
 | [`@johnhenry/browsermesh-sync`](/browsermesh/services/) | CRDT/delta sync, file transfer, real-time collaboration | primitives |
 | [`@johnhenry/browsermesh-discovery`](/browsermesh/services/) | DHT, peer discovery, naming, swarm coordination | primitives |
-| [`@johnhenry/browsermesh-apps`](/browsermesh/apps/) | Application layer: marketplace, chat, payments, compute, orchestration, agent tools | core, transport, sync, discovery, primitives |
+| [`@johnhenry/browsermesh-apps`](/browsermesh/apps/) | Application layer: marketplace, chat, payments, mesh-native storage, serverless sites/functions, compute orchestration, agent tools | core, transport, sync, discovery, primitives |
 | [`@johnhenry/browsermesh-kernel`](/browsermesh/kernel/) | Capability-secure browser microkernel: resource handles, IPC, tracing, chaos engineering | *(nothing)* |
 
 Two packages are genuinely standalone: `primitives` and `kernel` ship zero npm dependencies each, including zero dependencies on each other. Everything else in the mesh/app stack depends on `primitives`, directly or transitively — the kernel is a deliberately separate concern (a browser microkernel, not a mesh peer).
@@ -43,7 +43,7 @@ Every package also declares `"engines": { "node": ">=24.0.0" }` — a hard floor
 - [Primitives & networking](/browsermesh/primitives/) — wire format, identity, CRDTs, capabilities, trust, ACL, and the virtual BSD-socket network built without depending on anything
 - [Pod & embed](/browsermesh/pod/) — the execution-context base class (window, iframe, worker, service worker) and the widget that embeds an agent workspace on top of it
 - [Core services](/browsermesh/services/) — identity/keyring/trust (`core`), transport adapters (`transport`), CRDT/delta sync (`sync`), and DHT/discovery (`discovery`)
-- [Application layer](/browsermesh/apps/) — marketplace, chat, payments, compute orchestration, and agent tooling built on the four services above
+- [Application layer](/browsermesh/apps/) — marketplace, chat, payments, mesh-native storage (CloudStorage/MeshKv), serverless sites/functions, compute orchestration, and agent tooling built on the four services above
 - [Kernel](/browsermesh/kernel/) — the standalone capability-secure microkernel, unrelated to mesh networking except by shared origin
 
 Source: [github.com/johnhenry/browsermesh](https://github.com/johnhenry/browsermesh)

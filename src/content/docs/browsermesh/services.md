@@ -77,9 +77,11 @@ import { MeshSyncEngine, MeshFileTransfer, CollabSession } from '@johnhenry/brow
 | Module | Key exports |
 | --- | --- |
 | sync | `SyncDocument`, `MeshSyncEngine`, `InMemorySyncStorage` |
+| storage-indexeddb | `IndexedDBSyncStorage` — durable, drop-in `save`/`load`/`clear` for `MeshSyncEngine` |
 | delta-sync | `SyncCoordinator`, `DeltaLog`, `DeltaEncoder`, `DeltaDecoder`, `DeltaBranch` |
 | migration | `MigrationEngine`, `MigrationPlan`, `DualActiveWindow` |
 | files | `MeshFileTransfer`, `ChunkStore`, `FileDescriptor`, `TransferOffer` |
+| storage-indexeddb-chunks | `IndexedDBChunkStore` — durable counterpart to `ChunkStore`, same `save`/`get`/`has`/`verify`/`remove`/`computeCid` interface, byte-identical CIDs; backs `browsermesh-apps`'s `CloudStorage` |
 | collab | `CollabSession`, `YjsAdapter`, `AwarenessState` |
 | collab-bridge | `CollabBridge`, `CollabManager` |
 | memory-sync | `AgentMemorySync`, `MemoryEntry`, `ConflictEntry` |
@@ -106,6 +108,8 @@ import { DhtNode, DiscoveryManager, SwarmCoordinator } from '@johnhenry/browserm
 | stealth | `StealthAgent`, `ShardDistributor`, `ShardCollector` |
 
 `BroadcastChannelStrategy` here and `browsermesh-pod`'s own built-in `BroadcastChannel` discovery (`browsermesh-pod`'s `discovery.mjs`/`transport.mjs`) are **separate implementations of the same idea, not shared code** — despite both packages depending on `primitives` and both talking to the same browser API, `discovery` doesn't import from `pod` or vice versa. Don't assume wiring up `DiscoveryManager` alongside a `Pod` dedupes discovery traffic or shares state; they're two independent same-origin announce/listen loops running side by side unless you explicitly bridge them. Reach for `discovery` when you need the DHT/naming/swarm layer beyond same-origin `BroadcastChannel` — that's genuinely new capability `Pod` doesn't have on its own.
+
+`sw-routing`'s `MeshFetchRouter` sat with no real caller for a long time — its own module doc comment said so explicitly. `@johnhenry/browsermesh-apps`'s BrowserMesh Serverless work finally gave it one (`createServerlessFetchRouter()`), and that first real use surfaced a genuine, previously-latent bug: `route()` always ran a non-string response body through `JSON.stringify()` before building the `Response`, silently mangling binary content (`Uint8Array`/`ArrayBuffer`) into a `{"0":..,"1":..}` object dump instead of real bytes. Fixed in `browsermesh-discovery@0.0.5` — binary bodies now pass straight to `new Response()`, which accepts `BufferSource` natively.
 
 ## Provenance
 
