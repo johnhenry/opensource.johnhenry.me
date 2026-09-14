@@ -53,9 +53,13 @@ unknown names throw `code: "UNKNOWN_OPERATOR"`.
 
 Two rules that surprise people:
 
-- **Inline JS (`((...))`) is rejected at compile time in every sandbox mode**
-  — it would trivially escape any operator allowlist, so the whole program is
-  rejected before a single statement runs.
+- **Inline JS (`((...))`) *and* `::name` value-definitions are both rejected
+  at compile time in every sandbox mode** — inline JS would trivially escape
+  any operator allowlist; `::name` used to compile to an unconditional
+  `globalThis` write and was a real sandbox-bypass vector for exactly that
+  reason (closed in a security fix — see the repo's CHANGELOG for #49) until
+  `forbidInlineJS` was extended to reject it the same way. Either one rejects
+  the whole program before a single statement runs.
 - **Dynamic pattern operators (`3+`, `2log`, `***`) are denied in restricted
   mode** — an open-ended name family can't be enumerated into an allowlist.
 
@@ -129,7 +133,7 @@ render; `h-raw` output is not.
 
 Beyond `startRepl()` (the terminal UI), the REPL package exports a minimal
 persistent evaluator with less machinery than `JthContext` — no timeouts or
-sandboxing, just a stack that survives across calls:
+injected operators, just a stack that survives across calls:
 
 ```js
 import { createEvaluator } from "@johnhenry/jth-repl/evaluator";
@@ -139,5 +143,25 @@ await ev.evaluate("10 20 +;");
 ev.peek(); // 30
 ```
 
-If you need timeouts, sandboxing, or injected operators, use
-`@johnhenry/jth-eval` instead.
+**By default this is unsandboxed** — inline JS runs with full access to
+`process`, the filesystem, and the network, which is intentional for its
+default trusted-input use case (`jth run -c`, the interactive REPL), but
+means the default `createEvaluator()` must not be pointed at untrusted
+source. For untrusted input, pass a `sandbox` option (`true` | `"restricted"`
+| `string[]`, same semantics as `JthContext` above) — this routes evaluation
+through `@johnhenry/jth-eval`'s `JthContext` instead of the raw compiler
+pipeline:
+
+```js
+const ev = createEvaluator({ sandbox: "restricted" });
+await ev.evaluate("1 2 +;");         // ok
+await ev.evaluate("((s) => {}));");  // rejected: OP_NOT_ALLOWED
+```
+
+Each `createEvaluator()` instance gets its own isolated operator registry
+regardless of sandbox mode — `:name` definitions in one evaluator are never
+visible to another in the same process. There is currently no CLI flag to
+put the interactive `jth repl`/`jth run -c` itself into sandboxed mode —
+`sandbox` is only reachable when embedding `createEvaluator()`
+programmatically. If you need timeouts or injected operators, use
+`@johnhenry/jth-eval` directly instead.
