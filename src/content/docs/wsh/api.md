@@ -14,11 +14,13 @@ import { WshClient, generateKeyPair, MSG } from '@johnhenry/wsh';
 | Export | What it is |
 | --- | --- |
 | `WshClient` | Full-lifecycle client: connect, auth, sessions, reverse mode, MCP. `WshClient.exec(url, cmd, opts)` is the one-shot static. |
-| `WshSession` | A single PTY or exec channel — `write`, `resize`, `signal`, `close`, the `onData` byte callback, and `sessionId`/`resumeToken` getters (the credentials for coming back later). |
+| `WshSession` | A single PTY or exec channel — `write`, `resize`, `signal`, `close`, the `onData` byte callback, `onClose(closeReason)` (`Error \| null` — distinguishes a clean close from an abnormal one), and `sessionId`/`resumeToken` getters (the credentials for coming back later). |
 | Session lifecycle | open · attach · resume · detach. `detach(id)` leaves a session running host-side; `resumeSession(id, token)` requires the resume token (the original opener returning); `attachSession(id, opts)` takes an optional token — ownership or a `grantSessionAccess` ACL grant suffices without one. |
 | Session management | `listRemoteSessions()` (server round trip, distinct from the local `listSessions()`), `grantSessionAccess(id, principal, permissions)`, `revokeSessionAccess(id, principal, reason)`. |
 | Reverse mode | `connectReverse()` (signs your peer record automatically), `listPeers()` (each entry gains a computed `verified: boolean`), `reverseConnect()`, `trustRelayPeer()` / `untrustRelayPeer()` — relay-forwarded traffic is only delivered from peers you've accepted. |
-| `initiateE2E(sessionId, algorithm)` | Ephemeral key exchange deriving an AES-256-GCM key — `'X25519'` (default) or hybrid `'X25519+ML-KEM-768'` (native WebCrypto ML-KEM on Node 24.7+, optional `@noble/post-quantum` fallback; check the returned `hybrid` flag). Experimental: the key is not yet wired to `EncryptedFrame` encryption. |
+| `initiateE2E(sessionId, algorithm)` | Ephemeral key exchange deriving an AES-256-GCM key — `'X25519'` (default) or hybrid `'X25519+ML-KEM-768'` (native WebCrypto ML-KEM on Node 24.7+, optional `@noble/post-quantum` fallback; check the returned `hybrid` flag). |
+| `session.enableE2E(sharedSecret, { role, coalesce })` | Wires the derived key to real traffic encryption: seals `write()` output into `EncryptedFrame` (AES-256-GCM) and transparently opens incoming sealed frames before `onData` — works on both virtual-mode and stream-mode (PTY/exec) sessions. `role` must be the opposite of the peer's; `coalesce` tunes `WriteCoalescer`'s batching profile. |
+| `WshClient.addAuthorizedKey()` | Sends an `AuthorizedKeyAdd` protocol message and resolves with `AuthorizedKeyResult` — replaces the old `wsh copy-id` shell-script approach with a first-class call. |
 
 ## Transports
 
@@ -52,8 +54,10 @@ reimplementing it:
 | Export | What it is |
 | --- | --- |
 | `WshKeyStore` | Ed25519 key management — IndexedDB storage, OPFS encrypted backup (PBKDF2 + AES-256-GCM). |
-| `WshFileTransfer` | Upload/download via `FileChunk` control messages, 64KB chunks — works on stream-backed and virtual channels alike. |
-| `WshMcpBridge` | Discover and invoke remote MCP tools over the control channel. |
+| `isEd25519Supported()` | Checks Web Crypto Ed25519 availability before generating a key — a clean unsupported-browser check instead of a `generateKeyPair()` throw. |
+| `WshKnownHosts` | JS trust-on-first-use host-identity store (the `ssh_known_hosts` model) — record a host's fingerprint on first connect, detect a later mismatch. No `wsh-server` release populates `ServerHello.host_fingerprint` yet, so there's nothing live to check against until the server side catches up. |
+| `WshFileTransfer` | Upload/download via `FileChunk` control messages, 64KB chunks — works on stream-backed and virtual channels alike. `client.list()` returns structured `FileResult.metadata.entries: FileEntry[]`, backing the CLI's `sftp`/`ls` commands on both clients. |
+| `WshMcpBridge` | Discover and invoke remote MCP tools over the control channel — calls carry a `call_id` for correlating concurrent in-flight calls. |
 | `SessionRecorder` / `SessionPlayer` | Record and replay PTY I/O with original timing (asciicast v2). |
 | `WshVirtualSessionBackend`, `normalizeSessionData` | Building blocks for hosting sessions. |
 | `generateKeyPair(extractable)` | Create an Ed25519 pair via Web Crypto. |
@@ -70,7 +74,7 @@ to speak it directly or debug a frame:
 
 | Export | What it is |
 | --- | --- |
-| `MSG` | 90+ message-type constants (hex opcodes) — handshake, channel, gateway, guest sharing, compression, copilot, policy, … |
+| `MSG` | 97 message-type constants (hex opcodes) — handshake, channel, gateway, guest sharing, compression, copilot, policy, … |
 | `CHANNEL_KIND` | `pty`, `exec`, `meta`, `file`, `tcp`, `udp`, `job`. |
 | `AUTH_METHOD` | `pubkey`, `password`. |
 | `cborEncode` / `cborDecode` | The CBOR codec (maps, arrays, strings, ints, bytes, bools, null, floats). |

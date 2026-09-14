@@ -39,6 +39,10 @@ session keeps running on the host, and you (or another client) can reattach to
 it later. That's the difference between wsh and a raw socket: the session is a
 first-class, resumable object, not just a pipe.
 
+`session.onClose` now receives a `closeReason` (`Error | null`) — `null` for
+a clean close, an `Error` when the session ended abnormally, so a client can
+distinguish "you closed it" from "it died" without guessing from side effects.
+
 ## Detach, resume, attach
 
 When a PTY or exec session is opened, the server mints a session id and a
@@ -100,10 +104,18 @@ material is the security boundary — treat it accordingly:
   never stored.
 - `fingerprint(publicKey)` gives a SHA-256 hex fingerprint — the thing to
   show a user or pin, not the raw key.
+- `isEd25519Supported()` checks Web Crypto Ed25519 availability before you
+  try to generate a key — useful for a clean unsupported-browser message
+  instead of a `generateKeyPair()` throw.
 
 The handshake signs a transcript, not just a nonce — and the transcript binds
 the username and session id, so a signature captured on one connection cannot
 be replayed against another, or presented under a different identity.
+
+`WshClient.addAuthorizedKey()` sends a real `AuthorizedKeyAdd` protocol
+message (replacing the old `wsh copy-id` shell-script approach) and resolves
+with the server's `AuthorizedKeyResult` — the same authorization step, now a
+first-class client call instead of a side-channel script.
 
 ## Reverse mode and verified peers
 
@@ -115,7 +127,7 @@ peer's own key, adding a `verified: boolean` to every result. A relay that
 tampers with or forges a registration produces `verified: false` — you're
 trusting the peer's signature, not the relay's word.
 
-## End-to-end key exchange (experimental)
+## End-to-end frame encryption
 
 `initiateE2E(sessionId)` performs an ephemeral X25519 exchange and derives an
 AES-256-GCM key. Pass `'X25519+ML-KEM-768'` to get the hybrid post-quantum
@@ -124,16 +136,37 @@ optional `@noble/post-quantum` package elsewhere — which combines both
 secrets via HKDF-SHA256 and falls back to classical automatically if the
 peer doesn't support it (check the returned `hybrid` flag).
 
-The honest caveat: E2E is experimental end to end. The derived key is real,
-but it isn't yet wired into actual `EncryptedFrame` encryption — no session
-traffic is encrypted with it today. Treat it as a preview of the security
-architecture, not a shipped guarantee.
+The derived key is genuinely wired to real traffic encryption:
+`session.enableE2E(sharedSecret, { role })` seals every `write()`'s output
+into an `EncryptedFrame` (AES-256-GCM, an 8-byte monotonic counter plus a
+4-byte per-role tag as the nonce, `session_id` bound as AEAD associated
+data) and transparently opens incoming sealed frames before they reach
+`onData` — for both virtual-mode sessions and stream-mode (PTY/exec)
+sessions, with an optional `{ coalesce }` option tuning `WriteCoalescer`'s
+batching profile (latency-first for a PTY, throughput-first for exec).
+`role` matters: `openFrame()` checks the expected counterpart role tag, so
+the two ends of a session must pass opposite roles (e.g. `'client'`/
+`'server'`) or frames won't open.
+
+## Trust-on-first-use host verification
+
+`WshKnownHosts` is a small JS host-identity store (TOFU, matching
+`ssh_known_hosts`'s model): record a host's identity fingerprint on first
+connect, then detect if a later connection presents a different one — the
+same signal SSH gives you against a changed or spoofed host. Server-side
+population of `ServerHello.host_fingerprint` isn't shipped by any
+`wsh-server` release yet, so this store is ready but has no live fingerprint
+to check against until the server side catches up.
 
 ## Beyond the basics
 
 The same client also exposes file transfer (`WshFileTransfer` and
 `client.upload`/`download` — `FileChunk` control messages in 64KB chunks, so
-transfers work identically on stream-backed and virtual channels), session
-recording and playback (`SessionRecorder` / `SessionPlayer`, asciicast v2),
-and a remote-MCP bridge (`WshMcpBridge`, to discover and invoke MCP tools
-over the control channel). See the [API](/wsh/api/) for the full surface.
+transfers work identically on stream-backed and virtual channels) with
+structured directory listing (`client.list()` returns typed
+`FileResult.metadata.entries: FileEntry[]`, backing the CLI's `sftp`/`ls`
+commands on both clients), session recording and playback (`SessionRecorder`
+/ `SessionPlayer`, asciicast v2), and a remote-MCP bridge (`WshMcpBridge`, to
+discover and invoke MCP tools over the control channel — calls now carry a
+`call_id` for correlating concurrent in-flight calls). See the
+[API](/wsh/api/) for the full surface.
