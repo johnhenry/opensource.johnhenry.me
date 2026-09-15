@@ -3,7 +3,7 @@ title: "Architecture"
 description: "How the six raijin packages compose, the block lifecycle from transaction submission through PBFT to state commitment, and where DA fits."
 ---
 
-Raijin is a dependency diamond with `raijin-core` at the bottom and the SDK at the top:
+raijin is a dependency diamond with `raijin-core` at the bottom and the SDK at the top:
 
 ```
 raijin-sdk          (client API: Wallet, RaijinClient)

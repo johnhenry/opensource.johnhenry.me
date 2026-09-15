@@ -52,7 +52,7 @@ const bytes = await store.get('key') // resolves once synced from any granted pe
 
 Content is chunked (256KB) and encrypted (AES-256-GCM) before it's ever written to disk or sent over the wire; a signed, replicated grant-log handles multi-peer authorization (no wildcard-peer grant exists — every reader needs an explicit grant); `put()` never blocks or throws on an offline replica, returning `{durability: 'local-only'|'replicated'}` instead. `MeshKv` is the same CRDT/ACL machinery without chunking or encryption, for small, low-sensitivity shared state.
 
-### BrowserMesh Serverless: static sites and functions across peers
+### browsermesh serverless: static sites and functions across peers
 
 Adapted from a single-machine reference (`actually-serverless`, a Service Worker that routes `fetch()` to browser tabs) into a real mesh-native equivalent — a site's static assets and serverless functions are served by whichever peer answers first, not one browser tab:
 

@@ -18,7 +18,7 @@ Universal AI Adapter System - Provider-agnostic interface for AI APIs
 
 ### @johnhenry/aimatey-core
 
-Core components for Aimatey - Universal AI Adapter System
+Core components for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-core) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/aimatey-core)
 
@@ -26,7 +26,7 @@ Core components for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-types
 
-Type definitions for Aimatey - Universal AI Adapter System
+Type definitions for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-types) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/aimatey-types)
 
@@ -34,7 +34,7 @@ Type definitions for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-errors
 
-Error classes for Aimatey - Universal AI Adapter System
+Error classes for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-errors) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/aimatey-errors)
 
@@ -42,7 +42,7 @@ Error classes for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-utils
 
-Utility functions for Aimatey - Universal AI Adapter System
+Utility functions for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-utils) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/aimatey-utils)
 
@@ -50,7 +50,7 @@ Utility functions for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-testing
 
-Testing utilities for Aimatey - Universal AI Adapter System
+Testing utilities for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-testing) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/aimatey-testing)
 
@@ -61,7 +61,7 @@ Testing utilities for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-backend
 
-Backend provider adapters for Aimatey - Universal AI Adapter System
+Backend provider adapters for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-backend) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/backend)
 
@@ -69,7 +69,7 @@ Backend provider adapters for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-frontend
 
-Frontend adapters for Aimatey - Universal AI Adapter System
+Frontend adapters for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-frontend) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/frontend)
 
@@ -77,7 +77,7 @@ Frontend adapters for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-backend-browser
 
-Browser-compatible backend adapters for Aimatey - Chrome AI, Function, Mock
+Browser-compatible backend adapters for aimatey - Chrome AI, Function, Mock
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-backend-browser) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/backend-browser)
 
@@ -88,7 +88,7 @@ Browser-compatible backend adapters for Aimatey - Chrome AI, Function, Mock
 
 ### @johnhenry/aimatey-middleware
 
-Middleware components for Aimatey - Universal AI Adapter System
+Middleware components for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-middleware) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/middleware)
 
@@ -96,7 +96,7 @@ Middleware components for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-patterns
 
-Production integration patterns for Aimatey - complexity routing, parallel aggregation, failover, cost optimization, batch processing
+Production integration patterns for aimatey - complexity routing, parallel aggregation, failover, cost optimization, batch processing
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-patterns) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/patterns)
 
@@ -107,7 +107,7 @@ Production integration patterns for Aimatey - complexity routing, parallel aggre
 
 ### @johnhenry/aimatey-mcp
 
-MCP (Model Context Protocol) tool-calling for Aimatey - translate MCP tools into the IR tool-execution loop via an injectable client
+MCP (Model Context Protocol) tool-calling for aimatey - translate MCP tools into the IR tool-execution loop via an injectable client
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-mcp) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/mcp)
 
@@ -118,7 +118,7 @@ MCP (Model Context Protocol) tool-calling for Aimatey - translate MCP tools into
 
 ### @johnhenry/aimatey-http
 
-HTTP framework adapters for Aimatey - Universal AI Adapter System
+HTTP framework adapters for aimatey - Universal AI Adapter System
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-http) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/http)
 
@@ -126,7 +126,7 @@ HTTP framework adapters for Aimatey - Universal AI Adapter System
 
 ### @johnhenry/aimatey-http-core
 
-Framework-agnostic HTTP core utilities for Aimatey
+Framework-agnostic HTTP core utilities for aimatey
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-http-core) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/http.core)
 
@@ -137,7 +137,7 @@ Framework-agnostic HTTP core utilities for Aimatey
 
 ### @johnhenry/aimatey-react-core
 
-Core React hooks for Aimatey - useChat, useCompletion, useObject
+Core React hooks for aimatey - useChat, useCompletion, useObject
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-react-core) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/react-core)
 
@@ -145,7 +145,7 @@ Core React hooks for Aimatey - useChat, useCompletion, useObject
 
 ### @johnhenry/aimatey-react-hooks
 
-Additional React hooks for Aimatey - useAssistant, useStream, useTokenCount
+Additional React hooks for aimatey - useAssistant, useStream, useTokenCount
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-react-hooks) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/react-hooks)
 
@@ -153,7 +153,7 @@ Additional React hooks for Aimatey - useAssistant, useStream, useTokenCount
 
 ### @johnhenry/aimatey-react-stream
 
-React streaming utilities for Aimatey - StreamProvider, StreamContext
+React streaming utilities for aimatey - StreamProvider, StreamContext
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-react-stream) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/react-stream)
 
@@ -161,7 +161,7 @@ React streaming utilities for Aimatey - StreamProvider, StreamContext
 
 ### @johnhenry/aimatey-react-nextjs
 
-Next.js integration for Aimatey - App Router, Server Actions, API Routes
+Next.js integration for aimatey - App Router, Server Actions, API Routes
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-react-nextjs) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/react-nextjs)
 
@@ -172,7 +172,7 @@ Next.js integration for Aimatey - App Router, Server Actions, API Routes
 
 ### @johnhenry/aimatey-native-apple
 
-apple native backend for Aimatey
+apple native backend for aimatey
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-native-apple) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/native-apple)
 
@@ -180,7 +180,7 @@ apple native backend for Aimatey
 
 ### @johnhenry/aimatey-native-node-llamacpp
 
-node-llamacpp native backend for Aimatey
+node-llamacpp native backend for aimatey
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-native-node-llamacpp) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/native-node-llamacpp)
 
@@ -188,7 +188,7 @@ node-llamacpp native backend for Aimatey
 
 ### @johnhenry/aimatey-native-model-runner
 
-Model runner base class for Aimatey native backends
+Model runner base class for aimatey native backends
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-native-model-runner) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/native-model-runner)
 
@@ -199,7 +199,7 @@ Model runner base class for Aimatey native backends
 
 ### @johnhenry/aimatey-wrapper
 
-SDK wrappers for Aimatey - Use familiar SDK patterns with any provider
+SDK wrappers for aimatey - Use familiar SDK patterns with any provider
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-wrapper) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/wrapper)
 
@@ -207,7 +207,7 @@ SDK wrappers for Aimatey - Use familiar SDK patterns with any provider
 
 ### @johnhenry/aimatey-cli
 
-CLI tools for Aimatey - proxy server, format converters, Ollama emulation
+CLI tools for aimatey - proxy server, format converters, Ollama emulation
 
 [npm →](https://www.npmjs.com/package/@johnhenry/aimatey-cli) · [Source →](https://github.com/johnhenry/aimatey/tree/main/packages/cli)
 
