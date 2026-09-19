@@ -55,6 +55,7 @@ export default defineConfig({
           { label: 'Optical Artifact Transport', directory: 'oat' },
           { label: 'andbox', directory: 'andbox' },
           { label: 'objectify', directory: 'objectify' },
+          { label: 'fileable', directory: 'fileable' },
           { label: 'Circuit', directory: 'circuit' },
           { label: 'isomorphic-jj', directory: 'isomorphic-jj' },
           { label: 'jth', directory: 'jth' },

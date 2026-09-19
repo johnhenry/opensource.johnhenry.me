@@ -95,6 +95,13 @@
    is a real wsh-proxied backend (not just a thematic pairing), so the two
    sections already have a genuine technical link. */
 :root[data-tool='browsermesh']      { --hue: 340; }
+/* Second hue-share (wheel still full): fileable takes objectify's hue
+   rather than repacking. Not just thematic — the two are near-exact duals:
+   objectify turns a directory tree into a structured object, fileable
+   turns a structured (JSX) tree into a directory tree, and fileable's own
+   `eject` command runs that exact same directory-tree-to-structured-data
+   direction objectify specializes in. */
+:root[data-tool='fileable']         { --hue: 70; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);
