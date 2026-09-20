@@ -61,6 +61,7 @@ export default defineConfig({
           { label: 'jth', directory: 'jth' },
           { label: 'raijin', directory: 'raijin' },
           { label: 'temporals', directory: 'temporals' },
+          { label: 'css-signals', directory: 'css-signals' },
           { label: 'semantic-chunker', directory: 'semantic-chunker' },
           { label: 'spintax', directory: 'spintax' },
           { label: 'tester', directory: 'tester' },

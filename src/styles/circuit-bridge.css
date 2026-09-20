@@ -102,6 +102,12 @@
    `eject` command runs that exact same directory-tree-to-structured-data
    direction objectify specializes in. */
 :root[data-tool='fileable']         { --hue: 70; }
+/* Third hue-share (wheel still full): css-signals takes temporals' hue rather
+   than repacking. Both are built around the Temporal API: temporals turns it
+   into lazy sequences, ranges and recurrence rules, and css-signals' date()
+   source reads Temporal (falling back to Intl where a browser lacks it) to
+   publish the current time in any IANA zone as CSS custom properties. */
+:root[data-tool='css-signals']      { --hue: 155; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);
