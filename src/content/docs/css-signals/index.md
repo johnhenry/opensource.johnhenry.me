@@ -52,3 +52,7 @@ These are the things you cannot recover from the source, or that fail quietly.
 - [Sources](/css-signals/sources/) — every source, its properties, and how to write your own.
 - [CSS](/css-signals/css/) — the prefix, static CSS, the `@function` helpers, smoothing with `transition`.
 - [Browser support](/css-signals/browser-support/) — what is verified where, and how to run the check yourself.
+
+## Source
+
+[github.com/johnhenry/css-signals](https://github.com/johnhenry/css-signals).
