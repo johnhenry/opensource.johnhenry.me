@@ -14,33 +14,82 @@ hue (see `src/styles/circuit-bridge.css`).
 
 | Section | Directory | Hue |
 |---|---|---|
-| aimatey | `aimatey/` | 25° |
-| Agent Query (mcp-query, a2a-query, acp-query, mcp-gate) | `agent-query/` | 240° |
-| Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 320° |
-| ecmanim | `ecmanim/` | 280° |
-| http-fields | `http-fields/` | 220° |
-| wsh | `wsh/` | 340° |
-| Optical Artifact Transport | `oat/` | 115° |
-| andbox | `andbox/` | 95° |
-| objectify | `objectify/` | 70° |
+| tester | `tester/` | 0° |
+| aimatey | `aimatey/` | 25° (family default — see `circuit-bridge.css`) |
 | Circuit | `circuit/` | 45° |
+| objectify | `objectify/` | 70° |
+| fileable | `fileable/` | 70° — shares with objectify: the two are near-exact duals (objectify turns a directory tree into structured data; fileable turns structured JSX into a directory tree, and fileable's own `eject` command runs objectify's exact direction) |
+| andbox | `andbox/` | 95° |
+| Optical Artifact Transport | `oat/` | 115° |
 | isomorphic-jj | `isomorphic-jj/` | 135° |
-| jth | `jth/` | 260° |
-| raijin | `raijin/` | 300° |
 | temporals | `temporals/` | 155° |
+| css-signals | `css-signals/` | 155° — shares with temporals: both are built on the Temporal API (temporals turns it into lazy sequences/ranges/recurrence rules; css-signals' `date()` source reads Temporal to publish the current time in any IANA zone as CSS custom properties) |
 | semantic-chunker | `semantic-chunker/` | 175° |
 | spintax | `spintax/` | 195° |
-| tester | `tester/` | 0° |
+| http-fields | `http-fields/` | 220° |
+| Agent Query (mcp-query, a2a-query, acp-query, mcp-gate) | `agent-query/` | 240° |
+| jth | `jth/` | 260° |
+| ecmanim | `ecmanim/` | 280° |
+| raijin | `raijin/` | 300° |
+| Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 320° |
+| wsh | `wsh/` | 340° |
+| browsermesh | `browsermesh/` | 340° — shares with wsh: browsermesh-netway's `GatewayBackend` is a real wsh-proxied backend, not just a thematic pairing |
+
+This table must match `src/styles/circuit-bridge.css` exactly — that file is
+the source of truth for what actually renders (see `Head.astro`, which sets
+`data-tool` from the first URL path segment); this table exists so the
+registry can be read without digging through CSS.
 
 The registry is a 20°-spaced grid (the nominos arc `[122°, 219°]`, once
 reserved, is open — nominos is a private erisera product and will never appear
-here). At 17 stops with ≥20° spacing the wheel is full: an 18th section needs
-a policy change (relax spacing to ~15°, or share a hue with a related family).
+here). There are 17 grid stops with ≥20° spacing between them, and the wheel
+is genuinely full at that count — no further stop is ≥20° from every existing
+neighbor. The three sections added after the wheel filled (browsermesh,
+fileable, css-signals) each hue-share an existing stop instead of repacking
+the whole grid tighter; see "when the registry is full" below for the policy
+that produced that choice.
 
 Styling comes from [`@erisera-code/circuit`](https://github.com/erisera-code/circuit)
 via `src/styles/circuit-bridge.css`, which maps Circuit's tokens onto Starlight's
 own CSS variables. Circuit's rules hold: neutrals never rotate with the accent, and
 semantic and syntax colors are fixed — only `--hue` changes per section.
+
+### Adding a new library's docs section
+
+Two ways content gets into `src/content/docs/<name>/`:
+
+- **Hand-author it directly**, like most sections here (browsermesh,
+  css-signals, fileable, objectify, andbox, and most of the rest). This is the
+  default.
+- **Run `scripts/port-docs.mjs`**, but only if the library has its own
+  *actively-maintained* external Starlight docs source you intend to keep
+  re-importing from — a `SOURCES` entry names a `repo`/`ref`/`subdir` to pull
+  from and rewrites that source's root-absolute links to live under the
+  section prefix. It is built for the case where upstream keeps changing and
+  a full re-import is meant to stay a single command. It is explicitly *not*
+  a one-time content-migration convenience: `aimatey`, `ecmanim`, and
+  `circuit` are the only three `SOURCES` entries today, precisely because
+  they're the only sections still getting docs updates from a live source
+  elsewhere. `andbox` and `objectify` were removed from `SOURCES` on
+  2026-08-26 when their upstream `docs-site` branches went dead — once there
+  is no more upstream to re-import from, the ported content becomes
+  hand-maintained here like everything else, not a permanent importer entry.
+
+  Decision rule: if you're adding docs for a library that doesn't have a live,
+  still-changing external docs source, hand-author the section. Only reach
+  for `port-docs.mjs` when re-running the import later is a real, expected
+  need.
+
+When the hue registry has no free arc left — no candidate hue is ≥20° from
+every existing stop, the spacing this table's 17 grid stops already use —
+don't repack the grid. The established policy (used three times so far, for
+browsermesh, fileable, and css-signals) is to hue-share with an existing
+section that has a genuine *technical* link to the new one, not just a
+thematic one, and to record that link as a one-line comment both in
+`circuit-bridge.css` next to the shared `--hue` rule and in this README's
+table. If no existing section has a real technical link to share with, that's
+the signal to fall back to the other stated option — relaxing grid spacing to
+~15° — rather than forcing a thematically-flimsy hue-share.
 
 ## Develop
 
