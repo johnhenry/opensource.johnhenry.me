@@ -38,7 +38,7 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
   <LinkCard
     title="Math"
     href="/math/"
-    description="Geometry, intervals, tensors, signals, and units — a core package plus a wide family of focused extensions."
+    description="Geometry, intervals, tensors, signals, and units — a core package plus a wide family of focused extensions, originally ported from a 2004-era ActionScript 3 library with ~40 bugs found and fixed along the way."
   />
   <LinkCard
     title="ecmanim"
@@ -74,6 +74,21 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
     title="fileable"
     href="/fileable/"
     description="Declaratively describe filesystem artifacts using JSX — plus eject, which runs it backwards: point it at a real directory and get JSX source back."
+  />
+  <LinkCard
+    title="packfile"
+    href="/packfile/"
+    description="Compress a directory into a gzip(Web Bundle) archive and serve it straight back out as HTTP responses — plus client-side blob preview and Isolated Web App primitives."
+  />
+  <LinkCard
+    title="leserve"
+    href="/leserve/"
+    description="A simple HTTP/HTTPS server built around one API, serve() — a plain (Request) => Response handler with opt-in WebSocket upgrades, auth middleware, and a test harness."
+  />
+  <LinkCard
+    title="letterpress"
+    href="/letterpress/"
+    description="A tagged-template-string HTTP routing library — define and match request handlers with plain JavaScript syntax, no config objects or decorators."
   />
   <LinkCard
     title="css-signals"

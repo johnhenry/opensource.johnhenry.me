@@ -69,8 +69,12 @@
    and the arc is open. The registry is a 20°-spaced grid — a new section
    takes the next free grid stop (agent-query/ecmanim/math were nudged ≤10°
    onto the grid during the 2026-08 expansion; theme hues carry no meaning,
-   so a small nudge is invisible). At 17 stops the wheel is full — an 18th
-   section needs a policy change (≈15° spacing, or hue-sharing). */
+   so a small nudge is invisible). At 17 stops the wheel was full — an 18th
+   section needed a policy change (≈15° spacing, or hue-sharing); browsermesh,
+   fileable, css-signals, and (below) packfile and letterpress all hue-share
+   an existing stop with a genuine technical link, while leserve — no such
+   link available — took the ≈15°-spacing fallback instead of forcing a
+   flimsy share. 18 distinct hue values total as of their addition. */
 :root[data-tool='ai-matey']         { --hue: 25; }
 :root[data-tool='circuit']          { --hue: 45; }
 :root[data-tool='objectify']        { --hue: 70; }
@@ -108,6 +112,24 @@
    source reads Temporal (falling back to Intl where a browser lacks it) to
    publish the current time in any IANA zone as CSS custom properties. */
 :root[data-tool='css-signals']      { --hue: 155; }
+/* Fourth hue-share (wheel still full): packfile takes andbox's hue rather
+   than repacking. Not just thematic — packfile has a real npm dependency on
+   @johnhenry/andbox: its blob-preview mode (createBlobPreview()) delegates
+   JS module-specifier resolution to andbox's createVirtualModuleRegistry()
+   instead of reimplementing it. */
+:root[data-tool='packfile']         { --hue: 95; }
+/* leserve: no genuine technical link to any existing section (its only
+   dependencies are non-family packages), so per this file's documented
+   fallback it takes a new grid stop at ~15° rather than 20° spacing,
+   inside the 195–220 gap — not a full repack, just one individually
+   nudged stop. */
+:root[data-tool='leserve']          { --hue: 208; }
+/* Fifth hue-share: letterpress takes leserve's new stop. Real technical
+   link, not just thematic — letterpress carries an explicit devDependency
+   on @johnhenry/leserve, and its own usage examples run entirely through
+   leserve's serve(); the letterpress README says as much directly:
+   "Letterpress works great with leserve." */
+:root[data-tool='letterpress']      { --hue: 208; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

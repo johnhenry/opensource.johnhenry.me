@@ -34,6 +34,8 @@ The math packages are early: most sit at `0.0.0` and use `^0.0.0` ranges interna
 
 `@johnhenry/iteration` is the mature one: it has shipped under three names across several years (see its page for the provenance).
 
+`@johnhenry/math` itself has similar history, several years deeper: it began as a TypeScript port of an ActionScript 3 library called Mallory. See [About the port](/math/about-the-port/) for the ~40 real bugs that port found and fixed along the way.
+
 ## Source
 
 Three repos, each with runnable examples:
