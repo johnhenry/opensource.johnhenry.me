@@ -54,6 +54,7 @@ export default defineConfig({
           { label: 'wsh', directory: 'wsh' },
           { label: 'Optical Artifact Transport', directory: 'oat' },
           { label: 'andbox', directory: 'andbox' },
+          { label: 'aimatey-middleware-andbox', directory: 'aimatey-middleware-andbox' },
           { label: 'objectify', directory: 'objectify' },
           { label: 'fileable', directory: 'fileable' },
           { label: 'servable', directory: 'servable' },

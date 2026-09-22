@@ -187,6 +187,11 @@
    unrelated sections needed independent fallback stops at once and only
    three wide gaps existed. */
 :root[data-tool='signalle']         { --hue: 145; } /* splits the 135(isomorphic-jj)-155(temporals) gap */
+/* Hue-share: aimatey-middleware-andbox takes andbox's stop. Real technical
+   link -- a stated peer dependency on `andbox` (its README requires
+   `npm install andbox` separately, and uses andbox's createSandbox()
+   directly), not just a shared theme. */
+:root[data-tool='aimatey-middleware-andbox'] { --hue: 95; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

@@ -23,6 +23,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | hostable | `hostable/` | 70° — shares with servable/fileable/objectify: hostable has a real, non-optional npm dependency on `@johnhenry/servable` (`"@johnhenry/servable": "file:../servable"`) — it re-exports most of servable's primitives directly and compiles through servable's own `compile()`. Third package in the `fileable → servable → hostable` lineage, so this hue-share chains all three. |
 | andbox | `andbox/` | 95° |
 | packfile | `packfile/` | 95° — shares with andbox: packfile has a real npm dependency on `@johnhenry/andbox`, whose `createVirtualModuleRegistry()` resolves JS module specifiers for packfile's `createBlobPreview()` |
+| aimatey-middleware-andbox | `aimatey-middleware-andbox/` | 95° — shares with andbox/packfile: a stated peer dependency on `andbox` (its README requires `npm install andbox` separately, and calls `createSandbox()` directly) |
 | Optical Artifact Transport | `oat/` | 115° |
 | isomorphic-jj | `isomorphic-jj/` | 135° |
 | temporals | `temporals/` | 155° |
@@ -81,8 +82,11 @@ none had a genuine technical link to hue-share with. Each took its own new
 fallback stop instead — domable, hashish, and http-converter split the
 registry's three remaining 25°-wide gaps at ≈13°/12° (the same split
 leserve used), and signalle, once those three gaps were spoken for, split
-an ordinary 20° grid gap at ≈10°/10° instead. 22 distinct hue values total
-as of that addition.
+an ordinary 20° grid gap at ≈10°/10° instead. One more (aimatey-middleware-
+andbox) followed the ordinary hue-share policy: a real, stated peer
+dependency on `andbox`, so it joins andbox/packfile's stop rather than
+taking a new one. 22 distinct hue values total — unchanged by this last
+addition, since it shared rather than took a new stop.
 
 Styling comes from [`@erisera-code/circuit`](https://github.com/erisera-code/circuit)
 via `src/styles/circuit-bridge.css`, which maps Circuit's tokens onto Starlight's
