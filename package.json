@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Documentation hub for John Henry's open-source projects",
   "engines": {
-    "node": "26.x"
+    "node": "24.x"
   },
   "scripts": {
     "predev": "node scripts/sync-circuit-assets.mjs",
