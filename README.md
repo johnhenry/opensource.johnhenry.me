@@ -41,6 +41,10 @@ hue (see `src/styles/circuit-bridge.css`).
 | wsh | `wsh/` | 340° |
 | browsermesh | `browsermesh/` | 340° — shares with wsh: browsermesh-netway's `GatewayBackend` is a real wsh-proxied backend, not just a thematic pairing |
 | dialback | `dialback/` | 340° — shares with browsermesh/wsh: dialback carries real optional peerDependencies on `@johnhenry/browsermesh-netway` and `@johnhenry/browsermesh-primitives`, consumed by its own dedicated `dialback/browsermesh` transport module (per-agent Ed25519 identity in place of a shared secret) — a genuine technical link, not just thematic |
+| domable | `domable/` | 13° — no genuine technical link to an existing section (no `@johnhenry/*` dependency either direction, verified in `package.json`), so it takes a new ≈15°-spaced stop splitting the 0°(tester)–25°(ai-matey) gap, the same fallback leserve used |
+| hashish | `hashish/` | 58° — same fallback as domable, no real dependency either direction; splits the 45°(Circuit)–70°(objectify) gap |
+| http-converter | `http-converter/` | 83° — same fallback; splits the 70°(objectify)–95°(andbox) gap |
+| signalle | `signalle/` | 145° — same fallback, but the registry's three remaining 25°-wide gaps were already claimed by domable/hashish/http-converter above, so signalle instead splits an ordinary 20° grid gap (135°(isomorphic-jj)–155°(temporals)) roughly in half — a tighter ≈10°/10° squeeze than the other three's ≈13°/12° |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -66,9 +70,19 @@ fileable/objectify's stop (servable via a real optional peerDependency on
 lineage onto one hue), servant joins leserve/letterpress's stop (a real hard
 dependency on `@johnhenry/leserve`), and dialback joins browsermesh/wsh's
 stop (real optional peerDependencies on two browsermesh packages, consumed
-by its own `dialback/browsermesh` transport). 18 distinct hue values total —
-unchanged since leserve's addition, since every section added since has
-hue-shared rather than taken a new stop.
+by its own `dialback/browsermesh` transport). 18 distinct hue values total
+across the family's first 25 sections — unchanged since leserve's addition,
+since every section added between leserve and dialback hue-shared rather
+than taken a new stop. Four more sections added together after that
+(domable, hashish, http-converter, signalle) broke that streak: none of
+the four carries a real `package.json` dependency (direct, dev, or
+optional peer) on any existing family section in either direction, so
+none had a genuine technical link to hue-share with. Each took its own new
+fallback stop instead — domable, hashish, and http-converter split the
+registry's three remaining 25°-wide gaps at ≈13°/12° (the same split
+leserve used), and signalle, once those three gaps were spoken for, split
+an ordinary 20° grid gap at ≈10°/10° instead. 22 distinct hue values total
+as of that addition.
 
 Styling comes from [`@erisera-code/circuit`](https://github.com/erisera-code/circuit)
 via `src/styles/circuit-bridge.css`, which maps Circuit's tokens onto Starlight's
@@ -81,7 +95,8 @@ Two ways content gets into `src/content/docs/<name>/`:
 
 - **Hand-author it directly**, like most sections here (browsermesh,
   css-signals, fileable, objectify, andbox, leserve, packfile,
-  letterpress, and most of the rest). This is the default.
+  letterpress, domable, hashish, http-converter, signalle, and most of
+  the rest). This is the default.
 - **Run `scripts/port-docs.mjs`**, but only if the library has its own
   *actively-maintained* external Starlight docs source you intend to keep
   re-importing from — a `SOURCES` entry names a `repo`/`ref`/`subdir` to pull
@@ -131,6 +146,28 @@ browsermesh-netway`/`@johnhenry/browsermesh-primitives`, consumed by its own
 stop (objectify, fileable, servable, hostable), three share 208° (leserve,
 letterpress, servant), and three share 340° (wsh, browsermesh, dialback);
 the registry never repacked.
+
+domable, hashish, http-converter, and signalle were added together and are
+the first case where *none* of a batch of new sections had a real
+technical link to share — each was checked individually (their own
+`package.json` files carry no `@johnhenry/*` dependency of any kind, and
+no existing section depends on any of them either), so each took its own
+independent fallback stop rather than forcing a share with an unrelated
+section. The registry's three remaining 25°-wide gaps (0°–25°, 45°–70°,
+70°–95° — every other gap was already at the standard 20° or tighter) each
+absorbed one new stop at the same ≈13°/12° split leserve used: domable at
+13°, hashish at 58°, http-converter at 83°. That used up every gap wider
+than 20°, so signalle — with the same "no real link" finding — had nowhere
+generous left to land, and instead splits an ordinary 20° grid gap
+(135°–155°) roughly in half, at 145°, a tighter ≈10°/10° squeeze than the
+policy's usual ~15° target. This is a new wrinkle worth naming explicitly:
+the ~15°-spacing fallback assumes a generous gap is available when it's
+needed; once every such gap is claimed, a later no-link addition must
+squeeze an ordinary grid gap instead, which is tighter than the fallback's
+original ~15° figure but still the honest, non-repacking choice — hues
+carry no rendered meaning beyond distinctness, so a ~10° gap is visually
+fine, just a smaller margin for whatever fallback stop needs to land
+between 135° and 155° next.
 
 ## Develop
 

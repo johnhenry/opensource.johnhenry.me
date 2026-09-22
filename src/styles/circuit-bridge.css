@@ -75,8 +75,15 @@
    hostable, servant, and dialback all hue-share an existing stop with a
    genuine technical link, while leserve — no such link available — took
    the ≈15°-spacing fallback instead of forcing a flimsy share. 18 distinct
-   hue values total — unchanged since leserve's addition, since every
-   section added since has hue-shared rather than taken a new stop. */
+   hue values total from the family's first 25 sections, unchanged since
+   leserve's addition, since every section added between leserve and
+   dialback hue-shared rather than taken a new stop. domable, hashish,
+   http-converter, and signalle (below) broke that streak: none of the
+   four has a genuine technical link to any existing section, so each
+   took its own new fallback stop — three in the registry's remaining
+   25°-wide gaps (≈13°/12° splits, same as leserve's), one (signalle) in
+   an ordinary 20° gap split ≈10°/10° once the wide gaps ran out. 22
+   distinct hue values total as of that addition. */
 :root[data-tool='ai-matey']         { --hue: 25; }
 :root[data-tool='circuit']          { --hue: 45; }
 :root[data-tool='objectify']        { --hue: 70; }
@@ -160,6 +167,26 @@
    (per-agent Ed25519 identity in place of a shared secret), not just a
    thematic pairing. */
 :root[data-tool='dialback']         { --hue: 340; }
+
+/* domable, hashish, http-converter, and signalle (added together): none of
+   the four carries a real package.json dependency (direct, dev, or
+   optional peer) on any existing family section, nor is any of them
+   depended on by one — verified, not guessed. Per this file's documented
+   fallback, all four take new ~15°-spaced stops rather than a flimsy
+   thematic hue-share. Three landed in the registry's only remaining
+   generous (25°) gaps, split the same way leserve's 208 stop was
+   (roughly 13°/12°, not a full repack): */
+:root[data-tool='domable']          { --hue: 13; }  /* splits the 0(tester)-25(ai-matey) gap */
+:root[data-tool='hashish']          { --hue: 58; }  /* splits the 45(circuit)-70(objectify) gap */
+:root[data-tool='http-converter']   { --hue: 83; }  /* splits the 70(objectify)-95(andbox) gap */
+/* signalle: the three 25° gaps above were the only ones wider than the
+   standard 20° grid spacing, and all three were used by the other three
+   sections above — no generous gap was left. signalle instead splits an
+   ordinary 20° grid gap in half (~10°/10°), a tighter squeeze than the
+   ~15° figure this policy otherwise targets, simply because four
+   unrelated sections needed independent fallback stops at once and only
+   three wide gaps existed. */
+:root[data-tool='signalle']         { --hue: 145; } /* splits the 135(isomorphic-jj)-155(temporals) gap */
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

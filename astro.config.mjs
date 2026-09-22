@@ -72,6 +72,10 @@ export default defineConfig({
           { label: 'semantic-chunker', directory: 'semantic-chunker' },
           { label: 'spintax', directory: 'spintax' },
           { label: 'tester', directory: 'tester' },
+          { label: 'domable', directory: 'domable' },
+          { label: 'hashish', directory: 'hashish' },
+          { label: 'http-converter', directory: 'http-converter' },
+          { label: 'signalle', directory: 'signalle' },
         ].map(({ label, directory }) => ({
           label,
           collapsed: true,
