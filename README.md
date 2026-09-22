@@ -19,6 +19,8 @@ hue (see `src/styles/circuit-bridge.css`).
 | Circuit | `circuit/` | 45° |
 | objectify | `objectify/` | 70° |
 | fileable | `fileable/` | 70° — shares with objectify: the two are near-exact duals (objectify turns a directory tree into structured data; fileable turns structured JSX into a directory tree, and fileable's own `eject` command runs objectify's exact direction) |
+| servable | `servable/` | 70° — shares with fileable/objectify: servable carries a real optional peerDependency on `@johnhenry/fileable` and can mount a fileable `Dir`/`File` tree as static routes (`Group from=`) — a genuine technical link, verified in `package.json`, not just thematic |
+| hostable | `hostable/` | 70° — shares with servable/fileable/objectify: hostable has a real, non-optional npm dependency on `@johnhenry/servable` (`"@johnhenry/servable": "file:../servable"`) — it re-exports most of servable's primitives directly and compiles through servable's own `compile()`. Third package in the `fileable → servable → hostable` lineage, so this hue-share chains all three. |
 | andbox | `andbox/` | 95° |
 | packfile | `packfile/` | 95° — shares with andbox: packfile has a real npm dependency on `@johnhenry/andbox`, whose `createVirtualModuleRegistry()` resolves JS module specifiers for packfile's `createBlobPreview()` |
 | Optical Artifact Transport | `oat/` | 115° |
@@ -29,6 +31,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | spintax | `spintax/` | 195° |
 | leserve | `leserve/` | 208° — no genuine technical link to an existing section (its only dependencies are non-family packages), so it takes the ≈15°-spacing fallback in the former 195°–220° gap instead of a flimsy share |
 | letterpress | `letterpress/` | 208° — shares with leserve: letterpress carries an explicit devDependency on `@johnhenry/leserve`, and its own usage examples run entirely through leserve's `serve()` |
+| servant | `servant/` | 208° — shares with leserve/letterpress: servant has a real, non-optional npm dependency on `@johnhenry/leserve` (its `toWebRequest()` conversion, from `@johnhenry/leserve/node-request`), and was extracted from leserve's own `controls.mjs`/`event.mjs` in the first place |
 | http-fields | `http-fields/` | 220° |
 | Agent Query (mcp-query, a2a-query, acp-query, mcp-gate) | `agent-query/` | 240° |
 | jth | `jth/` | 260° |
@@ -37,6 +40,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 320° |
 | wsh | `wsh/` | 340° |
 | browsermesh | `browsermesh/` | 340° — shares with wsh: browsermesh-netway's `GatewayBackend` is a real wsh-proxied backend, not just a thematic pairing |
+| dialback | `dialback/` | 340° — shares with browsermesh/wsh: dialback carries real optional peerDependencies on `@johnhenry/browsermesh-netway` and `@johnhenry/browsermesh-primitives`, consumed by its own dedicated `dialback/browsermesh` transport module (per-agent Ed25519 identity in place of a shared secret) — a genuine technical link, not just thematic |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -54,8 +58,17 @@ that produced that choice. Two more (packfile, letterpress) followed the same
 hue-share policy, and one (leserve) had no existing section with a genuine
 technical link to share with, so it took that policy's other stated
 fallback — a new stop at ≈15° spacing instead of the grid's usual 20° —
-inside the `195°–220°` gap. 18 distinct hue values total as of their
-addition.
+inside the `195°–220°` gap. Four more (servable, hostable, servant, dialback)
+also followed the hue-share policy: servable and hostable both join
+fileable/objectify's stop (servable via a real optional peerDependency on
+`@johnhenry/fileable`, hostable via a real hard dependency on
+`@johnhenry/servable` — chaining the whole `fileable → servable → hostable`
+lineage onto one hue), servant joins leserve/letterpress's stop (a real hard
+dependency on `@johnhenry/leserve`), and dialback joins browsermesh/wsh's
+stop (real optional peerDependencies on two browsermesh packages, consumed
+by its own `dialback/browsermesh` transport). 18 distinct hue values total —
+unchanged since leserve's addition, since every section added since has
+hue-shared rather than taken a new stop.
 
 Styling comes from [`@erisera-code/circuit`](https://github.com/erisera-code/circuit)
 via `src/styles/circuit-bridge.css`, which maps Circuit's tokens onto Starlight's
@@ -91,19 +104,33 @@ Two ways content gets into `src/content/docs/<name>/`:
 When the hue registry has no free arc left — no candidate hue is ≥20° from
 every existing stop, the spacing this table's 17 grid stops already use —
 don't repack the grid. The established policy (used for browsermesh,
-fileable, css-signals, packfile, and letterpress) is to hue-share with an
-existing section that has a genuine *technical* link to the new one, not just
-a thematic one, and to record that link as a one-line comment both in
-`circuit-bridge.css` next to the shared `--hue` rule and in this README's
-table. If no existing section has a real technical link to share with, that's
-the signal to fall back to the other stated option — relaxing grid spacing to
-~15° — rather than forcing a thematically-flimsy hue-share. leserve took that
-fallback: it had no real dependency on, or wasn't depended on by, any
-existing section, so it took its own new ≈15°-spaced stop instead of
-piggybacking on an unrelated one. (letterpress then shared leserve's new
-stop, once leserve's real devDependency made that link genuine — the
-fallback stop a new section creates can itself become a future hue-share
-target the same way any other stop can.)
+fileable, css-signals, packfile, letterpress, servable, hostable, servant,
+and dialback) is to hue-share with an existing section that has a genuine
+*technical* link to the new one, not just a thematic one, and to record that
+link as a one-line comment both in `circuit-bridge.css` next to the shared
+`--hue` rule and in this README's table. If no existing section has a real
+technical link to share with, that's the signal to fall back to the other
+stated option — relaxing grid spacing to ~15° — rather than forcing a
+thematically-flimsy hue-share. leserve took that fallback: it had no real
+dependency on, or wasn't depended on by, any existing section, so it took
+its own new ≈15°-spaced stop instead of piggybacking on an unrelated one.
+(letterpress then shared leserve's new stop, once leserve's real
+devDependency made that link genuine — the fallback stop a new section
+creates can itself become a future hue-share target the same way any other
+stop can; servant later joined the same stop for the same reason, a real
+hard dependency on `@johnhenry/leserve`.)
+
+servable, hostable, servant, and dialback are a good illustration that a
+hue-share arc isn't limited to two sections: servable and hostable both
+joined fileable/objectify's 70° stop (verified via real `package.json`
+dependencies, not guessed — servable's optional peerDependency on fileable,
+hostable's hard dependency on servable), and dialback joined browsermesh/
+wsh's 340° stop (real optional peerDependencies on `@johnhenry/
+browsermesh-netway`/`@johnhenry/browsermesh-primitives`, consumed by its own
+`dialback/browsermesh` transport module) — four sections now share the 70°
+stop (objectify, fileable, servable, hostable), three share 208° (leserve,
+letterpress, servant), and three share 340° (wsh, browsermesh, dialback);
+the registry never repacked.
 
 ## Develop
 

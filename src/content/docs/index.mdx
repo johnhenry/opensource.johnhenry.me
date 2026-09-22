@@ -76,6 +76,16 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
     description="Declaratively describe filesystem artifacts using JSX — plus eject, which runs it backwards: point it at a real directory and get JSX source back."
   />
   <LinkCard
+    title="servable"
+    href="/servable/"
+    description="Declaratively describe an HTTP server using JSX — a small closed set of primitives compiled into one Fetch-API (Request) => Response dispatcher, with optional fileable-tree mounting."
+  />
+  <LinkCard
+    title="hostable"
+    href="/hostable/"
+    description="Declaratively describe an API gateway using JSX — routes across multiple domains/backends by Host header, on top of servable's single-app dispatcher, with ipfs:// upstream support."
+  />
+  <LinkCard
     title="packfile"
     href="/packfile/"
     description="Compress a directory into a gzip(Web Bundle) archive and serve it straight back out as HTTP responses — plus client-side blob preview and Isolated Web App primitives."
@@ -86,9 +96,19 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
     description="A simple HTTP/HTTPS server built around one API, serve() — a plain (Request) => Response handler with opt-in WebSocket upgrades, auth middleware, and a test harness."
   />
   <LinkCard
+    title="servant"
+    href="/servant/"
+    description="A self-contained, batteries-included HTTP/HTTPS server with built-in routing, middleware, and WebSocket support, dispatched through a service-worker-style addEventListener('fetch', ...) API."
+  />
+  <LinkCard
     title="letterpress"
     href="/letterpress/"
     description="A tagged-template-string HTTP routing library — define and match request handlers with plain JavaScript syntax, no config objects or decorators."
+  />
+  <LinkCard
+    title="dialback"
+    href="/dialback/"
+    description="Reverse proxy HTTP requests over web sockets — an agent dials out, the server dials back through that same connection to reach it."
   />
   <LinkCard
     title="css-signals"

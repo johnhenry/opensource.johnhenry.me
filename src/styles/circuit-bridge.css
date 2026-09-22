@@ -71,10 +71,12 @@
    onto the grid during the 2026-08 expansion; theme hues carry no meaning,
    so a small nudge is invisible). At 17 stops the wheel was full — an 18th
    section needed a policy change (≈15° spacing, or hue-sharing); browsermesh,
-   fileable, css-signals, and (below) packfile and letterpress all hue-share
-   an existing stop with a genuine technical link, while leserve — no such
-   link available — took the ≈15°-spacing fallback instead of forcing a
-   flimsy share. 18 distinct hue values total as of their addition. */
+   fileable, css-signals, and (below) packfile, letterpress, servable,
+   hostable, servant, and dialback all hue-share an existing stop with a
+   genuine technical link, while leserve — no such link available — took
+   the ≈15°-spacing fallback instead of forcing a flimsy share. 18 distinct
+   hue values total — unchanged since leserve's addition, since every
+   section added since has hue-shared rather than taken a new stop. */
 :root[data-tool='ai-matey']         { --hue: 25; }
 :root[data-tool='circuit']          { --hue: 45; }
 :root[data-tool='objectify']        { --hue: 70; }
@@ -130,6 +132,34 @@
    leserve's serve(); the letterpress README says as much directly:
    "Letterpress works great with leserve." */
 :root[data-tool='letterpress']      { --hue: 208; }
+/* Sixth hue-share: servable takes fileable/objectify's stop. Real
+   technical link — servable carries a real optional peerDependency on
+   @johnhenry/fileable (verified in package.json) and can mount a
+   fileable Dir/File tree as static routes (Group from=); fileable is
+   never a hard dependency (routing-only consumers never pay for it), but
+   the integration is genuine, not thematic. */
+:root[data-tool='servable']         { --hue: 70; }
+/* Seventh hue-share: hostable takes the same stop servable just joined.
+   Real technical link, and the strongest kind: hostable has a real,
+   non-optional npm dependency on @johnhenry/servable
+   ("@johnhenry/servable": "file:../servable") — it re-exports most of
+   servable's own primitives directly and compiles through servable's
+   compile(). hostable is the third package in the fileable -> servable
+   -> hostable lineage, so this hue-share chains all three. */
+:root[data-tool='hostable']         { --hue: 70; }
+/* Eighth hue-share: servant takes leserve/letterpress's stop. Real
+   technical link — servant has a real, non-optional npm dependency on
+   @johnhenry/leserve (its toWebRequest() conversion, imported from
+   @johnhenry/leserve/node-request), and was extracted from leserve's own
+   controls.mjs/event.mjs in the first place (see servant's CHANGELOG). */
+:root[data-tool='servant']          { --hue: 208; }
+/* Ninth hue-share: dialback takes browsermesh/wsh's stop. Real technical
+   link — dialback carries real optional peerDependencies on
+   @johnhenry/browsermesh-netway and @johnhenry/browsermesh-primitives,
+   consumed by its own dedicated dialback/browsermesh transport module
+   (per-agent Ed25519 identity in place of a shared secret), not just a
+   thematic pairing. */
+:root[data-tool='dialback']         { --hue: 340; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);
