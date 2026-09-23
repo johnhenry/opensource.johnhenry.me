@@ -192,6 +192,15 @@
    `npm install andbox` separately, and uses andbox's createSandbox()
    directly), not just a shared theme. */
 :root[data-tool='aimatey-middleware-andbox'] { --hue: 95; }
+/* Hue-share: apple-foundation-models takes ai-matey's stop. Real technical
+   link -- this package IS the on-device Apple Intelligence backend that
+   @johnhenry/aimatey-native-apple (part of the aimatey monorepo) wraps as a
+   BackendAdapter; aimatey-native-apple's own README documents it as "the
+   optional native binding" and dynamically imports it at runtime. Not a
+   thematic pairing -- the dependency direction is real, just not expressed
+   as a hard package.json dependency (it's an optional peer the consumer
+   installs separately). */
+:root[data-tool='apple-foundation-models'] { --hue: 25; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

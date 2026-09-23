@@ -55,6 +55,7 @@ export default defineConfig({
           { label: 'Optical Artifact Transport', directory: 'oat' },
           { label: 'andbox', directory: 'andbox' },
           { label: 'aimatey-middleware-andbox', directory: 'aimatey-middleware-andbox' },
+          { label: 'apple-foundation-models', directory: 'apple-foundation-models' },
           { label: 'objectify', directory: 'objectify' },
           { label: 'fileable', directory: 'fileable' },
           { label: 'servable', directory: 'servable' },
