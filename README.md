@@ -39,6 +39,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | ecmanim | `ecmanim/` | 280° |
 | raijin | `raijin/` | 300° |
 | Math (`@johnhenry/math`, math-plus, math-grapher, iteration) | `math/` | 320° |
+| laya-js | `laya-js/` | 320° — shares with Math: `@johnhenry/laya` has a real, non-optional npm dependency on `@johnhenry/math-plus-safetensors` (every checkpoint is read through its `openSafetensors`), and `@johnhenry/tensor-backend` mirrors `math-plus-tensor-core`'s dtype names and `HostTensor` layout |
 | wsh | `wsh/` | 340° |
 | browsermesh | `browsermesh/` | 340° — shares with wsh: browsermesh-netway's `GatewayBackend` is a real wsh-proxied backend, not just a thematic pairing |
 | dialback | `dialback/` | 340° — shares with browsermesh/wsh: dialback carries real optional peerDependencies on `@johnhenry/browsermesh-netway` and `@johnhenry/browsermesh-primitives`, consumed by its own dedicated `dialback/browsermesh` transport module (per-agent Ed25519 identity in place of a shared secret) — a genuine technical link, not just thematic |

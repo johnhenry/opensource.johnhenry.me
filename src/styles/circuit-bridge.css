@@ -201,6 +201,13 @@
    as a hard package.json dependency (it's an optional peer the consumer
    installs separately). */
 :root[data-tool='apple-foundation-models'] { --hue: 25; }
+/* laya-js hue-shares Math's stop rather than taking a new one: a real
+   technical link, not a thematic one — @johnhenry/laya has a hard npm
+   dependency on @johnhenry/math-plus-safetensors (every checkpoint is read
+   through its openSafetensors), and @johnhenry/tensor-backend's dtype names
+   and HostTensor layout match @johnhenry/math-plus-tensor-core
+   (toMathPlusArgs hands results to Tensor.fromTypedArray without a copy). */
+:root[data-tool='laya-js']          { --hue: 320; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

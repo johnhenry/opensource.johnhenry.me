@@ -49,6 +49,7 @@ export default defineConfig({
           { label: 'browsermesh', directory: 'browsermesh' },
           { label: 'Agent Query', directory: 'agent-query' },
           { label: 'Math', directory: 'math' },
+          { label: 'laya-js', directory: 'laya-js' },
           { label: 'ecmanim', directory: 'ecmanim' },
           { label: 'http-fields', directory: 'http-fields' },
           { label: 'wsh', directory: 'wsh' },
