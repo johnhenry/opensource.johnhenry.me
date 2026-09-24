@@ -1,6 +1,6 @@
 ---
 title: Math Plus
-description: Seventeen focused packages for numeric computing — tensors, autograd, WASM and WebGPU kernels, dataframes, FFT, signal, image, and units.
+description: Twenty-one focused packages for numeric computing — tensors, autograd, WASM kernels, WebGPU and MLX devices, safetensors, dataframes, FFT, signal, image, and units.
 ---
 
 Math Plus is a family, not a package. Install only what you need.
@@ -15,7 +15,7 @@ Everything below is published independently under `@johnhenry/math-plus-*`, so a
 
 The clusters each get a page of their own — the tables below are the map; the cluster pages are where the traps live:
 
-- [Tensors](/math/math-plus-tensor/) — tensor-core, autograd, compile, WASM, WebGPU, and how to actually pick a backend (spoiler: there is no `setBackend()`, and the honest GEMM numbers favor WASM)
+- [Tensors](/math/math-plus-tensor/) — tensor-core, autograd, compile, WASM, the WebGPU / MLX / CPU device packages, safetensors and the canonical erf, and how to actually pick a backend (spoiler: there is no `setBackend()`; devices are explicit, and a measured rule decides when a GEMM is worth sending to WebGPU)
 - [Signal & media](/math/math-plus-signal/) — fft, signal, image, and every deliberate NumPy/SciPy convention deviation in one table
 - [Data](/math/math-plus-data/) — frame-arrow, frame-parquet, data, scalar-types, and the bigint/null/laziness traps
 - [Interop & telemetry](/math/math-plus-interop/) — mcp, the PyPI-side Python bridge, telemetry
@@ -29,10 +29,16 @@ Each package also has a full README in the [repo](https://github.com/johnhenry/m
 | `tensor-core` | Typed n-dimensional arrays — dtypes, strides and views, broadcasting, `.npy` I/O. Start here. |
 | `tensor-autograd` | Reverse-mode automatic differentiation over `tensor-core` tensors |
 | `tensor-compile` | Elementwise expression IR and fusion — trace once, execute fused |
-| `tensor-wasm` | Rust→WASM CPU kernels, flat-numeric extern-C ABI with no wasm-bindgen marshalling on hot paths |
-| `tensor-webgpu` | WebGPU GEMM, attention-adjacent primitives, and IR fusion. Chromium-family browsers only. |
+| `tensor-wasm` | Rust→WASM CPU kernels, flat-numeric extern-C ABI with no wasm-bindgen marshalling on hot paths; a blocked SIMD GEMM (~37 GFLOP/s at 1024³ on an M2) |
+| `tensor-webgpu` | WebGPU device facade over laya-js's `@johnhenry/backend-webgpu`: GEMM, fused attention, IR fusion. Browsers, Deno, and Node/Bun via Dawn. |
+| `tensor-mlx` | Experimental MLX (Metal) device over `@johnhenry/backend-mlx`, with explicit async transfers. Apple Silicon; Node, Bun, Deno. |
+| `tensor-cpu` | The CPU reference `Backend` for the `@johnhenry/tensor-backend` contract, on tensor-core's kernels |
+| `safetensors` | safetensors reader/writer with lazy file, Blob and HTTP-Range reads |
+| `special` | The one canonical double-precision `erf`/`erfc`/GELU, shared by tensor-core and frame-arrow |
 
-Details, backend selection, and traps: [the tensor cluster page](/math/math-plus-tensor/).
+Details, backend selection, [RFC 0001](/math/math-plus-tensor/#the-device-contract-rfc-0001)'s device decision, and traps: [the tensor cluster page](/math/math-plus-tensor/).
+
+The device packages share their contract and runtimes with [laya-js](/laya-js/): `tensor-webgpu` and `tensor-mlx` sit on its `backend-webgpu` and `backend-mlx`, and its `backend-cpu` re-exports `tensor-cpu`.
 
 ## Data
 

@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Install laya-js for Node, Bun, browsers or Deno, and ask a Laya checkpoint its first typed question, from code or from the shell.
+description: Install laya-js for Node, Bun, Deno or browsers, and ask a Laya checkpoint its first typed question, from code or from the shell.
 sidebar:
   order: 1
 ---
@@ -15,7 +15,7 @@ npm install @johnhenry/laya @johnhenry/backend-webgpu   # anywhere with a GPU: W
 npm install @johnhenry/laya                             # CPU reference only
 ```
 
-Both GPU backends are optional peer dependencies. `laya` loads them with a dynamic `import()` only when they are selected.
+Both GPU backends are optional peer dependencies (`laya` 0.3 accepts versions 0.2 through 0.4 of each). `laya` loads them with a dynamic `import()` only when they are selected.
 
 On darwin/arm64, `@johnhenry/backend-mlx` pulls in two things:
 
@@ -26,9 +26,11 @@ Nothing is compiled on your machine, and no install script runs.
 
 **Bun ≥ 1.2.** Install the same packages with `bun add`. For MLX, Bun uses its built-in `bun:ffi` instead of koffi.
 
-**Browsers.** Run `npm install @johnhenry/laya @johnhenry/backend-webgpu` and bundle as usual. The `browser` export condition swaps in the browser I/O: a Cache API model cache and `fetch`. Your bundler never sees `node:fs`, koffi or libmlxc. WebGPU needs Chrome or Edge 113+ (f16 from 120). Safari 26 and Firefox 141 are expected to work but are not verified.
+**Deno 2.** `@johnhenry/laya` runs under Deno from an npm install, with MLX loaded through `Deno.dlopen`; on MLX its answers match Python exactly on all three checkpoints.
 
-**Deno.** The backend-agnostic packages (`tensor-backend`, `backend-cpu`, `backend-webgpu`, `modernbert`, `laya-core`, `pyjson`, `langdetect-lite`, `hf-cache`, `laya-presets`, `laya-router`) are prepared for JSR, but not yet published there. `@johnhenry/laya` itself and the MLX backend support only Node, Bun and browsers for now.
+**Browsers.** `npm install @johnhenry/laya @johnhenry/backend-webgpu` and bundle as usual; the `browser` export condition keeps `node:fs`, koffi and libmlxc out of the bundle.
+
+The flags, permissions and per-runtime caveats for both are on the [Runtimes](/laya-js/runtimes/) page.
 
 ## Quick start
 
@@ -49,17 +51,44 @@ console.log(result.answers.department); // { type: "choice", choice: "billing", 
 agent.dispose();
 ```
 
-The first `load` downloads the checkpoint into the standard `~/.cache/huggingface/hub` layout, the same cache Python's `hf download` uses. Later runs are fully local, and `offline: true` guarantees that nothing touches the network. In a browser the weights go into the Cache API instead.
+`load()` and `predict()` both return Promises. `load()` resolves once every weight is on the device: the uploads are started together and awaited once.
+
+The first `load` downloads the checkpoint into the standard `~/.cache/huggingface/hub` layout, the same cache Python's `hf download` uses. Later runs are fully local, and `offline: true` guarantees that nothing touches the network. In a browser the weights go into the Cache API instead. `load()` also accepts a local directory, or an http(s) base URL whose weights it reads with Range requests, in Node and Bun as well as in browsers.
 
 The three published checkpoints:
 
 | Checkpoint | Encoder | Download |
 |---|---|---|
-| `aac6fef/laya-mlx`: English | ModernBERT-large, 421M | ≈ 804 MB |
-| `aac6fef/laya-multilingual-mlx`: 1,800+ languages | mmBERT-base, 322M | ≈ 614 MB |
-| `aac6fef/laya-typed-decisions-mlx`: fine-tuned for typed choice/score/yes-no | ModernBERT-large | ≈ 804 MB |
+| `aac6fef/laya-mlx`: English | ModernBERT-large, 421M | ≈ 843 MB |
+| `aac6fef/laya-multilingual-mlx`: 1,800+ languages | mmBERT-base, 322M | ≈ 644 MB |
+| `aac6fef/laya-typed-decisions-mlx`: fine-tuned for typed choice/score/yes-no | ModernBERT-large | ≈ 843 MB |
 
 `@johnhenry/laya-router` picks between them by detected language and task. `predictShortlist` narrows a choice question with hundreds of options to the top *k* by embedding similarity before it asks the model.
+
+To download half as much, make a q8 copy with `laya quantize` and load that instead; `load()` detects it by itself. See [Quantized checkpoints](/laya-js/quantized-checkpoints/).
+
+### Useful `load` options
+
+| option | default | |
+|---|---|---|
+| `backend` | `"auto"` | a `Backend` instance (you own it), or `"auto"` \| `"mlx"` \| `"webgpu"` \| `"cpu"` |
+| `dtype` | `"f16"` | `"f16"` \| `"f32"`; `agent.dtype` reports what is actually used |
+| `batchSize` | 16 | rows per forward pass |
+| `compile` | false | trace the forward pass with `mlx_compile`, once per input shape (MLX only) |
+| `quantized` | `"device"` | for q8/q4 checkpoints: keep the weights quantized on MLX/WebGPU, or `"dequantize"` on the host |
+| `offline`, `revision`, `token`, `subfolder`, `onProgress`, `fetch` | | passed to `@johnhenry/hf-cache` |
+
+### Lower-level API: now async
+
+If you build the agent yourself instead of calling `load()`, note that device uploads have been async since `tensor-backend` 0.2 (`laya` 0.2):
+
+```ts
+const agent = await createAgent(parts);            // was synchronous in 0.1
+const model = await loadDecisionModel(backend, { encoderConfig, agentConfig, weights, dtype });
+const x = await backend.fromHost({ dtype: "f16", shape: [2, 3], data: new Float16Array(6) });
+```
+
+`forwardTensors`, `uploadBatch` and the function `compiled()` returns are async too. `forwardCore` stays synchronous, so it can still be traced by `compile`.
 
 ## From the shell
 
@@ -69,11 +98,13 @@ npx @johnhenry/laya-cli predict \
   --questions '{"department": {"type": "choice", "instructions": "Who should handle this?", "criteria": ["billing", "technical", "sales"]}}'
 ```
 
-`laya predict` prints the same JSON that `laya-mlx predict` prints. With `--backend mlx`, the README example's output is byte-identical to the Python CLI's. `laya predict --route` picks the checkpoint by language. `laya bench` mirrors laya-mlx's benchmark worker.
+`laya predict` prints the same JSON that `laya-mlx predict` prints. With `--backend mlx`, the README example's output is byte-identical to the Python CLI's. `laya predict --route` picks the checkpoint by language. `laya bench` mirrors laya-mlx's benchmark worker. `laya quantize --model <repo|dir> --bits 8|4 --out <dir>` writes a quantized checkpoint.
 
 ## In the browser, without installing anything
+
+The [demos page](https://johnhenry.github.io/laya-js/) links both examples, deployed to GitHub Pages on every push to laya-js `main`:
 
 - [Playground](https://johnhenry.github.io/laya-js/playground/): pick a checkpoint, edit the state, build questions and see a probability bar for every option.
 - [Snake](https://johnhenry.github.io/laya-js/snake/): the laya-mlx Snake demo, where the model picks every move and a cycle-safety shield steps in when it would die.
 
-Both demos share one Cache API store, so the weights download once for both. Their source is in the repo's [`examples/`](https://github.com/johnhenry/laya-js/tree/main/examples) directory.
+Both need WebGPU (Chrome or Edge 113+) and share one Cache API store, so the weights download once for both. Their source is in the repo's [`examples/`](https://github.com/johnhenry/laya-js/tree/main/examples) directory.
