@@ -8,7 +8,7 @@ Five separately published families, all MIT-licensed, all on npm under `@johnhen
 | Package | What it is |
 |---|---|
 | [`@johnhenry/math`](/math/math/) | The core library — geometry, linear algebra, complex numbers, intervals, rotors, symbolic evaluation |
-| [`@johnhenry/math-plus-*`](/math/math-plus/) | 17 focused packages for numeric computing: tensors, autograd, WASM/WebGPU kernels, dataframes, FFT, signal, image, units |
+| [`@johnhenry/math-plus-*`](/math/math-plus/) | 21 focused packages for numeric computing: tensors, autograd, WASM kernels, WebGPU/MLX devices, safetensors, dataframes, FFT, signal, image, units |
 | [`@johnhenry/math-grapher`](/math/math-grapher/) | A headless reactive-cell runtime, drivable by an AI agent over MCP |
 | [`@johnhenry/iteration`](/math/iteration/) | Sync and async iterator algebra — transducers, itertools parity, bounded concurrency |
 | [`@johnhenry/math-prototype-patch`](/math/math-prototype-patch/) | Opt-in `Number.prototype` patch adding `ComplexNumber`'s fluent arithmetic to plain numbers |
@@ -19,7 +19,7 @@ Five separately published families, all MIT-licensed, all on npm under `@johnhen
 
 **Doing numeric computing** — n-dimensional arrays, gradients, matrix multiplication on the GPU, reading Parquet — start with `math-plus-tensor-core` and add only the extensions you need. The family is deliberately granular so you don't ship a WebGPU backend to a project that just wants an FFT. It's documented here in four clusters:
 
-- [Tensors](/math/math-plus-tensor/) — tensor-core, autograd, expression fusion, WASM and WebGPU kernels, and the honest answer to "how do I pick a backend?"
+- [Tensors](/math/math-plus-tensor/) — tensor-core, autograd, expression fusion, WASM kernels, the WebGPU/MLX/CPU devices, safetensors, and the honest answer to "how do I pick a backend?"
 - [Signal & media](/math/math-plus-signal/) — FFT, SciPy's signal slice, image ops, and every deliberate deviation from NumPy/SciPy conventions in one table
 - [Data](/math/math-plus-data/) — Arrow dataframes, Parquet with real pushdown, dataset pipelines, and the bigint/null/laziness traps
 - [Interop & telemetry](/math/math-plus-interop/) — the MCP server for agents, the PyPI-side Python bridge, and the training-telemetry stream
@@ -30,7 +30,7 @@ Five separately published families, all MIT-licensed, all on npm under `@johnhen
 
 ## Versions
 
-The math packages are early: most sit at `0.0.0` and use `^0.0.0` ranges internally. Under npm's pre-1.0 caret rules `^0.0.0` matches **only** `0.0.0` — it is not a range. Pin exact versions and expect a coordinated move to `0.1.x` before these are dependable in production.
+The math packages are early. The math-plus tensor track has reached `0.1.x`–`0.3.x` (tensor-core 0.2.1, tensor-webgpu 0.3.0); most other math-plus packages are still `0.0.x` (fft 0.0.4, frame-arrow 0.0.5), and their internal ranges are carets on those versions. Under npm's pre-1.0 caret rules `^0.0.4` matches **only** `0.0.4`, and `^0.2.1` stops before `0.3.0` — every minor bump is breaking. Pin exact versions until these reach 1.0.
 
 `@johnhenry/iteration` is the mature one: it has shipped under three names across several years (see its page for the provenance).
 
