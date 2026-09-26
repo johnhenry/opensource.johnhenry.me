@@ -1,5 +1,5 @@
 ---
-title: 'Math Plus: interop & telemetry'
+title: 'math-plus: interop & telemetry'
 description: The MCP server for agents, the Python-side bridge on PyPI, and the shared telemetry stream — three packages on three different release channels.
 ---
 

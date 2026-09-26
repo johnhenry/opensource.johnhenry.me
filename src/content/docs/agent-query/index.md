@@ -1,5 +1,5 @@
 ---
-title: Agent Query
+title: agent-query
 description: Reactive, cached, embeddable clients for MCP, A2A, and ACP — built for apps that aren't agents.
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: 'Math Plus: signal & media'
+title: 'math-plus: signal & media'
 description: The fft, signal, and image packages — SciPy's useful slice in pure JS, with the convention deviations you need to know before porting NumPy/SciPy code.
 ---
 

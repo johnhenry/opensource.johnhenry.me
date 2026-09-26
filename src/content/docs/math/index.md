@@ -1,5 +1,5 @@
 ---
-title: Math
+title: math
 description: Geometry, intervals, tensors, signals, and units — a core mathematics library plus a family of focused extensions.
 ---
 
