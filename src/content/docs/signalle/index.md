@@ -7,9 +7,6 @@ description: "A beautiful, modern JavaScript signals library with optional DOM i
 integration. It provides fine-grained reactivity — only what changed
 re-runs, not entire components — with a simple, intuitive API.
 
-> Published on npm as unscoped `signalle` (not yet moved into the
-> `@johnhenry` scope). Everything below uses that unscoped name.
-
 - **Fine-grained reactivity**: only update what changed, not entire
   components
 - **Framework agnostic**: works anywhere JavaScript runs
@@ -20,13 +17,13 @@ re-runs, not entire components — with a simple, intuitive API.
 ## Install
 
 ```sh
-npm install signalle
+npm install @johnhenry/signalle
 ```
 
 ## Quick start
 
 ```javascript
-import { signal, computed, effect } from 'signalle';
+import { signal, computed, effect } from '@johnhenry/signalle';
 
 // Create a signal with an initial value
 const count = signal(0);
