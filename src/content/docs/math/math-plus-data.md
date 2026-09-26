@@ -1,5 +1,5 @@
 ---
-title: 'Math Plus: data'
+title: 'math-plus: data'
 description: Arrow-backed dataframes, Parquet with real pushdown, async dataset pipelines, and the scalar-type bridge — plus the bigint, null, and laziness traps.
 ---
 

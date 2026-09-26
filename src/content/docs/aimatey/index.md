@@ -1,5 +1,5 @@
 ---
-title: "aimatey Documentation"
+title: "aimatey"
 description: "Introduction to aimatey, the Universal AI Adapter System: one interface for many AI providers with routing, middleware, and streaming."
 ---
 

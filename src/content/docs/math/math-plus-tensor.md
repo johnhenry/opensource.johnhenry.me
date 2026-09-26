@@ -1,5 +1,5 @@
 ---
-title: 'Math Plus: tensors'
+title: 'math-plus: tensors'
 description: The tensor cluster — tensor-core's typed n-D arrays, autograd, expression fusion, Rust→WASM kernels, the WebGPU / MLX / CPU device packages, safetensors, and the canonical erf — and how to actually pick a backend.
 ---
 

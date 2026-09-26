@@ -1,5 +1,5 @@
 ---
-title: Math Plus
+title: math-plus
 description: Twenty-one focused packages for numeric computing — tensors, autograd, WASM kernels, WebGPU and MLX devices, safetensors, dataframes, FFT, signal, image, and units.
 ---
 
