@@ -331,7 +331,7 @@ const playground: Playground = {
         <text x="${X.tab}" y="${Y - 8}" class="sub mono agent-id">Agent</text>
         <rect x="${X.tab - 52}" y="${Y + 4}" width="104" height="30" rx="6" class="handler"/>
         <text x="${X.tab}" y="${Y + 24}" class="sub mono">handler(req)</text></g>
-      <text x="${(X.server + X.tab) / 2}" y="${Y - 26}" class="tube-lbl">WebSocket the tab dialled out</text>
+      <text x="${(X.server + X.tab) / 2}" y="34" class="tube-lbl">WebSocket the tab dialled out</text>
       <g class="packets"></g>`;
     const packetsG = svg.querySelector('.packets') as SVGGElement;
     const tabNode = svg.querySelector('.node.tab') as SVGGElement;

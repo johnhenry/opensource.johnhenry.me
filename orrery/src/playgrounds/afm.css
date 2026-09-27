@@ -41,12 +41,58 @@
 .pg-afm .pg-chat h3, .pg-afm .pg-surface h3 { margin-top: 0; }
 
 .pg-afm .pg-banner-slot .companion-banner { margin-bottom: 12px; }
+/* Pattern B: the shared .companion-banner is display:flex with flex-wrap, which
+   breaks its sentence at item edges (chip/link) instead of at word boundaries,
+   stacking the title/text/code chip/link onto separate ragged lines. Render it
+   as one flowing inline paragraph instead. */
+.pg-afm .companion-banner,
+.pg-afm .pg-banner-slot > div {
+  display: block;
+  line-height: 1.6;
+}
+.pg-afm .companion-banner .dot,
+.pg-afm .pg-banner-slot > div .dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.pg-afm .companion-banner code,
+.pg-afm .pg-banner-slot > div code {
+  display: inline;
+  padding-block: 0;
+  line-height: inherit;
+}
+.pg-afm .companion-banner .err,
+.pg-afm .pg-banner-slot > div .err {
+  display: block;
+  margin-top: 6px;
+}
 
 .pg-afm .pg-opts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 10px 0;
+}
+@media (max-width: 560px) {
+  .pg-afm .pg-opts { grid-template-columns: minmax(0, 1fr); }
+}
+.pg-afm .pg-opts label.field {
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+/* label.field is itself display:grid with an implicit auto-sized column, whose
+   automatic minimum size floors at each row's min-content — an unbroken
+   identifier like "GenerationOptions.temperature" has no break point, so that
+   floor blows the column past its 156px track (pattern A). min-width: 0 on
+   every row removes that floor so overflow-wrap above can actually engage. */
+.pg-afm .pg-opts label.field > * { min-width: 0; }
+.pg-afm .pg-opts input,
+.pg-afm .pg-opts select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .pg-afm .pg-temperature-val { font-family: var(--f-mono); }
 
@@ -72,18 +118,22 @@
 .pg-afm .pg-transcript-details summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
 .pg-afm .pg-transcript { margin-top: 8px; max-height: 160px; }
 
+.pg-afm .pg-api-table-wrap { overflow-x: auto; margin: 10px 0; }
 .pg-afm .pg-api-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-family: var(--f-mono);
   font-size: 12px;
-  margin: 10px 0;
+  margin: 0;
 }
 .pg-afm .pg-api-table th, .pg-afm .pg-api-table td {
   border-bottom: 1px solid var(--line);
   padding: 6px 8px;
   text-align: left;
   vertical-align: top;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 .pg-afm .pg-api-table th { color: var(--ink-2); font-weight: 600; }
 

@@ -614,7 +614,7 @@ function mountRoom(host: HTMLElement): () => void {
         </div>
         <div class="tc-transcript" data-el="transcript"></div>
         <form class="tc-input" data-el="form">
-          <input data-el="input" placeholder="Ask something; the mock matches keywords (weather, admin, fahrenheit, humidity, until, every…)" autocomplete="off">
+          <input data-el="input" placeholder="Ask something (try weather, admin, fahrenheit…)" title="The mock matches keywords: weather, admin, fahrenheit, humidity, until, every…" autocomplete="off">
           <button class="btn primary" data-el="send">Send</button>
         </form>
         <div class="tc-tools">

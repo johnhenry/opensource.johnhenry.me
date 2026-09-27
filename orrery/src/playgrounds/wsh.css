@@ -1,4 +1,13 @@
 .pg-wsh { display: grid; gap: 16px; --seg-a: #f5a524; --seg-b: #4cc9f0; --seg-c: #b388ff; --seg-d: #7ee787; --seg-e: #ff7b9c; }
+/* Pattern B: the shared .companion-banner is display:flex with flex-wrap,
+   which breaks its sentence at item edges (chip/link) instead of at word
+   boundaries — worst here, where the sentence breaks right before the
+   trailing ", speaking byte-identical…" clause. Render it as one flowing
+   inline paragraph instead. */
+.pg-wsh .companion-banner { display: block; line-height: 1.6; }
+.pg-wsh .companion-banner .dot { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.pg-wsh .companion-banner code { display: inline; padding-block: 0; line-height: inherit; }
+.pg-wsh .companion-banner .err { display: block; margin-top: 6px; }
 .pg-wsh .panel h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pg-wsh .panel h3 .sub { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); font-weight: 400; letter-spacing: 0; }
 .pg-wsh .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -32,7 +41,10 @@
 .pg-wsh .fields.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 560px) { .pg-wsh .fields, .pg-wsh .fields.three { grid-template-columns: minmax(0, 1fr); } }
 .pg-wsh label.field input, .pg-wsh label.field select { color: var(--ink); font-family: var(--f-mono); font-size: 13px; min-width: 0; width: 100%; }
-.pg-wsh label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+/* label.check's text was an implicit flex item free to shrink-then-wrap
+   inside the narrow "key on host allowlist" column, splitting "register it
+   first" across two ragged lines next to the checkbox. Keep it one line. */
+.pg-wsh label.check { display: inline-flex; flex-shrink: 0; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .pg-wsh .status { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
 .pg-wsh .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
 .pg-wsh .status.ok { border-color: var(--success); color: var(--success); }
@@ -77,7 +89,11 @@
 .pg-wsh .hs-body .kv span { word-break: break-all; }
 .pg-wsh .hs-body .hex { margin-top: 8px; color: var(--ink-3); font-size: 11px; word-break: break-all; line-height: 1.5; }
 .pg-wsh .hs-sep { font-size: 11px; color: var(--ink-3); text-align: center; padding: 4px; letter-spacing: .1em; text-transform: uppercase; }
-.pg-wsh .hl { border-radius: 4px; padding: 0 4px; color: #0b0f1c; font-weight: 700; }
+/* .hl wraps long hex byte strings (signature/public_key); as a plain inline
+   element its background/padding/radius otherwise reset at every line break,
+   splitting the highlight into disconnected, oddly-cropped fragments.
+   box-decoration-break makes each wrapped fragment its own complete pill. */
+.pg-wsh .hl { border-radius: 4px; padding: 0 4px; color: #0b0f1c; font-weight: 700; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .pg-wsh .hl.a { background: var(--seg-a); } .pg-wsh .hl.b { background: var(--seg-b); } .pg-wsh .hl.c { background: var(--seg-c); } .pg-wsh .hl.d { background: var(--seg-d); } .pg-wsh .hl.e { background: var(--seg-e); }
 .pg-wsh .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .pg-wsh .filters .chip { cursor: pointer; opacity: .45; }
@@ -112,7 +128,11 @@
 .pg-wsh .win > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--seg-d); transition: width .12s linear, background .2s; }
 .pg-wsh .win.low > i { background: var(--seg-a); }
 .pg-wsh .win.empty > i { background: var(--seg-e); }
-.pg-wsh .win > span { position: absolute; inset: 0; font-size: 9px; line-height: 12px; text-align: center; color: #fff; mix-blend-mode: difference; }
+/* mix-blend-mode: difference against the light pastel fill colours (--seg-d
+   green, --seg-a yellow) produced low-contrast dark-on-light text instead of
+   the intended "always legible" effect. A solid white label with a strong
+   dark halo reads clearly over any fill colour instead. */
+.pg-wsh .win > span { position: absolute; inset: 0; font-size: 9px; line-height: 12px; text-align: center; color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 0 1px 1px #000; }
 .pg-wsh .tscroll { overflow-x: auto; }
 .pg-wsh .insp-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
 @media (max-width: 860px) { .pg-wsh .insp-grid { grid-template-columns: minmax(0, 1fr); } }

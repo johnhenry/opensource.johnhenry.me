@@ -1,5 +1,12 @@
 .pg-dialback { display: grid; gap: 16px; }
 .pg-dialback .companion-banner { margin-bottom: 0; }
+/* Pattern B: the shared .companion-banner is display:flex with flex-wrap,
+   which breaks its sentence at item edges (chip/link) instead of at word
+   boundaries. Render it as one flowing inline paragraph instead. */
+.pg-dialback .companion-banner { display: block; line-height: 1.6; }
+.pg-dialback .companion-banner .dot { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.pg-dialback .companion-banner code { display: inline; padding-block: 0; line-height: inherit; }
+.pg-dialback .companion-banner .err { display: block; margin-top: 6px; }
 .pg-dialback h3 { margin: 0; font-family: var(--f-display); font-size: 16px; letter-spacing: .01em; }
 .pg-dialback h3 small { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); font-weight: 400; margin-left: 8px; letter-spacing: 0; }
 .pg-dialback .ph { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -73,7 +80,17 @@
 .pg-dialback .chip.preset:hover { color: var(--ink); border-color: var(--accent-border); }
 .pg-dialback .chip.preset.on { color: var(--ink); background: var(--accent-soft); border-color: var(--accent); }
 .pg-dialback .pblurb { margin: 0 0 8px; color: var(--ink-2); font-size: 13px; }
-.pg-dialback textarea.editor { min-height: 330px; font-size: 12.5px; tab-size: 2; white-space: pre; }
+/* white-space: pre means long lines scroll horizontally (overflow-x: auto is
+   already the UA default for textarea) rather than wrap — matches pattern D's
+   preferred handling for code — but that scrollability had no visible
+   affordance, so long lines just looked hard-clipped. A right-edge fade plus
+   a slightly more visible scrollbar hints there's more off-screen. */
+.pg-dialback textarea.editor {
+  min-height: 330px; font-size: 12.5px; tab-size: 2; white-space: pre;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  mask-image: linear-gradient(to right, black calc(100% - 22px), transparent);
+}
 .pg-dialback .sig { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
 .pg-dialback .sig b { color: var(--accent); font-weight: 600; }
 .pg-dialback pre.err { margin-top: 8px; color: var(--error); white-space: pre-wrap; max-height: 140px; }
