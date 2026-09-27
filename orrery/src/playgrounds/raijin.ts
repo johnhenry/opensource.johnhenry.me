@@ -5,11 +5,13 @@ import {
   encodeAccount,
   ed25519Verifier,
   hash,
+  hashString,
   encodeTxSigned,
   equal,
   toHex,
+  fromHex,
 } from '@johnhenry/raijin-core';
-import type { Block, TransactionReceipt, Account } from '@johnhenry/raijin-core';
+import type { Block, TransactionReceipt, Account, Transaction } from '@johnhenry/raijin-core';
 import { ValidatorSet } from '@johnhenry/raijin-consensus';
 import type {
   ConsensusMessage,
@@ -17,11 +19,14 @@ import type {
   NetworkTransport,
 } from '@johnhenry/raijin-consensus';
 import { defaultFeeExtractor } from '@johnhenry/raijin-mempool';
-import { LocalDA, encode, decode } from '@johnhenry/raijin-da';
+import { LocalDA, CelestiaDA, EthBlobDA, encode, decode } from '@johnhenry/raijin-da';
+import type { DALayer, DACommitment } from '@johnhenry/raijin-da';
 import { ValidatorNode } from '@johnhenry/raijin-validator';
 import { RaijinClient, Wallet } from '@johnhenry/raijin-sdk';
 import type { ClientTransport } from '@johnhenry/raijin-sdk';
 import { readState, writeState, copyLink } from '../state';
+import { sendToTab, onTabHandoff } from '../bus';
+import type { Handoff } from '../bus';
 import './raijin.css';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -37,6 +42,15 @@ import './raijin.css';
  *   - identity: WebCrypto Ed25519 Wallets (raijin-sdk) + ed25519Verifier (core)
  *   - DA: a LocalDA that every canonical block is encoded into and verified from
  * The UI talks to the mesh only through RaijinClient over a ClientTransport.
+ *
+ * Below that, two independent, opt-in additions (item 2.7 of the roadmap):
+ *   - Cross-tab validators: same ValidatorNode/PBFTConsensus classes, but the
+ *     NetworkTransport is real — backed by bus.ts's sendToTab()/onTabHandoff(),
+ *     which is @johnhenry/browsermesh-pod's BroadcastChannelTransport. Each
+ *     browser tab that opts in is ONE real validator process; consensus
+ *     genuinely crosses the browser's process/tab boundary.
+ *   - A DA panel comparing LocalDA / CelestiaDA / EthBlobDA from raijin-da,
+ *     including the latter's real, documented "not yet implemented" errors.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const CHAIN_ID = 10n;
@@ -45,6 +59,98 @@ const GENESIS = 1000n;
 const ACCOUNTS = ['alice', 'bob', 'carol', 'dave', 'erin'];
 const HISTORY_MS = 3200;
 const FUTURE_MS = 700;
+
+/* ── cross-tab validators: identity, coordination, transport ──────────────
+ * Each tab that opts in generates a genuinely random Ed25519 identity
+ * (Wallet.generate()) — that IS the validator. Tabs find each other by
+ * broadcasting short-lived "hello" heartbeats over the tab bus, tagged with
+ * a room key that folds in both the user-chosen room name and the target
+ * validator count (so two tabs only coordinate if they agree on both — no
+ * separate protocol needed to agree on N). Once >= N distinct identities
+ * have been seen, every tab independently sorts the same set of hex pubkeys
+ * ascending and takes the first N: since sorting is a pure function of the
+ * roster, tabs that converge on the same roster snapshot compute the same
+ * ValidatorSet, in the same order (order matters — ValidatorSet#epoch()
+ * digests it, and leaderForView() picks by index). A short debounce after
+ * first reaching N gives slower tabs a chance to be seen before locking.
+ * Genesis accounts (alice..erin, the ones the compose form sends between)
+ * must be byte-identical across tabs with zero coordination too, so instead
+ * of Wallet.generate() they're imported from a PKCS8 key deterministically
+ * derived from hashString('...account name...') via Wallet.fromKey() — the
+ * account keys are reproducible, the validator identities are not.
+ */
+const CT_CHAIN_ID = 20n; // distinct from the in-page demo's CHAIN_ID — separate deployments, separate votes
+const CT_BLOCK_TIME = 3000; // generous: background-tab timer throttling is real here, unlike the in-page mesh
+const CT_VIEW_TIMEOUT = 15000;
+const CT_HEARTBEAT_MS = 800;
+const CT_PEER_TTL_MS = 3000;
+const CT_LOCK_DEBOUNCE_MS = 900;
+
+/** Fixed 16-byte PKCS8 DER prefix for an Ed25519 private key (RFC 8410): SEQUENCE { version 0, AlgorithmIdentifier{OID 1.3.101.112}, OCTET STRING { OCTET STRING <32-byte seed> } }. Appending any 32-byte seed yields a valid, importable PKCS8 document. */
+const ED25519_PKCS8_PREFIX = new Uint8Array([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
+function pkcs8FromSeed(seed: Uint8Array): Uint8Array {
+  const out = new Uint8Array(48);
+  out.set(ED25519_PKCS8_PREFIX, 0);
+  out.set(seed.subarray(0, 32), 16);
+  return out;
+}
+/** The genesis account wallets (ACCOUNTS), rederived identically by every tab — no bus traffic needed. Memoized once per page load. */
+let genesisWalletsPromise: Promise<Wallet[]> | null = null;
+function getGenesisWallets(): Promise<Wallet[]> {
+  if (!genesisWalletsPromise) {
+    genesisWalletsPromise = Promise.all(
+      ACCOUNTS.map(async (name) => Wallet.fromKey(pkcs8FromSeed(await hashString(`raijin-orrery-crosstab-genesis:${name}`)))),
+    );
+  }
+  return genesisWalletsPromise;
+}
+
+function ctSanitizeRoom(s: string): string {
+  const clean = (s || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24);
+  return clean || 'lobby';
+}
+function ctSanitizeN(n: number): number {
+  return Math.min(7, Math.max(2, Math.round(n) || 4));
+}
+
+interface CTHelloPayload { room: string; pk: string; n: number; ts: number }
+interface CTByePayload { room: string; pk: string }
+interface CTMsgPayload { room: string; from: string; to: string | null; msg: ConsensusMessage }
+interface CTTxPayload { room: string; tx: Transaction }
+type CTEnvelopeKind = 'ct-hello' | 'ct-bye' | 'ct-msg' | 'ct-tx';
+
+interface CTBlockRec { h: bigint; block: Block; root: string; proposer: number; ok: number; rev: number }
+interface CTPeer { ts: number }
+interface CTStateShape {
+  enabled: boolean;
+  room: string;
+  targetN: number;
+  roomKey: string;
+  wallet: Wallet | null;
+  selfHex: string;
+  roster: Map<string, CTPeer>;
+  locked: boolean;
+  participants: string[];
+  idx: number;
+  node: ValidatorNode | null;
+  genesisWallets: Wallet[] | null;
+  timers: Set<number>;
+  offHandoff: (() => void) | null;
+  blocks: CTBlockRec[];
+  log: string[];
+  destroyed: boolean;
+}
+function freshCT(): CTStateShape {
+  return {
+    enabled: false, room: '', targetN: 4, roomKey: '', wallet: null, selfHex: '',
+    roster: new Map(), locked: false, participants: [], idx: -1, node: null,
+    genesisWallets: null, timers: new Set(), offHandoff: null, blocks: [], log: [], destroyed: false,
+  };
+}
+
+/* ── DA panel: LocalDA vs CelestiaDA vs EthBlobDA ──────────────────────── */
+interface DAResult { name: string; ok: boolean; commitment?: DACommitment; verified?: boolean; verifyError?: string; retrieveOk?: boolean; retrieveError?: string; error?: string }
+const DA_CELESTIA_NAMESPACE = 'a1b2c3d4e5f60718'; // 8 bytes hex, as CelestiaDAOptions.namespace documents
 
 type Status = 'up' | 'down' | 'partitioned' | 'syncing';
 type Handler = (from: Uint8Array, msg: ConsensusMessage) => unknown;
@@ -115,7 +221,7 @@ const playground: Playground = {
   blurb: 'A browser-native rollup: in-page validators run PBFT rounds with leader rotation over a fee-ordered mempool.',
   docs: 'https://opensource.johnhenry.me/raijin/',
   mount(host) {
-    const defaults = { n: 4, lat: 60, bt: 800, vt: 4, auto: true, shuffle: false };
+    const defaults = { n: 4, lat: 60, bt: 800, vt: 4, auto: true, shuffle: false, ct: false, ctRoom: 'lobby', ctN: 4 };
     const state = readState(defaults);
     state.n = Math.min(7, Math.max(4, Math.round(Number(state.n) || 4)));
     state.lat = Math.min(400, Math.max(0, Math.round(Number(state.lat) || 0)));
@@ -123,6 +229,9 @@ const playground: Playground = {
     state.vt = Math.min(10, Math.max(1, Math.round((Number(state.vt) || 4) * 2) / 2));
     state.auto = state.auto !== false;
     state.shuffle = state.shuffle === true;
+    state.ct = state.ct === true;
+    state.ctRoom = ctSanitizeRoom(String(state.ctRoom ?? defaults.ctRoom));
+    state.ctN = ctSanitizeN(Number(state.ctN) || defaults.ctN);
 
     let disposed = false;
     const intervals: number[] = [];
@@ -187,6 +296,21 @@ const playground: Playground = {
           <div data-o="balances"></div>
         </div>
       </div>
+      <div class="panel rj-ct">
+        <div class="rj-h">Cross-tab validators <span class="rj-dim">— real @johnhenry/raijin-validator nodes, one per browser tab, wired over a genuine BroadcastChannel via bus.ts's sendToTab()/onTabHandoff() (item 2.7)</span></div>
+        <div class="rj-ct-setup">
+          <label class="rj-check"><input type="checkbox" data-i="ct"> this tab is a validator</label>
+          <label class="field">room <input type="text" maxlength="24" data-i="ctRoom"></label>
+          <label class="field">validators <input type="number" min="2" max="7" data-i="ctN"></label>
+          <span class="rj-dim">Opt-in, off by default. Open this same URL in another tab and check the box there too — with the default room and count, two default tabs find each other with zero setup. "copy link" above carries the room/count so you can paste it into a second tab.</span>
+        </div>
+        <div class="rj-ct-body" data-o="ctbody" hidden></div>
+      </div>
+      <div class="panel rj-da">
+        <div class="rj-h">Data availability <span class="rj-dim">— LocalDA vs CelestiaDA vs EthBlobDA (@johnhenry/raijin-da)</span><span class="rj-spacer"></span><button class="tb-btn" data-a="da-run">post latest block to all three</button></div>
+        <p class="rj-dim rj-da-note"><code>verify()</code> below only re-hashes the bytes a backend still happens to have and compares — it proves the backend has <em>these exact bytes right now</em>, not that the data is actually available to anyone else, was sampled, or survives past this call. That's a real limit of this abstraction, not a bug in the demo.</p>
+        <div class="rj-da-grid" data-o="dagrid"><div class="rj-empty">waiting for a finalized block…</div></div>
+      </div>
       <div class="grid-2">
         <div class="panel rj-explain">
           <div class="rj-h">What's happening</div>
@@ -222,6 +346,8 @@ const playground: Playground = {
     const btIn = inp<HTMLSelectElement>('bt'); const vtIn = inp('vt'); const autoIn = inp('auto'); const shufIn = inp('shuffle');
     nIn.value = String(state.n); latIn.value = String(state.lat);
     btIn.value = String(state.bt); vtIn.value = String(state.vt); autoIn.checked = state.auto; shufIn.checked = state.shuffle;
+    const ctIn = inp<HTMLInputElement>('ct'); const ctRoomIn = inp<HTMLInputElement>('ctRoom'); const ctNIn = inp<HTMLInputElement>('ctN');
+    ctIn.checked = state.ct; ctRoomIn.value = state.ctRoom; ctNIn.value = String(state.ctN);
     const syncLabels = () => {
       out('n').textContent = String(state.n);
       out('lat').textContent = `${state.lat} ms`;
@@ -1210,6 +1336,317 @@ const playground: Playground = {
       }
     }
 
+    /* ── cross-tab validators (2.7) ───────────────────────────────────────
+     * Independent of `mesh` above: this section runs at most one real
+     * ValidatorNode per tab, over a NetworkTransport backed by the tab bus
+     * instead of the in-memory `makeTransport()`. See the top-of-file
+     * comment for the identity/coordination scheme.
+     */
+    let ct = freshCT();
+    let ctMsgHandler: Handler | null = null;
+    const ctBody = out('ctbody');
+
+    function ctLog(msg: string) {
+      ct.log.unshift(`<span class="rj-t">${new Date().toLocaleTimeString()}</span> ${msg}`);
+      if (ct.log.length > 40) ct.log.length = 40;
+    }
+
+    function ctMakeTransport(): NetworkTransport {
+      return {
+        broadcast(msg) {
+          if (ct.destroyed) return;
+          sendToTab<CTMsgPayload>('raijin', 'raijin', 'ct-msg', { room: ct.roomKey, from: ct.selfHex, to: null, msg });
+        },
+        send(toPk, msg) {
+          if (ct.destroyed) return;
+          sendToTab<CTMsgPayload>('raijin', 'raijin', 'ct-msg', { room: ct.roomKey, from: ct.selfHex, to: toHex(toPk), msg });
+        },
+        onMessage(h) { ctMsgHandler = h as Handler; },
+      };
+    }
+
+    function ctMaybeLock() {
+      if (ct.locked || !ct.enabled || ct.roster.size < ct.targetN) return;
+      // debounce: give a few more heartbeats a chance to arrive before every tab
+      // freezes its own snapshot of the roster, so independently-sorted
+      // snapshots are more likely to agree on the same first-N participants.
+      const id = window.setTimeout(() => { void ctLockAndStart(); }, CT_LOCK_DEBOUNCE_MS);
+      ct.timers.add(id);
+    }
+
+    async function ctLockAndStart() {
+      if (ct.locked || !ct.enabled || ct.destroyed) return;
+      ct.locked = true;
+      const all = new Set(ct.roster.keys());
+      all.add(ct.selfHex);
+      const participants = [...all].sort().slice(0, ct.targetN);
+      ct.participants = participants;
+      ct.idx = participants.indexOf(ct.selfHex);
+      ctLog(`locked ${participants.length} validators in room "${esc(ct.room)}": ${participants.map((p, i) => `#${i} ${short(p, 8)}${p === ct.selfHex ? '(you)' : ''}`).join(', ')}`);
+      if (ct.idx === -1) { ctLog(`spectator — room already reached ${ct.targetN} validators before this tab was seen. Try a different room name.`); ctRender(); return; }
+      try {
+        const genesis = await getGenesisWallets();
+        if (ct.destroyed) return;
+        ct.genesisWallets = genesis;
+        const store = new InMemoryStateStore();
+        for (const w of genesis) await store.put(accountKey(w.publicKey), encodeAccount({ balance: GENESIS, nonce: 0n, reputation: 0n }));
+        if (ct.destroyed) return;
+        const keys = participants.map(fromHex);
+        const timer: ConsensusTimer = {
+          set(ms, cb) {
+            const id = window.setTimeout(() => { ct.timers.delete(id); cb(); }, ms);
+            ct.timers.add(id);
+            return id;
+          },
+          clear(h) { window.clearTimeout(h as number); ct.timers.delete(h as number); },
+        };
+        const node = new ValidatorNode({
+          chainId: CT_CHAIN_ID,
+          identity: { publicKey: ct.wallet!.publicKey, sign: (m) => ct.wallet!.sign(m), verify: ed25519Verifier },
+          transport: ctMakeTransport(),
+          timer,
+          store,
+          blockTime: CT_BLOCK_TIME,
+          viewTimeout: CT_VIEW_TIMEOUT,
+          validators: keys,
+          maxTxPerBlock: MAX_TX_PER_BLOCK,
+        });
+        node.onBlockFinalized((block, receipts) => {
+          const ok = receipts.filter((r) => r.status === 'success').length;
+          ct.blocks.unshift({
+            h: block.header.number, block, root: toHex(block.header.stateRoot),
+            proposer: participants.indexOf(toHex(block.header.proposer)), ok, rev: receipts.length - ok,
+          });
+          if (ct.blocks.length > 20) ct.blocks.length = 20;
+          ctLog(`block <b>#${block.header.number}</b> finalized: ${block.transactions.length} tx, root ${short(toHex(block.header.stateRoot))} — real PRE-PREPARE/PREPARE/COMMIT quorum across ${participants.length} tabs`);
+        });
+        ct.node = node;
+        node.start();
+        ctLog(`ValidatorNode started (chainId ${CT_CHAIN_ID}, blockTime ${CT_BLOCK_TIME}ms, viewTimeout ${CT_VIEW_TIMEOUT}ms) — this tab is validator #${ct.idx}`);
+      } catch (e) {
+        ctLog(`failed to start: ${esc(e instanceof Error ? e.message : String(e))}`);
+      }
+      ctRender();
+    }
+
+    function ctHandleEnvelope(h: Handoff<unknown>) {
+      if (!ct.enabled || ct.destroyed) return;
+      const kind = h.kind as CTEnvelopeKind;
+      if (kind === 'ct-hello') {
+        const p = h.payload as CTHelloPayload;
+        if (p.room !== ct.roomKey) return;
+        ct.roster.set(p.pk, { ts: Date.now() });
+        ctMaybeLock();
+      } else if (kind === 'ct-bye') {
+        const p = h.payload as CTByePayload;
+        if (p.room !== ct.roomKey || ct.locked) return;
+        ct.roster.delete(p.pk);
+      } else if (kind === 'ct-msg') {
+        const p = h.payload as CTMsgPayload;
+        // Tag every message with the sender's identity and the room it belongs to, and
+        // ignore anything not addressed to this tab: BroadcastChannel never echoes a tab's
+        // own sends back to it (see bus.ts), but sendToTab('raijin','raijin',...) is heard by
+        // every OTHER tab running this room, including ones in a different cross-tab room or
+        // running the plain in-page demo — both room and self-address are checked so those
+        // don't get fed into this tab's (possibly nonexistent) consensus engine.
+        if (!ct.locked || p.room !== ct.roomKey || p.from === ct.selfHex) return;
+        if (p.to !== null && p.to !== ct.selfHex) return;
+        if (ctMsgHandler) void ctMsgHandler(fromHex(p.from), p.msg);
+      } else if (kind === 'ct-tx') {
+        const p = h.payload as CTTxPayload;
+        if (!ct.locked || !ct.node || p.room !== ct.roomKey) return;
+        void ct.node.submitTransaction(p.tx).catch(() => { /* duplicate/invalid — the mempool already rejected it locally too */ });
+      }
+    }
+
+    async function ctStartFromControls() {
+      if (ct.enabled) return;
+      ct = freshCT();
+      ct.enabled = true;
+      ct.room = ctSanitizeRoom(ctRoomIn.value);
+      ct.targetN = ctSanitizeN(Number(ctNIn.value));
+      ct.roomKey = `${ct.room}:n${ct.targetN}`;
+      ctRender();
+      try {
+        ct.wallet = await Wallet.generate();
+        if (!ct.enabled) return; // toggled off while awaiting key generation
+        ct.selfHex = toHex(ct.wallet.publicKey);
+        ct.roster.set(ct.selfHex, { ts: Date.now() });
+        ctLog(`identity ${short(ct.selfHex, 10)} — waiting for ${ct.targetN} total in room "${esc(ct.room)}"`);
+        ct.offHandoff = onTabHandoff('raijin', (h) => ctHandleEnvelope(h));
+        const hello = () => sendToTab<CTHelloPayload>('raijin', 'raijin', 'ct-hello', { room: ct.roomKey, pk: ct.selfHex, n: ct.targetN, ts: Date.now() });
+        hello();
+        const hb = window.setInterval(hello, CT_HEARTBEAT_MS);
+        ct.timers.add(hb);
+        const prune = window.setInterval(() => {
+          if (ct.locked) return;
+          const now = Date.now();
+          for (const [pk, p] of ct.roster) if (pk !== ct.selfHex && now - p.ts > CT_PEER_TTL_MS) ct.roster.delete(pk);
+        }, 500);
+        ct.timers.add(prune);
+        ctMaybeLock();
+        ctRender();
+      } catch (e) {
+        ctLog(`could not start: ${esc(e instanceof Error ? e.message : String(e))}`);
+        ctRender();
+      }
+    }
+
+    function ctStop() {
+      if (ct.locked && ct.selfHex) { try { sendToTab<CTByePayload>('raijin', 'raijin', 'ct-bye', { room: ct.roomKey, pk: ct.selfHex }); } catch { /* ignore */ } }
+      ct.destroyed = true;
+      ct.offHandoff?.();
+      for (const id of ct.timers) window.clearInterval(id);
+      try { ct.node?.stop(); } catch { /* ignore */ }
+      ctMsgHandler = null;
+      ct = freshCT();
+      ctRender();
+    }
+
+    async function ctSend() {
+      if (!ct.node || ct.idx === -1 || !ct.genesisWallets) return;
+      const fromSelEl = $('[data-i="ctFrom"]') as HTMLSelectElement | null;
+      const toSelEl = $('[data-i="ctTo"]') as HTMLSelectElement | null;
+      const amtEl = $('[data-i="ctAmount"]') as HTMLInputElement | null;
+      if (!fromSelEl || !toSelEl || !amtEl) return;
+      const fromI = Number(fromSelEl.value), toI = Number(toSelEl.value);
+      if (fromI === toI) return;
+      const amount = BigInt(Math.max(1, Math.floor(Number(amtEl.value) || 1)));
+      const fromW = ct.genesisWallets[fromI], toW = ct.genesisWallets[toI];
+      try {
+        const acct = await ct.node.stateMachine.getAccount(fromW.publicKey);
+        const tx = await fromW.buildTx({ to: toW.publicKey, value: amount, nonce: acct.nonce, data: feeBytes(1n), chainId: CT_CHAIN_ID });
+        await ct.node.submitTransaction(tx);
+        sendToTab<CTTxPayload>('raijin', 'raijin', 'ct-tx', { room: ct.roomKey, tx });
+        ctLog(`submitted ${ACCOUNTS[fromI]} → ${ACCOUNTS[toI]} <b>${amount}</b> to this tab's mempool and broadcast it to every peer tab's mempool`);
+      } catch (e) {
+        ctLog(`submit failed: ${esc(e instanceof Error ? e.message : String(e))}`);
+      }
+      ctRender();
+    }
+
+    function ctToggleFault() {
+      if (!ct.node) return;
+      if (ct.node.running) { ct.node.stop(); ctLog(`you stopped this tab's validator (crash simulation) — the other tabs' view timers should expire and rotate the leader past #${ct.idx}`); }
+      else { ct.node.start(); ctLog(`restarted this tab's validator`); }
+      ctRender();
+    }
+
+    function ctRender() {
+      if (!ct.enabled) { ctBody.hidden = true; return; }
+      ctBody.hidden = false;
+      if (!ct.locked) {
+        const rows = [...ct.roster.keys()].sort()
+          .map((pk) => `<li>${short(pk, 12)}${pk === ct.selfHex ? ' <b>(you)</b>' : ''}</li>`).join('');
+        ctBody.innerHTML = `
+          <div class="rj-ct-lobby">
+            <p>waiting for <b>${ct.targetN}</b> validators in room <code>${esc(ct.room)}</code> — <b>${ct.roster.size}/${ct.targetN}</b> joined${ct.roster.size >= ct.targetN ? ' <span class="rj-dim">(locking…)</span>' : ''}</p>
+            <ul class="rj-ct-roster">${rows || '<li class="rj-dim">nobody else here yet — open this URL in another tab and enable cross-tab mode there</li>'}</ul>
+          </div>
+          <ol class="rj-log">${ct.log.slice(0, 10).join('</li><li>').replace(/^/, ct.log.length ? '<li>' : '').replace(/$/, ct.log.length ? '</li>' : '')}</ol>`;
+        return;
+      }
+      if (ct.idx === -1) {
+        ctBody.innerHTML = `<p class="warn">spectator — room "${esc(ct.room)}" already locked its ${ct.targetN} validators before this tab joined. Try a different room name or a fresh one.</p>`;
+        return;
+      }
+      const node = ct.node;
+      if (!node) { ctBody.innerHTML = `<p class="rj-dim">starting this tab's validator…</p>`; return; }
+      const c = node.consensus;
+      const leader = Number(c.currentView % BigInt(ct.participants.length));
+      const blocksHtml = ct.blocks.length
+        ? ct.blocks.map((b) => `<div class="rj-blk"><span class="rj-bh">#${b.h}</span><span>${b.block.transactions.length} tx <span class="rj-dim">(${b.ok}✓${b.rev ? ` <span class="rj-rev">${b.rev}✗</span>` : ''})</span></span><span class="rj-dim">by #${b.proposer}</span><span class="rj-root">${short(b.root, 10)}</span></div>`).join('')
+        : '<div class="rj-empty">no blocks finalized yet</div>';
+      ctBody.innerHTML = `
+        <div class="rj-ct-status">
+          <span class="stat">you are <b>#${ct.idx}</b> / ${ct.participants.length}</span>
+          <span class="stat">view <b>${c.currentView}</b></span>
+          <span class="stat">leader <b>#${leader}${leader === ct.idx ? ' (you)' : ''}</b></span>
+          <span class="stat">seq <b>${c.currentSequence}</b></span>
+          <span class="stat">phase <b>${c.phase}</b></span>
+          <span class="stat">height <b>${node.latestBlock?.header.number ?? 0n}</b></span>
+          <span class="stat">mempool <b>${node.mempool.size}</b></span>
+          <span class="stat">running <b>${node.running ? 'yes' : 'no'}</b></span>
+          <button class="tb-btn" data-a="ct-fault">${node.running ? 'stop this validator' : 'restart this validator'}</button>
+        </div>
+        <div class="rj-ct-compose">
+          <label class="field">from <select data-i="ctFrom">${ACCOUNTS.map((a, i) => `<option value="${i}">${a}</option>`).join('')}</select></label>
+          <label class="field">to <select data-i="ctTo">${ACCOUNTS.map((a, i) => `<option value="${i}"${i === 1 ? ' selected' : ''}>${a}</option>`).join('')}</select></label>
+          <label class="field">amount <input type="number" min="1" max="1000" value="10" data-i="ctAmount"></label>
+          <button class="btn primary" data-a="ct-send">sign &amp; submit</button>
+        </div>
+        <div class="rj-blist">${blocksHtml}</div>
+        <ol class="rj-log">${ct.log.slice(0, 10).map((l) => `<li>${l}</li>`).join('')}</ol>`;
+    }
+
+    /* ── DA panel: LocalDA vs CelestiaDA vs EthBlobDA ─────────────────────── */
+    const daLocal = new LocalDA();
+    const daCelestia = new CelestiaDA({ namespace: DA_CELESTIA_NAMESPACE, endpoint: 'http://localhost:26658' });
+    const daEth = new EthBlobDA();
+    let daResults: DAResult[] = [];
+    let daRunning = false;
+    let daAutoRan = false;
+    let daSource = '';
+
+    async function daTry(name: string, da: DALayer, bytes: Uint8Array): Promise<DAResult> {
+      try {
+        const c = await da.submit(bytes);
+        const r: DAResult = { name, ok: true, commitment: c };
+        try { r.verified = await da.verify(c); } catch (e) { r.verifyError = e instanceof Error ? e.message : String(e); }
+        try { const back = await da.retrieve(c); r.retrieveOk = back.length === bytes.length; } catch (e) { r.retrieveError = e instanceof Error ? e.message : String(e); }
+        return r;
+      } catch (e) {
+        return { name, ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+    }
+
+    function daLatestBlock(): { bytes: Uint8Array; label: string } | null {
+      const m = mesh;
+      if (m && m.blockOrder.length) {
+        const b = m.blockOrder[0];
+        return { bytes: new TextEncoder().encode(serializeBlock(b.block)), label: `in-page block #${b.h}` };
+      }
+      if (ct.blocks.length) {
+        const b = ct.blocks[0];
+        return { bytes: new TextEncoder().encode(serializeBlock(b.block)), label: `cross-tab block #${b.h} (this tab, validator #${ct.idx})` };
+      }
+      return null;
+    }
+
+    async function daRun() {
+      if (daRunning) return;
+      const src = daLatestBlock();
+      if (!src) { daRenderNow(); return; }
+      daRunning = true;
+      daRenderNow();
+      try {
+        const payload = await encode(src.bytes);
+        daResults = await Promise.all([
+          daTry('local', daLocal, payload),
+          daTry('celestia', daCelestia, payload),
+          daTry('eth-blobs', daEth, payload),
+        ]);
+        daSource = `${src.label} · ${payload.length} B encoded`;
+      } finally {
+        daRunning = false;
+        daRenderNow();
+      }
+    }
+
+    function daRenderNow() {
+      const grid = out('dagrid');
+      if (!daResults.length) { grid.innerHTML = `<div class="rj-empty">${daRunning ? 'posting to all three backends…' : 'waiting for a finalized block'}</div>`; return; }
+      grid.innerHTML = `<p class="rj-dim rj-da-src">${esc(daSource)}</p>` + daResults.map((r) => `
+        <div class="rj-da-card ${r.ok ? 'ok' : 'bad'}">
+          <div class="rj-da-name">${r.name}</div>
+          ${r.ok ? `
+            <div class="rj-da-row">commitment <code>${short(toHex(r.commitment!.hash), 14)}</code> @ height ${r.commitment!.height}</div>
+            <div class="rj-da-row">verify() ${r.verifyError ? `<span class="rj-rev">threw: ${esc(r.verifyError)}</span>` : r.verified ? '✓ hash matches' : '✗ mismatch'}</div>
+            <div class="rj-da-row">retrieve() ${r.retrieveError ? `<span class="rj-rev">threw: ${esc(r.retrieveError)}</span>` : r.retrieveOk ? '✓ round-tripped' : '✗ length mismatch'}</div>
+          ` : `<div class="rj-da-row rj-da-err"><pre class="code">${esc(r.error ?? 'unknown error')}</pre></div>`}
+        </div>`).join('');
+    }
+
     /* ── wire events ────────────────────────────────────────────────────── */
     let nTimer = 0;
     // n, blockTime and viewTimeout are ValidatorNode constructor config, so a change builds a fresh mesh
@@ -1224,6 +1661,7 @@ const playground: Playground = {
         state.vt = Number(vtIn.value); syncLabels(); persist(); scheduleRebuild();
       } else if (k === 'lat') { state.lat = Number(latIn.value); syncLabels(); persist(); }
       else if (k === 'fee' || k === 'from' || k === 'to') updateHint();
+      else if (k === 'ctRoom' || k === 'ctN') { state.ctRoom = ctSanitizeRoom(ctRoomIn.value); state.ctN = ctSanitizeN(Number(ctNIn.value)); persist(); }
     });
     root.addEventListener('change', (e) => {
       const t = e.target as HTMLElement;
@@ -1232,6 +1670,14 @@ const playground: Playground = {
       else if (k === 'auto') { state.auto = autoIn.checked; persist(); }
       else if (k === 'shuffle') { state.shuffle = shufIn.checked; persist(); log(state.shuffle ? 'delivery order shuffled: ±90% jitter per packet, votes now routinely beat their PRE-PREPARE' : 'delivery jitter back to ±15%'); }
       else if (k === 'from' || k === 'to') updateHint();
+      else if (k === 'ct') {
+        state.ct = ctIn.checked; persist();
+        if (state.ct) void ctStartFromControls(); else ctStop();
+      } else if (k === 'ctRoom' || k === 'ctN') {
+        state.ctRoom = ctSanitizeRoom(ctRoomIn.value); state.ctN = ctSanitizeN(Number(ctNIn.value));
+        ctRoomIn.value = state.ctRoom; ctNIn.value = String(state.ctN); persist();
+        if (ct.enabled) { ctStop(); void ctStartFromControls(); } // room/count changed mid-session: rejoin fresh
+      }
     });
     root.addEventListener('click', (e) => {
       const t = (e.target as HTMLElement).closest<HTMLElement>('button');
@@ -1240,6 +1686,9 @@ const playground: Playground = {
       const a = t.dataset.a;
       if (a === 'copy') { void copyLink().then(() => { t.textContent = 'copied ✓'; window.setTimeout(() => { t.textContent = 'copy link'; }, 1200); }); return; }
       if (a === 'pause' && tl) { tl.paused = !tl.paused; tl.pausedAt = performance.now(); t.textContent = tl.paused ? 'resume' : 'pause'; return; }
+      if (a === 'ct-send') { void ctSend(); return; }
+      if (a === 'ct-fault') { ctToggleFault(); return; }
+      if (a === 'da-run') { void daRun(); return; }
       if (!m) return;
       if (a === 'send') {
         const from = Number(fromSel.value), to = Number(toSel.value);
@@ -1267,7 +1716,11 @@ const playground: Playground = {
     });
 
     /* ── loops ──────────────────────────────────────────────────────────── */
-    intervals.push(window.setInterval(() => { renderVals(); renderMempool(); renderBlocks(); renderNarr(); }, 250));
+    intervals.push(window.setInterval(() => {
+      renderVals(); renderMempool(); renderBlocks(); renderNarr();
+      ctRender();
+      if (!daAutoRan && daLatestBlock()) { daAutoRan = true; void daRun(); }
+    }, 250));
     intervals.push(window.setInterval(watchdog, 1000));
     intervals.push(window.setInterval(() => {
       const m = mesh;
@@ -1288,6 +1741,8 @@ const playground: Playground = {
     raf = requestAnimationFrame(loop);
 
     void rebuild();
+    daRenderNow();
+    if (state.ct) void ctStartFromControls(); // shared/deep-linked "join this room" URL — opt-in state carried through copy link
 
     return () => {
       disposed = true;
@@ -1295,6 +1750,7 @@ const playground: Playground = {
       intervals.forEach((id) => clearInterval(id));
       clearTimeout(nTimer);
       disposeMesh();
+      ctStop();
       tl?.destroy();
       tl = null;
       host.innerHTML = '';

@@ -1,5 +1,20 @@
 .pg-temporals { display: flex; flex-direction: column; gap: 16px; }
 
+/* ---- tabs (cron/RRULE, meeting finder, paste-RRULE) ---- */
+.pg-temporals .loom-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.pg-temporals .tab-btn {
+  font-family: var(--f-mono); font-size: 12px; padding: 7px 14px; border-radius: 8px 8px 0 0;
+  border: 1px solid transparent; background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.pg-temporals .tab-btn:hover { color: var(--ink); }
+.pg-temporals .tab-btn.active { background: var(--bg-panel); border-color: var(--line); border-bottom-color: var(--bg-panel); color: var(--accent); margin-bottom: -9px; padding-bottom: 8px; }
+.pg-temporals .tab-panel[hidden] { display: none; }
+.pg-temporals .tab-copy { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin: 0 0 12px; }
+.pg-temporals .tab-copy code { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--accent-soft); color: var(--ink); }
+.pg-temporals .tab-panel .panel + .panel { margin-top: 16px; }
+.pg-temporals .tab-panel input[type="text"].code { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: inherit; font-family: var(--f-mono); font-size: 13px; }
+.pg-temporals .occ-fromnow { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
+
 .pg-temporals .panel-title {
   font-family: var(--f-mono);
   font-size: 12px;
@@ -8,6 +23,7 @@
   color: var(--ink-2);
   margin-bottom: 10px;
 }
+.pg-temporals .panel-title code { text-transform: none; letter-spacing: 0; }
 
 /* ---- controls ---- */
 .pg-temporals .controls { display: flex; flex-direction: column; gap: 14px; }

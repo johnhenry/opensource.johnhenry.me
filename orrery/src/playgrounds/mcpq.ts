@@ -1,6 +1,14 @@
 import type { Playground } from '../registry';
 import { MCPClient, argsHash, runInterceptors, type CacheKey, type CacheEntry, type ConnectionConfig, type RequestInterceptor, type Operation } from '@johnhenry/mcp-query';
 import { authorize } from '@johnhenry/mcp-query/server';
+// mcp-query re-exports InMemoryTransport from `@johnhenry/mcp-query/transports`, but that one
+// file also re-exports StdioClientTransport from the SDK's Node-only `/stdio` subpath (it says
+// so in its own header comment — "browser bundlers that tree-shake unused exports are
+// unaffected"). They aren't: Rollup externalizes `node:stream` to a stub with no named exports,
+// so pulling in that same module graph hard-fails a browser build even though StdioClientTransport
+// is never used. Importing straight from `@modelcontextprotocol/client`'s browser-safe root
+// (the same version mcp-query itself pins) sidesteps the broken re-export file entirely.
+import { InMemoryTransport } from '@modelcontextprotocol/client';
 import { readState, writeState, copyLink } from '../state';
 import './mcpq.css';
 // mcp-gate's package entry resolves to its browser-safe subset (exports["."].browser →
@@ -9,21 +17,26 @@ import { compilePolicy, redact as gateRedact } from '@johnhenry/mcp-gate';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Agent Query — mcp-query's reactive cache + mcp-gate's policy compiler, driven
- * against an MCP server that lives entirely in this page. The server speaks raw
- * JSON-RPC over a hand-rolled Transport object (start/send/close/onmessage), so
- * every byte the real SDK client sends is visible in the timeline.
+ * against an MCP server that lives entirely in this page. Two servers are on
+ * offer: a fake hand-rolled one (default, zero setup) and a REAL one —
+ * `@johnhenry/math-plus-mcp`'s `buildServer()` paired with the client over
+ * `InMemoryTransport.createLinkedPair()` (the same SDK transport class a real
+ * stdio/HTTP client uses, just without the process boundary), lazy-loaded on
+ * first selection since it pulls in tensor-core + adapter-math. Every call —
+ * fake or real — runs through the same gate interceptor chain.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 type Transport = ReturnType<ConnectionConfig['transport']>;
 type Json = Record<string, any>;
+type ServerKind = 'demo' | 'math';
+type MathModule = typeof import('@johnhenry/math-plus-mcp');
 interface Msg { jsonrpc: '2.0'; id?: number | string; method?: string; params?: any; result?: any; error?: { code: number; message: string } }
 
-const SERVER = 'demo';
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const globRe = (g: string) => new RegExp('^' + g.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$');
 
-/* ───────────────────────────── the in-page MCP server ───────────────────────────── */
+/* ───────────────────────────── the in-page fake MCP server ───────────────────────────── */
 
 interface ToolDef {
   name: string; description: string; inputSchema: Json;
@@ -184,18 +197,73 @@ class FakeServer {
   }
 }
 
+/** Wrap a real InMemoryTransport so every message it moves also lands on the wire timeline,
+ *  the same way FakeServer's hand-rolled transport already does. `onmessage` is a plain
+ *  instance field on InMemoryTransport, so a defineProperty accessor can intercept the
+ *  SDK's assignment to it without touching the SDK itself. */
+function tapClientTransport(t: InstanceType<typeof InMemoryTransport>, wire: (dir: 'c2s' | 's2c', m: Msg) => void): Transport {
+  const raw: any = t;
+  const origSend = raw.send.bind(raw);
+  raw.send = (m: Msg, opts?: any) => { wire('c2s', m); return origSend(m, opts); };
+  let handler: ((m: Msg, extra?: any) => void) | undefined;
+  Object.defineProperty(raw, 'onmessage', {
+    configurable: true,
+    get: () => handler,
+    set: (fn: ((m: Msg, extra?: any) => void) | undefined) => { handler = fn && ((m: Msg, extra?: any) => { wire('s2c', m); fn(m, extra); }); },
+  });
+  return raw as Transport;
+}
+
+/* ───────────────────────────── math-plus-mcp example args ───────────────────────────── */
+// math-plus-mcp's 9 tools (verified from node_modules/@johnhenry/math-plus-mcp/dist/server.js):
+// symbolic_parse, symbolic_simplify, symbolic_differentiate, symbolic_integrate, symbolic_solve,
+// symbolic_evaluate, linalg_solve, tensor_pipeline, stats_summary. None carry annotations
+// (no readOnlyHint/destructiveHint) — the server registers every tool the same way. Most of
+// their zod schemas have no .default(), so these are the room's own seed examples (also used
+// to pre-fill the form and to seed the cache on arrival), each chosen to have a hand-checkable
+// answer: linalg_solve's A is diagonal(2,3) so x=[2,3]; stats_summary's values are the classic
+// Wikipedia population-std-dev example (mean 5, popStd 2).
+const MATH_EXAMPLES: Record<string, Json> = {
+  symbolic_parse: { expression: 'x^2 + sin(x)*3' },
+  symbolic_simplify: { expression: 'x + x + 2*x' },
+  symbolic_differentiate: { expression: 'x^3 + 2*x', variable: 'x' },
+  symbolic_integrate: { expression: 'x', variable: 'x', lower: 0, upper: 2 },
+  symbolic_solve: { expression: 'x^2 - 4', variable: 'x' },
+  symbolic_evaluate: { expression: 'x^2 + y', variables: { x: 3, y: 1 } },
+  linalg_solve: { a: [[2, 0], [0, 3]], b: [4, 9] },
+  tensor_pipeline: { data: [[1, 2], [3, 4]], ops: [{ op: 'sum' }] },
+  stats_summary: { values: [2, 4, 4, 4, 5, 5, 7, 9] },
+};
+const MATH_PRESETS: [label: string, tool: string][] = [
+  ['solve x²−4=0', 'symbolic_solve'],
+  ['differentiate x³+2x', 'symbolic_differentiate'],
+  ['∫ x dx on [0,2]', 'symbolic_integrate'],
+  ['solve a 2×2 linear system', 'linalg_solve'],
+  ['stats on 8 numbers', 'stats_summary'],
+  ['sum a 2×2 matrix', 'tensor_pipeline'],
+];
+
 /* ───────────────────────────── policy ───────────────────────────── */
 
 interface PolicyDoc { allow?: string[]; deny?: string[]; denyDestructive?: boolean; approve?: string[]; redact?: { pattern: string; replacement?: string }[] }
 const POLICY_KEYS = ['allow', 'deny', 'denyDestructive', 'approve', 'redact'];
-const PRESETS: Record<string, PolicyDoc> = {
+const PRESETS_DEMO: Record<string, PolicyDoc> = {
   'Sensible default': { denyDestructive: true, approve: ['demo.flaky_call'], redact: [{ pattern: '[\\w.+-]+@[\\w-]+\\.[\\w.]+', replacement: '[EMAIL]' }, { pattern: '\\b\\d{3}-\\d{2}-\\d{4}\\b', replacement: '[SSN]' }] },
   'Allow-list (reads only)': { allow: ['demo.echo', 'demo.add', 'demo.get_weather', 'demo.slow_search'], denyDestructive: true },
   'Human approves writes': { denyDestructive: true, approve: ['demo.add_note', 'demo.roll_dice', 'demo.flaky_call'] },
   'YOLO (allow all)': {},
 };
-const DEFAULT_POLICY = JSON.stringify(PRESETS['Sensible default'], null, 2);
-const DEFAULTS = { tool: 'get_weather', policy: DEFAULT_POLICY, args: '' };
+// math-plus-mcp tools carry no destructiveHint (nothing is annotated), so denyDestructive is a
+// no-op here — these presets gate by name instead, which is the honest lever for this server.
+const PRESETS_MATH: Record<string, PolicyDoc> = {
+  'Sensible default': { approve: ['math.tensor_pipeline'] },
+  'Symbolic only (deny numeric)': { deny: ['math.linalg_solve', 'math.tensor_pipeline', 'math.stats_summary'] },
+  'YOLO (allow all)': {},
+};
+const presetsFor = (k: ServerKind) => (k === 'demo' ? PRESETS_DEMO : PRESETS_MATH);
+const defaultPolicyFor = (k: ServerKind) => JSON.stringify(presetsFor(k)['Sensible default'], null, 2);
+const defaultToolFor = (k: ServerKind) => (k === 'demo' ? 'get_weather' : 'symbolic_solve');
+const DEFAULTS = { server: 'demo', tool: defaultToolFor('demo'), policy: defaultPolicyFor('demo'), args: '' };
 
 /* ───────────────────────────── timeline events ───────────────────────────── */
 
@@ -221,10 +289,20 @@ const playground: Playground = {
     root.innerHTML = TEMPLATE;
     const $ = <T extends HTMLElement = HTMLElement>(sel: string) => root.querySelector(sel) as T;
 
+    /* ── mutable, per-session state (reset by bootSession on every server switch) ── */
+    let kind: ServerKind = 'demo';
+    let SERVER = 'demo';
+    let client!: MCPClient;
+    let cache!: MCPClient['cache'];
+    let fakeServer: FakeServer | undefined;
+    let mathMod: MathModule | undefined;
+    let sessionDisposers: (() => void)[] = [];
+    let switching = false;
+
     /* ── event timeline store ── */
-    const events: Ev[] = [];
+    let events: Ev[] = [];
     let evN = 0;
-    const pendingReq = new Map<string, { t: number; method: string }>();
+    let pendingReq = new Map<string, { t: number; method: string }>();
     const tl = $('.mq-tl-list');
     const lanes = $('.mq-lanes');
     let packetsInFlight = 0;
@@ -288,17 +366,13 @@ const playground: Playground = {
       }
       stats.msgs++;
     }
-    const stats = { msgs: 0 };
-
-    /* ── server + client ── */
-    const server = new FakeServer(onWire);
-    disposers.push(() => server.stop());
+    let stats = { msgs: 0 };
 
     // Policy state
     let policyDoc: PolicyDoc = {};
     let policyErr = '';
     let chain: RequestInterceptor[] = [];
-    const approvals: { id: number; op: string; args: string; resolve: (ok: boolean) => void }[] = [];
+    let approvals: { id: number; op: string; args: string; resolve: (ok: boolean) => void }[] = [];
     let approvalSeq = 0;
     const approveGlobs = () => (policyDoc.approve ?? []).map(globRe);
 
@@ -334,21 +408,8 @@ const playground: Playground = {
       destructive: op.def?.annotations?.destructiveHint === true, readOnly: op.def?.annotations?.readOnlyHint === true });
     const gateInterceptor: RequestInterceptor = (op, next) => runInterceptors(chain, op, next);
 
-    const client = new MCPClient({
-      servers: { [SERVER]: { transport: server.transport, maxRetries: 2 } },
-      interceptors: [gateInterceptor],
-      devtools: { emit: (e: any) => {
-        if (e.type === 'invalidate') pushEv({ lane: 'local', kind: 'cache', label: `invalidate ${e.keys.join(', ')}` });
-        else if (e.type === 'capabilities') pushEv({ lane: 'local', kind: 'cache', label: `re-listed ${e.kind} (list_changed)` });
-        else if (e.type === 'server-state') pushEv({ lane: 'local', kind: 'cache', label: `connection ${e.server} → ${e.state}` });
-      } },
-      onCall: (a) => pushEv({ lane: 'local', kind: 'audit', label: `audit ${a.kind} ${a.target}: ${a.outcome}${a.error ? ' (' + a.error.slice(0, 60) + ')' : ''}`, ms: a.ms }),
-    });
-    const cache = client.cache;
-    disposers.push(() => { void client.close(); });
-
     /* ── query helpers: a tiny vanilla useQuery ── */
-    const refetchers = new Map<string, () => Promise<unknown>>();
+    let refetchers = new Map<string, () => Promise<unknown>>();
     const kResource = (uri: string): CacheKey => ({ kind: 'resource', server: SERVER, uri });
     const kTool = (tool: string, args: Json): CacheKey => ({ kind: 'toolResult', server: SERVER, tool, argsHash: argsHash(args) });
     const readRes = (uri: string) => { refetchers.set(cache.serializeKey(kResource(uri)), () => client.readResource(uri)); return client.readResource(uri); };
@@ -365,14 +426,15 @@ const playground: Playground = {
       onData?.(cache.getSnapshot(key));
       return unsub;
     }
-    const manualWatches = new Map<string, () => void>();
+    let manualWatches = new Map<string, () => void>();
 
     /* ── status strip ── */
     const latency = $<HTMLInputElement>('.mq-latency');
-    latency.addEventListener('input', () => { server.latency = Number(latency.value); $('.mq-latency-v').textContent = latency.value + 'ms'; });
+    latency.addEventListener('input', () => { if (fakeServer) fakeServer.latency = Number(latency.value); $('.mq-latency-v').textContent = latency.value + 'ms'; });
     $('.mq-listchanged').addEventListener('click', () => {
-      server.toggleBonusTool();
-      pushEv({ lane: 'local', kind: 'cache', label: `server ${server.bonus ? 'registered' : 'unregistered'} roll_dice; announcing tools/list_changed` });
+      if (!fakeServer) return;
+      fakeServer.toggleBonusTool();
+      pushEv({ lane: 'local', kind: 'cache', label: `server ${fakeServer.bonus ? 'registered' : 'unregistered'} roll_dice; announcing tools/list_changed` });
     });
     $('.mq-inv-all').addEventListener('click', () => cache.invalidateTags([`server:${SERVER}`]));
     $('.mq-copy').addEventListener('click', async () => { await copyLink(); const b = $('.mq-copy'); b.textContent = 'copied'; setTimeout(() => (b.textContent = 'copy link'), 1200); });
@@ -387,19 +449,20 @@ const playground: Playground = {
       const conn = client.connection(SERVER);
       const entries = cache.entriesForDevtools();
       const subs = entries.reduce((s, e) => s + e.subscribers, 0);
-      $('.mq-status').innerHTML = [
+      const parts = [
         `<span class="dot s-${client.serverState(SERVER)}"></span><b>${client.serverState(SERVER)}</b> ${conn ? `· era ${conn.era}` : ''}`,
         `<span>messages <b>${stats.msgs}</b></span>`,
         `<span>cache entries <b>${entries.length}</b></span>`,
         `<span>subscribers <b>${subs}</b></span>`,
-        `<span>server subs <b>${server.subs.size}</b></span>`,
-        `<span>tools <b>${conn?.tools.size ?? 0}</b></span>`,
-      ].join('');
+      ];
+      if (fakeServer) parts.push(`<span>server subs <b>${fakeServer.subs.size}</b></span>`);
+      parts.push(`<span>tools <b>${conn?.tools.size ?? 0}</b></span>`);
+      $('.mq-status').innerHTML = parts.join('');
     }
 
     /* ── cache inspector ── */
     const tbody = $('.mq-cache tbody');
-    const rows = new Map<string, { tr: HTMLTableRowElement; v: number }>();
+    let rows = new Map<string, { tr: HTMLTableRowElement; v: number }>();
     let selectedKey = '';
     const kindLabel: Record<string, string> = { resource: 'resource', toolResult: 'tool result', toolList: 'tools/list', resourceList: 'resources/list', promptList: 'prompts/list', templateList: 'templates/list', prompt: 'prompt', task: 'task' };
     function statusOf(e: CacheEntry): string {
@@ -416,7 +479,7 @@ const playground: Playground = {
         default: return `${kindLabel[k.kind]}`;
       }
     }
-    const argsCache = new Map<string, string>();
+    let argsCache = new Map<string, string>();
     const rememberArgs = (tool: string, args: Json) => argsCache.set(tool + '|' + argsHash(args), JSON.stringify(args).slice(1, -1).replace(/"/g, '').slice(0, 40));
     function renderCache() {
       const now = Date.now();
@@ -491,28 +554,22 @@ const playground: Playground = {
       } else selectedKey = key === selectedKey ? '' : key;
       scheduleRender();
     });
-    disposers.push(() => { for (const u of manualWatches.values()) u(); manualWatches.clear(); });
     const fmtAge = (ms: number) => ms < 1000 ? `${Math.round(ms)}ms` : ms < 60_000 ? `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s` : `${Math.floor(ms / 60_000)}m${Math.round((ms % 60_000) / 1000)}s`;
 
     let raf = 0;
     function scheduleRender() { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; renderCache(); renderStatus(); }); }
-    disposers.push(cache.subscribeAll(scheduleRender));
-    disposers.push(client.subscribeServerState(scheduleRender));
-    server.onChange = scheduleRender;
     const tick = window.setInterval(scheduleRender, 500);
     disposers.push(() => { clearInterval(tick); cancelAnimationFrame(raf); });
 
     /* ── gate panel ── */
     const policyTa = $<HTMLTextAreaElement>('.mq-policy');
     const presetSel = $<HTMLSelectElement>('.mq-presets');
-    presetSel.innerHTML = `<option value="">presets…</option>` + Object.keys(PRESETS).map((k) => `<option>${esc(k)}</option>`).join('');
-    presetSel.addEventListener('change', () => { if (!presetSel.value) return; policyTa.value = JSON.stringify(PRESETS[presetSel.value], null, 2); presetSel.value = ''; onPolicy(); });
-    policyTa.value = st.policy;
+    presetSel.addEventListener('change', () => { if (!presetSel.value) return; policyTa.value = JSON.stringify(presetsFor(kind)[presetSel.value], null, 2); presetSel.value = ''; onPolicy(); });
     function onPolicy() {
       setPolicy(policyTa.value);
       $('.mq-policy-err').textContent = policyErr;
       policyTa.classList.toggle('bad', !!policyErr);
-      if (!policyErr) { st.policy = policyTa.value; persist(); }
+      if (!policyErr) persist();
       renderVerdicts();
     }
     policyTa.addEventListener('input', onPolicy);
@@ -552,16 +609,22 @@ const playground: Playground = {
       a.resolve(!!el.dataset.ok);
       renderApprovals();
     });
-    disposers.push(() => { for (const a of approvals.splice(0)) a.resolve(false); });
 
     /* ── tool call panel ── */
     const toolSel = $<HTMLSelectElement>('.mq-tool');
     const form = $('.mq-form');
     const out = $('.mq-out');
-    let currentTool = st.tool;
+    let currentTool = '';
     let args: Json = {};
-    function persist() { writeState({ tool: currentTool, policy: st.policy, args: JSON.stringify(args) === JSON.stringify(defaultsFor(currentTool)) ? '' : JSON.stringify(args) }, DEFAULTS); }
+    function persist() {
+      const def = defaultsFor(currentTool);
+      writeState(
+        { server: kind, tool: currentTool, policy: policyTa.value, args: JSON.stringify(args) === JSON.stringify(def) ? '' : JSON.stringify(args) },
+        { server: 'demo', tool: defaultToolFor(kind), policy: defaultPolicyFor(kind), args: '' },
+      );
+    }
     function defaultsFor(name: string): Json {
+      if (kind === 'math' && MATH_EXAMPLES[name]) return structuredClone(MATH_EXAMPLES[name]);
       const def = client.listTools(SERVER).find((t) => t.name === name);
       const props = (def?.inputSchema.properties ?? {}) as Record<string, any>;
       return Object.fromEntries(Object.entries(props).filter(([, s]) => s.default !== undefined).map(([k, s]) => [k, s.default]));
@@ -591,8 +654,10 @@ const playground: Playground = {
         if (Array.isArray(s.enum)) input = `<select data-k="${k}">${s.enum.map((o: string) => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
         else if (s.type === 'boolean') input = `<input type="checkbox" data-k="${k}"${v ? ' checked' : ''}>`;
         else if (s.type === 'number' || s.type === 'integer') input = `<input type="number" data-k="${k}" value="${v ?? ''}"${s.minimum != null ? ` min="${s.minimum}"` : ''}${s.maximum != null ? ` max="${s.maximum}"` : ''}${s.type === 'integer' ? ' step="1"' : ''}>`;
+        else if (s.type === 'array' || s.type === 'object') input = `<textarea class="code mq-json-field" data-k="${k}" data-json="1" rows="2" spellcheck="false">${esc(JSON.stringify(v ?? (s.type === 'array' ? [] : {})))}</textarea>`;
         else input = `<input type="text" data-k="${k}" value="${esc(String(v ?? ''))}">`;
-        return `<label class="field"><span>${esc(k)}${req.has(k) ? ' <i>*</i>' : ''} <em>${esc(s.type ?? (s.enum ? 'enum' : ''))}</em></span>${input}</label>`;
+        return `<label class="field">
+<span>${esc(k)}${req.has(k) ? ' <i>*</i>' : ''} <em>${esc(s.type ?? (s.enum ? 'enum' : ''))}</em></span>${input}</label>`;
       }).join('') || `<div class="muted">No arguments.</div>`;
       $('.mq-query').hidden = !ann.readOnlyHint;
       $('.mq-optimistic-note').hidden = name !== 'add_note';
@@ -601,15 +666,29 @@ const playground: Playground = {
       renderVerdicts();
     }
     form.addEventListener('input', (e) => {
-      const el = e.target as HTMLInputElement;
+      const el = e.target as HTMLInputElement | HTMLTextAreaElement;
       const k = el.dataset.k; if (!k) return;
+      if (el.dataset.json) {
+        try { args = { ...args, [k]: JSON.parse((el as HTMLTextAreaElement).value) }; el.classList.remove('bad'); persist(); }
+        catch { el.classList.add('bad'); }
+        return;
+      }
       const def = client.listTools(SERVER).find((t) => t.name === currentTool);
       const s = (def?.inputSchema.properties as any)?.[k] ?? {};
-      args = { ...args, [k]: el.type === 'checkbox' ? el.checked : (s.type === 'number' || s.type === 'integer') ? (el.value === '' ? undefined : Number(el.value)) : el.value };
+      args = { ...args, [k]: (el as HTMLInputElement).type === 'checkbox' ? (el as HTMLInputElement).checked : (s.type === 'number' || s.type === 'integer') ? (el.value === '' ? undefined : Number(el.value)) : el.value };
       persist();
     });
     toolSel.addEventListener('change', () => selectTool(toolSel.value, true));
 
+    /** Real tool results carry their payload as a JSON string inside content[0].text (the MCP
+     *  text-content convention). Pretty-parse it for display when possible — falls back to the
+     *  raw result untouched for free-text tools (e.g. the fake server's echo). */
+    function prettyResult(r: any) {
+      if (r && Array.isArray(r.content) && r.content[0]?.type === 'text') {
+        try { return { ...r, content: [{ ...r.content[0], text: JSON.parse(r.content[0].text) }, ...r.content.slice(1)] }; } catch { return r; }
+      }
+      return r;
+    }
     async function run(mode: 'call' | 'query') {
       const name = currentTool; const a = { ...args };
       rememberArgs(name, a);
@@ -629,7 +708,7 @@ const playground: Playground = {
       try {
         const r: any = mode === 'query' ? await qTool(name, a) : await client.callTool(name, a, name === 'add_note' ? noteOpts : {});
         out.className = `code mq-out ${r?.isError ? 'err' : 'ok'}`;
-        out.textContent = `// ${mode === 'query' ? 'queryTool' : 'callTool'} in ${(performance.now() - t).toFixed(0)}ms${r?.isError ? ' (isError: tool-level failure, surfaced as data)' : ''}\n` + JSON.stringify(r, null, 2);
+        out.textContent = `// ${mode === 'query' ? 'queryTool' : 'callTool'} in ${(performance.now() - t).toFixed(0)}ms${r?.isError ? ' (isError: tool-level failure, surfaced as data)' : ''}\n` + JSON.stringify(prettyResult(r), null, 2);
       } catch (e: any) {
         const denied = e?.code === -32003 || e?.name === 'AuthorizationError';
         out.className = 'code mq-out err';
@@ -639,28 +718,15 @@ const playground: Playground = {
     $('.mq-call').addEventListener('click', () => void run('call'));
     $('.mq-query').addEventListener('click', () => void run('query'));
 
-    /* ── live widgets: clock, notes (optimistic), weather ── */
+    /* ── demo-only live widgets: clock, notes (optimistic), weather ── */
     const noteOpts = {
       optimistic: (a: Json) => [{ key: kResource('notes://inbox'), recipe: (prev: any) => {
         const list = prev?.contents?.[0]?.text ? JSON.parse(prev.contents[0].text) : [];
         return { ...(prev ?? {}), contents: [{ uri: 'notes://inbox', mimeType: 'application/json', text: JSON.stringify([...list, { id: 'pending-' + Date.now(), text: String(a.text ?? ''), at: Date.now(), pending: true }]) }] };
       } }],
     };
-    const clockEl = $('.mq-clock');
-    const noteIn = $<HTMLInputElement>('.mq-note-in');
-    const reject = $<HTMLInputElement>('.mq-reject');
-    reject.addEventListener('change', () => { server.rejectNextWrite = reject.checked; });
-    server.onChange = () => { reject.checked = server.rejectNextWrite; scheduleRender(); };
-    $('.mq-note-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const text = noteIn.value.trim() || 'untitled thought';
-      noteIn.value = '';
-      try { const r: any = await client.callTool('add_note', { text }, noteOpts); if (r?.isError) { const f = $('.mq-notes-flag'); f.textContent = 'rolled back: server returned isError'; f.classList.add('on'); } } catch (err: any) { $('.mq-notes-flag').textContent = `rolled back: ${err?.message ?? err}`; }
-    });
-    const cityEl = $<HTMLSelectElement>('.mq-city');
-    cityEl.innerHTML = CITIES.map((c) => `<option>${c}</option>`).join('');
     let unWeather: (() => void) | undefined;
-    function watchCity() {
+    function watchCity(cityEl: HTMLSelectElement) {
       unWeather?.();
       const a = { city: cityEl.value, units: 'C' };
       rememberArgs('get_weather', a);
@@ -668,46 +734,183 @@ const playground: Playground = {
         const d = (e?.data as any)?.structuredContent;
         $('.mq-weather').innerHTML = d ? `<b>${d.temp}°${d.units}</b><span>${esc(d.sky)} · ${d.humidity}% rh</span><small>observed ${d.observedAt}</small>` : e?.status === 'error' ? `<span class="muted">error: ${esc(e.error?.message ?? '')}</span>` : `<span class="muted">fetching…</span>`;
       });
+      sessionDisposers.push(() => unWeather?.());
     }
-    cityEl.addEventListener('change', watchCity);
-    disposers.push(() => unWeather?.());
+    function renderDemoLiveBody() {
+      $('.mq-live-sub').textContent = 'each widget is a cache subscriber';
+      $('.mq-live-body').innerHTML = `
+    <div class="mq-widget"><h4>clock://now <span class="chip">resources/updated every 5s</span></h4><div class="mq-clock">--:--:--</div></div>
+    <div class="mq-widget"><h4>get_weather <select class="mq-city"></select> <span class="chip">ttlMs 20s</span></h4><div class="mq-weather"></div></div>
+    <div class="mq-widget"><h4>notes://inbox <span class="mq-notes-flag"></span></h4>
+      <ul class="mq-notes"></ul>
+      <form class="mq-note-form"><input class="mq-note-in" placeholder="add a note (optimistic)" maxlength="120"><button class="btn primary">add_note</button></form>
+      <label class="mq-rej"><input type="checkbox" class="mq-reject"> server rejects the next write (watch the rollback)</label>
+    </div>`;
+      const clockEl = $('.mq-clock');
+      const noteIn = $<HTMLInputElement>('.mq-note-in');
+      const reject = $<HTMLInputElement>('.mq-reject');
+      const cityEl = $<HTMLSelectElement>('.mq-city');
+      cityEl.innerHTML = CITIES.map((c) => `<option>${c}</option>`).join('');
+      reject.addEventListener('change', () => { if (fakeServer) fakeServer.rejectNextWrite = reject.checked; });
+      if (fakeServer) fakeServer.onChange = () => { reject.checked = fakeServer!.rejectNextWrite; scheduleRender(); };
+      $('.mq-note-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = noteIn.value.trim() || 'untitled thought';
+        noteIn.value = '';
+        try { const r: any = await client.callTool('add_note', { text }, noteOpts); if (r?.isError) { const f = $('.mq-notes-flag'); f.textContent = 'rolled back: server returned isError'; f.classList.add('on'); } } catch (err: any) { $('.mq-notes-flag').textContent = `rolled back: ${err?.message ?? err}`; }
+      });
+      cityEl.addEventListener('change', () => watchCity(cityEl));
+      sessionDisposers.push(watch(kResource('clock://now'), () => readRes('clock://now'), (e) => {
+        const txt = (e?.data as any)?.contents?.[0]?.text;
+        if (txt) { clockEl.textContent = txt; clockEl.animate([{ color: 'var(--accent)' }, { color: 'var(--ink)' }], { duration: 800 }); }
+      }));
+      const notesEl = $('.mq-notes');
+      sessionDisposers.push(watch(kResource('notes://inbox'), () => readRes('notes://inbox'), (e) => {
+        let list: any[] = [];
+        try { list = JSON.parse((e?.data as any)?.contents?.[0]?.text ?? '[]'); } catch {}
+        notesEl.innerHTML = list.length ? list.map((n) => `<li class="${n.pending ? 'pending' : ''}"><span>${esc(n.text)}</span>${n.pending ? '<em>optimistic</em>' : `<small>${esc(n.id)}</small>`}</li>`).join('') : `<li class="muted">inbox empty</li>`;
+        $('.mq-notes-flag').textContent = e?.isOptimistic ? 'isOptimistic: true (awaiting server)' : e?.status === 'success' ? 'confirmed by server' : e?.status ?? '';
+        $('.mq-notes-flag').classList.toggle('on', !!e?.isOptimistic);
+      }));
+      watchCity(cityEl);
+    }
+    function renderMathLiveBody() {
+      $('.mq-live-sub').textContent = 'stateless — no resources, no subscriptions';
+      $('.mq-live-body').innerHTML = `
+    <p class="muted small">math-plus-mcp's tools take structured JSON in, JSON out — no expression is ever <code>eval</code>'d. Pick a preset, then run it below with <code>callTool()</code>.</p>
+    <div class="mq-preset-btns">${MATH_PRESETS.map(([lbl, tool]) => `<button class="mini" data-tool="${esc(tool)}">${esc(lbl)}</button>`).join('')}</div>`;
+      $('.mq-live-body').addEventListener('click', (e) => {
+        const b = (e.target as HTMLElement).closest('[data-tool]') as HTMLElement | null;
+        if (!b) return;
+        selectTool(b.dataset.tool!, true, structuredClone(MATH_EXAMPLES[b.dataset.tool!]));
+        $('.mq-call-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
 
-    /* ── boot ── */
-    try {
-      await client.connect();
-    } catch (e) {
-      out.textContent = `connect failed: ${(e as Error).message}`;
+    /* ── server switcher: tears the current session down, boots the requested one ── */
+    async function teardownSession() {
+      for (const d of sessionDisposers.splice(0).reverse()) { try { d(); } catch {} }
+      for (const a of approvals.splice(0)) a.resolve(false);
+      fakeServer?.stop();
+      fakeServer = undefined;
+      if (client) { try { await client.close(); } catch {} }
     }
-    if (dead) return;
-    onPolicy();
-    renderToolOptions();
-    let initialArgs: Json | undefined;
-    try { initialArgs = st.args ? JSON.parse(st.args) : undefined; } catch {}
-    selectTool(client.listTools(SERVER).some((t) => t.name === currentTool) ? currentTool : 'get_weather', true, initialArgs && { ...defaultsFor(currentTool), ...initialArgs });
-    disposers.push(client.subscribeCapabilities((_s, kind) => {
-      if (kind !== 'tools') return;
-      renderToolOptions();
-      selectTool(currentTool, false);
-    }));
-    // Widgets subscribe only once the connection is ready (routing needs resources/list).
-    disposers.push(watch(kResource('clock://now'), () => readRes('clock://now'), (e) => {
-      const txt = (e?.data as any)?.contents?.[0]?.text;
-      if (txt) { clockEl.textContent = txt; clockEl.animate([{ color: 'var(--accent)' }, { color: 'var(--ink)' }], { duration: 800 }); }
-    }));
-    const notesEl = $('.mq-notes');
-    disposers.push(watch(kResource('notes://inbox'), () => readRes('notes://inbox'), (e) => {
-      let list: any[] = [];
-      try { list = JSON.parse((e?.data as any)?.contents?.[0]?.text ?? '[]'); } catch {}
-      notesEl.innerHTML = list.length ? list.map((n) => `<li class="${n.pending ? 'pending' : ''}"><span>${esc(n.text)}</span>${n.pending ? '<em>optimistic</em>' : `<small>${esc(n.id)}</small>`}</li>`).join('') : `<li class="muted">inbox empty</li>`;
-      $('.mq-notes-flag').textContent = e?.isOptimistic ? 'isOptimistic: true (awaiting server)' : e?.status === 'success' ? 'confirmed by server' : e?.status ?? '';
-      $('.mq-notes-flag').classList.toggle('on', !!e?.isOptimistic);
-    }));
-    watchCity();
-    renderApprovals();
-    // Seed a few more entries so the inspector has something to show on arrival.
-    for (const [t, a] of [['add', { a: 2, b: 40 }], ['slow_search', { query: 'reactive cache', delayMs: 2400 }], ['get_weather', { city: 'Oslo', units: 'F' }]] as const) { rememberArgs(t, a); qTool(t, a).catch(() => {}); }
-    readRes('config://server').catch(() => {});
-    scheduleRender();
+    async function bootSession(newKind: ServerKind, initial?: { tool?: string; policy?: string; args?: string }) {
+      if (switching) return;
+      switching = true;
+      try {
+        await teardownSession();
+        if (dead) return;
+        kind = newKind;
+        SERVER = newKind;
+        root.querySelectorAll<HTMLElement>('.mq-tab').forEach((b) => b.classList.toggle('on', b.dataset.kind === kind));
+        root.querySelectorAll<HTMLElement>('.mq-demo-only').forEach((el) => { el.hidden = kind !== 'demo'; });
+
+        // reset per-session UI/state
+        events = []; evN = 0; pendingReq = new Map(); stats = { msgs: 0 };
+        rows = new Map(); selectedKey = '';
+        refetchers = new Map(); manualWatches = new Map(); argsCache = new Map();
+        approvals = []; approvalSeq = 0;
+        tl.innerHTML = ''; tbody.innerHTML = '';
+        currentTool = ''; args = {};
+
+        presetSel.innerHTML = `<option value="">presets…</option>` + Object.keys(presetsFor(kind)).map((k) => `<option>${esc(k)}</option>`).join('');
+
+        out.className = 'code mq-out busy';
+        if (kind === 'demo') {
+          fakeServer = new FakeServer(onWire);
+          fakeServer.onChange = scheduleRender;
+          client = new MCPClient({
+            servers: { demo: { transport: fakeServer.transport, maxRetries: 2 } },
+            interceptors: [gateInterceptor],
+            devtools: { emit: (e: any) => devtoolsEmit(e) },
+            onCall: (a) => pushEv({ lane: 'local', kind: 'audit', label: `audit ${a.kind} ${a.target}: ${a.outcome}${a.error ? ' (' + a.error.slice(0, 60) + ')' : ''}`, ms: a.ms }),
+          });
+        } else {
+          out.textContent = 'loading @johnhenry/math-plus-mcp… (dynamic import — pulls in tensor-core + adapter-math, so it only loads now, on request)';
+          try {
+            mathMod ??= await import('@johnhenry/math-plus-mcp');
+          } catch (e) {
+            out.className = 'code mq-out err';
+            out.textContent = `failed to load @johnhenry/math-plus-mcp: ${(e as Error).message}`;
+            await bootSession('demo');
+            return;
+          }
+          if (dead) return;
+          const mod = mathMod;
+          client = new MCPClient({
+            servers: { math: { transport: () => {
+              const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+              const srv = mod.buildServer();
+              void srv.connect(serverT as any).catch((e) => console.error('math-plus-mcp server connect failed', e));
+              return tapClientTransport(clientT, onWire);
+            }, maxRetries: 2 } },
+            interceptors: [gateInterceptor],
+            devtools: { emit: (e: any) => devtoolsEmit(e) },
+            onCall: (a) => pushEv({ lane: 'local', kind: 'audit', label: `audit ${a.kind} ${a.target}: ${a.outcome}${a.error ? ' (' + a.error.slice(0, 60) + ')' : ''}`, ms: a.ms }),
+          });
+        }
+        cache = client.cache;
+        sessionDisposers.push(() => { void client.close(); });
+        sessionDisposers.push(cache.subscribeAll(scheduleRender));
+        sessionDisposers.push(client.subscribeServerState(scheduleRender));
+
+        try {
+          await client.connect();
+        } catch (e) {
+          out.className = 'code mq-out err';
+          out.textContent = `connect failed: ${(e as Error).message}`;
+        }
+        if (dead) return;
+
+        policyTa.value = initial?.policy ?? defaultPolicyFor(kind);
+        onPolicy();
+        renderToolOptions();
+        let initialArgs: Json | undefined;
+        try { initialArgs = initial?.args ? JSON.parse(initial.args) : undefined; } catch {}
+        const wantTool = initial?.tool && client.listTools(SERVER).some((t) => t.name === initial.tool) ? initial.tool : defaultToolFor(kind);
+        selectTool(wantTool, true, initialArgs && { ...defaultsFor(wantTool), ...initialArgs });
+        sessionDisposers.push(client.subscribeCapabilities((_s, k) => {
+          if (k !== 'tools') return;
+          renderToolOptions();
+          selectTool(currentTool, false);
+        }));
+
+        if (kind === 'demo') {
+          renderDemoLiveBody();
+          for (const [t, a] of [['add', { a: 2, b: 40 }], ['slow_search', { query: 'reactive cache', delayMs: 2400 }], ['get_weather', { city: 'Oslo', units: 'F' }]] as const) { rememberArgs(t, a); qTool(t, a).catch(() => {}); }
+          readRes('config://server').catch(() => {});
+        } else {
+          renderMathLiveBody();
+          for (const [t, a] of [['symbolic_solve', MATH_EXAMPLES.symbolic_solve], ['stats_summary', MATH_EXAMPLES.stats_summary]] as const) { rememberArgs(t, a); qTool(t, a).catch(() => {}); }
+        }
+        renderApprovals();
+        scheduleRender();
+      } finally {
+        switching = false;
+      }
+    }
+    function devtoolsEmit(e: any) {
+      if (e.type === 'invalidate') pushEv({ lane: 'local', kind: 'cache', label: `invalidate ${e.keys.join(', ')}` });
+      else if (e.type === 'capabilities') pushEv({ lane: 'local', kind: 'cache', label: `re-listed ${e.kind} (list_changed)` });
+      else if (e.type === 'server-state') pushEv({ lane: 'local', kind: 'cache', label: `connection ${e.server} → ${e.state}` });
+    }
+    root.querySelector('.mq-server-tabs')?.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-kind]');
+      if (!b || switching) return;
+      const wanted = b.dataset.kind as ServerKind;
+      if (wanted === kind) return;
+      void bootSession(wanted);
+    });
+    disposers.push(() => { void teardownSession(); });
+
+    /* ── boot: honor a deep link's server=math, else the zero-setup fake default ── */
+    const initialKind: ServerKind = st.server === 'math' ? 'math' : 'demo';
+    await bootSession(initialKind, {
+      tool: st.tool !== DEFAULTS.tool ? st.tool : undefined,
+      policy: st.policy !== DEFAULTS.policy ? st.policy : undefined,
+      args: st.args !== DEFAULTS.args ? st.args : undefined,
+    });
 
     return () => {
       dead = true;
@@ -721,9 +924,13 @@ const TEMPLATE = `
 <div class="panel mq-strip">
   <div class="mq-status"></div>
   <div class="mq-strip-ctl">
-    <label class="mq-lat">server latency <input class="mq-latency" type="range" min="0" max="800" step="10" value="90"><span class="mq-latency-v">90ms</span></label>
-    <button class="btn primary mq-listchanged" title="Server registers/unregisters roll_dice and emits notifications/tools/list_changed">server: tools/list_changed</button>
-    <button class="btn mq-inv-all" title="invalidateTags(['server:demo'])">invalidate all</button>
+    <div class="mq-server-tabs" role="tablist">
+      <button class="mini mq-tab on" data-kind="demo" title="Zero-setup fake in-page server">fake demo server</button>
+      <button class="mini mq-tab" data-kind="math" title="Real @johnhenry/math-plus-mcp, lazy-loaded on first click">real math server</button>
+    </div>
+    <label class="mq-lat mq-demo-only">server latency <input class="mq-latency" type="range" min="0" max="800" step="10" value="90"><span class="mq-latency-v">90ms</span></label>
+    <button class="btn primary mq-listchanged mq-demo-only" title="Server registers/unregisters roll_dice and emits notifications/tools/list_changed">server: tools/list_changed</button>
+    <button class="btn mq-inv-all" title="invalidateTags(['server:<active>'])">invalidate all</button>
     <button class="btn mq-copy">copy link</button>
   </div>
 </div>
@@ -757,7 +964,7 @@ const TEMPLATE = `
     <div class="mq-matrix"></div>
     <textarea class="code mq-policy" spellcheck="false"></textarea>
     <div class="mq-policy-err"></div>
-    <p class="muted small"><code>allow</code> / <code>deny</code> / <code>denyDestructive</code> compile with mcp-gate's <code>compilePolicy</code> into mcp-query's <code>authorize()</code> interceptor; <code>redact</code> is mcp-gate's DLP interceptor. mcp-gate verdicts are strictly allow/deny, so <code>approve</code> is <b>this planet's addition</b>, not an mcp-gate feature: a human-in-the-loop interceptor chained after mcp-gate's. Both mcp-gate pieces come straight from the package's browser entry (<code>import { compilePolicy, redact } from '@johnhenry/mcp-gate'</code>).</p>
+    <p class="muted small"><code>allow</code> / <code>deny</code> / <code>denyDestructive</code> compile with mcp-gate's <code>compilePolicy</code> into mcp-query's <code>authorize()</code> interceptor; <code>redact</code> is mcp-gate's DLP interceptor. mcp-gate verdicts are strictly allow/deny, so <code>approve</code> is <b>this planet's addition</b>, not an mcp-gate feature: a human-in-the-loop interceptor chained after mcp-gate's. Both mcp-gate pieces come straight from the package's browser entry (<code>import { compilePolicy, redact } from '@johnhenry/mcp-gate'</code>) — and this same chain runs whichever server tab is active.</p>
     <h4>Waiting for approval</h4>
     <div class="mq-approvals"></div>
   </section>
@@ -765,14 +972,8 @@ const TEMPLATE = `
 
 <div class="mq-grid">
   <section class="panel mq-live">
-    <header><h3>Live queries</h3><span class="muted">each widget is a cache subscriber</span></header>
-    <div class="mq-widget"><h4>clock://now <span class="chip">resources/updated every 5s</span></h4><div class="mq-clock">--:--:--</div></div>
-    <div class="mq-widget"><h4>get_weather <select class="mq-city"></select> <span class="chip">ttlMs 20s</span></h4><div class="mq-weather"></div></div>
-    <div class="mq-widget"><h4>notes://inbox <span class="mq-notes-flag"></span></h4>
-      <ul class="mq-notes"></ul>
-      <form class="mq-note-form"><input class="mq-note-in" placeholder="add a note (optimistic)" maxlength="120"><button class="btn primary">add_note</button></form>
-      <label class="mq-rej"><input type="checkbox" class="mq-reject"> server rejects the next write (watch the rollback)</label>
-    </div>
+    <header><h3>Live</h3><span class="muted mq-live-sub"></span></header>
+    <div class="mq-live-body"></div>
   </section>
 
   <section class="panel mq-timeline">
@@ -782,7 +983,7 @@ const TEMPLATE = `
       </div>
       <button class="mini mq-pause">pause</button><button class="mini mq-clear">clear</button>
     </header>
-    <div class="mq-lanes"><div class="pillar client">client<br><small>mcp-query</small></div><div class="wire-line"></div><div class="pillar server">server<br><small>in-page</small></div></div>
+    <div class="mq-lanes"><div class="pillar client">client<br><small>mcp-query</small></div><div class="wire-line"></div><div class="pillar server">server<br><small id="mq-server-label">in-page</small></div></div>
     <div class="mq-tl-list"></div>
   </section>
 </div>
@@ -790,12 +991,13 @@ const TEMPLATE = `
 <section class="panel mq-explain">
   <h3>What's happening</h3>
   <ul>
-    <li><b>The server is fake, the client is real.</b> A few dozen lines answer <code>initialize</code>, <code>tools/list</code>, <code>tools/call</code>, <code>resources/*</code> and <code>prompts/list</code> over a hand-written <code>Transport</code> object handed to <code>MCPClient</code>'s <code>transport</code> factory. Everything above that is the official SDK client plus mcp-query.</li>
+    <li><b>The demo server is fake by default; the client is always real.</b> A few dozen lines answer <code>initialize</code>, <code>tools/list</code>, <code>tools/call</code>, <code>resources/*</code> and <code>prompts/list</code> over a hand-written <code>Transport</code> object handed to <code>MCPClient</code>'s <code>transport</code> factory. Everything above that is the official SDK client plus mcp-query.</li>
+    <li><b>"real math server" is not fake.</b> Selecting it dynamically imports <code>@johnhenry/math-plus-mcp</code> — lazy, because it pulls in tensor-core + adapter-math and there's no reason to pay for that until you ask — and pairs a fresh <code>buildServer()</code> with the client over <code>InMemoryTransport.createLinkedPair()</code>, the same SDK transport class a stdio/HTTP client uses, minus the process boundary. Its nine tools (<code>symbolic_parse/simplify/differentiate/integrate/solve/evaluate</code>, <code>linalg_solve</code>, <code>tensor_pipeline</code>, <code>stats_summary</code>) run real <code>@johnhenry/math</code> symbolic CAS and tensor-core numerics — no expression is ever <code>eval</code>'d.</li>
     <li><b>Query keys.</b> Resources cache under <code>resource:uri</code>, read-only tool results under <code>toolResult:name:argsHash</code>, catalogs under <code>toolList</code> and friends. Freshness comes from the server's <code>ttlMs</code> hint (SEP-2549) or the 30s default.</li>
-    <li><b>The protocol invalidates for you.</b> <code>notifications/resources/updated</code> marks one resource stale and its watchers refetch; <code>tools/list_changed</code> triggers a re-list that rewrites <code>toolList</code>, and the tool picker and policy matrix follow.</li>
-    <li><b>Subscribers drive subscriptions.</b> The first cache subscriber on a resource makes the client send <code>resources/subscribe</code>; the last one leaving sends <code>unsubscribe</code>. Try watch/unwatch on <code>config://server</code>.</li>
+    <li><b>The protocol invalidates for you.</b> <code>notifications/resources/updated</code> marks one resource stale and its watchers refetch; <code>tools/list_changed</code> triggers a re-list that rewrites <code>toolList</code>, and the tool picker and policy matrix follow. math-plus-mcp is stateless (v1 scope, by design) so it never sends either.</li>
+    <li><b>Subscribers drive subscriptions.</b> The first cache subscriber on a resource makes the client send <code>resources/subscribe</code>; the last one leaving sends <code>unsubscribe</code>. Try watch/unwatch on <code>config://server</code> (demo tab).</li>
     <li><b>Optimistic writes.</b> <code>add_note</code> patches the cached inbox before the server answers; an <code>isError</code> result or a thrown error rolls it back.</li>
-    <li><b>The gate is an interceptor.</b> Denied calls throw <code>AuthorizationError</code> (-32003) before a byte reaches the server. The audit hook records ok, denied and error outcomes.</li>
+    <li><b>The gate is an interceptor.</b> Denied calls throw <code>AuthorizationError</code> (-32003) before a byte reaches the server. The audit hook records ok, denied and error outcomes — for whichever server is active.</li>
   </ul>
 </section>
 `;
