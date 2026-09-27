@@ -16,6 +16,16 @@
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
   overflow: hidden;
+  transition: width .15s ease, height .15s ease, border-radius .15s ease;
+}
+
+/* Collapsed state shrinks to a small round handle — a 320px bar sitting
+   over every room on every route was the actual complaint, not just that
+   the body kept showing. */
+.telemetry-dock.collapsed {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
 }
 
 .td-handle {
@@ -32,6 +42,20 @@
   text-align: left;
 }
 .td-handle:hover { background: var(--bg-inset); }
+.telemetry-dock.collapsed .td-handle {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+.telemetry-dock.collapsed .td-title,
+.telemetry-dock.collapsed .td-spacer,
+.telemetry-dock.collapsed .td-count,
+.telemetry-dock.collapsed .td-caret {
+  display: none;
+}
+.telemetry-dock.collapsed .td-dot { width: 12px; height: 12px; }
 
 .td-dot {
   width: 8px; height: 8px; border-radius: 50%;
