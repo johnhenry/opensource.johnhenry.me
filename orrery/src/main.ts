@@ -53,6 +53,12 @@ import { mountConductor } from './conductor';
 // pre.code block and the source drawer. See src/code-highlight.ts.
 import { installCodeHighlighter } from './code-highlight';
 
+// Proactive stale-deploy detection: tells a visitor a new deploy exists
+// (with a manual reload button) before they navigate into a room whose
+// lazy-loaded chunk might already be gone. See src/version-check.ts --
+// works alongside, not instead of, the reactive recovery below.
+import { installVersionCheck } from './version-check';
+
 // Stale-deploy recovery: every push to main rebuilds and overwrites
 // orrery/dist/assets/ with freshly content-hashed filenames, so a tab left
 // open (or a cached copy of the JS entry) across a deploy ends up asking for
@@ -97,6 +103,7 @@ mountLayaJudge();
 mountAlmanac();
 mountConductor();
 installCodeHighlighter();
+installVersionCheck();
 
 /** Raw source of every playground module, for the "view source" drawer. */
 const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
