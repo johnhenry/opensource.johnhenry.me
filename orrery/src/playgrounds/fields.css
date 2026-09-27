@@ -1,0 +1,59 @@
+.pg-fields { display: grid; gap: 16px; }
+.pg-fields h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.pg-fields .mono { font-family: var(--f-mono); }
+
+.pg-fields .fld-input { display: grid; gap: 10px; }
+.pg-fields .fld-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.pg-fields .fld-row .field { min-width: 160px; flex: 1 1 160px; }
+.pg-fields .fld-row .field:nth-child(2) { flex: 1 1 220px; }
+.pg-fields .fld-detected { align-self: center; margin-bottom: 2px; white-space: nowrap; }
+.pg-fields .fld-copy-link { align-self: center; margin-bottom: 2px; white-space: nowrap; font-size: 12px; padding: 6px 10px; }
+.pg-fields .fld-value { min-height: 64px; }
+.pg-fields .fld-note { margin: 0; color: var(--ink-2); font-size: 13px; }
+.pg-fields .fld-error { color: var(--error); white-space: pre; overflow-x: auto; }
+.pg-fields .fld-empty { color: var(--ink-3); font-size: 13px; margin: 4px 0; }
+
+/* Tree */
+.pg-fields .fld-tree { display: grid; gap: 8px; }
+.pg-fields .fld-node { border-left: 1px solid var(--line); padding-left: 10px; }
+.pg-fields .fld-node-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pg-fields .fld-node-label { color: var(--ink-2); font-size: 12px; min-width: 1.6em; }
+.pg-fields .fld-node-value { color: var(--ink); font-size: 13px; word-break: break-all; }
+.pg-fields .fld-inner { margin: 6px 0 2px 4px; padding-left: 12px; border-left: 1px dashed var(--line); display: grid; gap: 6px; }
+.pg-fields .fld-params { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0 4px; }
+
+.pg-fields .fld-badge {
+  font-family: var(--f-mono); font-size: 11px; padding: 2px 7px; border-radius: 999px;
+  border: 1px solid transparent; text-transform: uppercase; letter-spacing: .03em;
+}
+.pg-fields .fld-pill {
+  font-family: var(--f-mono); font-size: 11px; padding: 2px 7px; border-radius: 6px;
+  border: 1px solid transparent; opacity: .92;
+}
+
+.pg-fields .bd-integer      { background: hsl(200 65% 20%); color: hsl(200 85% 78%); border-color: hsl(200 60% 40%); }
+.pg-fields .bd-decimal      { background: hsl(190 60% 18%); color: hsl(190 80% 75%); border-color: hsl(190 55% 38%); }
+.pg-fields .bd-string       { background: hsl(140 45% 16%); color: hsl(140 65% 72%); border-color: hsl(140 45% 35%); }
+.pg-fields .bd-token        { background: hsl(35 60% 18%);  color: hsl(35 85% 72%);  border-color: hsl(35 60% 40%); }
+.pg-fields .bd-binary       { background: hsl(280 45% 20%); color: hsl(280 70% 80%); border-color: hsl(280 45% 45%); }
+.pg-fields .bd-boolean      { background: hsl(0 50% 20%);   color: hsl(0 75% 78%);   border-color: hsl(0 50% 42%); }
+.pg-fields .bd-date         { background: hsl(185 55% 16%); color: hsl(185 75% 75%); border-color: hsl(185 50% 38%); }
+.pg-fields .bd-displaystring{ background: hsl(330 50% 18%); color: hsl(330 75% 80%); border-color: hsl(330 50% 42%); }
+.pg-fields .bd-innerlist    { background: hsl(30 12% 20%);  color: hsl(30 20% 72%);  border-color: hsl(30 12% 40%); }
+.pg-fields .bd-unknown      { background: var(--bg-inset);  color: var(--ink-3); }
+
+/* Diff */
+.pg-fields .fld-diff { display: grid; gap: 6px; }
+.pg-fields .fld-diff-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; }
+.pg-fields .fld-diff-line { margin: 0; white-space: pre-wrap; word-break: break-all; max-height: 160px; }
+.pg-fields .fld-diff-del { background: hsl(0 60% 25%); color: hsl(0 85% 85%); text-decoration: line-through; border-radius: 2px; }
+.pg-fields .fld-diff-ins { background: hsl(140 45% 22%); color: hsl(140 75% 85%); border-radius: 2px; }
+
+/* JSON / editor */
+.pg-fields .fld-json { max-height: 320px; }
+.pg-fields .fld-editor { min-height: 220px; }
+.pg-fields .fld-editor-actions { display: flex; gap: 10px; margin: 10px 0; }
+.pg-fields .fld-editor-out { min-height: 42px; }
+.pg-fields .fld-editor-out.fld-error-text { color: var(--error); white-space: pre-wrap; }
+
+.pg-fields .fld-explain p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.6; }

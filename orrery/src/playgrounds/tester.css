@@ -1,0 +1,117 @@
+.pg-tester {
+  display: grid;
+  gap: 16px;
+}
+
+.pg-tester .tester-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  align-items: start;
+}
+
+.pg-tester .terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.pg-tester .terminal-head h2 {
+  font-family: var(--f-display);
+  font-size: 15px;
+  margin: 0;
+  color: var(--ink);
+  flex: 1;
+}
+
+.pg-tester .term {
+  background: var(--code-bg);
+  color: var(--code-ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pg-tester .term .tap-line { display: block; }
+.pg-tester .term .tap-ok { color: #57e389; }
+.pg-tester .term .tap-notok { color: #ff5f70; font-weight: 600; }
+.pg-tester .term .tap-diag { color: var(--ink-2); opacity: .8; }
+.pg-tester .term .tap-comment { color: var(--accent); }
+.pg-tester .term .tap-range { color: var(--ink-2); opacity: .6; }
+.pg-tester .term .tap-directive { color: #f2c744; }
+.pg-tester .term .cursor {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  background: var(--accent);
+  vertical-align: -2px;
+  animation: tester-blink 1s steps(1) infinite;
+}
+@keyframes tester-blink { 50% { opacity: 0; } }
+
+.pg-tester .summary-bar {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  align-items: center;
+}
+.pg-tester .summary-bar .chip.pass { background: color-mix(in srgb, #57e389 22%, transparent); border-color: color-mix(in srgb, #57e389 55%, transparent); color: #bdf5cf; }
+.pg-tester .summary-bar .chip.fail { background: color-mix(in srgb, #ff5f70 22%, transparent); border-color: color-mix(in srgb, #ff5f70 55%, transparent); color: #ffd0d5; }
+.pg-tester .summary-bar .chip.skip { background: color-mix(in srgb, #f2c744 22%, transparent); border-color: color-mix(in srgb, #f2c744 55%, transparent); color: #fbe9a8; }
+
+.pg-tester .timings {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+}
+.pg-tester .timing-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-inset);
+}
+.pg-tester .timing-row .name { color: var(--ink); }
+.pg-tester .timing-row.fail .name { color: #ff5f70; }
+.pg-tester .timing-row .ms { font-variant-numeric: tabular-nums; }
+
+.pg-tester .custom-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pg-tester .custom-hint {
+  color: var(--ink-2);
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
+.pg-tester details.source {
+  margin-top: 4px;
+}
+.pg-tester details.source summary {
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--ink-2);
+  padding: 4px 0;
+}
+.pg-tester details.source summary:hover { color: var(--accent); }
+.pg-tester details.source pre.code { max-height: 460px; }

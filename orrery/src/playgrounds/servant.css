@@ -1,0 +1,84 @@
+.pg-servant { display: grid; gap: 16px; }
+.pg-servant h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.pg-servant .hint { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.pg-servant .hint code { color: var(--accent); }
+.pg-servant .row-between { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.pg-servant .row-between h3 { margin: 0; }
+
+.pg-servant .hall {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.15fr) minmax(280px, 1.3fr) minmax(240px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1000px) { .pg-servant .hall { grid-template-columns: 1fr; } }
+
+.pg-servant .col { display: grid; gap: 16px; align-content: start; }
+
+/* left: script editor -------------------------------------------------- */
+.pg-servant .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-servant .preset-btn { padding: 5px 10px; font-size: 12px; }
+.pg-servant .preset-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-servant textarea.code#sv-script { min-height: 280px; font-size: 12.5px; }
+.pg-servant .script-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.pg-servant .script-status { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); }
+.pg-servant .script-status.ok { color: var(--success); }
+.pg-servant .script-status.err { color: var(--error); }
+
+.pg-servant .chips-wrap { margin-top: 12px; }
+.pg-servant .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pg-servant .chip-mw {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 999px;
+  background: var(--accent-soft); border: 1px solid var(--accent-border);
+  font-family: var(--f-mono); font-size: 12px;
+}
+.pg-servant .chip-mw button { background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 0 2px; font-size: 12px; line-height: 1; }
+.pg-servant .chip-mw button:hover { color: var(--accent); }
+.pg-servant .chip-mw button:disabled { opacity: .3; cursor: default; }
+.pg-servant .chip-arrow { color: var(--ink-3); }
+.pg-servant .chip-end {
+  padding: 6px 10px; border-radius: 999px; border: 1px dashed var(--line);
+  font-family: var(--f-mono); font-size: 12px; color: var(--ink-2);
+}
+.pg-servant .routes-list { margin-top: 10px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); display: grid; gap: 3px; }
+.pg-servant .routes-list b { color: var(--accent); }
+
+/* middle: composer + response + ws -------------------------------------- */
+.pg-servant .composer-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.pg-servant .composer-row select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
+.pg-servant .composer-row input[type="text"] { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
+.pg-servant .headers-editor { display: grid; gap: 6px; margin-bottom: 8px; }
+.pg-servant .header-row { display: flex; gap: 6px; }
+.pg-servant .header-row input { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); font-size: 12px; }
+.pg-servant .header-row button { background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-2); cursor: pointer; padding: 4px 8px; }
+.pg-servant textarea.code#sv-body { min-height: 70px; font-size: 12.5px; margin-bottom: 8px; }
+.pg-servant .response-viewer { margin-top: 12px; }
+.pg-servant .resp-status { font-family: var(--f-mono); font-size: 13px; margin-bottom: 6px; }
+.pg-servant .resp-status .code-2xx { color: var(--success); }
+.pg-servant .resp-status .code-4xx, .pg-servant .resp-status .code-5xx { color: var(--error); }
+.pg-servant .resp-status .code-3xx { color: var(--accent); }
+
+.pg-servant .ws-panel { margin-top: 4px; }
+.pg-servant .ws-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.pg-servant .ws-row input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
+.pg-servant .ws-log { height: 160px; overflow: auto; background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-family: var(--f-mono); font-size: 12px; display: grid; gap: 4px; align-content: start; }
+.pg-servant .ws-log .out { color: var(--accent); }
+.pg-servant .ws-log .in { color: var(--success); }
+.pg-servant .ws-log .sys { color: var(--ink-3); font-style: italic; }
+
+/* right: dispatch trace --------------------------------------------------- */
+.pg-servant .trace-list { display: grid; gap: 8px; max-height: 620px; overflow: auto; }
+.pg-servant .trace-entry { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg-inset); font-size: 12px; }
+.pg-servant .trace-head { display: flex; justify-content: space-between; gap: 8px; font-family: var(--f-mono); margin-bottom: 6px; }
+.pg-servant .trace-head .path { color: var(--ink); font-weight: 600; }
+.pg-servant .trace-head .status { font-family: var(--f-mono); }
+.pg-servant .trace-steps { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pg-servant .trace-step { padding: 2px 7px; border-radius: 999px; font-family: var(--f-mono); font-size: 11px; border: 1px solid transparent; }
+.pg-servant .trace-step.allowed { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
+.pg-servant .trace-step.denied, .pg-servant .trace-step.error { background: color-mix(in srgb, var(--error) 18%, transparent); color: var(--error); border-color: color-mix(in srgb, var(--error) 40%, transparent); }
+.pg-servant .trace-step.short-circuited { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.pg-servant .trace-arrow { color: var(--ink-3); }
+.pg-servant .trace-outcome { margin-top: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
+.pg-servant .trace-empty { color: var(--ink-3); font-style: italic; font-size: 12.5px; }
+.pg-servant .trace-clear { margin-top: 8px; }
