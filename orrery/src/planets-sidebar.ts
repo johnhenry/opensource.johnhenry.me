@@ -56,4 +56,11 @@ export function togglePlanetsSidebar(): void {
   wireRoomCardInteractions(aside, ac.signal);
   const main = aside.querySelector('.ps-body') as HTMLElement;
   void applyBuildTimeFallback(main, playgrounds, roomTests, ac.signal);
+
+  // Picking a planet (or its test badge / companion plug, both of which
+  // also navigate elsewhere) should dismiss the menu, not leave it sitting
+  // open over the room you just chose.
+  aside.addEventListener('click', ev => {
+    if ((ev.target as Element | null)?.closest('.room-card')) close();
+  }, { signal: ac.signal });
 }
