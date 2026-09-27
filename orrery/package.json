@@ -38,6 +38,8 @@
     "@johnhenry/jth-compiler": "^0.0.0",
     "@johnhenry/jth-stdlib": "^0.0.0",
     "@johnhenry/laya": "^0.3.1",
+    "@johnhenry/laya-presets": "^0.1.1",
+    "@johnhenry/laya-router": "^0.1.4",
     "@johnhenry/leserve": "^0.0.0",
     "@johnhenry/letterpress": "^0.0.3",
     "@johnhenry/math": "^0.0.1",

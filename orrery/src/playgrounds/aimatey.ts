@@ -1,5 +1,6 @@
 import type { Playground } from '../registry';
 import { readState, writeState, copyLink } from '../state';
+import { handoffButton } from '../bus';
 import { probeCompanion, hasDemo, type Companion } from '../companion';
 import { createBridge, createRouter, type Bridge, type Router } from '@johnhenry/aimatey-core';
 import {
@@ -449,6 +450,7 @@ async function mountRoom(host: HTMLElement): Promise<() => void> {
           <div class="am-toggles">
             <label><input type="checkbox" data-k="stream" /> stream tokens</label>
             <button class="btn" data-el="copy" type="button">copy link</button>
+            <span data-el="laya-slot"></span>
           </div>
         </div>
 
@@ -502,6 +504,7 @@ async function mountRoom(host: HTMLElement): Promise<() => void> {
     input: $<HTMLInputElement>(host, '[data-el="input"]'),
     send: $<HTMLButtonElement>(host, '[data-el="send"]'),
     copy: $<HTMLButtonElement>(host, '[data-el="copy"]'),
+    layaSlot: $(host, '[data-el="laya-slot"]'),
     wireRaw: $(host, '[data-el="wire-raw"]'),
     wireIr0: $(host, '[data-el="wire-ir0"]'),
     wireIr1: $(host, '[data-el="wire-ir1"]'),
@@ -523,6 +526,19 @@ async function mountRoom(host: HTMLElement): Promise<() => void> {
   el.stream.checked = state.stream;
 
   const history: ChatTurn[] = [];
+
+  // ---- send the latest reply to Laya for moderation ----
+  const toLaya = handoffButton({
+    from: 'aimatey',
+    to: 'laya',
+    kind: 'aimatey-reply',
+    label: 'Moderate this reply',
+    getPayload: () => ({ text: [...history].reverse().find(t => t.role === 'assistant')?.text ?? '' }),
+  });
+  toLaya.title = 'Sends the latest assistant reply to Laya Playground to run the moderationQuestions() preset against it';
+  toLaya.disabled = true;
+  el.layaSlot.appendChild(toLaya);
+
   const cacheStorage = new InMemoryCacheStorage();
   let router: Router = buildRouter(state.routing);
   let bridge: Bridge<FrontendAdapter> = buildBridge();
@@ -627,6 +643,7 @@ async function mountRoom(host: HTMLElement): Promise<() => void> {
     if (streamingText !== undefined) rows.push(`<div class="am-msg assistant"><span class="am-tag">assistant</span>${esc(streamingText)}<span class="am-note">▌</span></div>`);
     el.transcript.innerHTML = rows.join('') || '<p class="am-sub">Nothing yet — say hello.</p>';
     el.transcript.scrollTop = el.transcript.scrollHeight;
+    toLaya.disabled = streamingText !== undefined || !history.some(t => t.role === 'assistant');
   }
 
   /* ---------------------------------------------------------------- middleware editor */

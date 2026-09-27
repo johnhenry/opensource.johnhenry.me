@@ -110,5 +110,37 @@
 .pg-laya .snake-q summary { cursor: pointer; }
 .pg-laya .snake-q pre { font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 220px; }
 
+/* ---- Chunker batch moderation ---- */
+.pg-laya .batch[hidden] { display: none; }
+.pg-laya .batch-note { margin: 0 0 10px; }
+.pg-laya .batch-wrap { overflow-x: auto; }
+.pg-laya .batch-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.pg-laya .batch-table th { text-align: left; color: var(--ink-3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.pg-laya .batch-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; font-family: var(--f-mono); }
+.pg-laya .batch-table td.bt-chunk { font-family: var(--f-mono); color: var(--ink-2); max-width: 46ch; white-space: normal; }
+.pg-laya .batch-table td.bt-flag { color: #ff8b8b; font-weight: 700; }
+.pg-laya .batch-table tr.pending td:not(.bt-chunk) { opacity: .45; }
+
+/* ---- Router ---- */
+.pg-laya .router-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 760px) { .pg-laya .router-row { grid-template-columns: minmax(0, 1fr); } }
+.pg-laya .router-text { min-height: 64px; }
+.pg-laya .router-side { display: grid; gap: 8px; align-content: start; }
+.pg-laya .router-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-laya .router-presets .btn { padding: 4px 10px; font-size: 12.5px; }
+.pg-laya .router-out { margin-top: 12px; }
+.pg-laya .router-reason { margin: 0 0 6px; color: var(--ink-2); font-size: 13.5px; }
+.pg-laya .router-out pre.small { font-size: 11px; max-height: 160px; }
+
+/* ---- Shortlist ---- */
+.pg-laya .sl-note[hidden] { display: none; }
+.pg-laya .sl-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 760px) { .pg-laya .sl-row { grid-template-columns: minmax(0, 1fr); } }
+.pg-laya .sl-state { min-height: 76px; }
+.pg-laya .sl-side { display: grid; gap: 10px; align-content: start; }
+.pg-laya .sl-out { margin-top: 12px; display: grid; gap: 10px; }
+.pg-laya .sl-ranked .pb .pt i { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.pg-laya .sl-answer { border-top: 1px dashed var(--line); padding-top: 10px; }
+
 /* ---- explainer ---- */
 .pg-laya .explain p { color: var(--ink-2); font-size: 14px; max-width: 90ch; margin: 8px 0 0; }
