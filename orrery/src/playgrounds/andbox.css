@@ -1,4 +1,9 @@
-.pg-andbox { display: grid; gap: 16px; }
+/* `minmax(0, 1fr)`, not an implicit auto column: without it the implicit
+   track sizes to the widest descendant's min-content, ballooning the whole
+   room to ~665px in a 358px room at a 390px viewport — real horizontal page
+   overflow on mobile (issue found in mobile touch audit; same pattern as
+   jth.css/iteration.css/math.css). */
+.pg-andbox { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .pg-andbox .ab-bar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .pg-andbox .ab-presets { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
 .pg-andbox .ab-preset {
