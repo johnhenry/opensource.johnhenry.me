@@ -25,6 +25,9 @@
 .mq-strip-ctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mq-lat { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-2); font-family: var(--f-mono); }
 .mq-lat input { width: 110px; accent-color: var(--accent); }
+.mq-server-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: var(--bg-inset); border: 1px solid var(--line); margin-right: 4px; }
+.mq-server-tabs .mq-tab { border: 0; background: transparent; }
+.mq-server-tabs .mq-tab.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 
 /* cache inspector */
 .mq-cache-wrap { overflow-x: auto; }
@@ -70,6 +73,9 @@
 .mq-form label.field i { color: var(--error); font-style: normal; }
 .mq-form label.field em { color: var(--ink-3); font-style: normal; font-size: 11px; }
 .mq-form input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.mq-form label.field:has(textarea) { grid-column: 1 / -1; }
+.mq-json-field { min-height: 54px !important; font-size: 11.5px !important; width: 100%; resize: vertical; }
+.mq-json-field.bad { border-color: var(--error) !important; }
 .mq-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .mq-out { min-height: 90px; max-height: 260px !important; white-space: pre-wrap; word-break: break-word; }
 .mq-out.ok { border-color: color-mix(in srgb, var(--success) 60%, var(--line)); }
@@ -126,6 +132,7 @@
 .mq-note-form input { flex: 1; min-width: 0; }
 .mq-rej { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
 .mq-rej input { accent-color: var(--accent); }
+.mq-preset-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* wire timeline */
 .mq-tl-filters { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; font-family: var(--f-mono); color: var(--ink-2); margin-left: auto; }
