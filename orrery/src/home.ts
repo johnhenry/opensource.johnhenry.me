@@ -13,7 +13,7 @@ const esc = (s: string) =>
  * result exists yet, replace these badges in place once dist/tests.json
  * (roadmap 4.5) has loaded.
  */
-function badgeFor(id: string, tests: Record<string, RoomTests>, compact: boolean): string {
+export function badgeFor(id: string, tests: Record<string, RoomTests>, compact: boolean): string {
   const t = tests[id];
   const attrs = `data-run-tests data-badge-room="${esc(id)}" data-badge-compact="${compact ? '1' : '0'}"`;
   if (!t) {
@@ -58,7 +58,7 @@ interface HeadlessTestSnapshot {
  * error, bad JSON): the live-only badges already rendered are left as-is,
  * no console noise, no broken UI.
  */
-async function applyBuildTimeFallback(
+export async function applyBuildTimeFallback(
   main: HTMLElement,
   entries: PlaygroundEntry[],
   liveTests: Record<string, RoomTests>,
@@ -96,10 +96,63 @@ async function applyBuildTimeFallback(
 }
 
 /** Plug icon for planets that can use the optional Node companion. Coloured once the probe answers. */
-function plugFor(e: PlaygroundEntry, compact: boolean): string {
+export function plugFor(e: PlaygroundEntry, compact: boolean): string {
   if (!e.companion) return '';
   const title = 'Uses the optional Node companion (npm run node) · click for settings';
   return `<span class="companion-plug unknown" data-companion="${esc(e.id)}" data-open-settings title="${esc(title)}" role="link" tabindex="0">⚡${compact ? '' : ' companion'}</span>`;
+}
+
+/**
+ * One planet card's markup — the "All planets" list, shared by the home
+ * page's inline grid (pre-P0.8/sidebar move) and, since the "All planets"
+ * grid moved into a header-toggleable sidebar (see planets-sidebar.ts), the
+ * sidebar itself. Kept here (not planets-sidebar.ts) since it needs the
+ * same badgeFor()/plugFor() this file already owns.
+ */
+export function roomCardHtml(e: PlaygroundEntry, roomTests: Record<string, RoomTests>): string {
+  return `<a class="room-card" href="#/${e.id}" style="--h:${e.hue}"><h3>${esc(e.title)}</h3><p>${esc(e.blurb)}</p><span class="pkg">${esc(e.pkg)}</span>${plugFor(e, false)}${badgeFor(e.id, roomTests, false)}</a>`;
+}
+
+/**
+ * Wires the two interactive behaviours every room-card list needs, whether
+ * it's the sidebar or (historically) the inline home-page grid:
+ *  - test badges route to the Tester Console instead of the planet underneath them
+ *  - companion plugs (⚡) get coloured once probeCompanion() answers
+ * `container` must contain the `.room-card`s (their `[data-run-tests]`/
+ * `[data-open-settings]`/`.companion-plug` descendants specifically).
+ */
+export function wireRoomCardInteractions(container: HTMLElement, signal: AbortSignal): void {
+  const handler = (ev: Event) => {
+    const t = ev.target as Element | null;
+    const plug = t?.closest?.('[data-open-settings]');
+    if (plug) { ev.preventDefault(); ev.stopPropagation(); location.hash = '#/settings'; return; }
+    const badge = t?.closest?.('[data-run-tests]');
+    if (!badge) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    location.hash = '#/tester';
+  };
+  container.addEventListener('click', handler, { signal });
+  container.addEventListener('keydown', ev => {
+    if ((ev as KeyboardEvent).key !== 'Enter' && (ev as KeyboardEvent).key !== ' ') return;
+    const t = ev.target as Element | null;
+    if (t?.closest?.('[data-open-settings]')) { ev.preventDefault(); location.hash = '#/settings'; return; }
+    const badge = t?.closest?.('[data-run-tests]');
+    if (!badge) return;
+    ev.preventDefault();
+    location.hash = '#/tester';
+  }, { signal });
+
+  void probeCompanion().then((c) => {
+    if (signal.aborted) return;
+    container.querySelectorAll<HTMLElement>('.companion-plug').forEach((el) => {
+      const id = el.dataset.companion || '';
+      el.classList.remove('unknown', 'live', 'off', 'bad');
+      if (!c) { el.classList.add('off'); el.title = 'Optional Node companion not running — this planet uses its in-page stand-in · click for settings'; }
+      else if (hasDemo(c, id)) { el.classList.add('live'); el.title = `Live: Node companion at ${c.base} · click for settings`; }
+      else { el.classList.add('bad'); el.title = 'Companion is up but this demo failed to mount · click for settings'; }
+    });
+  });
 }
 
 /** Deterministic PRNG so the starfield and orbital phases are stable across visits. */
@@ -161,9 +214,9 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
     </div>
 
     <section class="hero">
-      <p class="eyebrow"><span class="dot"></span>${n} libraries &middot; running live &middot; <span class="clock" title="Your local time, published as CSS variables by @johnhenry/css-signals date()"></span></p>
+      <p class="eyebrow"><span class="dot"></span>running live &middot; <span class="clock" title="Your local time, published as CSS variables by @johnhenry/css-signals date()"></span></p>
       <h1 class="sr-only">ORRERY</h1>
-      <p class="lede">Thirty-five planets, thirty-five <code>@johnhenry</code> libraries, all running live in your browser. No screenshots, no recordings: every planet below is a real npm package you can poke, break and rewire.</p>
+      <p class="lede">Fun and interesting demos centering around the <code>@johnhenry/*</code> ecosystem of libraries. Every planet represents a real npm package that you can prod, poke, break, and rewire.</p>
     </section>
 
     <section class="orrery-wrap" aria-label="The orrery: one planet per library">
@@ -174,7 +227,7 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
           <div class="sun" aria-hidden="true">
             <div class="corona"></div>
             <div class="core"></div>
-            <div class="wordmark">ORR<b>E</b>RY</div>
+            <div class="wordmark"><b>@</b>johnhenry</div>
           </div>
         </div>
       </div>
@@ -185,13 +238,6 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
         <p class="pkg">@johnhenry/*</p>
         <p class="enter" hidden><a href="#/">enter planet &rarr;</a></p>
       </aside>
-    </section>
-
-    <section class="rooms-wrap">
-      <h2 class="rooms-title">All planets</h2>
-      <div class="rooms">
-        ${entries.map(e => `<a class="room-card" href="#/${e.id}" style="--h:${e.hue}"><h3>${esc(e.title)}</h3><p>${esc(e.blurb)}</p><span class="pkg">${esc(e.pkg)}</span>${plugFor(e, false)}${badgeFor(e.id, roomTests, false)}</a>`).join('')}
-      </div>
     </section>`;
 
   // Starfield: three depths, parallaxed by the pointer purely in CSS.
@@ -252,41 +298,10 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
   plane.addEventListener('focusin', ev => show(planetOf(ev.target)), { signal: ac.signal });
   plane.addEventListener('focusout', ev => { if (!plane.contains(ev.relatedTarget as Node | null)) release(); }, { signal: ac.signal });
 
-  // Test badges: a badge sits inside a planet/room-card <a>, but it always
-  // routes to the Tester Console, not the planet underneath it — intercept
-  // before the ancestor anchor's own navigation fires.
-  const goToTester = (ev: Event) => {
-    const t = ev.target as Element | null;
-    const plug = t?.closest?.('[data-open-settings]');
-    if (plug) { ev.preventDefault(); ev.stopPropagation(); location.hash = '#/settings'; return; }
-    const badge = t?.closest?.('[data-run-tests]');
-    if (!badge) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    location.hash = '#/tester';
-  };
-
-  // Colour the companion plugs once the probe answers: live (green), up-but-demo-failed (red), off (dim).
-  void probeCompanion().then((c) => {
-    if (ac.signal.aborted) return;
-    main.querySelectorAll<HTMLElement>('.companion-plug').forEach((el) => {
-      const id = el.dataset.companion || '';
-      el.classList.remove('unknown', 'live', 'off', 'bad');
-      if (!c) { el.classList.add('off'); el.title = 'Optional Node companion not running — this planet uses its in-page stand-in · click for settings'; }
-      else if (hasDemo(c, id)) { el.classList.add('live'); el.title = `Live: Node companion at ${c.base} · click for settings`; }
-      else { el.classList.add('bad'); el.title = 'Companion is up but this demo failed to mount · click for settings'; }
-    });
-  });
-  main.addEventListener('click', goToTester, { signal: ac.signal });
-  main.addEventListener('keydown', ev => {
-    if ((ev as KeyboardEvent).key !== 'Enter' && (ev as KeyboardEvent).key !== ' ') return;
-    const t = ev.target as Element | null;
-    if (t?.closest?.('[data-open-settings]')) { ev.preventDefault(); location.hash = '#/settings'; return; }
-    const badge = t?.closest?.('[data-run-tests]');
-    if (!badge) return;
-    ev.preventDefault();
-    location.hash = '#/tester';
-  }, { signal: ac.signal });
+  // Test badges + companion plugs on the orbit-diagram planet labels: same
+  // click/keydown routing and companion-probe colouring the sidebar's room
+  // cards use, shared via wireRoomCardInteractions().
+  wireRoomCardInteractions(main, ac.signal);
 
   return () => {
     ac.abort();

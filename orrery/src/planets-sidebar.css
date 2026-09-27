@@ -1,0 +1,85 @@
+/* Planets sidebar (ROADMAP follow-up): the "All planets" grid, moved out of
+   the home page and into a drawer openable from the header on every route.
+   Scoped under .planets-sidebar-overlay; do not rely on .home's styles. */
+
+.planets-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: hsl(230 45% 4% / .55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: flex-end;
+  animation: ps-fade .15s ease;
+}
+@keyframes ps-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.planets-sidebar {
+  width: min(480px, 92vw);
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 60px -20px rgba(0, 0, 0, .5);
+  display: flex;
+  flex-direction: column;
+  animation: ps-slide .18s ease;
+}
+@keyframes ps-slide { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.planets-sidebar .ps-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--f-display);
+  font-size: 15px;
+}
+.planets-sidebar .ps-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.planets-sidebar .rooms {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+.planets-sidebar .room-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  background: linear-gradient(170deg, hsl(var(--h) 60% 50% / .08), hsl(228 40% 9% / .55) 55%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.planets-sidebar .room-card:hover, .planets-sidebar .room-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: hsl(var(--h) 90% 55%);
+  box-shadow: 0 10px 32px -16px hsl(var(--h) 90% 55% / .6);
+}
+.planets-sidebar .room-card h3 {
+  margin: 0 0 4px;
+  font-family: var(--f-display);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.planets-sidebar .room-card h3::before {
+  content: '';
+  width: 9px; height: 9px; border-radius: 50%;
+  background: hsl(var(--h) 90% 60%);
+  box-shadow: 0 0 12px hsl(var(--h) 90% 60%);
+}
+.planets-sidebar .room-card p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.planets-sidebar .room-card .pkg { display: block; margin-top: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+.planets-sidebar .room-card .test-badge { margin-top: 8px; width: fit-content; }
+
+@media (max-width: 480px) {
+  .planets-sidebar { width: 100vw; }
+}
