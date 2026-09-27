@@ -67,13 +67,15 @@
 }
 .dw-pager-btn {
   flex: none;
-  width: 26px; height: 26px;
+  /* 40px, close to the ~44px minimum comfortable touch target (Apple HIG /
+     Material) -- was 26px, too small to reliably hit with a finger. */
+  width: 40px; height: 40px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--bg-inset);
   color: var(--ink);
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
 }
 .dw-pager-btn:hover { border-color: var(--accent-border); color: var(--accent); }
@@ -96,13 +98,23 @@
   justify-content: center;
   border-top: 1px solid var(--line);
 }
+/* The visual dot stays small (a dense row of 7+ tiny circles reads best),
+   but the tappable area is a separate, larger invisible box around it --
+   a bare 6px hit target is unusable with a finger. */
 .dw-dot-btn {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
   border: none; padding: 0;
-  background: var(--line);
+  background: none;
   cursor: pointer;
 }
-.dw-dot-btn.active { background: var(--accent); }
+.dw-dot-btn::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.dw-dot-btn.active::before { background: var(--accent); }
 
 .dw-content {
   flex: 1;
