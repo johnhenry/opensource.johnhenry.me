@@ -6,6 +6,7 @@ import type {
   WshClient, WshSession, WshMessage, QMuxStream, QMuxConnection,
   SessionRecorder, SessionPlaybackController as PlaybackCtl, WshFileOperationResult,
   SessionRecordingJSON, SessionPlayer,
+  WshHostVerifyResult, WshMcpToolSpec, WshMcpCallResult,
 } from '@johnhenry/wsh';
 // The very same restricted host the Node companion serves at ws://…/wsh. Here it
 // runs in-page on the far end of a MessageChannel (see server/demos/wsh.mjs).
@@ -426,8 +427,13 @@ const playground: Playground = {
     const filePanel = el('div', { class: 'panel' });
     const playPanel = el('div', { class: 'panel' });
     fileGrid.append(filePanel, playPanel);
+    const trustGrid = el('div', { class: 'grid-2' });
+    const trustPanel = el('div', { class: 'panel' });
+    const e2ePanel = el('div', { class: 'panel' });
+    const mcpPanel = el('div', { class: 'panel' });
+    trustGrid.append(trustPanel, e2ePanel, mcpPanel);
     const explain = el('div', { class: 'panel explain' });
-    root.append(top, termPanel, hsGrid, inspPanel, fileGrid, explain);
+    root.append(top, termPanel, hsGrid, inspPanel, fileGrid, trustGrid, explain);
 
     /* ---------- identity panel ---------- */
     idPanel.innerHTML = `<h3>Identity <span class="sub">Ed25519 · WebCrypto · localStorage</span></h3>
@@ -616,6 +622,47 @@ const playground: Playground = {
     pterm.open(ptermEl);
     disposers.push(() => pterm.dispose());
 
+    /* ---------- known hosts (TOFU) ---------- */
+    trustPanel.innerHTML = `<h3>Known hosts <span class="sub">WshKnownHosts · trust-on-first-use</span></h3>
+      <div class="kpis" data-r="trustkpi"></div>
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-a="rotate">simulate host key rotation</button><button class="btn sm" data-a="forget">forget this host</button></div>
+      <div data-r="trustverdict"></div>
+      <div class="muted" style="margin-top:8px">Pins the host fingerprint <code>SERVER_HELLO.fingerprints[0]</code> already sends — the same shape a real
+      <code>host_fingerprint</code> field would be pinned by once a wsh-server populates it (none does yet; see the class's own doc comment).
+      First sight of a host is trust-on-first-use; a later mismatch means either the host's key changed, or something is intercepting the connection.</div>`;
+    const trustKpi = q<HTMLElement>(trustPanel, '[data-r=trustkpi]');
+    const trustVerdict = q<HTMLElement>(trustPanel, '[data-r=trustverdict]');
+    const btnRotate = q<HTMLButtonElement>(trustPanel, '[data-a=rotate]');
+    const btnForget = q<HTMLButtonElement>(trustPanel, '[data-a=forget]');
+
+    /* ---------- end-to-end encryption ---------- */
+    e2ePanel.innerHTML = `<h3>End-to-end encryption <span class="sub">session.enableE2E() · AES-256-GCM</span></h3>
+      <div class="row"><button class="btn sm" data-a="live">attempt real key exchange</button><button class="btn sm" data-a="loop">run local loopback demo</button></div>
+      <div class="muted" data-r="e2estatus" style="margin-top:8px">idle</div>
+      <pre class="code" data-r="e2elog" style="max-height:170px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+      <div class="muted" style="margin-top:8px">"real key exchange" calls <code>WshClient.initiateE2E()</code> on the live connection — a genuine
+      <code>KEY_EXCHANGE</code> message goes out (watch the handshake viewer), but this demo host doesn't implement the responder side yet, so it times out.
+      "local loopback" builds two real <code>WshSession</code>s in-page, hands both a fresh AES-256-GCM key standing in for what a completed exchange would
+      produce, and calls the real <code>enableE2E()</code>/<code>write()</code> on each — including a tampered frame to show authentication failing.</div>`;
+    const btnE2eLive = q<HTMLButtonElement>(e2ePanel, '[data-a=live]');
+    const btnE2eLoop = q<HTMLButtonElement>(e2ePanel, '[data-a=loop]');
+    const e2eStatus = q<HTMLElement>(e2ePanel, '[data-r=e2estatus]');
+    const e2eLog = q<HTMLElement>(e2ePanel, '[data-r=e2elog]');
+
+    /* ---------- MCP bridge ---------- */
+    mcpPanel.innerHTML = `<h3>MCP bridge <span class="sub">WshMcpBridge.discover() / call()</span></h3>
+      <div class="row"><button class="btn sm" data-a="discover">discover()</button><span class="muted" data-r="mcpstat">connect first</span></div>
+      <div data-r="mcptools" class="muted" style="margin-top:8px">no tools discovered yet</div>
+      <div class="row" style="margin-top:8px"><input data-r="mcpargs" spellcheck="false" placeholder='tool name, then {"json":"args"}' style="flex:1;min-width:0;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-inset);color:var(--ink);font-family:var(--f-mono);font-size:12px" disabled><button class="btn sm" data-a="call" disabled>call()</button></div>
+      <div class="muted" style="margin-top:8px">Sends real <code>MCP_DISCOVER</code>/<code>MCP_CALL</code> control messages over the live connection
+      (visible in the handshake viewer). This demo host doesn't answer them yet — every unhandled message type is logged and ignored — so
+      <code>discover()</code> is expected to time out; that's the bridge and wire protocol working honestly against a host with no MCP tools mounted.</div>`;
+    const btnMcpDiscover = q<HTMLButtonElement>(mcpPanel, '[data-a=discover]');
+    const mcpStat = q<HTMLElement>(mcpPanel, '[data-r=mcpstat]');
+    const mcpTools = q<HTMLElement>(mcpPanel, '[data-r=mcptools]');
+    const mcpArgsIn = q<HTMLInputElement>(mcpPanel, '[data-r=mcpargs]');
+    const btnMcpCall = q<HTMLButtonElement>(mcpPanel, '[data-a=call]');
+
     /* ---------- explainer ---------- */
     explain.innerHTML = `<h3>What's happening</h3>
       <ol>
@@ -659,6 +706,54 @@ const playground: Playground = {
     let hsN = 0;
     let authDone = false;
 
+    /* ----- known hosts (TOFU) ----- */
+    const knownHosts = new W.WshKnownHosts({ storageKey: 'orrery.wsh.knownhosts.v1' });
+    const hostLabel = () => (effMode() === 'live' ? 'companion' : 'in-page-host');
+    let lastVerify: WshHostVerifyResult | null = null;
+    function renderTrust() {
+      const hosts = knownHosts.list();
+      const k = (label: string, v: string) => `<div class="kpi"><div class="k">${label}</div><div class="v">${esc(v)}</div></div>`;
+      trustKpi.innerHTML = k('this host', hostLabel()) + k('status', lastVerify?.status ?? '—') + k('hosts trusted', String(hosts.length));
+      trustVerdict.innerHTML = !lastVerify ? '' : lastVerify.status === 'changed'
+        ? `<div class="verdict bad">⚠ fingerprint changed for "${esc(hostLabel())}" — expected ${esc((lastVerify.expected ?? '').slice(0, 20))}…, this connection is unverified until you choose</div>`
+        : lastVerify.status === 'known' ? `<div class="verdict ok">✓ known host, fingerprint matches</div>` : '';
+    }
+    /** SERVER_HELLO.fingerprints[0] is this demo host's own Ed25519 identity — see server/demos/wsh.mjs's serverHello() call. */
+    function handleHostFingerprint(fp: string) {
+      const label = hostLabel();
+      const res = knownHosts.verifyHost(label, fp);
+      if (res.status === 'unknown') {
+        knownHosts.addHost(label, fp);
+        lastVerify = { status: 'known' };
+        log(`known hosts: first time seeing "${label}" — trusted ${fp.slice(0, 16)}… (WshKnownHosts.addHost)`);
+      } else {
+        lastVerify = res;
+        if (res.status === 'changed') log(`known hosts: ⚠ "${label}" fingerprint changed — expected ${(res.expected ?? '').slice(0, 16)}…, got ${fp.slice(0, 16)}…`);
+      }
+      renderTrust();
+    }
+    btnRotate.addEventListener('click', () => {
+      const real = knownHosts.list().find((h) => h.host === hostLabel())?.fingerprint;
+      if (!real) { log('known hosts: connect at least once first so there is a trusted fingerprint to rotate away from'); return; }
+      // Simulate a rotated host key: flip a hex nibble rather than fabricate an unrelated string,
+      // so it still looks like a real fingerprint next to the one it's replacing.
+      const rotated = (real[0] === 'f' ? '0' : 'f') + real.slice(1);
+      lastVerify = knownHosts.verifyHost(hostLabel(), rotated);
+      log(`known hosts: simulated rotation — verifyHost("${hostLabel()}", …) -> ${lastVerify.status} (no live host key rotation to trigger this for real, so this flips a byte locally)`);
+      renderTrust();
+    });
+    btnForget.addEventListener('click', () => {
+      const removed = knownHosts.removeHost(hostLabel());
+      log(`known hosts: removeHost("${hostLabel()}") -> ${removed}`);
+      lastVerify = null;
+      renderTrust();
+    });
+    renderTrust();
+
+    /* ----- MCP bridge ----- */
+    let mcpBridge: InstanceType<typeof W.WshMcpBridge> | null = null;
+    function e2eLine(text: string) { e2eLog.textContent = `${(e2eLog.textContent ?? '').split('\n').slice(-40).join('\n')}\n${text}`.trim(); e2eLog.scrollTop = e2eLog.scrollHeight; }
+
     const typeInto = (s: string) => {
       if (!pty || pty.state !== 'active') return;
       recorder?.record('input', s);
@@ -695,6 +790,10 @@ const playground: Playground = {
       const name = MSG_NAMES[m.type] ?? W.msgName(m.type) ?? `0x${m.type.toString(16)}`;
       const g = TYPE_GROUP(name);
       // capture the transcript ingredients
+      if (m.type === W.MSG.SERVER_HELLO) {
+        const fp = (m.fingerprints as string[] | undefined)?.[0];
+        if (fp) handleHostFingerprint(fp);
+      }
       if (m.type === W.MSG.HELLO) { hs = { username: m.username as string }; renderTranscript(); }
       if (m.type === W.MSG.CHALLENGE) { hs.sessionId = m.session_id as string; hs.nonce = m.nonce as Uint8Array; renderTranscript(); }
       if (m.type === W.MSG.AUTH) { hs.signature = m.signature as Uint8Array; hs.publicKey = m.public_key as Uint8Array; renderTranscript(); }
@@ -1067,6 +1166,8 @@ const playground: Playground = {
         setStatus(`authenticated · ${mode === 'live' ? 'companion' : 'in-page'}`, 'ok');
         setConnected(true);
         log(`authenticated as ${user}; session ${sid}; server features [${c.features.join(', ')}]`);
+        mcpBridge = new W.WshMcpBridge(c);
+        mcpStat.textContent = 'ready — not discovered yet';
         await openPty(greet);
         refreshFiles();
       } catch (e) {
@@ -1082,6 +1183,9 @@ const playground: Playground = {
     }
     async function disconnect(silent = false) {
       const c = client; client = null; pty = null;
+      mcpBridge = null;
+      mcpStat.textContent = 'connect first';
+      mcpArgsIn.disabled = true; btnMcpCall.disabled = true;
       if (c) { try { await c.disconnect(); } catch { /* */ } }
       else { try { await transport?.close(); } catch { /* */ } }
       transport = null;
@@ -1090,6 +1194,124 @@ const playground: Playground = {
     btnConnect.addEventListener('click', () => connect());
     btnDisconnect.addEventListener('click', () => disconnect());
     disposers.push(() => { connGen++; disconnect(true); });
+
+    /* ----- E2E: attempt a real key exchange against the live connection ----- */
+    const onE2eLive = async () => {
+      if (!client) { e2eLine('connect first'); return; }
+      btnE2eLive.disabled = true;
+      e2eStatus.textContent = 'sending KEY_EXCHANGE…';
+      e2eLine('client.initiateE2E(sessionId, "X25519") — watch the handshake viewer for the real wire message');
+      try {
+        const r = await client.initiateE2E(client.sessionId ?? 'orrery-demo', 'X25519', 1500);
+        e2eLine(`unexpected success: hybrid=${r.hybrid}, peer public key ${r.peerPublicKey.byteLength}B — this demo host doesn't speak KEY_EXCHANGE, so this shouldn't happen`);
+        e2eStatus.textContent = 'exchanged (unexpected)';
+      } catch (e) {
+        e2eLine(`timed out: ${(e as Error).message} — expected: this demo host logs unknown message types and never answers`);
+        e2eStatus.textContent = 'real exchange timed out (host has no responder) — see loopback demo below';
+      } finally {
+        btnE2eLive.disabled = false;
+      }
+    };
+    btnE2eLive.addEventListener('click', () => { void onE2eLive(); });
+
+    /* ----- E2E: local loopback with two real WshSessions ----- */
+    const onE2eLoop = async () => {
+      btnE2eLoop.disabled = true;
+      e2eStatus.textContent = 'running local loopback…';
+      try {
+        const sessionId = 'orrery-e2e-demo';
+        // A fresh AES-256-GCM key stands in for what a completed WshClient.initiateE2E()
+        // hands each side; this demo host has no KEY_EXCHANGE responder (see above), so the
+        // key itself is generated locally rather than negotiated.
+        const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        const a = new W.WshSession(new W.WshTransport(), 1, {}, 'pty', { dataMode: 'virtual', sessionId });
+        const b = new W.WshSession(new W.WshTransport(), 1, {}, 'pty', { dataMode: 'virtual', sessionId });
+        a._activateVirtual(async (msg) => b._handleControlMessage(msg as WshMessage));
+        b._activateVirtual(async (msg) => a._handleControlMessage(msg as WshMessage));
+        a.enableE2E(key, { role: 'initiator' });
+        b.enableE2E(key, { role: 'responder' });
+        e2eLine(`two WshSessions, both enableE2E()'d (e2eEnabled: a=${a.e2eEnabled} b=${b.e2eEnabled})`);
+
+        const received: string[] = [];
+        b.onData = (bytes) => received.push(dec.decode(bytes));
+        await a.write('hello over E2E\n');
+        await new Promise((r) => setTimeout(r, 60));
+        e2eLine(`a.write('hello over E2E') -> b.onData: ${JSON.stringify(received.join(''))} (sealed as an ENCRYPTED_FRAME control message, opened with AES-GCM)`);
+
+        // Tamper with the wire: flip a ciphertext byte in flight and confirm it does NOT decrypt.
+        received.length = 0;
+        let tamperedDelivered = false;
+        const c = new W.WshTransport();
+        const t = new W.WshSession(c, 2, {}, 'pty', { dataMode: 'virtual', sessionId });
+        const rcv = new W.WshSession(new W.WshTransport(), 2, {}, 'pty', { dataMode: 'virtual', sessionId });
+        t._activateVirtual(async (msg) => {
+          const m = { ...(msg as WshMessage) } as Record<string, unknown>;
+          if (m.type === W.MSG.ENCRYPTED_FRAME && m.ciphertext instanceof Uint8Array) {
+            const tampered = m.ciphertext.slice();
+            tampered[0] ^= 0xff;
+            m.ciphertext = tampered;
+          }
+          rcv._handleControlMessage(m as WshMessage);
+        });
+        rcv._activateVirtual(async () => {});
+        t.enableE2E(key, { role: 'initiator' });
+        rcv.enableE2E(key, { role: 'responder' });
+        rcv.onData = () => { tamperedDelivered = true; };
+        const origErr = console.error;
+        let capturedErr = '';
+        console.error = (...args: unknown[]) => { capturedErr = args.map(String).join(' '); };
+        await t.write('this byte gets flipped in flight\n');
+        await new Promise((r) => setTimeout(r, 60));
+        console.error = origErr;
+        e2eLine(`tampered ciphertext -> delivered to onData: ${tamperedDelivered} (should be false) — ${capturedErr || 'no error captured'}`);
+        e2eStatus.textContent = 'loopback demo complete';
+      } catch (e) {
+        e2eLine(`loopback failed: ${(e as Error).message}`);
+        e2eStatus.textContent = 'loopback demo failed';
+      } finally {
+        btnE2eLoop.disabled = false;
+      }
+    };
+    btnE2eLoop.addEventListener('click', () => { void onE2eLoop(); });
+
+    /* ----- MCP bridge ----- */
+    const onMcpDiscover = async () => {
+      if (!mcpBridge) { mcpStat.textContent = 'connect first'; return; }
+      btnMcpDiscover.disabled = true;
+      mcpStat.textContent = 'discover()… (MCP_DISCOVER sent, 1.5s timeout)';
+      try {
+        const tools: WshMcpToolSpec[] = await mcpBridge.discover({ timeout: 1500 });
+        mcpStat.textContent = `${tools.length} tool${tools.length === 1 ? '' : 's'} discovered`;
+        mcpTools.innerHTML = tools.length
+          ? tools.map((t) => `<div><code>${esc(t.name)}</code> — ${esc(t.description)}</div>`).join('')
+          : 'discover() returned zero tools';
+        mcpArgsIn.disabled = tools.length === 0;
+        btnMcpCall.disabled = tools.length === 0;
+      } catch (e) {
+        mcpStat.textContent = `discover() timed out: ${(e as Error).message}`;
+        mcpTools.textContent = 'expected — this demo host logs MCP_DISCOVER as an unhandled message type and never sends MCP_TOOLS back. Check the handshake viewer.';
+      } finally {
+        btnMcpDiscover.disabled = false;
+      }
+    };
+    btnMcpDiscover.addEventListener('click', () => { void onMcpDiscover(); });
+    const onMcpCall = async () => {
+      if (!mcpBridge) return;
+      const [name, ...rest] = mcpArgsIn.value.trim().split(/\s+/);
+      if (!name) return;
+      let args: Record<string, unknown> = {};
+      try { args = rest.join(' ') ? JSON.parse(rest.join(' ')) : {}; } catch { /* leave {} */ }
+      btnMcpCall.disabled = true;
+      try {
+        const r: WshMcpCallResult = await mcpBridge.call(name, args, { timeout: 1500 });
+        mcpStat.textContent = `call(${name}) -> success=${r.success} ${r.error ? `error=${r.error}` : ''}`;
+      } catch (e) {
+        mcpStat.textContent = `call(${name}) failed: ${(e as Error).message}`;
+      } finally {
+        btnMcpCall.disabled = false;
+      }
+    };
+    btnMcpCall.addEventListener('click', () => { void onMcpCall(); });
 
     // Zero-input default: connect, open a PTY and say hello.
     connect(`cowsay hello from the ${effMode() === 'live' ? 'companion' : 'in-page host'}\r`);

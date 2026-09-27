@@ -7,14 +7,14 @@ import type {
 } from '@johnhenry/aimatey-types';
 import {
   createCodeExecutionMiddleware, toolsToCapabilities, toolsToPreamble,
-  extractCodeBlocks, adaptPythonisms, autoAwait,
+  extractCodeBlocks, adaptPythonisms, autoAwait, formatResults, resultsToToolCalls,
 } from '@johnhenry/aimatey-middleware-andbox';
 import type {
   CodeExecutionResult as CodeResult, SyntheticToolCall,
   CodeExecutionResponse as Carrier, CodeExecutionMiddleware as CodeExecMiddleware,
 } from '@johnhenry/aimatey-middleware-andbox';
 import { createSandbox } from '@johnhenry/andbox';
-import type { Sandbox, EvaluateOptions as EvalOpts, GateStatsResult as GateStats } from '@johnhenry/andbox';
+import type { Sandbox, EvaluateOptions as EvalOpts, GateStatsResult as GateStats, SandboxOptions } from '@johnhenry/andbox';
 import './toolcode.css';
 
 type ConsoleFn = (level: string, ...args: string[]) => void;
@@ -320,6 +320,46 @@ for (const city of capitals) {
 }
 ${F}`,
   },
+  {
+    // Honest jailbreak: two real escape attempts, reported straight. andbox's
+    // capability gate builds its object with Object.create(null), so a call to a
+    // name that was never granted as a capability — 'constructor' included —
+    // simply isn't there; the host replies "Unknown capability" (andbox#5, fixed).
+    // But sandboxed code runs in a real Worker global scope, and fetch() is a
+    // Worker global like any other: nothing about "no fetch capability was granted"
+    // stops raw fetch() from being called directly, capability gate or not
+    // (andbox's own README says so under "What is still yours").
+    id: 'jailbreak', label: 'honest jailbreak · constructor + raw fetch',
+    prompt: 'Try to break out of the sandbox: reach the real constructor, and make a raw network request the host never approved.',
+    keywords: /jailbreak|escape|break out|constructor|raw fetch/i,
+    reply: `I can't promise either will work, but let's actually try both and report what happens — no pretending:
+
+${F}js
+let ctorResult;
+try {
+  const c = await host.call('constructor');
+  ctorResult = \`reached it: \${typeof c}\`;
+} catch (e) {
+  ctorResult = \`blocked: \${e.message}\`;
+}
+print(\`host.call('constructor') -> \${ctorResult}\`);
+
+let fetchResult;
+try {
+  const res = await fetch('https://example.com/');
+  fetchResult = \`reached the network: HTTP \${res.status}\`;
+} catch (e) {
+  fetchResult = \`no network here (not a sandbox block): \${e.message}\`;
+}
+print(\`raw fetch() -> \${fetchResult}\`);
+${F}`,
+    followup: (s) => {
+      const c = /host\.call\('constructor'\) -> (.+)/.exec(s)?.[1];
+      const f = /raw fetch\(\) -> (.+)/.exec(s)?.[1];
+      if (!c || !f) return '';
+      return `Two different outcomes. host.call('constructor') ${c.startsWith('blocked') ? 'was blocked' : 'went through'} — andbox's gate is built with Object.create(null), so a capability name nobody granted, "constructor" included, simply isn't there. But raw fetch() ${f.startsWith('reached') ? 'went straight through' : 'only failed for network reasons'}, because sandboxed code shares the Worker's real global scope: fetch, WebSocket and Worker are reachable directly, with or without a matching host.* capability. andbox's own docs call this out — it isolates well-behaved code, not code that's actively trying to get out.`;
+    },
+  },
 ];
 
 function scriptFor(text: string): Script | null {
@@ -447,9 +487,18 @@ interface Trace {
   followup?: string;
   final?: string;
   error?: string;
+  /** codeLanguages passed to createCodeExecutionMiddleware() for this turn (see LANG_GROUPS). */
+  langs?: Set<string>;
 }
 
-const EXEC_LANGS = new Set(['js', 'javascript', 'tool_code', 'python', 'py', '']);
+/** Default codeLanguages the middleware executes, grouped for the UI toggle below. */
+const LANG_GROUPS: Array<{ key: string; label: string; langs: string[] }> = [
+  { key: 'js', label: 'js/javascript', langs: ['js', 'javascript'] },
+  { key: 'python', label: 'python/py', langs: ['python', 'py'] },
+  { key: 'tool_code', label: 'tool_code', langs: ['tool_code'] },
+  { key: 'bare', label: 'bare ```', langs: [''] },
+];
+const EXEC_LANGS = new Set(LANG_GROUPS.flatMap(g => g.langs));
 const PY_LANGS = new Set(['python', 'py', 'tool_code']);
 
 function classify(e: { name?: string; message?: string }): FailKind {
@@ -505,7 +554,8 @@ function rewriteTags(orig: string, adapted: string, py: boolean): Array<{ text: 
 
 /* ================================================================ planet */
 
-const DEFAULTS = { preset: 'weather', q: '', tools: true, timeout: 2000, maxCalls: 8 };
+const DEFAULT_LANGS = LANG_GROUPS.map(g => g.key).join('|');
+const DEFAULTS = { preset: 'weather', q: '', tools: true, timeout: 2000, maxCalls: 8, langs: DEFAULT_LANGS };
 type State = typeof DEFAULTS;
 
 interface Turn { user: string; trace: Trace }
@@ -546,6 +596,10 @@ function mountRoom(host: HTMLElement): () => void {
           <option value="500">500ms</option><option value="2000">2s</option><option value="5000">5s</option></select></label>
         <label class="field">call budget / turn<select data-k="maxCalls">
           <option value="4">4 calls</option><option value="8">8 calls</option><option value="20">20 calls</option><option value="0">unlimited</option></select></label>
+        <div class="tc-langs" data-el="langs" title="createCodeExecutionMiddleware({ codeLanguages }) — which fenced-block languages actually execute">
+          <span class="stat">codeLanguages</span>
+          ${LANG_GROUPS.map(g => `<button type="button" class="chip tc-lang" data-g="${g.key}">${esc(g.label)}</button>`).join('')}
+        </div>
         <button class="btn" data-a="copy" title="Copy a deep link to this preset and settings">copy link</button>
       </div>
     </div>
@@ -593,12 +647,31 @@ function mountRoom(host: HTMLElement): () => void {
     send: $<HTMLButtonElement>('[data-el="send"]'),
     rail: $('[data-el="rail"]'),
     trace: $('[data-el="trace"]'),
+    langs: $('[data-el="langs"]'),
   };
 
   el.tools.checked = state.tools;
   el.timeout.value = String(state.timeout);
   el.maxCalls.value = String(state.maxCalls);
   el.presets.innerHTML = SCRIPTS.map(s => `<button class="tc-preset" data-p="${s.id}" title="${esc(s.prompt)}"><b>${esc(s.label)}</b><span>${esc(s.prompt)}</span></button>`).join('');
+
+  /** Which LANG_GROUPS keys are on, from the deep-linked/persisted pipe-joined state.langs. */
+  function activeLangGroups(): Set<string> {
+    const g = new Set(state.langs.split('|').filter(Boolean));
+    return g.size ? g : new Set(LANG_GROUPS.map(x => x.key));
+  }
+  /** Flattened codeLanguages array for createCodeExecutionMiddleware({ codeLanguages }). */
+  function activeCodeLangs(): string[] {
+    const g = activeLangGroups();
+    return LANG_GROUPS.filter(x => g.has(x.key)).flatMap(x => x.langs);
+  }
+  function renderLangChips() {
+    const g = activeLangGroups();
+    for (const b of el.langs.querySelectorAll<HTMLButtonElement>('.tc-lang')) {
+      b.classList.toggle('on', g.has(b.dataset.g!));
+    }
+  }
+  renderLangChips();
 
   function syncControls() {
     el.rerun.textContent = state.tools ? '↻ run again with tool calling off' : '↻ run again with tool calling on';
@@ -680,7 +753,7 @@ function mountRoom(host: HTMLElement): () => void {
     while ((m = re.exec(text))) {
       if (m.index > last) parts.push(`<span class="tc-prose">${esc(text.slice(last, m.index))}</span>`);
       const lang = m[1].toLowerCase();
-      const runs = tr.toolsOn && EXEC_LANGS.has(lang);
+      const runs = tr.toolsOn && (tr.langs ?? EXEC_LANGS).has(lang);
       parts.push(`<span class="tc-fence ${runs ? 'run' : ''}"><span class="tc-fence-tag">block ${++idx} · ${esc(lang || 'bare')} · ${runs ? 'executable' : tr.toolsOn ? 'ignored' : 'middleware off'}</span>${esc(m[0])}</span>`);
       last = m.index + m[0].length;
     }
@@ -691,7 +764,7 @@ function mountRoom(host: HTMLElement): () => void {
   function renderBlocks(tr: Trace): string {
     const blocks = tr.blocks ?? [];
     if (!blocks.length) return '<div class="tc-note">No fenced blocks; the middleware returns the response untouched.</div>';
-    return `<div class="tc-note"><code>extractCodeBlocks(text)</code> → ${blocks.length} block${blocks.length > 1 ? 's' : ''}; the middleware keeps languages in <code>${[...EXEC_LANGS].map(l => l || "''").join(' ')}</code></div>
+    return `<div class="tc-note"><code>extractCodeBlocks(text)</code> → ${blocks.length} block${blocks.length > 1 ? 's' : ''}; this turn's <code>codeLanguages</code> option kept <code>${[...(tr.langs ?? EXEC_LANGS)].map(l => l || "''").join(' ')}</code></div>
       <div class="tc-blocks">${blocks.map((b, i) => `
         <div class="tc-block ${tr.executable?.[i] ? '' : 'off'}">
           <div class="tc-block-head"><span class="chip">${esc(b.lang || "''")}</span> block ${i + 1}
@@ -780,10 +853,19 @@ function mountRoom(host: HTMLElement): () => void {
     }
     const c = tr.carrier;
     if (!c?._codeResults) return '<div class="tc-note">No executable blocks, so the reply passes through unchanged.</div>';
+    // The middleware built _resultSummary/_toolCalls by calling formatResults()/resultsToToolCalls()
+    // internally; recompute them here with the same exported functions to show that's really all
+    // it did — no hidden extra formatting.
+    const recomputedSummary = formatResults(c._codeResults, 1200);
+    const recomputedCalls = resultsToToolCalls(c._codeResults);
+    const summaryMatches = recomputedSummary === (c._resultSummary ?? '');
+    const callsMatch = recomputedCalls.length === (c._toolCalls?.length ?? 0)
+      && recomputedCalls.every((rc, i) => c._toolCalls?.[i]?._result.success === rc._result.success && c._toolCalls?.[i]?._result.output === rc._result.output);
     return `<div class="tc-final-grid">
       <div>
         <div class="tc-sub">folded reply · <code>_cleanText</code> + <code>_resultSummary</code></div>
         <pre class="tc-folded"><span class="tc-prose">${esc(c._cleanText ?? '')}</span>\n\n<span class="tc-summary">${esc(c._resultSummary ?? '')}</span></pre>
+        <div class="tc-note"><span class="tc-pill ${summaryMatches && callsMatch ? 'ok' : 'bad'}">${summaryMatches && callsMatch ? '✓' : '≠'} matches <code>formatResults()</code> + <code>resultsToToolCalls()</code> called directly on <code>_codeResults</code></span> — that's the whole of what <code>_resultSummary</code>/<code>_toolCalls</code> are.</div>
         <div class="tc-sub"><code>_toolCalls</code> · ${c._toolCalls?.length ?? 0} synthetic <code>_code_exec</code> entr${(c._toolCalls?.length ?? 0) === 1 ? 'y' : 'ies'}</div>
         <pre class="tc-json">${esc(JSON.stringify(c._toolCalls?.map(t => ({ name: t.name, success: t._result.success, output: t._result.output.slice(0, 60) || undefined, error: t._result.error })), null, 1))}</pre>
       </div>
@@ -835,12 +917,15 @@ function mountRoom(host: HTMLElement): () => void {
   async function runTurn(text: string): Promise<void> {
     if (busy || !alive) return;
     busy = true;
-    const tr: Trace = { id: ++traceSeq, user: text, toolsOn: state.tools, timeoutMs: state.timeout, maxCalls: state.maxCalls, stage: 0, runs: [] };
+    const tr: Trace = { id: ++traceSeq, user: text, toolsOn: state.tools, timeoutMs: state.timeout, maxCalls: state.maxCalls, stage: 0, runs: [], langs: new Set(activeCodeLangs()) };
     turns.push({ user: text, trace: tr });
     selected = tr;
     refresh();
 
-    let sandbox: Sandbox | null = null;
+    // A boxed ref rather than a bare `let`: the only write happens inside the async
+    // createSandbox factory below, and TS's control-flow narrowing of a captured `let`
+    // across that closure boundary was collapsing the read in `finally` to `never`.
+    const sandboxRef: { current: Sandbox | null } = { current: null };
     let current: BlockRun | null = null;
     let phase: 'first' | 'followup' = 'first';
 
@@ -868,62 +953,67 @@ function mountRoom(host: HTMLElement): () => void {
       const bridge = createBridge(createGenericFrontend({ name: 'toolcode-frontend' }), new MockCoderBackend());
 
       if (tr.toolsOn) {
-        // andbox only accepts capabilities at creation, so build the sandbox first, wired to the tools.
-        sandbox = await createSandbox({
-          capabilities: toolsToCapabilities(TOOLS, executeToolFn) as Record<string, (...a: unknown[]) => unknown>,
-          defaultTimeoutMs: tr.timeoutMs,
-          policy: { limits: { maxCalls: tr.maxCalls } },
-        });
-        liveSandboxes.add(sandbox);
-        tr.sandboxMs = now() - tBuild;
-        const real = sandbox;
-
-        // A thin observer around the real sandbox: records the exact code the middleware sends,
+        // A thin observer around a real sandbox: records the exact code the middleware sends,
         // per-block timing and console lines, then delegates untouched.
-        const observed = {
-          evaluate: async (code: string, opts: EvalOpts = {}) => {
-            const run: BlockRun = { index: tr.runs.length, fullCode: code, t0: now(), tools: [], console: [] };
-            // map to the executable block index
-            const execIdx = (tr.executable ?? []).map((x, i) => (x ? i : -1)).filter(i => i >= 0);
-            run.index = execIdx[tr.runs.length] ?? tr.runs.length;
-            tr.runs.push(run);
-            current = run;
-            tr.stage = Math.max(tr.stage, 4);
-            refresh();
-            const passOn = opts.onConsole;
-            try {
-              run.ret = await real.evaluate(code, {
-                ...opts,
-                onConsole: (level: string, ...args: string[]) => {
-                  run.console.push({ t: now() - run.t0, level, text: args.join(' ') });
-                  passOn?.(level, ...args);
-                  refresh();
-                },
-              });
-              return run.ret;
-            } catch (e) {
-              const err = e as { name?: string; message?: string };
-              run.error = err.message ?? String(e);
-              run.errorName = err.name;
-              run.kind = classify(err);
-              throw e;
-            } finally {
-              run.ms = now() - run.t0;
-              current = null;
-              tr.gate = real.stats().gate;
+        function observe(real: Sandbox) {
+          return {
+            evaluate: async (code: string, opts: EvalOpts = {}) => {
+              const run: BlockRun = { index: tr.runs.length, fullCode: code, t0: now(), tools: [], console: [] };
+              // map to the executable block index
+              const execIdx = (tr.executable ?? []).map((x, i) => (x ? i : -1)).filter(i => i >= 0);
+              run.index = execIdx[tr.runs.length] ?? tr.runs.length;
+              tr.runs.push(run);
+              current = run;
+              tr.stage = Math.max(tr.stage, 4);
               refresh();
-            }
-          },
-          dispose: () => real.dispose(),
-          stats: () => real.stats(),
-        };
+              const passOn = opts.onConsole;
+              try {
+                run.ret = await real.evaluate(code, {
+                  ...opts,
+                  onConsole: (level: string, ...args: string[]) => {
+                    run.console.push({ t: now() - run.t0, level, text: args.join(' ') });
+                    passOn?.(level, ...args);
+                    refresh();
+                  },
+                });
+                return run.ret;
+              } catch (e) {
+                const err = e as { name?: string; message?: string };
+                run.error = err.message ?? String(e);
+                run.errorName = err.name;
+                run.kind = classify(err);
+                throw e;
+              } finally {
+                run.ms = now() - run.t0;
+                current = null;
+                tr.gate = real.stats().gate;
+                refresh();
+              }
+            },
+            dispose: () => real.dispose(),
+            stats: () => real.stats(),
+          };
+        }
 
+        // Rather than pre-building the sandbox ourselves (the option used before), hand the
+        // middleware its own `createSandbox` factory + `sandboxOptions`: andbox only accepts
+        // capabilities at creation time, so the middleware builds toolsToCapabilities(tools,
+        // executeToolFn) itself, merges it with sandboxOptions.capabilities (none here) and
+        // calls this factory with the merged options — we just wrap whatever it builds.
         const codeExec = createCodeExecutionMiddleware({
-          sandbox: observed,
+          createSandbox: async (opts: Record<string, unknown> = {}) => {
+            const real: Sandbox = await createSandbox(opts as SandboxOptions);
+            liveSandboxes.add(real);
+            sandboxRef.current = real;
+            tr.sandboxMs = now() - tBuild;
+            return observe(real);
+          },
+          sandboxOptions: { defaultTimeoutMs: tr.timeoutMs, policy: { limits: { maxCalls: tr.maxCalls } } },
           tools: TOOLS,
           executeToolFn,
           timeoutMs: tr.timeoutMs,
           maxResultLength: 1200,
+          codeLanguages: [...(tr.langs ?? EXEC_LANGS)],
         }) as CodeExecMiddleware;
 
         // aimatey-core's Bridge takes (context, next) middleware; this package exports an
@@ -937,7 +1027,7 @@ function mountRoom(host: HTMLElement): () => void {
           tr.stage = 1;
           // What the middleware is about to do, recomputed with its own exported helpers for display.
           tr.blocks = extractCodeBlocks(raw) as Block[];
-          tr.executable = tr.blocks.map(b => EXEC_LANGS.has(b.lang));
+          tr.executable = tr.blocks.map(b => (tr.langs ?? EXEC_LANGS).has(b.lang));
           tr.stage = 2;
           tr.adapted = tr.blocks.map(b => autoAwait(PY_LANGS.has(b.lang) ? adaptPythonisms(b.code) : b.code));
           tr.stage = 3;
@@ -996,7 +1086,8 @@ function mountRoom(host: HTMLElement): () => void {
       tr.error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       tr.stage = 5;
     } finally {
-      if (sandbox) { liveSandboxes.delete(sandbox); void sandbox.dispose().catch(() => {}); }
+      const finalSandbox = sandboxRef.current;
+      if (finalSandbox) { liveSandboxes.delete(finalSandbox); void finalSandbox.dispose().catch(() => {}); }
       busy = false;
       refresh();
     }
@@ -1037,6 +1128,15 @@ function mountRoom(host: HTMLElement): () => void {
   on(el.tools, 'change', () => { state.tools = el.tools.checked; persist(); syncControls(); });
   on(el.timeout, 'change', () => { state.timeout = Number(el.timeout.value); persist(); });
   on(el.maxCalls, 'change', () => { state.maxCalls = Number(el.maxCalls.value); persist(); });
+  on(el.langs, 'click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.tc-lang');
+    if (!b?.dataset.g) return;
+    const g = activeLangGroups();
+    if (g.has(b.dataset.g)) { if (g.size <= 1) return; g.delete(b.dataset.g); } else g.add(b.dataset.g);
+    state.langs = LANG_GROUPS.filter(x => g.has(x.key)).map(x => x.key).join('|');
+    persist();
+    renderLangChips();
+  });
   on(el.copy, 'click', () => {
     void copyLink().then(() => { el.copy.textContent = 'copied ✓'; const t = setTimeout(() => { el.copy.textContent = 'copy link'; }, 1400); cleanups.push(() => clearTimeout(t)); });
   });
