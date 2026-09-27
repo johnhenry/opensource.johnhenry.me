@@ -57,3 +57,8 @@
 .pg-fields .fld-editor-out.fld-error-text { color: var(--error); white-space: pre-wrap; }
 
 .pg-fields .fld-explain p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
+
+/* Typed decode */
+.pg-fields .fld-typed p.fld-note { margin: 0 0 8px; }
+.pg-fields .fld-typed-out { min-height: 60px; }
+.pg-fields .fld-typed-out.fld-error-text { color: var(--error); }
