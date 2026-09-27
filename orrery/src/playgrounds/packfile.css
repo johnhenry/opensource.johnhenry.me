@@ -23,7 +23,12 @@
 .pv-file .ic { color: var(--accent); text-align: center; }
 .pv-file .nm { font-family: var(--f-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pv-file .sz { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
-.pv-file .pv-del { border: 0; background: transparent; color: var(--ink-3, var(--ink-2)); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+/* was padding: 0 2px -- an ~12x14px hit area for a delete button, well
+   under a usable touch target. Pad the tap zone without growing the glyph
+   (delegated click handling in packfile.ts resolves clicks via closest(),
+   so the larger padding box still routes correctly); kept modest so it
+   doesn't bleed into the next row's own delete button (.pv-files gap: 3px). */
+.pv-file .pv-del { border: 0; background: transparent; color: var(--ink-3, var(--ink-2)); cursor: pointer; font-size: 14px; line-height: 1; padding: 8px 9px; margin: -8px -9px; }
 .pv-file .pv-del:hover { color: #ff7b7b; }
 .pv-empty { color: var(--ink-2); font-size: 12.5px; padding: 8px 2px; }
 

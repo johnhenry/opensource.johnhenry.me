@@ -62,7 +62,12 @@
 .pg-laya .q-edit input, .pg-laya .q-edit select { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); font-size: 13px; }
 .pg-laya .q-id { font-family: var(--f-mono); color: var(--accent); }
 .pg-laya .q-crit { grid-column: 1 / -1; font-family: var(--f-mono); font-size: 12px !important; color: var(--ink-2); }
-.pg-laya .q-del { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 0 6px; }
+/* visually a tiny "x" (~24x32 effective box) so it doesn't crowd the dense
+   editor row, but that's well under the ~44px touch target guideline for a
+   destructive action repeated once per question — a transparent ::before
+   pads the real hit area out without changing the row's layout. */
+.pg-laya .q-del { position: relative; border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 0 6px; }
+.pg-laya .q-del::before { content: ''; position: absolute; inset: -10px -8px; }
 .pg-laya .q-del:hover { color: #ff6b6b; }
 @media (max-width: 560px) { .pg-laya .q-edit { grid-template-columns: minmax(0, 1fr) 6.5em auto; } .pg-laya .q-ins { grid-column: 1 / -1; grid-row: 2; } }
 .pg-laya .q-ans { min-height: 24px; }

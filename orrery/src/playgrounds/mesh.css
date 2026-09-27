@@ -68,6 +68,8 @@
 /* canvas */
 .pg-mesh .canvas-panel canvas { width: 100%; max-width: 440px; aspect-ratio: 1; display: block; margin: 0 auto; border-radius: 10px; border: 1px solid var(--line); cursor: crosshair; touch-action: none; image-rendering: pixelated; }
 .pg-mesh .canvas-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.pg-mesh .canvas-foot .stat { flex: 1 1 200px; }
+.pg-mesh .canvas-foot [data-r="erase"].on { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
 
 /* counter + caps */
 .pg-mesh .side-stack { display: grid; gap: 18px; align-content: start; }

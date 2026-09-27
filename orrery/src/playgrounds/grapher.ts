@@ -1120,9 +1120,16 @@ const SID = "${sessionId}";`);
           ${edges.join('')}${nodes}</svg>${all.length ? '' : '<div class="gc-dim">no runtime cells yet</div>'}`;
         graphEl.querySelectorAll<SVGGElement>('.gc-node').forEach((g) => {
           const n = g.dataset.name!;
+          // Edge-highlight-on-hover has no touch equivalent (no :hover on
+          // tap), so it's silently unreachable on mobile. Tapping a node
+          // already scrolls/pings its cell (via click, below) — fold the
+          // same edge highlight into that click so touch gets it too.
           g.addEventListener('mouseenter', () => graphEl.querySelectorAll<SVGPathElement>('.gc-edge').forEach((e) => e.classList.toggle('hl', e.dataset.from === n || e.dataset.to === n)));
           g.addEventListener('mouseleave', () => graphEl.querySelectorAll('.gc-edge.hl').forEach((e) => e.classList.remove('hl')));
-          g.addEventListener('click', () => { const c = byName(n); if (c?.el) { c.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.el.classList.remove('ping'); void c.el.offsetWidth; c.el.classList.add('ping'); } });
+          g.addEventListener('click', () => {
+            graphEl.querySelectorAll<SVGPathElement>('.gc-edge').forEach((e) => e.classList.toggle('hl', e.dataset.from === n || e.dataset.to === n));
+            const c = byName(n); if (c?.el) { c.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.el.classList.remove('ping'); void c.el.offsetWidth; c.el.classList.add('ping'); }
+          });
         });
       }
       // values + counts

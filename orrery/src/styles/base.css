@@ -75,8 +75,19 @@ html:not(.dark):not(.light) { color-scheme: light dark; }
   html:not(.light) { --bg: var(--n-900); --bg-panel: var(--n-800); --bg-inset: var(--n-750); --ink: var(--n-100); --ink-2: var(--n-300); --ink-3: var(--n-400); --line: var(--n-700); --code-bg: #060a16; }
 }
 
-/* ---- top bar buttons ---- */
-.tb-btn { font: inherit; font-size: 12px; font-family: var(--f-mono); padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink-2); cursor: pointer; }
+/* ---- top bar buttons ----
+   These are real, frequently-tapped controls (palette, planets/settings
+   drawer, view-source, drawer-close) -- measured live at ~28-34px tall
+   with the old 4px 9px padding, under the ~40px comfortable minimum touch
+   target (Apple HIG / Material). `min-height`/`min-width` guarantee the
+   floor regardless of label length; the flex centering keeps short glyphs
+   (⌘K, ☰, ✕) centred in the now-taller box instead of hugging the top. */
+.tb-btn {
+  font: inherit; font-size: 12px; font-family: var(--f-mono); padding: 8px 14px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink-2); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-height: 40px; min-width: 40px; box-sizing: border-box;
+}
 .tb-btn:hover { color: var(--ink); border-color: var(--accent-border); }
 
 /* ---- handoff bus ---- */
@@ -103,6 +114,19 @@ html:not(.dark):not(.light) { color-scheme: light dark; }
 .test-badge { display: inline-block; font-family: var(--f-mono); font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
 .test-badge.ok { border-color: var(--success); color: var(--success); }
 .test-badge.bad { border-color: var(--error); color: var(--error); }
+
+/* Room-card test badges / companion plugs (both real role="link" tabindex="0"
+   controls, routing to Tester / Settings) measured ~19px and ~14px tall in
+   the room-card list (home's fallback grid + the site drawer's Planets tab)
+   -- well under the ~40px comfortable touch target. The chip itself should
+   stay small (a full 40px pill next to card body text would be visually
+   heavy), so -- same technique as the dev-widget's pager dots -- keep the
+   visible chip as-is and give it a larger *invisible* tap area via a
+   position:relative + absolutely-inset ::before instead of resizing it. */
+.room-card .test-badge, .room-card .companion-plug { position: relative; }
+.room-card .test-badge::before, .room-card .companion-plug::before {
+  content: ''; position: absolute; inset: -12px;
+}
 
 /* ---- optional Node companion ---- */
 /* Pattern B fix (issue #18): the dot, title, running text, code chips and the

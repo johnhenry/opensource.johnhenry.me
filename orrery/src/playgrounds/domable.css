@@ -1,4 +1,10 @@
-.pg-domable { display: grid; gap: 18px; }
+/* minmax(0, 1fr): a bare grid with no grid-template-columns falls back to an
+   implicit auto column, whose minimum size is the max-content width of its
+   widest child. A single long unwrapped line in the mathml output pre.code
+   (or any other unwrapped code block) was enough to blow that out to
+   ~1300px and drag the whole room into horizontal scroll on phones —
+   capping the track at 0 lets each panel scroll its own overflow instead. */
+.pg-domable { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .pg-domable h2 { font-family: var(--f-display); font-size: 18px; margin: 0; }
 .pg-domable code { font-family: var(--f-mono); color: var(--accent); }
 .pg-domable .sec-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 12px; }
@@ -102,13 +108,25 @@
 .pg-domable .ce-left, .pg-domable .ce-right { display: grid; gap: 10px; align-content: start; min-width: 0; }
 .pg-domable .ce-left textarea.code { min-height: 280px; white-space: pre; }
 .pg-domable .ce-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-.pg-domable .ce-controls label.field { flex: 1 1 120px; }
+.pg-domable .ce-controls label.field { flex: 1 1 120px; min-width: 0; }
 .pg-domable .ce-controls .btn { flex: 0 0 auto; white-space: nowrap; align-self: end; }
+@media (max-width: 480px) {
+  /* the longer button labels here ("construct & define a fresh
+     <my-superclass-demo>") are wider than a phone screen on one line;
+     flex:0 0 auto + white-space:nowrap kept them rigid and forced the
+     whole room into horizontal scroll. Let them shrink and wrap instead. */
+  .pg-domable .ce-controls .btn { flex: 1 1 160px; min-width: 0; white-space: normal; text-align: center; }
+}
 .pg-domable .ce-code { font-size: 12px; color: var(--ink-2); }
 .pg-domable .ce-stage { min-height: 120px; padding: 18px; border-radius: 10px; border: 1px dashed var(--accent-border); background: radial-gradient(circle at 1px 1px, #ffffff0d 1px, transparent 0) 0 0 / 16px 16px, var(--code-bg); display: grid; place-items: center; }
 .pg-domable .attr-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-family: var(--f-mono); font-size: 13px; }
 .pg-domable .attr-row input { width: 110px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); font-size: 12px; }
-.pg-domable .attr-row .x { background: none; border: 0; color: var(--ink-3); cursor: pointer; font-size: 16px; }
+/* the visible glyph stays a small "×" so it doesn't crowd the key/value
+   inputs, but the actual tappable area is padded out via ::before — a
+   16px glyph alone is well under the ~44px touch-target guideline for a
+   remove-attribute action. */
+.pg-domable .attr-row .x { position: relative; background: none; border: 0; color: var(--ink-3); cursor: pointer; font-size: 16px; }
+.pg-domable .attr-row .x::before { content: ''; position: absolute; inset: -12px -10px; }
 .pg-domable .swatches { display: inline-flex; gap: 4px; }
 .pg-domable .sw { font-size: 11px; padding: 2px 7px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg-inset); cursor: pointer; font-family: var(--f-mono); }
 .pg-domable .sw[data-tone="warn"] { border-color: #f5a524; }
@@ -118,10 +136,10 @@
 .pg-domable .ce-right pre.code { max-height: 220px; white-space: pre-wrap; word-break: break-word; }
 
 @media (max-width: 820px) {
-  .pg-domable .prism { grid-template-columns: 1fr; grid-template-areas: "html" "obj" "dom"; row-gap: 14px; }
+  .pg-domable .prism { grid-template-columns: minmax(0, 1fr); grid-template-areas: "html" "obj" "dom"; row-gap: 14px; }
   .pg-domable .pane-dom { width: 100%; }
   .pg-domable .edges { display: none; }
-  .pg-domable .hs-grid, .pg-domable .ce-grid { grid-template-columns: 1fr; }
+  .pg-domable .hs-grid, .pg-domable .ce-grid { grid-template-columns: minmax(0, 1fr); }
 }
 .pg-domable [data-el="ce-add"] { justify-self: start; padding: 5px 12px; font-size: 13px; }
 .pg-domable .hs-out pre.code { white-space: pre-wrap; word-break: break-word; }
@@ -146,5 +164,10 @@
 .pg-domable [data-el="mathml-banner"]:empty { display: none; }
 
 @media (max-width: 820px) {
-  .pg-domable .regsc-grid, .pg-domable .mathml-grid, .pg-domable .mathml-out { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr), not bare 1fr: a single-track `1fr` still carries an
+     automatic min-width equal to its widest child's max-content size, so an
+     unwrapped pre/textarea inside (mathml output, register() code) was
+     still forcing this column past the viewport. See the root .pg-domable
+     rule above for the same fix at the top level. */
+  .pg-domable .regsc-grid, .pg-domable .mathml-grid, .pg-domable .mathml-out { grid-template-columns: minmax(0, 1fr); }
 }

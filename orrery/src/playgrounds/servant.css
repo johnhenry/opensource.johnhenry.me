@@ -54,7 +54,9 @@
   background: var(--accent-soft); border: 1px solid var(--accent-border);
   font-family: var(--f-mono); font-size: 12px;
 }
-.pg-servant .chip-mw button { background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 0 2px; font-size: 12px; line-height: 1; }
+/* was padding: 0 2px -- an ~11x12px hit area for the reorder buttons, far
+   under a usable touch target. Pad the tap zone without growing the glyph. */
+.pg-servant .chip-mw button { background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 10px 9px; margin: -10px -5px; font-size: 12px; line-height: 1; }
 .pg-servant .chip-mw button:hover { color: var(--accent); }
 .pg-servant .chip-mw button:disabled { opacity: .3; cursor: default; }
 .pg-servant .chip-arrow { color: var(--ink-3); }

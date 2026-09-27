@@ -40,14 +40,31 @@ orrery-source-drawer .source-drawer[hidden] { display: none; }
 orrery-source-drawer .source-drawer.c-codebox { padding: 0; }
 orrery-source-drawer .source-drawer .cap.sd-head { background: transparent; border-radius: 0; }
 orrery-source-drawer .source-drawer .cap .cp { margin-left: 4px; }
-orrery-source-drawer .source-drawer pre { border-radius: 0; }
+orrery-source-drawer .source-drawer pre { border-radius: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 
 /* Circuit's palette portal needs the page's live hue, same token every planet reads */
 .c-palette-backdrop { --hue: var(--hue, 25); }
 
+/* Background scroll-lock while the command palette is open (chrome.ts toggles
+   this class via a MutationObserver on the palette's own "open" class, since
+   palette.js's open() can also be triggered by its internal "/" / Cmd-K
+   keydown listener, not just our trigger button). Confirmed live with a real
+   touch-emulated swipe (Playwright + CDP Input.dispatchTouchEvent) over the
+   palette's backdrop: without this, the page underneath scrolled right
+   through the fixed, semi-opaque backdrop -- the site-drawer's own overlay
+   does NOT have this problem (verified same way), so only the palette needed
+   a fix. `html` (not `body`) is the actual scrolling element in this
+   document (standards mode, real doctype), so that's what needs locking. */
+html.palette-open { overflow: hidden; }
+
 /* Transient result toast for the palette's "probe companion" action */
 .chrome-toast {
-  position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 12px);
+  position: fixed; left: 50%;
+  /* iOS home-indicator safe area -- see the .sdw-body comment in
+     site-drawer.css for why env() is a no-op fallback outside a real
+     notched/home-indicator device with viewport-fit=cover set. */
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 12px);
   z-index: 400; padding: 10px 16px; border-radius: 10px;
   background: var(--bg-panel); border: 1px solid var(--line);
   box-shadow: 0 14px 40px rgb(0 0 0 / .35);

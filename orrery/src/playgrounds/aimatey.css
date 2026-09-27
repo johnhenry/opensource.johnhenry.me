@@ -4,6 +4,11 @@
 .pg-aimatey .am-sub { margin: 0 0 12px; color: var(--ink-2); font-size: 13px; }
 .pg-aimatey .am-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .pg-aimatey .am-controls label.field { min-width: 150px; flex: 1; }
+/* label.field is display:grid (base.css) with an implicit single column
+   that has no minmax(0, …) — its <select>'s own min-content width (driven
+   by the longest option, e.g. "haiku-mini → haiku-bot") pushed the label
+   past its flex share and the row past a phone viewport. */
+.pg-aimatey .am-controls label.field select { min-width: 0; }
 
 /* chat */
 .pg-aimatey .am-chat { display: flex; flex-direction: column; height: 420px; }

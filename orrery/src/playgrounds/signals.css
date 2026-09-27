@@ -66,6 +66,14 @@
   font-size: 13px;
   cursor: pointer;
 }
+/* visual glyph stays a compact 20px square, but the tappable area is expanded
+   to ~40px via an invisible ::before so it meets the mobile touch-target
+   minimum without disturbing the card layout (issue found in mobile touch audit).
+   The card itself clips overflow (`.pg-widget { overflow: hidden }`), and this
+   button sits only 6px from the card's top/right edge, so the hit area can only
+   grow 5px on those sides before being clipped — it grows further on the
+   bottom/left, which have open space, to still total ~40px per side. */
+.pg-fold::before { content: ''; position: absolute; inset: -5px -5px -15px -15px; }
 .pg-fold:hover { border-color: var(--accent-border); color: var(--ink); }
 .pg-fold-label { display: none; }
 .pg-widget.collapsed {

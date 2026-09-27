@@ -147,7 +147,12 @@
   transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1));
 }
 .home .planet::before { /* generous hit area */
-  content: ''; position: absolute; inset: -12px; border-radius: 50%;
+  /* -12px gave the smallest planets (--size ~11px, the innermost orbits) a
+     ~35x35px effective tap circle -- measured live under the ~40px
+     comfortable touch target (Apple HIG / Material). -16px brings the
+     smallest planet to ~43px; larger planets were already comfortably over
+     the minimum and just get a bit more margin. */
+  content: ''; position: absolute; inset: -16px; border-radius: 50%;
 }
 .home .planet .body {
   position: absolute; inset: 0; border-radius: 50%;

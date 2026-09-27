@@ -573,6 +573,11 @@ const playground: Playground = {
           [mwOrder[i], mwOrder[j]] = [mwOrder[j], mwOrder[i]];
           scriptEl.value = buildChainScript(mwOrder);
           applyScript();
+          // The swap above reorders mwOrder (and the script/handler actually
+          // reflects the new order — confirmed live), but the chip row itself
+          // was never re-rendered, so up/down taps looked like no-ops: the
+          // pipeline changed underneath an unchanged-looking chip strip.
+          renderChips();
         }));
         chipsEl.appendChild(chip);
         if (i < mwOrder.length - 1) {
