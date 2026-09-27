@@ -25,6 +25,7 @@ import {
 import { cronToRule, cron as cronSeq, describeCron } from '@johnhenry/temporals/cron';
 import { toICS, type ICSEvent } from '@johnhenry/temporals/ics';
 import { playgrounds } from './registry';
+import { registerDevTool } from './dev-drawer';
 import './almanac.css';
 
 type ZDT = Temporal.ZonedDateTime;
@@ -143,57 +144,61 @@ export function mountAlmanac(): void {
   if (mounted) return;
   mounted = true;
 
-  const root = document.createElement('div');
-  root.className = 'almanac-dock collapsed';
-  root.innerHTML = `
-    <button class="al-handle" data-el="al-handle" type="button" aria-expanded="false" title="Orrery Almanac: recurrence, conjunctions, .ics export, scheduled Tester run">
-      <span class="al-dot"></span><span>Almanac</span><span class="al-spacer"></span>
-      <span class="stat" data-el="al-count">…</span>
-      <span class="al-caret">&#9662;</span>
-    </button>
-    <div class="al-body">
-      <div class="al-section">
-        <div class="al-label">Next conjunctions (${LOOKAHEAD_HOURS}h lookahead)</div>
-        <ul class="al-list" data-el="al-conj"></ul>
-        <div class="al-row">
-          <span class="stat">sky coverage over the window</span>
-          <span class="stat" data-el="al-cov-pct">…</span>
+  // The dock used to be its own floating root (`.almanac-dock`) appended to
+  // document.body, with an `.al-handle` toggle button that collapsed it to a
+  // small circle. Both are gone — this pane now lives inside the Dev
+  // Drawer, whose own tab strip is the toggle. The conjunction-count readout
+  // that used to live inside the removed handle is relocated into the first
+  // section's label row.
+  let root!: HTMLElement;
+  registerDevTool({
+    id: 'almanac',
+    label: 'Almanac',
+    icon: '🪐',
+    mount(container) {
+      root = container;
+      root.classList.add('almanac-dock-pane');
+      root.innerHTML = `
+        <div class="al-section">
+          <div class="al-row">
+            <div class="al-label">Next conjunctions (${LOOKAHEAD_HOURS}h lookahead)</div>
+            <span class="stat" data-el="al-count">…</span>
+          </div>
+          <ul class="al-list" data-el="al-conj"></ul>
+          <div class="al-row">
+            <span class="stat">sky coverage over the window</span>
+            <span class="stat" data-el="al-cov-pct">…</span>
+          </div>
+          <div class="al-coverage"><div class="al-coverage-fill" data-el="al-cov-fill" style="width:0%"></div></div>
         </div>
-        <div class="al-coverage"><div class="al-coverage-fill" data-el="al-cov-fill" style="width:0%"></div></div>
-      </div>
-      <div class="al-section">
-        <div class="al-label">Timeline (windows(), ${TIMELINE_BUCKETS} buckets)</div>
-        <div class="al-timeline" data-el="al-timeline"></div>
-      </div>
-      <div class="al-section">
-        <div class="al-label">Export</div>
-        <div class="al-actions">
-          <button class="btn" type="button" data-el="al-ics">.ics download</button>
-          <button class="btn" type="button" data-el="al-refresh">recompute now</button>
+        <div class="al-section">
+          <div class="al-label">Timeline (windows(), ${TIMELINE_BUCKETS} buckets)</div>
+          <div class="al-timeline" data-el="al-timeline"></div>
         </div>
-      </div>
-      <div class="al-section">
-        <div class="al-label">Scheduled Tester run (cronToRule)</div>
-        <div class="al-cron-row">
-          <input type="text" data-el="al-cron" value="${DEFAULT_CRON}" spellcheck="false" autocomplete="off" />
-          <button class="btn" type="button" data-el="al-cron-apply">apply</button>
+        <div class="al-section">
+          <div class="al-label">Export</div>
+          <div class="al-actions">
+            <button class="btn" type="button" data-el="al-ics">.ics download</button>
+            <button class="btn" type="button" data-el="al-refresh">recompute now</button>
+          </div>
         </div>
-        <div class="stat" data-el="al-cron-desc"></div>
-        <div class="al-next" data-el="al-next"></div>
-        <div class="al-actions">
-          <button class="btn primary" type="button" data-el="al-run-now">run Tester now</button>
-        </div>
-        <ul class="al-list" data-el="al-runs"></ul>
-      </div>
-    </div>`;
-  document.body.appendChild(root);
+        <div class="al-section">
+          <div class="al-label">Scheduled Tester run (cronToRule)</div>
+          <div class="al-cron-row">
+            <input type="text" data-el="al-cron" value="${DEFAULT_CRON}" spellcheck="false" autocomplete="off" />
+            <button class="btn" type="button" data-el="al-cron-apply">apply</button>
+          </div>
+          <div class="stat" data-el="al-cron-desc"></div>
+          <div class="al-next" data-el="al-next"></div>
+          <div class="al-actions">
+            <button class="btn primary" type="button" data-el="al-run-now">run Tester now</button>
+          </div>
+          <ul class="al-list" data-el="al-runs"></ul>
+        </div>`;
+    },
+  });
 
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) => root.querySelector(`[data-el="${sel}"]`) as T;
-  const handle = $<HTMLButtonElement>('al-handle');
-  handle.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('collapsed');
-    handle.setAttribute('aria-expanded', String(!collapsed));
-  });
 
   let orbits: PlanetOrbit[] = [];
   let conjunctions: Conjunction[] = [];

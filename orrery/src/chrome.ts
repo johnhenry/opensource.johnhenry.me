@@ -51,6 +51,7 @@ import { getThemeChoice, setThemeChoice } from './theme';
 import { playgrounds, type PlaygroundEntry } from './registry';
 import { copyLink } from './state';
 import { togglePlanetsSidebar } from './planets-sidebar';
+import { toggleDevDrawer } from './dev-drawer';
 import { probeCompanion } from './companion';
 import './chrome.css';
 
@@ -61,6 +62,7 @@ const TOPBAR_HTML = `<header class="topbar c-header">
   <nav>
     <button type="button" class="tb-btn" data-el="palette-btn" title="Jump to a planet (⌘K)">⌘K</button>
     <button type="button" class="tb-btn" data-el="planets-btn" title="All planets">&#9776;</button>
+    <button type="button" class="tb-btn" data-el="devtools-btn" title="Dev tools">&#128295;</button>
     <button type="button" class="tb-btn" data-el="source-btn" title="View this planet's source">&lt;/&gt; source</button>
     <a class="tb-btn" href="#/settings" title="Settings: theme, companion server">&#9881;</a>
     <a class="docs" data-el="docs-link" href="https://opensource.johnhenry.me/" target="_blank" rel="noopener">docs &#8599;</a>
@@ -115,6 +117,7 @@ export function initChrome(opts: {
   const sourceBtn = $<HTMLButtonElement>(topbarEl, 'source-btn');
   const paletteBtn = $<HTMLButtonElement>(topbarEl, 'palette-btn');
   const planetsBtn = $<HTMLButtonElement>(topbarEl, 'planets-btn');
+  const devtoolsBtn = $<HTMLButtonElement>(topbarEl, 'devtools-btn');
 
   const drawerAside = drawerEl.querySelector('.source-drawer')!;
   const sdTitleEl = $(drawerEl, 'sd-title');
@@ -202,6 +205,7 @@ export function initChrome(opts: {
   });
 
   planetsBtn.addEventListener('click', () => togglePlanetsSidebar());
+  devtoolsBtn.addEventListener('click', () => toggleDevDrawer());
 
   // ---- source drawer -------------------------------------------------
   let openForId: string | null = null;

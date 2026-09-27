@@ -64,6 +64,7 @@ import { Temporal } from 'temporal-polyfill';
 import { recur, configureTemporal, type RecurRule } from '@johnhenry/temporals';
 import { send } from './bus';
 import { playgrounds } from './registry';
+import { registerDevTool } from './dev-drawer';
 import './conductor.css';
 
 type ZDT = Temporal.ZonedDateTime;
@@ -158,59 +159,64 @@ export function mountConductor(): void {
   if (mounted) return;
   mounted = true;
 
-  const root = document.createElement('div');
-  root.className = 'conductor-dock collapsed';
-  root.innerHTML = `
-    <button class="cd-handle" data-el="cd-handle" type="button" aria-expanded="false" title="jth Conductor: a persistent JthContext REPL bridging spintax/temporals/hashish/bus">
-      <span class="cd-dot"></span><span>Conductor</span><span class="cd-spacer"></span>
-      <span class="stat" data-el="cd-stacklen">0 on stack</span>
-      <span class="cd-caret">&#9662;</span>
-    </button>
-    <div class="cd-body">
-      <div class="cd-section">
-        <div class="cd-label">Sandbox (JthContext, persistent stack)</div>
-        <div class="cd-row">
-          <select data-el="cd-sandbox">
-            <option value="false">false — full stdlib, inline JS allowed</option>
-            <option value="true">true — bare (values/operators only)</option>
-            <option value="restricted">restricted — stdlib minus peek/peek-all</option>
-          </select>
-          <button class="btn" type="button" data-el="cd-reset">reset context</button>
+  // The dock used to be its own floating root (`.conductor-dock`) appended
+  // to document.body, with a `.cd-handle` toggle button that collapsed it to
+  // a small circle. Both are gone — this pane now lives inside the Dev
+  // Drawer, whose own tab strip is the toggle. The "N on stack" readout that
+  // used to live inside the removed handle is relocated next to the first
+  // section's label.
+  let root!: HTMLElement;
+  registerDevTool({
+    id: 'conductor',
+    label: 'Conductor',
+    icon: '🎛',
+    mount(container) {
+      root = container;
+      root.classList.add('conductor-dock-pane');
+      root.innerHTML = `
+        <div class="cd-section">
+          <div class="cd-row">
+            <div class="cd-label">Sandbox (JthContext, persistent stack)</div>
+            <span class="cd-spacer"></span>
+            <span class="stat" data-el="cd-stacklen">0 on stack</span>
+          </div>
+          <div class="cd-row">
+            <select data-el="cd-sandbox">
+              <option value="false">false — full stdlib, inline JS allowed</option>
+              <option value="true">true — bare (values/operators only)</option>
+              <option value="restricted">restricted — stdlib minus peek/peek-all</option>
+            </select>
+            <button class="btn" type="button" data-el="cd-reset">reset context</button>
+          </div>
         </div>
-      </div>
-      <div class="cd-section">
-        <div class="cd-label">Custom words: spin (spintax) · recur (temporals) · dedupe (hashish) · goto (bus)</div>
-        <div class="cd-presets" data-el="cd-presets"></div>
-        <div class="cd-input-row">
-          <input type="text" data-el="cd-input" spellcheck="false" autocomplete="off" placeholder='"{a|b}" 4 spin peek;' />
-          <button class="btn primary" type="button" data-el="cd-run">run</button>
+        <div class="cd-section">
+          <div class="cd-label">Custom words: spin (spintax) · recur (temporals) · dedupe (hashish) · goto (bus)</div>
+          <div class="cd-presets" data-el="cd-presets"></div>
+          <div class="cd-input-row">
+            <input type="text" data-el="cd-input" spellcheck="false" autocomplete="off" placeholder='"{a|b}" 4 spin peek;' />
+            <button class="btn primary" type="button" data-el="cd-run">run</button>
+          </div>
+          <ul class="cd-log" data-el="cd-log"></ul>
+          <div class="cd-label">stack (toArray())</div>
+          <pre class="cd-stack" data-el="cd-stack">[]</pre>
         </div>
-        <ul class="cd-log" data-el="cd-log"></ul>
-        <div class="cd-label">stack (toArray())</div>
-        <pre class="cd-stack" data-el="cd-stack">[]</pre>
-      </div>
-      <div class="cd-section">
-        <div class="cd-label">Sandbox self-test (live, not asserted — see file comment)</div>
-        <div class="cd-selftest" data-el="cd-selftest"></div>
-      </div>
-      <div class="cd-section">
-        <div class="cd-label">Hard-timeout lane — one-shot, stateless, real andbox Worker (spin/recur + stdlib only, no goto/dedupe)</div>
-        <div class="cd-input-row">
-          <input type="text" data-el="cd-worker-input" spellcheck="false" autocomplete="off" value='0 #[ ++ ] 1000000000 times; peek;' />
-          <button class="btn" type="button" data-el="cd-worker-run">run isolated</button>
-          <button class="btn" type="button" data-el="cd-worker-kill" disabled>kill</button>
+        <div class="cd-section">
+          <div class="cd-label">Sandbox self-test (live, not asserted — see file comment)</div>
+          <div class="cd-selftest" data-el="cd-selftest"></div>
         </div>
-        <div class="cd-worker-status" data-el="cd-worker-status">worker not started yet</div>
-      </div>
-    </div>`;
-  document.body.appendChild(root);
+        <div class="cd-section">
+          <div class="cd-label">Hard-timeout lane — one-shot, stateless, real andbox Worker (spin/recur + stdlib only, no goto/dedupe)</div>
+          <div class="cd-input-row">
+            <input type="text" data-el="cd-worker-input" spellcheck="false" autocomplete="off" value='0 #[ ++ ] 1000000000 times; peek;' />
+            <button class="btn" type="button" data-el="cd-worker-run">run isolated</button>
+            <button class="btn" type="button" data-el="cd-worker-kill" disabled>kill</button>
+          </div>
+          <div class="cd-worker-status" data-el="cd-worker-status">worker not started yet</div>
+        </div>`;
+    },
+  });
 
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) => root.querySelector(`[data-el="${sel}"]`) as T;
-  const handle = $<HTMLButtonElement>('cd-handle');
-  handle.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('collapsed');
-    handle.setAttribute('aria-expanded', String(!collapsed));
-  });
 
   /* ---- persistent JthContext ------------------------------------------ */
   let ctx: JthContext;

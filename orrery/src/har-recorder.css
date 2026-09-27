@@ -1,84 +1,27 @@
-/* Site-wide HAR recorder (ROADMAP 4.3). Fixed overlay, independent of any
-   room — deliberately NOT scoped under a .pg-<id> root. */
+/* Site-wide HAR recorder (ROADMAP 4.3) — content styling only. This used to
+   be a fixed, collapsible corner drawer; it now renders inside a Dev Drawer
+   tab pane (see src/dev-drawer.ts/.css), which owns all positioning/collapse
+   chrome. Scoped under .har-rec-pane; do not rely on any room's CSS. */
 
-/* Collapsed by default (a small round handle, like the Tensor Telemetry
-   dock) — stacked directly above that dock's own 44px collapsed circle
-   (right:14/bottom:14) so the two never overlap. Only the status dot shows
-   until you click; the "HAR N" label and count badge appear once open. */
-.har-rec-toggle {
-  position: fixed;
-  right: 14px;
-  bottom: 66px;
-  z-index: 80;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--bg-panel);
-  color: var(--ink-2);
-  font-family: var(--f-mono);
-  font-size: 12px;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgb(0 0 0 / .35);
-  transition: width .15s ease, height .15s ease, border-radius .15s ease, padding .15s ease;
-}
-.har-rec-toggle.is-open {
-  width: auto;
-  height: auto;
-  padding: 8px 12px;
-  border-radius: 999px;
-}
-.har-rec-toggle:hover, .har-rec-toggle.is-open { color: var(--ink); border-color: var(--accent-border); }
-.har-rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex: none; }
-.har-rec-label { display: none; }
-.har-rec-toggle.is-open .har-rec-label { display: inline; }
-.har-rec-count { color: var(--accent); font-weight: 600; }
-
-.har-rec-drawer {
-  position: fixed;
-  right: 14px;
-  bottom: 118px;
-  z-index: 85;
-  width: min(460px, calc(100vw - 36px));
-  max-height: min(60vh, 640px);
+.har-rec-pane {
   display: flex;
   flex-direction: column;
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: 0 24px 64px rgb(0 0 0 / .45);
-  overflow: hidden;
-}
-/* .har-rec-drawer's own `display: flex` above has the same specificity as
-   the UA stylesheet's `[hidden] { display: none }` and loads after it, so
-   without this override the `hidden` attribute closeDrawer() sets is
-   silently beaten and the drawer never actually disappears. */
-.har-rec-drawer[hidden] {
-  display: none;
+  gap: 8px;
 }
 
 .har-rec-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
-.har-rec-head b { font-family: var(--f-display); flex: none; }
 /* Pattern A fix (issue #18): the request-count stat is a bare flex item with
-   no min-width, so at the drawer's own width (min(460px, 100vw-36px)) it
-   doesn't shrink -- it and the title/buttons wrap onto separate lines and
-   paint over each other. Let it shrink and ellipsize instead of wrapping. */
+   no min-width, so at narrow widths it and the buttons wrap onto separate
+   lines and paint over each other. Let it shrink and ellipsize instead. */
 .har-rec-head .stat { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .har-rec-spacer { flex: none; }
 
-.har-rec-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.har-rec-list { display: flex; flex-direction: column; gap: 4px; }
 .har-rec-empty { padding: 20px 10px; text-align: center; }
 
 .har-rec-row {
