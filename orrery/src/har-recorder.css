@@ -1,0 +1,87 @@
+/* Site-wide HAR recorder (ROADMAP 4.3). Fixed overlay, independent of any
+   room — deliberately NOT scoped under a .pg-<id> root. */
+
+.har-rec-toggle {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  color: var(--ink-2);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .35);
+}
+.har-rec-toggle:hover, .har-rec-toggle.is-open { color: var(--ink); border-color: var(--accent-border); }
+.har-rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.har-rec-count { color: var(--accent); font-weight: 600; }
+
+.har-rec-drawer {
+  position: fixed;
+  right: 18px;
+  bottom: 66px;
+  z-index: 85;
+  width: min(460px, calc(100vw - 36px));
+  max-height: min(60vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / .45);
+  overflow: hidden;
+}
+
+.har-rec-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.har-rec-head b { font-family: var(--f-display); }
+.har-rec-spacer { flex: 1; }
+
+.har-rec-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.har-rec-empty { padding: 20px 10px; text-align: center; }
+
+.har-rec-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--bg-inset);
+}
+.har-rec-row-main {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+}
+.har-rec-method { color: var(--accent); font-weight: 700; }
+.har-rec-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  color: var(--ink-2);
+}
+.har-rec-status { font-weight: 700; }
+.har-rec-status.st-ok { color: #3ddc84; }
+.har-rec-status.st-warn { color: #f5b942; }
+.har-rec-status.st-err { color: var(--error, #ff5c5c); }
+.har-rec-status.st-other { color: var(--ink-3); }
+.har-rec-time { color: var(--ink-3); }
+
+.har-rec-row-actions { display: flex; gap: 6px; margin-top: 6px; }
+.har-rec-row-actions .tb-btn { font-size: 11px; padding: 3px 8px; }

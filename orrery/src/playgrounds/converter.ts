@@ -2,7 +2,7 @@ import type { Playground } from '../registry';
 import * as http from '@johnhenry/http-converter';
 import type { HttpRequest, HarEntry } from '@johnhenry/http-converter';
 import { attemptParse, bareType, formatBareValue, TYPE_LABEL, type FType, type AnyItem } from './fields';
-import { handoffButton } from '../bus';
+import { handoffButton, receive, handoffBanner } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './converter.css';
 
@@ -649,9 +649,16 @@ const playground: Playground = {
     sendBtn.addEventListener('click', onSend);
     copyLinkBtn.addEventListener('click', onCopyLink);
 
-    // Shareable deep link (#/converter?preset=...&text=...) wins over the
-    // default preset when present.
-    if (location.hash.includes('?')) {
+    // Incoming handoff (e.g. a captured entry from the site-wide HAR
+    // recorder's "open in Converter" button) wins over a shareable deep
+    // link, which wins over the default preset.
+    const harHandoff = receive<HarEntry>('converter');
+    if (harHandoff && harHandoff.kind === 'har-entry') {
+      currentPresetId = null;
+      ta.value = JSON.stringify(harHandoff.payload, null, 2);
+      root.prepend(handoffBanner(harHandoff, `loaded a captured HAR entry: ${harHandoff.payload.request.method} ${harHandoff.payload.request.url}`));
+      schedule(0);
+    } else if (location.hash.includes('?')) {
       const s = readState(linkDefaults);
       currentPresetId = PRESETS[s.preset]?.text === s.text ? s.preset : null;
       ta.value = s.text;

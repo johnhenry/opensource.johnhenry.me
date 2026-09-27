@@ -4,6 +4,9 @@ import { playgrounds, type PlaygroundEntry } from './registry';
 import { renderHome } from './home';
 import { renderSettings } from './settings';
 import { initThemeToggle } from '@erisera-code/circuit/theme-toggle.js';
+// Site-wide HAR recorder (ROADMAP 4.3): patches fetch at import time, then mounts its drawer UI.
+import { installHarRecorder } from './har-recorder';
+installHarRecorder();
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
