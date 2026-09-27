@@ -519,8 +519,8 @@ const playground: Playground = {
         </div>
         <div class="ck-dl" data-ollama-dl hidden></div>
         <div class="ck-controls">
-          <label class="field">embed concurrency<input type="range" min="1" max="12" step="1" value="4" data-f="conc"> <span class="ck-val" data-conc-val>4</span></label>
-          <label class="field">toy latency (ms, simulated)<input type="range" min="0" max="120" step="5" value="15" data-f="lat"> <span class="ck-val" data-lat-val>15</span></label>
+          <label class="field">embed concurrency<span class="ck-row"><input type="range" min="1" max="12" step="1" value="4" data-f="conc"> <span class="ck-val" data-conc-val>4</span></span></label>
+          <label class="field">toy latency (ms, simulated)<span class="ck-row"><input type="range" min="0" max="120" step="5" value="15" data-f="lat"> <span class="ck-val" data-lat-val>15</span></span></label>
         </div>
         <div class="ck-progress"><div class="ck-progress-fill" data-pfill></div></div>
         <p class="stat ck-pstats" data-pstats>—</p>
@@ -968,7 +968,7 @@ const playground: Playground = {
         thr = `<polyline points="${pts}" class="ck-threshold" fill="none" />`;
       }
 
-      return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="ck-svg">${bars}${thr}</svg>`;
+      return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" class="ck-svg">${bars}${thr}</svg>`;
     }
 
     function markPreset() {

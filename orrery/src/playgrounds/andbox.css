@@ -10,6 +10,7 @@
 .pg-andbox .ab-preset[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
 .pg-andbox .ab-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .pg-andbox .ab-controls label.field input { width: 110px; font-family: var(--f-mono); }
+.pg-andbox .ab-run-hint { margin-left: 8px; opacity: .85; }
 .pg-andbox .btn.kill { border-color: color-mix(in srgb, #ff4060 60%, transparent); background: color-mix(in srgb, #ff4060 14%, transparent); }
 .pg-andbox .btn.kill:hover { border-color: #ff4060; }
 .pg-andbox .btn:disabled { opacity: .45; cursor: not-allowed; }
@@ -17,15 +18,23 @@
   margin-left: auto; font-family: var(--f-mono); font-size: 12px; padding: 4px 10px; border-radius: 999px;
   border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap;
 }
-.pg-andbox .ab-status[data-state="running"] { color: #5fe3ff; border-color: #5fe3ff66; }
+/* these sit on the regular (theme-following) panel background, not the always-dark
+   code surface -- use the theme's own semantic tokens instead of fixed neon hexes so
+   they stay legible in light mode instead of pale-on-white. */
+.pg-andbox .ab-status[data-state="running"] { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); }
 .pg-andbox .ab-status[data-state="killed"],
-.pg-andbox .ab-status[data-state="error"] { color: #ff5f7a; border-color: #ff5f7a66; }
-.pg-andbox .ab-status[data-state="done"] { color: #7dffb0; border-color: #7dffb066; }
+.pg-andbox .ab-status[data-state="error"] { color: var(--error); border-color: color-mix(in srgb, var(--error) 45%, transparent); }
+.pg-andbox .ab-status[data-state="done"] { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
 
-.pg-andbox .ab-main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+.pg-andbox .ab-main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: stretch; }
 @media (max-width: 860px) { .pg-andbox .ab-main { grid-template-columns: 1fr; } }
 .pg-andbox .ab-main > * { min-width: 0; }
 .pg-andbox textarea.code { min-height: 380px; height: 100%; tab-size: 2; white-space: pre; }
+/* the code panel used a bare height:100% on the textarea, which (once the grid row
+   stretches this panel to match the taller RPC/canvas column) ignored the header's
+   own height and overhung the panel's bottom padding. Flex column + flex:1 instead. */
+.pg-andbox .ab-code-panel { display: flex; flex-direction: column; }
+.pg-andbox .ab-code-panel textarea.code { flex: 1 1 auto; height: auto; }
 .pg-andbox .ab-h { margin: 0 0 8px; font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
 .pg-andbox .ab-h .stat { margin-left: auto; text-transform: none; letter-spacing: 0; }
 .pg-andbox .ab-right { display: grid; gap: 16px; align-content: start; }
@@ -37,16 +46,20 @@
 }
 .pg-andbox .ab-nums { display: grid; grid-template-columns: auto auto; gap: 2px 12px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); align-content: start; }
 .pg-andbox .ab-nums b { color: var(--ink); font-weight: 600; text-align: right; }
-.pg-andbox .ab-nums b.ok { color: #5fe3ff; }
-.pg-andbox .ab-nums b.deny { color: #ff5f7a; }
+/* same panel-background contrast fix as .ab-status above. */
+.pg-andbox .ab-nums b.ok { color: var(--info); }
+.pg-andbox .ab-nums b.deny { color: var(--error); }
 .pg-andbox .ab-nums b.con { color: #c9a0ff; }
+html.light .pg-andbox .ab-nums b.con { color: #8b3fe0; }
 
-.pg-andbox .ab-bottom { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.pg-andbox .ab-bottom { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: stretch; }
 @media (max-width: 860px) { .pg-andbox .ab-bottom { grid-template-columns: 1fr; } }
 .pg-andbox .ab-log {
   font-family: var(--f-mono); font-size: 12px; line-height: 1.5; background: var(--code-bg);
   border: 1px solid var(--line); border-radius: 8px; height: 300px; overflow: auto; padding: 6px 0;
 }
+.pg-andbox .ab-result-panel { display: flex; flex-direction: column; }
+.pg-andbox .ab-result-panel pre.code.ab-result { flex: 1 1 auto; height: auto; }
 .pg-andbox .ab-log .row { display: grid; grid-template-columns: 74px 64px 1fr; gap: 8px; padding: 1px 10px; border-left: 3px solid transparent; }
 .pg-andbox .ab-log .row .t { color: var(--ink-3); text-align: right; }
 .pg-andbox .ab-log .row .k { color: var(--ink-3); }

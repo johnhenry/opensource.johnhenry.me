@@ -26,6 +26,11 @@
   flex: 1;
 }
 
+.pg-tester #tester-filter {
+  max-width: 100%;
+  min-width: 0;
+}
+
 .pg-tester .term {
   background: var(--code-bg);
   color: var(--code-ink);
@@ -65,9 +70,13 @@
   margin-top: 10px;
   align-items: center;
 }
-.pg-tester .summary-bar .chip.pass { background: color-mix(in srgb, #57e389 22%, transparent); border-color: color-mix(in srgb, #57e389 55%, transparent); color: #bdf5cf; }
-.pg-tester .summary-bar .chip.fail { background: color-mix(in srgb, #ff5f70 22%, transparent); border-color: color-mix(in srgb, #ff5f70 55%, transparent); color: #ffd0d5; }
-.pg-tester .summary-bar .chip.skip { background: color-mix(in srgb, #f2c744 22%, transparent); border-color: color-mix(in srgb, #f2c744 55%, transparent); color: #fbe9a8; }
+/* these chips sit on the regular (theme-following) panel background -- the old pale
+   near-white text (#bdf5cf / #ffd0d5 / #fbe9a8) over a 22%-alpha tint was tuned only
+   for a dark panel and was close to illegible on a light one. Use the theme's own
+   semantic tokens, which are contrast-tuned per theme. */
+.pg-tester .summary-bar .chip.pass { background: color-mix(in srgb, var(--success) 18%, transparent); border-color: color-mix(in srgb, var(--success) 55%, transparent); color: var(--success); }
+.pg-tester .summary-bar .chip.fail { background: color-mix(in srgb, var(--error) 18%, transparent); border-color: color-mix(in srgb, var(--error) 55%, transparent); color: var(--error); }
+.pg-tester .summary-bar .chip.skip { background: color-mix(in srgb, var(--warning) 18%, transparent); border-color: color-mix(in srgb, var(--warning) 55%, transparent); color: var(--warning); }
 
 .pg-tester .timings {
   margin-top: 10px;
@@ -86,7 +95,7 @@
   background: var(--bg-inset);
 }
 .pg-tester .timing-row .name { color: var(--ink); }
-.pg-tester .timing-row.fail .name { color: #ff5f70; }
+.pg-tester .timing-row.fail .name { color: var(--error); }
 .pg-tester .timing-row .ms { font-variant-numeric: tabular-nums; }
 
 .pg-tester .custom-actions {

@@ -7,21 +7,42 @@
 .pg-chunker .ck-params { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
 .pg-chunker label.field input,
 .pg-chunker label.field select { min-width: 96px; }
+/* keep a slider's live value on the same visual row as the slider (label.field is a
+   grid, so a bare sibling span would otherwise land on its own row below it). */
+.pg-chunker .ck-controls .ck-row { display: flex; align-items: center; gap: 8px; }
+.pg-chunker .ck-controls .ck-row input[type=range] { flex: 1 1 auto; min-width: 0; }
 
 .pg-chunker .ck-h { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .pg-chunker .ck-h .stat { font-weight: 400; font-family: var(--f-mono); }
 
 .pg-chunker textarea.code { min-height: 260px; }
 
-.pg-chunker .ck-doc { max-height: 420px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+/* document / chunked-output panels: stretch to the row's full height instead of
+   leaving a void below a short textarea or a short output list. */
+.pg-chunker .grid-2 > .panel { display: flex; flex-direction: column; }
+.pg-chunker .grid-2 > .panel > h3.ck-h { flex: 0 0 auto; }
+.pg-chunker .grid-2 > .panel > textarea.code { flex: 1 1 auto; }
+.pg-chunker .grid-2 > .panel > .ck-doc { flex: 1 1 auto; min-height: 0; }
+
+.pg-chunker .ck-doc { max-height: 420px; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; }
 .pg-chunker .ck-chunk {
   border-radius: 8px;
   padding: 10px 12px;
   border: 1px solid hsl(var(--tint) 45% 30%);
   background: hsl(var(--tint) 55% 14%);
+  color: #fff;
   white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.5;
+}
+/* .ck-chunk's background is deliberately theme-independent (a colorful "dark chip"
+   per chunk), but it forgot to also fix its text color -- in light mode the page's
+   --ink is dark, which lands as dark text on that same dark chip. Flip to a light
+   chip + dark text in light mode instead of relying on the (dark-tuned) page ink. */
+html.light .pg-chunker .ck-chunk {
+  border-color: hsl(var(--tint) 55% 55%);
+  background: hsl(var(--tint) 75% 92%);
+  color: hsl(var(--tint) 55% 24%);
 }
 .pg-chunker .ck-chunk-idx {
   display: block;
@@ -33,7 +54,7 @@
 }
 
 .pg-chunker .ck-chart { overflow-x: auto; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); padding: 8px; }
-.pg-chunker .ck-svg { display: block; }
+.pg-chunker .ck-svg { display: block; width: 100%; }
 .pg-chunker .ck-bar { fill: var(--accent); opacity: .75; }
 .pg-chunker .ck-bar-cut { fill: var(--error, #e05252); opacity: .95; }
 .pg-chunker .ck-cutline { stroke: var(--error, #e05252); stroke-width: 1; stroke-dasharray: 3 2; opacity: .8; }
