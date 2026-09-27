@@ -15,7 +15,7 @@ whole companion.
 
 Routes: `GET /afm/status`, `POST /afm/chat`, `WS /afm/stream`.
 
-This package is **not** a dependency of this project on purpose — it requires:
+This package is an **optionalDependency** of this project (`npm install` fetches it automatically where it can, and skips it harmlessly where it can't) rather than a required one, on purpose — using it for real requires:
 
 - **macOS 26 (Tahoe) or later** (`sw_vers -productVersion` ≥ 26.0)
 - **Apple Silicon** (arm64)
@@ -25,12 +25,17 @@ This package is **not** a dependency of this project on purpose — it requires:
 - A Swift 6.0+ toolchain (Xcode 26+, or a recent-enough Command Line Tools)
   to compile the native bridge during `npm install`
 
-If your Mac meets all of the above, enable the real thing:
+If your Mac meets all of the above, a plain `npm install` already fetched it as
+an optional dependency — just run the companion:
 
 ```bash
-npm i @johnhenry/apple-foundation-models
 npm run node
 ```
+
+If `npm install` originally ran on a machine that didn't qualify (wrong OS/arch,
+no Swift toolchain), npm skips the optional dependency rather than failing the
+whole install; re-run `npm i @johnhenry/apple-foundation-models` once you're on
+a qualifying Mac to retry it.
 
 `server/demos/afm.mjs` does `await import('@johnhenry/apple-foundation-models')`
 lazily, inside a try/catch, the first time a route is hit — never at module
