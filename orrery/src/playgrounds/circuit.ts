@@ -5,7 +5,7 @@ import { readState, writeState, copyLink } from '../state';
 // it has no color-generation or contrast helpers. We use the real export for a
 // genuine "jump to a theme / section" command palette, and compute contrast
 // ratios ourselves below (WCAG formula) since the library doesn't ship one.
-// @ts-expect-error -- palette.js ships no .d.ts
+// (Typed via src/types.d.ts's ambient declaration — see ROADMAP 4.6's chrome.ts, which needed the same import.)
 import { createCommandPalette } from '@erisera-code/circuit/palette.js';
 import '@erisera-code/circuit/palette.css';
 import './circuit.css';

@@ -1,0 +1,48 @@
+/**
+ * Site-wide chrome (ROADMAP §4.6): the persistent <orrery-topbar> /
+ * <orrery-source-drawer> custom elements and Circuit's real command palette.
+ * Layout classes (.topbar/.source-drawer/.tb-btn/.sd-head) already live in
+ * base.css -- this file only adds what's new: the c-header/c-codebox
+ * component classes borrowed from Circuit needed a couple of local nudges to
+ * sit inside the existing layout, and the palette needs --hue wired the same
+ * way every planet already gets it.
+ */
+
+/* orrery-topbar wraps a real .c-header -- keep the two systems' spacing from fighting.
+   z-index: 95 (beats base.css's `.source-drawer`'s z-index: 90 on specificity: two
+   classes vs. one) -- the drawer is `top:0; right:0`, which visually covers the sticky
+   topbar's right-hand buttons (source/settings/theme/docs) once open; without this the
+   topbar's own "source" button becomes unclickable the moment its drawer is open, so
+   there's no way to close it again from the button that opened it. */
+orrery-topbar .topbar.c-header { padding: 8px 20px; height: auto; border-top: 0; gap: 12px; position: sticky; top: 0; z-index: 95; }
+orrery-topbar .topbar nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+orrery-topbar .c-logo { font-size: inherit; gap: 0; }
+
+/* orrery-source-drawer wraps a real .c-codebox (cap + pre) inside the fixed drawer shell */
+orrery-source-drawer { display: contents; }
+/* base.css's `.source-drawer { display: flex; … }` has the SAME specificity (0,1,0) as the
+   UA stylesheet's `[hidden] { display: none }` and comes later in the cascade, so it was
+   winning and the drawer stayed visible (blocking clicks under it) even while `hidden` was
+   set. `[hidden]` on the class selector raises specificity to 0,2,0 so it wins for real. */
+orrery-source-drawer .source-drawer[hidden] { display: none; }
+orrery-source-drawer .source-drawer.c-codebox { padding: 0; }
+orrery-source-drawer .source-drawer .cap.sd-head { background: transparent; border-radius: 0; }
+orrery-source-drawer .source-drawer .cap .cp { margin-left: 4px; }
+orrery-source-drawer .source-drawer pre { border-radius: 0; }
+
+/* Circuit's palette portal needs the page's live hue, same token every planet reads */
+.c-palette-backdrop { --hue: var(--hue, 25); }
+
+/* Transient result toast for the palette's "probe companion" action */
+.chrome-toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 12px);
+  z-index: 400; padding: 10px 16px; border-radius: 10px;
+  background: var(--bg-panel); border: 1px solid var(--line);
+  box-shadow: 0 14px 40px rgb(0 0 0 / .35);
+  font: 13px var(--f-mono); color: var(--ink);
+  opacity: 0; transition: opacity .2s, transform .2s;
+  max-width: min(520px, 84vw);
+}
+.chrome-toast.ok { border-color: var(--accent-border); }
+.chrome-toast.bad { border-color: var(--error); color: var(--error); }
+.chrome-toast.in { opacity: 1; transform: translate(-50%, 0); }
