@@ -6,6 +6,14 @@ import { Stack, processN, registry } from '@johnhenry/jth-runtime';
 import '@johnhenry/jth-stdlib';
 import { createSandbox as mkSandbox } from '@johnhenry/andbox';
 import type { Sandbox } from '@johnhenry/andbox';
+// buildAllowlist() is a pure, synchronous helper -- no jth program runs when
+// we call it, so it's safe on the main thread (unlike evalJth() itself,
+// which would actually execute a program here; see the "sandbox policy"
+// section below for why we never call evalJth() outside the andbox worker).
+// buildAllowlist() isn't re-exported from the package root (only evalJth()
+// and the types are) -- it lives on the ./eval subpath alongside it.
+import { buildAllowlist } from '@johnhenry/jth-eval/eval';
+import type { SandboxOption } from '@johnhenry/jth-eval';
 import { readState, writeState, copyLink } from '../state';
 import './jth.css';
 
@@ -34,6 +42,11 @@ const JTH_RUNTIME_VERSION = '0.0.0';
 const RUNTIME_IMPORT_MAP = {
   '@johnhenry/jth-runtime': `https://esm.sh/@johnhenry/jth-runtime@${JTH_RUNTIME_VERSION}`,
   '@johnhenry/jth-stdlib': `https://esm.sh/@johnhenry/jth-stdlib@${JTH_RUNTIME_VERSION}`,
+  // The HTML DSL tab below reuses this same worker/sandbox -- registerHTML()'s
+  // ops (h-tag, h-render, …) are opt-in per @johnhenry/jth-html's own README
+  // ("the compiler preamble only auto-loads jth-stdlib"), so it's only
+  // sandboxImport()'d when that tab actually runs a program, not eagerly.
+  '@johnhenry/jth-html': `https://esm.sh/@johnhenry/jth-html@${JTH_RUNTIME_VERSION}`,
 };
 
 /**
@@ -147,6 +160,201 @@ const PRESETS: Preset[] = [
 peek;`,
   },
 ];
+
+/* ------------------------------------------------------------- op docs ---
+ * registry.getMeta() returns {} for every stdlib operator (see ROADMAP.md
+ * §5's "jth" upstream finding) -- jth-stdlib documents operators only as
+ * category examples (its README's table), not one-by-one. These
+ * descriptions are hand-written for this room from that table, the
+ * language's own postfix-stack conventions, and this file's presets; a few
+ * (Σ/Π, fanout/compose/bend, the meta/pipe ops) are best-effort rather than
+ * verified against every edge case -- try an operator in the Run pane for
+ * ground truth.
+ */
+const OP_CATEGORIES: Array<{ name: string; ops: Array<[string, string]> }> = [
+  { name: 'Stack', ops: [
+    ['noop', 'does nothing; passes the stack through unchanged'],
+    ['∅', 'pushes the empty/nil value — symbolic form, see clear'],
+    ['clear', 'empties the entire stack'],
+    ['...', "spreads a top-of-stack array's items onto the stack — symbolic alias for spread"],
+    ['spread', "a → ...a — pushes each item of a top-of-stack array as its own stack item"],
+    ['drop', 'a → — discards the top of the stack'],
+    ['dupe', 'a → a a — duplicate the top of the stack (alias: dup, copy)'],
+    ['dup', 'a → a a — duplicate the top of the stack'],
+    ['copy', 'a → a a — duplicate the top of the stack'],
+    ['swap', 'a b → b a — swap the top two items'],
+    ['reverse', 'reverses the order of an array (or the stack, context-dependent)'],
+    ['count', 'pushes the number of items currently on the stack'],
+    ['depth', 'same as count — current stack depth'],
+    ['collect', 'a1..aN N → [a1..aN] — pop N items and collect them into one array'],
+    ['peek', 'prints the top of the stack without consuming it'],
+    ['peek-all', 'prints the entire stack without consuming it'],
+    ['apply', 'block → … — runs a block against the current stack, like $'],
+    ['exec', 'same as apply — execute a block in place'],
+    ['over', 'a b → a b a — copy the second-from-top item to the top'],
+    ['rot', 'a b c → b c a — rotate the top three items'],
+  ] },
+  { name: 'Arithmetic', ops: [
+    ['+', 'a b → a+b'],
+    ['-', 'a b → a-b'],
+    ['*', 'a b → a×b'],
+    ['⋅', 'a b → a×b — symbolic alias for *'],
+    ['/', 'a b → a÷b'],
+    ['÷', 'a b → a÷b — symbolic alias for /'],
+    ['**', 'a b → a**b (power)'],
+    ['%', 'a b → a%b (remainder)'],
+    ['%%', 'a b → floor-mod (result takes the sign of b)'],
+    ['++', 'a → a+1 (increment)'],
+    ['--', 'a → a-1 (decrement)'],
+    ['Σ', 'sum — reduces items with +'],
+    ['Π', 'product — reduces items with *'],
+    ['abs', 'a → |a|'],
+    ['|𝑥|', 'a → |a| — symbolic alias for abs'],
+    ['√', 'a → sqrt(a) — symbolic alias for sqrt'],
+    ['sqrt', 'a → sqrt(a)'],
+    ['floor', 'a → Math.floor(a)'],
+    ['ceil', 'a → Math.ceil(a)'],
+    ['round', 'a → Math.round(a)'],
+    ['trunc', 'a → Math.trunc(a)'],
+    ['log', 'a → natural log of a'],
+    ['min', 'a b → the smaller of the two'],
+    ['max', 'a b → the larger of the two'],
+    ['plus', 'word alias for +'],
+    ['minus', 'word alias for -'],
+    ['mul', 'word alias for *'],
+    ['div', 'word alias for /'],
+    ['mod', 'word alias for %'],
+    ['pow', 'word alias for **'],
+  ] },
+  { name: 'Comparison', ops: [
+    ['=', 'a b → a=b — equality test (used throughout this room\'s own presets)'],
+    ['==', 'a b → a=b — alias for ='],
+    ['<', 'a b → a<b'],
+    ['<=', 'a b → a≤b'],
+    ['>', 'a b → a>b'],
+    ['>=', 'a b → a≥b'],
+    ['<=>', 'a b → -1 / 0 / 1 — three-way "spaceship" comparison'],
+    ['eq?', 'word alias for =='],
+    ['ne?', 'word alias for !='],
+    ['!=', 'a b → a≠b'],
+    ['lt?', 'word alias for <'],
+    ['le?', 'word alias for <='],
+    ['gt?', 'word alias for >'],
+    ['ge?', 'word alias for >='],
+  ] },
+  { name: 'Logic', ops: [
+    ['&&', 'a b → a&&b'],
+    ['||', 'a b → a||b'],
+    ['xor', 'a b → exclusive or'],
+    ['nand', 'a b → not (a&&b)'],
+    ['nor', 'a b → not (a||b)'],
+    ['~~', 'a → !!a — coerce to boolean'],
+    ['not', 'a → !a'],
+  ] },
+  { name: 'Control flow', ops: [
+    ['if', 'cond block → runs block only when cond is truthy'],
+    ['elseif', 'chained after if: cond block → another conditional branch'],
+    ['else', 'chained after if/elseif: block → runs when no earlier branch matched'],
+    ['when', 'cond block → like if, standalone (no elseif/else chain needed)'],
+    ['drop-when', 'cond → drops the value beneath cond when cond is truthy'],
+    ['keep-if', 'cond → keeps the value beneath cond when cond is truthy, else drops it'],
+    ['drop-if', 'cond → drops the value beneath cond when cond is truthy'],
+    ['times', 'n block → runs block n times against the same stack (see the fibonacci preset)'],
+    ['while', 'cond-block body-block → runs body while cond-block leaves a truthy top'],
+    ['until', 'cond-block body-block → runs body until cond-block leaves a truthy top'],
+    ['break', 'exits the innermost times/while/until loop early'],
+    ['try', 'block → runs block, catching any error it throws'],
+    ['throw', 'message → throws a jth runtime error with message'],
+    ['error?', 'a → boolean, true when a is an error value'],
+  ] },
+  { name: 'String', ops: [
+    ['len', 's → s.length (also works on arrays)'],
+    ['upper', 's → s.toUpperCase()'],
+    ['lower', 's → s.toLowerCase()'],
+    ['trim', 's → s.trim()'],
+    ['strcat', 'a b → a+b, concatenated as strings'],
+    ['strseq', 'a b → the two strings interleaved (see the "strings" preset)'],
+    ['startsWith', 's prefix → boolean'],
+    ['endsWith', 's suffix → boolean'],
+    ['indexOf', 's sub → index of sub in s, or -1'],
+    ['starts?', 'word alias for startsWith'],
+    ['ends?', 'word alias for endsWith'],
+    ['index-of', 'word alias for indexOf'],
+  ] },
+  { name: 'Type', ops: [
+    ['typeof', "a → the JS typeof string for a"],
+    ['number?', 'a → boolean'],
+    ['string?', 'a → boolean'],
+    ['array?', 'a → boolean'],
+    ['nil?', 'a → boolean, true for null/undefined'],
+    ['function?', 'a → boolean, true for a block'],
+    ['empty?', "a → boolean, true for '', [], or nil"],
+    ['contains?', 'collection item → boolean'],
+  ] },
+  { name: 'Serialization', ops: [
+    ['into-json', 'value → JSON string (alias: to-json)'],
+    ['from-json', 'JSON string → parsed value'],
+    ['into-lines', 'array → newline-joined string (alias: to-lines)'],
+    ['from-lines', 'string → array of lines'],
+    ['to-json', 'value → JSON string'],
+    ['to-lines', 'array → newline-joined string'],
+  ] },
+  { name: 'Array', ops: [
+    ['push', 'array item → array with item appended'],
+    ['pop', "array → array with its last item removed"],
+    ['shift', "array → array with its first item removed"],
+    ['unshift', 'array item → array with item prepended'],
+    ['suppose', 'cond block-a block-b → runs block-a if cond is truthy, else block-b'],
+    ['flatten', 'nested-array → flattened one level'],
+    ['map', 'array block → a new array, block applied to each item'],
+    ['filter', 'array block → items for which block leaves a truthy top'],
+    ['reduce', 'array seed block → folds block over the array from seed'],
+    ['fold', 'alias for reduce'],
+    ['bend', 'array block → block mapped over the array via a child stack (see map)'],
+  ] },
+  { name: 'Dictionary', ops: [
+    ['keys', 'object → array of its keys'],
+    ['values', 'object → array of its values'],
+    ['entries', 'object → array of [key, value] pairs'],
+    ['merge', "a b → shallow-merged object, b's keys win"],
+    ['record', 'k1 v1 … kN vN N·2 → object built from the key/value pairs'],
+  ] },
+  { name: 'Combinators', ops: [
+    ['each', 'array block → runs block once per item, for side effects (e.g. peek)'],
+    ['fanout', 'value block-a block-b → runs both blocks against the same value, pushing both results'],
+    ['zip', 'array-a array-b → array of paired [a,b] items'],
+    ['compose', 'block-a block-b → one block equivalent to running a then b in sequence'],
+  ] },
+  { name: 'Async', ops: [
+    ['_', 'promise → awaits it and pushes the resolved value'],
+    ['__', 'array-of-promises → Promise.all, pushes the resolved array'],
+  ] },
+  { name: 'Meta', ops: [
+    ['$', 'block → executes it against the current stack'],
+    ['$$', 'block → executes it, spreading array arguments across it'],
+    ['<<-', 'pipe: applies a block to a value'],
+    ['->>', 'pipe: applies a value into a block'],
+  ] },
+  { name: 'Iterator', ops: [
+    ['next', "iterator → the iterator's next value (advances it)"],
+    ['iter', 'array → a JS iterator over it, for use with next/..'],
+    ['..', 'iterator → drains it into an array ("exhaust")'],
+  ] },
+  { name: 'Sequences', ops: [
+    ['fibonacci', 'generates Fibonacci-sequence values, for use with iterator ops'],
+  ] },
+  { name: 'Statistics', ops: [
+    ['x̄', 'array → arithmetic mean — symbolic alias for mean'],
+    ['mean', 'array → arithmetic mean'],
+    ['median', 'array → median value'],
+    ['mode', 'array → most frequent value'],
+    ['modes', 'array → every value tied for most frequent'],
+  ] },
+];
+const OP_DOCS: Record<string, string> = Object.fromEntries(OP_CATEGORIES.flatMap((c) => c.ops));
+const OP_CATEGORY_OF: Record<string, string> = Object.fromEntries(
+  OP_CATEGORIES.flatMap((c) => c.ops.map(([name]) => [name, c.name])),
+);
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -414,6 +622,18 @@ const playground: Playground = {
         <button class="btn kill" data-a="kill" disabled title="Abort the current sandbox run">■ Kill</button>
         <button class="btn copy-link" data-a="copylink" title="Copy a link to this program">copy link</button>
       </div>
+      <div class="runbar sandboxbar">
+        <label class="field">sandbox policy (<code>@johnhenry/jth-eval</code>)
+          <select class="sandbox-mode">
+            <option value="none">off — full stdlib access</option>
+            <option value="bare">bare — only injected values/operators</option>
+            <option value="restricted">restricted — stdlib minus peek/peek-all</option>
+            <option value="custom">custom allowlist…</option>
+          </select>
+        </label>
+        <input class="sandbox-custom code" placeholder="+ - dup swap times if peek" hidden>
+        <span class="stat sandbox-report"></span>
+      </div>
       <div class="cols">
         <section class="col src">
           <header><span>jth source</span><span class="hint">edits recompile live</span></header>
@@ -453,12 +673,37 @@ const playground: Playground = {
           </div>
         </section>
       </div>
+      <section class="panel opexplorer">
+        <header class="sec-h"><h2>Operator explorer</h2>
+          <span class="stat"><b data-s="op-count">0</b> operators from <code>registry.names()</code> — descriptions hand-written for this room (<code>getMeta()</code> returns <code>{}</code> for every stdlib op)</span></header>
+        <p class="explain">Dynamic pattern operators (<code>2+</code>, <code>3*</code>, hyperoperators like <code>***</code>) aren't listed here — they're regex-matched at resolve time, not enumerable via <code>registry.names()</code>, which is exactly why <code>jth-eval</code>'s <code>"restricted"</code> sandbox mode below has to deny them outright instead of allow-listing them.</p>
+        <div class="op-controls">
+          <input class="op-filter" placeholder="filter by name or description…" spellcheck="false">
+          <div class="op-cats" data-el="op-cats"></div>
+        </div>
+        <div class="op-grid" data-el="op-grid"></div>
+      </section>
+
+      <section class="panel htmldsl">
+        <header class="sec-h"><h2>HTML DSL <span class="stat">@johnhenry/jth-html</span></h2>
+          <span class="stat">opt-in operators (<code>h-tag</code>, <code>h-text</code>, <code>h-frag</code>, <code>h-void</code>, <code>h-attrs</code>, <code>h-render</code>) build a small node tree on the stack and render it to an HTML string — registered into the same sandbox worker as the Run pane above, on first use.</span></header>
+        <div class="htmldsl-grid">
+          <textarea class="code" data-el="html-dsl-src" spellcheck="false"></textarea>
+          <div class="htmldsl-out">
+            <div class="stat" data-el="html-dsl-status">not run yet</div>
+            <pre class="code" data-el="html-dsl-out"></pre>
+            <iframe class="html-dsl-preview" data-el="html-dsl-preview" sandbox="" title="rendered HTML DSL output"></iframe>
+          </div>
+        </div>
+      </section>
+
       <details class="panel explain" open>
         <summary>What's happening</summary>
         <ol>
           <li><b>Lex → parse → generate.</b> Every keystroke (debounced) runs <code>transform(source, { preamble: true })</code> from <code>@johnhenry/jth-compiler</code>. The middle column is its real output: each statement becomes one <code>processN(stack, [...])</code> call, operators are looked up with <code>registry.resolve()</code>, blocks become arrow functions.</li>
           <li><b>Run.</b> By default the compiler's no-preamble output (<code>transform(source, { preamble: false })</code>) runs inside an <code>@johnhenry/andbox</code> sandbox — a real Worker, not the main thread. It <code>sandboxImport()</code>s <code>@johnhenry/jth-runtime</code> / <code>@johnhenry/jth-stdlib</code> from their CDN mirror (a Worker can't resolve bare package specifiers on its own), and <code>evaluate()</code>'s timeout — or the Kill button — <code>worker.terminate()</code>s it, which is the only thing that can stop a synchronous loop like <code>times</code> mid-flight. Toggle "run on main thread (legacy)" to go back to the old <code>run(source, { captureLog: true })</code> path and watch why that matters: it has a <code>timeoutMs</code> too, but a timer can't preempt code that never yields, so a runaway loop there freezes the whole tab.</li>
           <li><b>Step.</b> The stack machine walks the parser's AST and pushes each item through the runtime's own <code>processN</code> with the real registry operators, snapshotting the stack after every token. Blocks and user words are traced too, so you can watch <code>times</code>, <code>if</code> and <code>map</code> call back into them. Dashed boxes are an inner stack that <code>map</code>/<code>filter</code>/<code>reduce</code> create for each element. The stepper always runs on the main thread and is capped at 2,500 frames, so it stays safe even for the runaway preset.</li>
+          <li><b>Sandbox policy.</b> <code>@johnhenry/jth-eval</code>'s <code>buildAllowlist(sandbox)</code> turns a <code>SandboxOption</code> (<code>true</code> / <code>"restricted"</code> / a name array) into the same allowlist its own <code>evalJth()</code> enforces — computed here on the main thread, since it's a pure <code>Set</code> computation over <code>registry.names()</code>, not an execution. Every operator call in the program is checked against it before anything runs; a violation is reported the same way <code>evalJth()</code> itself would throw it (<code>JthRuntimeError</code>, <code>code: "OP_NOT_ALLOWED"</code>), and the program never reaches the Worker at all — exactly what jth-eval's own docs promise ("the whole program is rejected before any statement runs"). What we deliberately <em>don't</em> do is call <code>evalJth()</code> itself here: its <code>timeout</code> option is a <code>Promise.race</code>, not a real preemption (its own README says so), so a permitted-but-runaway program would freeze the tab exactly like the "legacy" toggle above. Once a program clears the policy check, it still runs the normal way — inside the andbox Worker — so <code>worker.terminate()</code> stays the one thing that can actually stop it.</li>
         </ol>
       </details>`;
     host.appendChild(root);
@@ -487,6 +732,54 @@ const playground: Playground = {
 
     stat('ops', registry.names().length);
 
+    // sandbox policy controls (§ "Sandbox policy" in the explain panel)
+    const sandboxModeSel = $<HTMLSelectElement>('.sandbox-mode');
+    const sandboxCustomIn = $<HTMLInputElement>('.sandbox-custom');
+    const sandboxReport = $('.sandbox-report');
+    let sandboxMode: 'none' | 'bare' | 'restricted' | 'custom' = 'none';
+    function currentSandboxOption(): SandboxOption {
+      if (sandboxMode === 'bare') return true;
+      if (sandboxMode === 'restricted') return 'restricted';
+      if (sandboxMode === 'custom') return sandboxCustomIn.value.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+      return false;
+    }
+    /**
+     * Generic AST walk collecting every `OperatorCall` name and flagging any
+     * `InlineJSExpression`, anywhere in the tree (block bodies, array/object
+     * literals, nested blocks…) -- deliberately shape-agnostic (recurses into
+     * any nested object/array it finds) rather than hand-modeling every node
+     * type parse() can produce, so it stays correct if the AST shape grows.
+     */
+    function walkForOps(n: unknown, names: Set<string>, inlineJs: { v: boolean }) {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { for (const item of n) walkForOps(item, names, inlineJs); return; }
+      const node = n as Node;
+      if (typeof node.type === 'string') {
+        if (node.type === 'OperatorCall') names.add(node.name as string);
+        if (node.type === 'InlineJSExpression') inlineJs.v = true;
+      }
+      for (const [k, v] of Object.entries(node)) {
+        if (k === 'type' || k === 'line' || k === 'column' || k === 'name') continue;
+        if (v && typeof v === 'object') walkForOps(v, names, inlineJs);
+      }
+    }
+    /**
+     * The policy half of the sandbox: `buildAllowlist()` from `@johnhenry/jth-eval`
+     * turns the current `SandboxOption` into the same allowlist `evalJth()` itself
+     * enforces, and every operator call in the program is checked against it
+     * before anything runs -- see the explain panel's "Sandbox policy" item for
+     * why we stop here and hand off to andbox rather than calling `evalJth()`.
+     */
+    function checkSandboxPolicy(programAst: { body: Node[] }): { blocked: string[]; inlineJs: boolean; allowlist: Set<string> | null } {
+      const allowlist = buildAllowlist(currentSandboxOption());
+      if (!allowlist) return { blocked: [], inlineJs: false, allowlist: null };
+      const names = new Set<string>();
+      const inlineJs = { v: false };
+      walkForOps(programAst.body, names, inlineJs);
+      const blocked = [...names].filter((n) => !allowlist.has(n));
+      return { blocked, inlineJs: inlineJs.v, allowlist };
+    }
+
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const later = (fn: () => void, ms: number) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
     let disposed = false;
@@ -503,7 +796,7 @@ const playground: Playground = {
 
     /* deep link state — the source (if it's small) and preset travel in the URL */
     const DEFAULT_PRESET = PRESETS[1].id; // 'fib'
-    const LINK_DEFAULTS = { preset: DEFAULT_PRESET, src: '', timeout: 3000, legacy: false };
+    const LINK_DEFAULTS = { preset: DEFAULT_PRESET, src: '', timeout: 3000, legacy: false, sandbox: 'none', sandboxOps: '' };
     const initial = readState(LINK_DEFAULTS);
 
     function persistState() {
@@ -511,6 +804,8 @@ const playground: Playground = {
         preset: currentPresetId ?? DEFAULT_PRESET,
         timeout: Math.max(200, Number(timeoutIn.value) || 3000),
         legacy: legacyIn.checked,
+        sandbox: sandboxMode,
+        sandboxOps: sandboxCustomIn.value,
       };
       const preset = PRESETS.find((p) => p.id === currentPresetId);
       if (ta.value.length && ta.value.length < 2000 && ta.value !== preset?.src) st.src = ta.value;
@@ -613,6 +908,26 @@ const playground: Playground = {
       }
       outJs.innerHTML = highlightJS(lastJs, null);
       renderGutter(null);
+
+      // sandbox policy gate -- checked BEFORE anything runs, matching
+      // evalJth()'s own "rejected before any statement runs" behavior for a
+      // blocked operator or inline JS. See checkSandboxPolicy()'s doc comment.
+      const policy = checkSandboxPolicy(ast);
+      if (policy.allowlist) {
+        const violations = [...policy.blocked, ...(policy.inlineJs ? ['((inline JS))'] : [])];
+        if (violations.length) {
+          sandboxReport.innerHTML = `<span class="op-not-allowed">OP_NOT_ALLOWED</span> ${violations.map((v) => esc(v)).join(', ')}`;
+          stat('runms', 'blocked by sandbox policy');
+          consoleEl.innerHTML = `<span class="rerr">JthRuntimeError: operator${violations.length > 1 ? 's' : ''} not allowed in sandbox: ${violations.map((v) => esc(v)).join(', ')} (code: OP_NOT_ALLOWED)\nRejected before running — never reached the andbox worker.</span>`;
+          frames = [];
+          stat('total', 0);
+          goto(-1, true);
+          return;
+        }
+        sandboxReport.innerHTML = `<span class="op-allowed">clear</span> — ${policy.allowlist.size} operator(s) allowed`;
+      } else {
+        sandboxReport.textContent = '';
+      }
 
       // run — either sandboxed in an andbox Worker (default, timeout-safe) or
       // directly on the main thread (legacy toggle; see the sandboxProgram()
@@ -817,18 +1132,148 @@ const playground: Playground = {
       later(() => { copyLinkBtn.textContent = original; }, 1200);
     });
 
+    sandboxModeSel.addEventListener('change', () => {
+      sandboxMode = sandboxModeSel.value as typeof sandboxMode;
+      sandboxCustomIn.hidden = sandboxMode !== 'custom';
+      renderOpExplorer();
+      persistState();
+      update(false);
+    });
+    let sandboxCustomDeb: ReturnType<typeof setTimeout> | null = null;
+    sandboxCustomIn.addEventListener('input', () => {
+      if (sandboxCustomDeb) clearTimeout(sandboxCustomDeb);
+      sandboxCustomDeb = setTimeout(() => { renderOpExplorer(); persistState(); update(false); }, 300);
+    });
+
+    /* ------------------------------------------------------------- operator explorer */
+    const opGrid = $('[data-el="op-grid"]');
+    const opCatsBox = $('[data-el="op-cats"]');
+    const opFilter = $<HTMLInputElement>('.op-filter');
+    let opCategoryFilter: string | null = null;
+    stat('op-count', OP_CATEGORIES.reduce((n, c) => n + c.ops.length, 0));
+    opCatsBox.innerHTML = ['all', ...OP_CATEGORIES.map((c) => c.name)]
+      .map((name) => `<button class="chip op-cat${name === 'all' ? ' on' : ''}" data-cat="${esc(name)}">${esc(name)}</button>`)
+      .join('');
+    function renderOpExplorer() {
+      const q = opFilter.value.trim().toLowerCase();
+      const allowlist = buildAllowlist(currentSandboxOption());
+      let html = '';
+      for (const cat of OP_CATEGORIES) {
+        if (opCategoryFilter && opCategoryFilter !== cat.name) continue;
+        const rows = cat.ops.filter(([name, desc]) => !q || name.toLowerCase().includes(q) || desc.toLowerCase().includes(q));
+        if (!rows.length) continue;
+        html += `<div class="op-cat-group"><h3>${esc(cat.name)}</h3><div class="op-rows">` +
+          rows.map(([name, desc]) => {
+            const allowed = !allowlist || allowlist.has(name);
+            return `<div class="op-row${allowed ? '' : ' blocked'}"><code class="op-name">${esc(name)}</code><span class="op-desc">${esc(desc)}</span>${allowlist ? `<span class="op-flag">${allowed ? 'allowed' : 'OP_NOT_ALLOWED'}</span>` : ''}</div>`;
+          }).join('') + `</div></div>`;
+      }
+      opGrid.innerHTML = html || `<div class="stat">no operators match "${esc(opFilter.value)}"</div>`;
+    }
+    opFilter.addEventListener('input', () => renderOpExplorer());
+    opCatsBox.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('.op-cat') as HTMLButtonElement | null;
+      if (!b) return;
+      opCategoryFilter = b.dataset.cat === 'all' ? null : (b.dataset.cat ?? null);
+      opCatsBox.querySelectorAll('.op-cat').forEach((x) => x.classList.toggle('on', x === b));
+      renderOpExplorer();
+    });
+
+    /* ------------------------------------------------------------------- HTML DSL tab */
+    const htmlDslSrc = $<HTMLTextAreaElement>('[data-el="html-dsl-src"]');
+    const htmlDslStatus = $('[data-el="html-dsl-status"]');
+    const htmlDslOut = $('[data-el="html-dsl-out"]');
+    const htmlDslPreview = $<HTMLIFrameElement>('[data-el="html-dsl-preview"]');
+    const HTML_DSL_DEFAULT = `#[
+  #[ "jth-html" h-text ] "h1" h-tag { "class" "title" } h-attrs
+  #[ "One block per element; h-attrs merges an object onto an element." h-text ] "p" h-tag
+  "hr" h-void
+] h-frag h-render peek;`;
+    /** Same wrapper shape as sandboxProgram() above, plus loading @johnhenry/jth-html's opt-in ops into the same worker. */
+    function sandboxHtmlProgram(bodyJs: string): string {
+      const indented = bodyJs.split('\n').map((l) => (l ? `    ${l}` : l)).join('\n');
+      return `  const __prevConsole = globalThis.console;
+  globalThis.console = console;
+  try {
+    const { Stack, processN, registry } = await sandboxImport('@johnhenry/jth-runtime');
+    await sandboxImport('@johnhenry/jth-stdlib');
+    await sandboxImport('@johnhenry/jth-html'); // registers h-tag/h-text/h-frag/h-void/h-attrs/h-render
+    const stack = new Stack();
+${indented}
+    return stack.toArray().map((v) => {
+      if (typeof v === 'function') return '#[ block ]';
+      try { return JSON.parse(JSON.stringify(v)); } catch { return String(v); }
+    });
+  } finally {
+    globalThis.console = __prevConsole;
+  }`;
+    }
+    let htmlDslGen = 0;
+    async function runHtmlDsl() {
+      const my = ++htmlDslGen;
+      const src = htmlDslSrc.value;
+      htmlDslStatus.textContent = 'compiling…';
+      let bodyJs: string;
+      try {
+        bodyJs = transform(src, { preamble: false });
+      } catch (e: any) {
+        htmlDslOut.textContent = `⚠ ${e?.name ?? 'Error'}${e?.line != null ? ` at ${e.line}:${e.column ?? 0}` : ''}: ${e?.message ?? e}`;
+        htmlDslPreview.srcdoc = '';
+        htmlDslStatus.textContent = 'compile error';
+        return;
+      }
+      htmlDslStatus.textContent = 'running in the shared andbox worker…';
+      const lines: string[] = [];
+      try {
+        const sb = await ensureSandbox();
+        if (disposed || my !== htmlDslGen) return;
+        const value = await sb.evaluate(sandboxHtmlProgram(bodyJs), {
+          timeoutMs: 5000,
+          onConsole: (_level, ...args) => lines.push(args.join(' ')),
+        });
+        if (disposed || my !== htmlDslGen) return;
+        const top = Array.isArray(value) ? value[value.length - 1] : undefined;
+        const html = typeof top === 'string' ? top : '';
+        htmlDslOut.textContent = html || (lines.length ? lines.join('\n') : '(no string on top of the stack — did the program end with h-render?)');
+        htmlDslPreview.srcdoc = html;
+        htmlDslStatus.textContent = html ? 'rendered — top of stack was an HTML string from h-render' : 'ran, but the top of the stack was not a string';
+      } catch (e: any) {
+        if (disposed || my !== htmlDslGen) return;
+        htmlDslOut.textContent = `⚠ ${e?.name ?? 'Error'}: ${e?.message ?? e}`;
+        htmlDslPreview.srcdoc = '';
+        htmlDslStatus.textContent = 'error';
+      }
+    }
+    let htmlDslDeb: ReturnType<typeof setTimeout> | null = null;
+    htmlDslSrc.addEventListener('input', () => {
+      if (htmlDslDeb) clearTimeout(htmlDslDeb);
+      htmlDslDeb = setTimeout(runHtmlDsl, 400);
+    });
+
     /* initial load: a deep-linked source wins over the preset's own text */
     timeoutIn.value = String(initial.timeout);
     stat('timeoutms', initial.timeout);
     legacyIn.checked = initial.legacy;
+    const isSandboxUiMode = (v: unknown): v is typeof sandboxMode =>
+      v === 'none' || v === 'bare' || v === 'restricted' || v === 'custom';
+    sandboxMode = isSandboxUiMode(initial.sandbox) ? initial.sandbox : 'none';
+    sandboxModeSel.value = sandboxMode;
+    sandboxCustomIn.value = initial.sandboxOps;
+    sandboxCustomIn.hidden = sandboxMode !== 'custom';
+    renderOpExplorer();
     const startPreset = PRESETS.find((p) => p.id === initial.preset) ?? PRESETS[1];
     loadPreset(startPreset, initial.src || undefined);
+    htmlDslSrc.value = HTML_DSL_DEFAULT;
+    void runHtmlDsl();
 
     return () => {
       disposed = true;
       gen++;
+      htmlDslGen++;
       stopPlay();
       if (debounce) clearTimeout(debounce);
+      if (sandboxCustomDeb) clearTimeout(sandboxCustomDeb);
+      if (htmlDslDeb) clearTimeout(htmlDslDeb);
       timers.forEach((t) => clearTimeout(t));
       timers.clear();
       runAbort?.abort();
