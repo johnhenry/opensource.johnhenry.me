@@ -302,7 +302,24 @@ const PRESETS: { name: string; template: string }[] = [
     name: 'Topic-shifting document',
     template: TOPIC_TEMPLATE,
   },
+  {
+    name: 'API paths (fuzz)',
+    template: '/api/{v1|v2}/{users|posts|comments|notes}/{1,500}/{profile|edit|delete|$1}',
+  },
 ];
+
+/** Slugifies a variant string into a URL path segment sequence, for the Letterpress handoff. */
+function toRequestPath(variant: string): string {
+  const slug = variant
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((seg) => encodeURIComponent(seg).replace(/%2F/gi, '/'))
+    .join('/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+  return '/' + (slug || 'x');
+}
 
 const playground: Playground = {
   id: 'spintax',
@@ -735,7 +752,40 @@ const playground: Playground = {
       getPayload: () => ({ template: TOPIC_TEMPLATE, ...generateTopicDocument() }),
     });
     toChunker.title = 'Rolls the "Topic-shifting document" preset (a different topic per paragraph) and chunks it in Chunker Scope';
-    handoffsEl.prepend(toHashish, toChunker);
+
+    // ---- fuzz handoffs: sampled variants as test inputs / request paths ----
+    const toTester = handoffButton({
+      from: 'spintax',
+      to: 'tester',
+      kind: 'spintax-fuzz-variants',
+      label: 'Send variants to Tester',
+      getPayload: () => {
+        const template = input.value;
+        const v = validateTemplate(template);
+        const total = v.ok ? computeCount(template, v.infos) : 0;
+        const { variants, stride, pulled } = v.ok ? sampleVariants(template, total, 50) : { variants: [], stride: 1, pulled: 0 };
+        return { template, variants, total: Number.isFinite(total) ? total : null, stride, pulled };
+      },
+    });
+    toTester.title = 'Samples up to 50 variants from parse()\'s lazy iterator and queues them as fuzz inputs for the Tester Console';
+
+    const toLetterpress = handoffButton({
+      from: 'spintax',
+      to: 'letterpress',
+      kind: 'spintax-fuzz-paths',
+      label: 'Send paths to Letterpress',
+      getPayload: () => {
+        const template = input.value;
+        const v = validateTemplate(template);
+        const total = v.ok ? computeCount(template, v.infos) : 0;
+        const { variants } = v.ok ? sampleVariants(template, total, 50) : { variants: [] };
+        const requests = variants.map((variant) => ({ method: 'GET', path: toRequestPath(variant) }));
+        return { template, requests };
+      },
+    });
+    toLetterpress.title = 'Slugifies up to 50 sampled variants into GET request paths, for fuzzing a Letterpress router (try the "API paths (fuzz)" preset)';
+
+    handoffsEl.prepend(toHashish, toChunker, toTester, toLetterpress);
 
     const onCopy = async () => {
       saveState(input.value);

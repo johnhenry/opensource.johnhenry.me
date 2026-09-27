@@ -1,5 +1,5 @@
 import type { Playground } from '../registry';
-import { sentence, dropoffMethods } from '@johnhenry/semantic-chunker';
+import { sentence, full, dropoffMethods } from '@johnhenry/semantic-chunker';
 import { xenova } from '@johnhenry/semantic-chunker/embed/xenova';
 import type {
   DropoffMethod,
@@ -81,6 +81,37 @@ function loadRealEmbedder(
   })();
   realEmbedPromise.catch(() => { realEmbedPromise = null; });
   return realEmbedPromise;
+}
+
+// ---------------------------------------------------------------------------
+// Third opt-in embedder: the library's own `embed/ollama` adapter talks to a
+// local Ollama server, but it does so by `import { Ollama } from "ollama"` —
+// a Node-oriented client package that isn't (and can't cleanly be) installed
+// here as a browser dependency. Rather than reimplement that adapter, this
+// planet speaks the exact same wire request Ollama's own client sends
+// (`POST /api/embeddings`, `{ model, prompt }`) straight from `fetch()`,
+// against the same default model (`nomic-embed-text:latest`) the library
+// hardcodes. This is a real network call to a real local server, not a
+// simulation — it just skips the extra client dependency. It only works if
+// Ollama is reachable from the browser: run it with
+// `OLLAMA_ORIGINS=<this site's origin> ollama serve` (or `*` for local dev),
+// since a bare `ollama serve` rejects cross-origin browser requests by CORS.
+// ---------------------------------------------------------------------------
+const OLLAMA_MODEL = 'nomic-embed-text:latest';
+
+function loadOllamaEmbedder(baseUrl: string): (text: string) => Promise<number[]> {
+  const base = baseUrl.trim().replace(/\/+$/, '') || 'http://localhost:11434';
+  return async (text: string) => {
+    const r = await fetch(`${base}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: OLLAMA_MODEL, prompt: text }),
+    });
+    if (!r.ok) throw new Error(`Ollama responded ${r.status} ${r.statusText} (is "${OLLAMA_MODEL}" pulled? try: ollama pull ${OLLAMA_MODEL})`);
+    const j = (await r.json()) as { embedding?: number[] };
+    if (!Array.isArray(j.embedding)) throw new Error('Ollama response had no "embedding" array');
+    return j.embedding;
+  };
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -477,10 +508,16 @@ const playground: Playground = {
           <div class="ck-embed-pick">
             <label class="ck-radio"><input type="radio" name="ck-emb" value="toy" checked> <span><b>toy</b> · 256-dim hashed bag-of-words <em>(default, in-page, instant)</em></span></label>
             <label class="ck-radio"><input type="radio" name="ck-emb" value="minilm" disabled data-real-radio> <span><b>real</b> · all-MiniLM-L6-v2, 384-dim <em data-real-state>(not loaded)</em></span></label>
+            <label class="ck-radio"><input type="radio" name="ck-emb" value="ollama" disabled data-ollama-radio> <span><b>ollama</b> · nomic-embed-text, local server <em data-ollama-state>(not connected)</em></span></label>
           </div>
           <button class="btn" data-load-real title="Downloads @huggingface/transformers from jsDelivr and a ~23 MB quantized model from the Hugging Face Hub, once">⬇ Use a real embedder</button>
         </div>
         <div class="ck-dl" data-dl hidden></div>
+        <div class="ck-ollama-row">
+          <input type="text" class="ck-ollama-url" data-ollama-url value="http://localhost:11434" spellcheck="false" title="Ollama server base URL">
+          <button class="btn" data-connect-ollama title="Sends a real POST /api/embeddings to this server, using @johnhenry/semantic-chunker's default model, nomic-embed-text:latest">🔌 Connect to Ollama</button>
+        </div>
+        <div class="ck-dl" data-ollama-dl hidden></div>
         <div class="ck-controls">
           <label class="field">embed concurrency<input type="range" min="1" max="12" step="1" value="4" data-f="conc"> <span class="ck-val" data-conc-val>4</span></label>
           <label class="field">toy latency (ms, simulated)<input type="range" min="0" max="120" step="5" value="15" data-f="lat"> <span class="ck-val" data-lat-val>15</span></label>
@@ -506,6 +543,16 @@ const playground: Playground = {
         </h3>
         <div class="ck-chart" data-chart></div>
         <p class="stat ck-chart-note" data-chart-note></p>
+      </div>
+
+      <div class="panel">
+        <h3 class="ck-h">fixed-size baseline <span class="stat" data-full-stats></span></h3>
+        <p class="hint">A real <code>full({ split })</code> call, run on the same document — no boundary detection, no embedder,
+          just hard slices every <b><span data-full-val>400</span></b> characters. Compare its chunk count and boundaries (dashed
+          lines below) against the semantic cuts above: <code>full()</code> can split mid-sentence and never respects topic
+          boundaries, which is exactly the gap <code>semantic()</code> exists to close.</p>
+        <label class="field">slice size (chars)<input type="range" min="60" max="1200" step="20" value="400" data-f="fullSplit"></label>
+        <div class="ck-doc ck-doc-baseline" data-full-doc></div>
       </div>
 
       <div class="panel ck-explain">
@@ -534,6 +581,16 @@ const playground: Playground = {
         <code>dropoffMethods.findSignificantDropoffs&lt;Name&gt;</code> export directly on those dropoffs to find
         boundaries. <code>Agentic</code> is greyed out: it re-embeds candidate boundaries with a real
         transformers.js model, which this toy embedder can't stand in for.</p>
+        <p><b>Ollama (opt-in).</b> The library's own <code>embed/ollama</code> subpath does <code>import { Ollama } from "ollama"</code>,
+        a Node-oriented client that isn't installed here as a browser dependency. Rather than pull that in, "Connect to Ollama"
+        sends the exact same request that client sends — <code>POST /api/embeddings</code> with
+        <code>{ model: "nomic-embed-text:latest", prompt }</code> — straight from <code>fetch()</code> to whatever base URL you give
+        it. It's a real local model, not a simulation, but it only reaches a server that allows this page's origin: start Ollama
+        with <code>OLLAMA_ORIGINS=*</code> (or this site's origin) set, and have <code>nomic-embed-text</code> pulled.</p>
+        <p><b>Fixed-size baseline.</b> The panel below runs the library's own <code>full({ split })</code> export — the chunker's
+        simplest strategy, with no embedder and no boundary detection: it just slices the document every <code>split</code>
+        characters via the library's internal splitter. It's what "chunking" means before you have an embedder at all, and it's
+        the honest baseline every dropoff method above is trying to beat.</p>
       </div>`;
     host.innerHTML = '';
     host.appendChild(root);
@@ -562,6 +619,15 @@ const playground: Playground = {
     const dlEl = $<HTMLElement>('[data-dl]');
     const spintaxBtn = $<HTMLButtonElement>('[data-preset=spintax]');
     const copyBtn = $<HTMLButtonElement>('[data-copy]');
+    const ollamaRadio = $<HTMLInputElement>('[data-ollama-radio]');
+    const ollamaState = $<HTMLElement>('[data-ollama-state]');
+    const ollamaUrlIn = $<HTMLInputElement>('[data-ollama-url]');
+    const connectOllamaBtn = $<HTMLButtonElement>('[data-connect-ollama]');
+    const ollamaDlEl = $<HTMLElement>('[data-ollama-dl]');
+    const fullSplitIn = $<HTMLInputElement>('[data-f=fullSplit]');
+    const fullValEl = $<HTMLElement>('[data-full-val]');
+    const fullStatsEl = $<HTMLElement>('[data-full-stats]');
+    const fullDocEl = $<HTMLElement>('[data-full-doc]');
 
     // ---- send chunks to Laya ----
     const toLaya = handoffButton({
@@ -575,15 +641,29 @@ const playground: Playground = {
     toLaya.disabled = true;
     root.querySelector('.ck-presets')!.appendChild(toLaya);
 
+    // ---- send chunks to Hashish, to find near-duplicate chunks ----
+    const toHashishDedupe = handoffButton({
+      from: 'chunker',
+      to: 'hashish',
+      kind: 'chunker-chunks-dedupe',
+      label: 'Send chunks to Hashish',
+      getPayload: () => ({ chunks: lastChunks.map((c) => c.text) }),
+    });
+    toHashishDedupe.title = 'Indexes every current chunk in Hashish Lab (MinHash + LSH) to find near-duplicate chunks';
+    toHashishDedupe.disabled = true;
+    root.querySelector('.ck-presets')!.appendChild(toHashishDedupe);
+
     // ---- embedders + cache ----
-    type EmbedderId = 'toy' | 'minilm';
+    type EmbedderId = 'toy' | 'minilm' | 'ollama';
     let embedderId: EmbedderId = 'toy';
     let realEmbed: ((t: string) => Promise<number[]>) | null = null;
+    let ollamaEmbed: ((t: string) => Promise<number[]>) | null = null;
     const cache = new Map<string, number[]>();
     const cacheKey = (id: EmbedderId, t: string) => `${id}\u0000${t}`;
     let destroyed = false;
     let runAbort: AbortController | null = null;
     let lastChunks: { text: string }[] = [];
+    let fullBaselineToken = 0;
 
     // ---- spintax handoff ----
     let spintaxDoc: SpintaxDocument | null = null;
@@ -607,7 +687,7 @@ const playground: Playground = {
     if (spintaxDoc) spintaxBtn.hidden = false;
 
     // ---- deep link ----
-    const stateDefaults = { preset: 'wiki', split: '', method: 'SD', overlap: 0, min: 0, max: 0, conc: 4, lat: 15, emb: 'toy', pr: {} as Record<string, number> };
+    const stateDefaults = { preset: 'wiki', split: '', method: 'SD', overlap: 0, min: 0, max: 0, conc: 4, lat: 15, emb: 'toy', full: 400, pr: {} as Record<string, number> };
     const linked = readState(stateDefaults);
     let currentPreset = String(linked.preset);
     if (handoff && spintaxDoc && handoff.kind === 'spintax-document') currentPreset = 'spintax';
@@ -643,6 +723,7 @@ const playground: Playground = {
           conc: Number(concIn.value),
           lat: Number(latIn.value),
           emb: embedderId,
+          full: Number(fullSplitIn.value) || 400,
           pr,
         },
         stateDefaults,
@@ -698,12 +779,12 @@ const playground: Playground = {
         runAbort?.abort();
         const ac = new AbortController();
         runAbort = ac;
-        const id: EmbedderId = embedderId === 'minilm' && realEmbed ? 'minilm' : 'toy';
+        const id: EmbedderId = embedderId === 'minilm' && realEmbed ? 'minilm' : embedderId === 'ollama' && ollamaEmbed ? 'ollama' : 'toy';
         const conc = Math.max(1, Number(concIn.value) || 1);
         const lat = Math.max(0, Number(latIn.value) || 0);
         let done = 0, inFlight = 0, peak = 0, cached = 0;
         const t0 = performance.now();
-        const label = id === 'minilm' ? 'all-MiniLM-L6-v2' : 'toy hashed BoW';
+        const label = id === 'minilm' ? 'all-MiniLM-L6-v2' : id === 'ollama' ? 'ollama: nomic-embed-text' : 'toy hashed BoW';
         const paintProgress = (final = false) => {
           pFill.style.width = `${segments.length ? (done / segments.length) * 100 : 100}%`;
           pFill.classList.toggle('live', !final);
@@ -719,6 +800,7 @@ const playground: Playground = {
           try {
             let vec: number[];
             if (id === 'minilm' && realEmbed) vec = await realEmbed(seg);
+            else if (id === 'ollama' && ollamaEmbed) vec = await ollamaEmbed(seg);
             else {
               if (lat > 0) await sleep(lat * (0.5 + Math.random()));
               vec = hashEmbed(seg);
@@ -770,6 +852,7 @@ const playground: Playground = {
         const chunks = groupChunks(corpus, boundaries, overlap);
         lastChunks = chunks;
         toLaya.disabled = !chunks.length;
+        toHashishDedupe.disabled = !chunks.length;
 
         // --- render document ---
         docEl.innerHTML = chunks.length
@@ -807,10 +890,45 @@ const playground: Playground = {
             chartNoteEl.textContent = 'This method doesn\'t reduce to a single similarity threshold (it\'s shape- or position-based) — cuts are still marked in red.';
           }
         }
+
+        void runFullBaseline(text, chunks.length);
       } catch (err) {
         docEl.innerHTML = `<pre class="code error">${escapeHtml(err instanceof Error ? `${err.name}: ${err.message}` : String(err))}</pre>`;
         chartEl.innerHTML = '';
         statsEl.textContent = '';
+      }
+    }
+
+    /** Runs the library's own full({ split }) fixed-size baseline chunker on the same text,
+     *  purely for comparison — no embedder, no boundary detection, just hard character slices. */
+    async function runFullBaseline(text: string, semanticChunkCount: number) {
+      const myToken = ++fullBaselineToken;
+      const splitSize = Math.max(20, Number(fullSplitIn.value) || 400);
+      fullValEl.textContent = String(splitSize);
+      if (!text.trim()) {
+        fullDocEl.innerHTML = '<p class="stat">Nothing to chunk yet.</p>';
+        fullStatsEl.textContent = '';
+        return;
+      }
+      try {
+        const slices: string[] = [];
+        for await (const [chunk] of full({ split: splitSize })(text)) {
+          if (myToken !== fullBaselineToken || destroyed) return;
+          slices.push(chunk);
+        }
+        if (myToken !== fullBaselineToken || destroyed) return;
+        fullDocEl.innerHTML = slices.length
+          ? slices
+              .map((s, i) => `<div class="ck-chunk ck-chunk-flat"><span class="ck-chunk-idx">slice ${i + 1} · ${s.length} chars</span>${escapeHtml(s)}</div>`)
+              .join('')
+          : '<p class="stat">Single slice, text is shorter than the slice size.</p>';
+        const diff = slices.length - semanticChunkCount;
+        const diffLabel = diff === 0 ? 'same count as semantic' : diff > 0 ? `${diff} more than semantic's ${semanticChunkCount}` : `${-diff} fewer than semantic's ${semanticChunkCount}`;
+        fullStatsEl.textContent = `${slices.length} slice${slices.length === 1 ? '' : 's'} of ≤${splitSize} chars · ${diffLabel}`;
+      } catch (err) {
+        if (myToken !== fullBaselineToken || destroyed) return;
+        fullDocEl.innerHTML = `<pre class="code error">${escapeHtml(err instanceof Error ? `${err.name}: ${err.message}` : String(err))}</pre>`;
+        fullStatsEl.textContent = '';
       }
     }
 
@@ -970,6 +1088,33 @@ const playground: Playground = {
       }
     };
 
+    const onConnectOllama = async () => {
+      connectOllamaBtn.disabled = true;
+      connectOllamaBtn.textContent = '⏳ connecting…';
+      ollamaDlEl.hidden = false;
+      const baseUrl = ollamaUrlIn.value.trim() || 'http://localhost:11434';
+      ollamaDlEl.innerHTML = `<p class="stat">Sending a real <code>POST ${escapeHtml(baseUrl)}/api/embeddings</code> with <code>{ model: "${OLLAMA_MODEL}" }</code>…</p>`;
+      try {
+        const fn = loadOllamaEmbedder(baseUrl);
+        await fn('warm-up'); // real request: confirms the server is reachable, CORS-allowed, and has the model pulled
+        if (destroyed) return;
+        ollamaEmbed = fn;
+        ollamaRadio.disabled = false;
+        ollamaRadio.checked = true;
+        embedderId = 'ollama';
+        ollamaState.textContent = `(connected — ${baseUrl})`;
+        connectOllamaBtn.textContent = '✓ connected';
+        ollamaDlEl.innerHTML = `<p class="stat">✓ ${escapeHtml(baseUrl)} answered with a real embedding from <code>${OLLAMA_MODEL}</code>.</p>`;
+        saveState();
+        schedule(0);
+      } catch (err) {
+        if (destroyed) return;
+        connectOllamaBtn.disabled = false;
+        connectOllamaBtn.textContent = '🔌 Retry connect';
+        ollamaDlEl.innerHTML = `<pre class="code error">Couldn't reach Ollama at ${escapeHtml(baseUrl)}: ${escapeHtml(err instanceof Error ? err.message : String(err))}\nMake sure "ollama serve" is running with OLLAMA_ORIGINS set to allow this page's origin (a bare CORS rejection shows up here as a generic "Failed to fetch"). The toy embedder is still active.</pre>`;
+      }
+    };
+
     root.addEventListener('click', onPresetClick);
     ta.addEventListener('input', onInput);
     splitModeSel.addEventListener('change', onControl);
@@ -984,6 +1129,8 @@ const playground: Playground = {
     root.addEventListener('change', onEmbPick);
     copyBtn.addEventListener('click', onCopy);
     loadRealBtn.addEventListener('click', onLoadReal);
+    connectOllamaBtn.addEventListener('click', onConnectOllama);
+    fullSplitIn.addEventListener('input', () => { fullValEl.textContent = fullSplitIn.value; void runFullBaseline(ta.value, lastChunks.length); saveState(); });
 
     // ---- initial state from deep link (+ handoff) ----
     if (!applyPreset(currentPreset)) { currentPreset = 'wiki'; applyPreset('wiki'); }
@@ -997,10 +1144,15 @@ const playground: Playground = {
     latIn.value = String(Math.min(120, Math.max(0, Number(linked.lat) || 0)));
     concVal.textContent = concIn.value;
     latVal.textContent = latIn.value;
+    fullSplitIn.value = String(Math.min(1200, Math.max(60, Number(linked.full) || 400)));
+    fullValEl.textContent = fullSplitIn.value;
     if (linked.emb === 'minilm') {
       // opt-in stays opt-in: a shared link only *suggests* the real embedder.
       loadRealBtn.classList.add('ck-suggest');
       realState.textContent = '(this link used it — click "Use a real embedder" to download)';
+    } else if (linked.emb === 'ollama') {
+      connectOllamaBtn.classList.add('ck-suggest');
+      ollamaState.textContent = '(this link used it — click "Connect to Ollama" to reconnect)';
     }
     saveState();
 

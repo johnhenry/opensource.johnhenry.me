@@ -130,6 +130,14 @@
 .pg-hashish .match-line .rank { display: inline-block; font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); margin-right: 4px; }
 .pg-hashish .match-line .rank.top { border-color: var(--accent); color: var(--accent); }
 
+/* ---- storage backend + snapshot ---- */
+.pg-hashish .storage-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.pg-hashish .storage-radio { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.pg-hashish .storage-radio b { color: var(--ink); font-family: var(--f-mono); }
+.pg-hashish .storage-radio em { color: var(--ink-3); font-style: normal; font-size: 11px; }
+.pg-hashish .storage-radio input { accent-color: var(--accent); }
+.pg-hashish #storage-status, .pg-hashish #snapshot-status { color: var(--accent); font-family: var(--f-mono); font-size: 11.5px; }
+
 .pg-hashish .query-bands-wrap { margin: 10px 0 12px; padding: 10px; border: 1px solid var(--accent-border); border-radius: 8px; background: var(--accent-soft); }
 .pg-hashish .qb-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
 .pg-hashish .query-bands { display: flex; flex-wrap: wrap; gap: 4px; }
