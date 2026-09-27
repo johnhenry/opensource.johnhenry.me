@@ -53,6 +53,40 @@ import { mountConductor } from './conductor';
 // pre.code block and the source drawer. See src/code-highlight.ts.
 import { installCodeHighlighter } from './code-highlight';
 
+// Stale-deploy recovery: every push to main rebuilds and overwrites
+// orrery/dist/assets/ with freshly content-hashed filenames, so a tab left
+// open (or a cached copy of the JS entry) across a deploy ends up asking for
+// a chunk/CSS file that no longer exists on the server -- Vite's own dynamic
+// `import()` (used for every planet's `entry.load()` below) then rejects
+// with e.g. "Unable to preload CSS for /orrery/assets/<name>-<hash>.css" or
+// "Failed to fetch dynamically imported module". The fix isn't in the code
+// that failed -- it's stale, so a full reload (fetching the current
+// index.html, which references the current hashes) is the real recovery,
+// not a normal error to show in the room's error pane. Guarded against a
+// reload loop (e.g. the asset is ACTUALLY missing/the deploy is broken) by
+// only auto-reloading once per browser session.
+const STALE_CHUNK_RE = /unable to preload css|failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i;
+const RELOAD_GUARD_KEY = 'orrery-stale-chunk-reload-at';
+const RELOAD_GUARD_WINDOW_MS = 30_000; // long enough to break a tight loop if the deploy is actually broken server-side, short enough that a tab left open across a LATER deploy still self-heals
+function isStaleChunkError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return STALE_CHUNK_RE.test(msg);
+}
+function recoverFromStaleChunk(): boolean {
+  const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) ?? 0);
+  if (Date.now() - last < RELOAD_GUARD_WINDOW_MS) return false; // just tried -- don't loop
+  sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
+  location.reload();
+  return true;
+}
+// Vite also dispatches this event directly for module-preload failures that
+// don't always surface as a rejected import() (see Vite's "Load Error
+// Handling" docs) -- belt-and-braces alongside the route()-level catch below.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  recoverFromStaleChunk();
+});
+
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
 
@@ -143,6 +177,7 @@ async function route() {
     if (typeof c === 'function') cleanup = c;
   } catch (err) {
     if (token !== routeToken) return;
+    if (isStaleChunkError(err) && recoverFromStaleChunk()) return; // reloading -- don't paint the error pane at all
     host.className = 'error';
     host.textContent = `This planet failed to load.\n\n${(err as Error)?.stack ?? err}`;
     console.error(err);
