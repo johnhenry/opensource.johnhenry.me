@@ -291,7 +291,7 @@ export function installHarRecorder(): void {
   root.setAttribute('data-har-recorder', '');
   root.innerHTML = `
     <button type="button" class="har-rec-toggle" data-har-toggle title="Site-wide HAR recorder">
-      <span class="har-rec-dot"></span>HAR <span class="har-rec-count" data-har-count>0</span>
+      <span class="har-rec-dot"></span><span class="har-rec-label">HAR <span class="har-rec-count" data-har-count>0</span></span>
     </button>
     <aside class="har-rec-drawer" data-har-drawer hidden>
       <div class="har-rec-head">

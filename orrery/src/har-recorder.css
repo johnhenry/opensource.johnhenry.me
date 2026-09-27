@@ -1,16 +1,23 @@
 /* Site-wide HAR recorder (ROADMAP 4.3). Fixed overlay, independent of any
    room — deliberately NOT scoped under a .pg-<id> root. */
 
+/* Collapsed by default (a small round handle, like the Tensor Telemetry
+   dock) — stacked directly above that dock's own 44px collapsed circle
+   (right:14/bottom:14) so the two never overlap. Only the status dot shows
+   until you click; the "HAR N" label and count badge appear once open. */
 .har-rec-toggle {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  right: 14px;
+  bottom: 66px;
   z-index: 80;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 50%;
   border: 1px solid var(--line);
   background: var(--bg-panel);
   color: var(--ink-2);
@@ -18,15 +25,24 @@
   font-size: 12px;
   cursor: pointer;
   box-shadow: 0 8px 24px rgb(0 0 0 / .35);
+  transition: width .15s ease, height .15s ease, border-radius .15s ease, padding .15s ease;
+}
+.har-rec-toggle.is-open {
+  width: auto;
+  height: auto;
+  padding: 8px 12px;
+  border-radius: 999px;
 }
 .har-rec-toggle:hover, .har-rec-toggle.is-open { color: var(--ink); border-color: var(--accent-border); }
-.har-rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.har-rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex: none; }
+.har-rec-label { display: none; }
+.har-rec-toggle.is-open .har-rec-label { display: inline; }
 .har-rec-count { color: var(--accent); font-weight: 600; }
 
 .har-rec-drawer {
   position: fixed;
-  right: 18px;
-  bottom: 66px;
+  right: 14px;
+  bottom: 118px;
   z-index: 85;
   width: min(460px, calc(100vw - 36px));
   max-height: min(60vh, 640px);
