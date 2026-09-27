@@ -603,7 +603,7 @@ const playground: Playground = {
     // Priority on load: an incoming handoff (e.g. from the HTTP Converter's
     // "Structured headers" panel) wins, then a shareable deep link, then the
     // first preset.
-    const handoff = receive<{ name: string; value: string; type: FType | 'auto' }>();
+    const handoff = receive<{ name: string; value: string; type: FType | 'auto' }>('fields');
     if (handoff && handoff.kind === 'header-field') {
       nameIn.value = handoff.payload.name;
       valueTa.value = handoff.payload.value;

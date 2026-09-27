@@ -478,7 +478,7 @@ const playground: Playground = {
   docs: 'https://opensource.johnhenry.me/ecmanim/',
   mount(host) {
     // Pick up a scene exported from another planet (Math Observatory) before anything else.
-    const incoming: Handoff | null = receive();
+    const incoming: Handoff | null = receive('ecmanim');
     const DEFAULTS = { scene: PRESETS[0].id, speed: 1, gen: '' };
     const st = readState(DEFAULTS);
     let generated: Generated | null = null;

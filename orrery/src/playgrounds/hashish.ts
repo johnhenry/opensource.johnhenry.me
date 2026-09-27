@@ -291,7 +291,7 @@ export default {
     let minShared = clampNum(linked.link, 1, 30, 3);
     let initialQuery = linked.q;
 
-    const handoff = receive<SpintaxVariants>();
+    const handoff = receive<SpintaxVariants>('hashish');
     let handoffDocs: string[] | null = null;
     if (handoff && handoff.kind === 'spintax-variants' && Array.isArray(handoff.payload?.variants)) {
       const variants = handoff.payload.variants.filter((v) => typeof v === 'string' && v.trim().length >= 5);

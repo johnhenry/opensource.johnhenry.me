@@ -578,7 +578,7 @@ const playground: Playground = {
       const saved = sessionStorage.getItem(SPINTAX_DOC_KEY);
       if (saved) spintaxDoc = JSON.parse(saved);
     } catch { /* ignore */ }
-    const handoff = receive<SpintaxDocument>();
+    const handoff = receive<SpintaxDocument>('chunker');
     if (handoff && handoff.kind === 'spintax-document' && typeof handoff.payload?.document === 'string') {
       spintaxDoc = handoff.payload;
       try { sessionStorage.setItem(SPINTAX_DOC_KEY, JSON.stringify(spintaxDoc)); } catch { /* ignore */ }
