@@ -67,8 +67,13 @@
 .site-drawer .sdw-tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  /* was 6px 14px -> ~30px tall, measured live on iPhone 13 emulation; under
+     the ~40px comfortable touch target (Apple HIG / Material). */
+  padding: 6px 16px;
+  min-height: 40px;
+  box-sizing: border-box;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: none;
@@ -83,6 +88,15 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  /* This panel is pinned to the physical bottom edge (`.site-drawer-overlay`
+     is `bottom: 0`), so its last row of content/buttons can sit right under
+     an iPhone's home-indicator gesture bar. `env()` only returns a non-zero
+     value with `viewport-fit=cover` on the viewport meta tag (set in
+     index.html) AND on an actual notched/home-indicator device -- 0
+     everywhere else (incl. this repo's Chromium-based test harness, which
+     doesn't emulate safe-area insets), so this is a no-op fallback until
+     `env()` resolves to something real. */
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 .site-drawer .sdw-pane[hidden] { display: none; }
 

@@ -200,6 +200,30 @@ export function initChrome(opts: {
     openKey: '', // this site already owns "/" inside textareas/inputs on every room; ⌘K only
   });
 
+  // ---- palette scroll-lock (mobile) --------------------------------------
+  // Confirmed live (Playwright + CDP touch swipe on an iPhone-13 emulation):
+  // the page behind the palette's backdrop scrolls right through it on
+  // touch, since neither palette.js nor its CSS lock document scroll while
+  // open (the site drawer, right below, does NOT have this problem -- its
+  // own full-bleed fixed overlay already blocks scroll-through natively, so
+  // it's left alone). palette.js's `open()`/`close()` are the only two ways
+  // the palette's backdrop gets its `.open` class -- but they can be invoked
+  // either by our own trigger button (below) OR by the library's own
+  // internal window "/"/Cmd-K keydown listener, which this module doesn't
+  // control -- so this watches the backdrop's class list directly instead
+  // of wrapping the returned `palette.open`/`palette.close`, to catch every
+  // path that opens it. `createCommandPalette()` just synchronously appended
+  // exactly one new `.c-palette-backdrop` to `document.body` above; grab
+  // that specific node now, before any other instance (e.g. the Circuit
+  // Gallery room's own palette demo) could exist.
+  const paletteBackdrop = document.body.querySelector<HTMLElement>('.c-palette-backdrop');
+  if (paletteBackdrop) {
+    const syncScrollLock = () => {
+      document.documentElement.classList.toggle('palette-open', paletteBackdrop.classList.contains('open'));
+    };
+    new MutationObserver(syncScrollLock).observe(paletteBackdrop, { attributes: true, attributeFilter: ['class'] });
+  }
+
   drawerBtn.addEventListener('click', () => toggleSiteDrawer());
 
   // ---- source drawer -------------------------------------------------
