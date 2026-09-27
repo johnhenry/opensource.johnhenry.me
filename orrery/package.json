@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "node": "node server/index.mjs",
-    "build:subpath": "ORRERY_BASE=/orrery/ vite build --outDir ../public/orrery --emptyOutDir"
+    "build:subpath": "ORRERY_BASE=/orrery/ vite build --outDir ../public/orrery --emptyOutDir",
+    "test:headless": "node scripts/run-tests-headless.mjs"
   },
   "dependencies": {
     "@erisera-code/circuit": "^0.1.1",
@@ -82,6 +83,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "playwright": "^1.63.0",
     "typescript": "^5.6.0",
     "vite": "^7.0.0"
   },

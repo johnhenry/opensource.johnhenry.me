@@ -25,6 +25,16 @@ type Assertion = string | InstanceType<typeof TestError>;
 type Plan = (n: number) => void;
 type TestFn = (plan?: Plan) => AsyncGenerator<Assertion> | Generator<Assertion>;
 
+/** Shape of the `window.__ORRERY_TESTER_DONE__` completion marker (roadmap 4.5). */
+interface TesterRunResult {
+  at: number;
+  ms: number;
+  tests: number;
+  pass: number;
+  fail: number;
+  suites: Array<{ id: string; roomId?: string; pass: number; fail: number }>;
+}
+
 interface Suite {
   id: string;
   name: string;
@@ -1163,6 +1173,11 @@ const playground: Playground = {
       let totalPass = 0;
       let totalFail = 0;
       let totalTests = 0;
+      // roadmap 4.5 (CI badge): per-suite tallies, folded into the completion
+      // marker below so a headless script driving ?autorun=1 can read the
+      // whole run's results back in one page.evaluate() call, no DOM/TAP
+      // scraping needed.
+      const suiteResults: Array<{ id: string; roomId?: string; pass: number; fail: number }> = [];
       for (const suite of toRun) {
         if (state.cancelled) break;
         const { pass: p, fail: f } = await streamTapDocument(
@@ -1175,11 +1190,24 @@ const playground: Playground = {
         totalPass += p;
         totalFail += f;
         totalTests += p + f;
+        suiteResults.push({ id: suite.id, roomId: suite.roomId, pass: p, fail: f });
         if (suite.roomId) setRoomTests(suite.roomId, { pass: p, fail: f });
         if (!state.cancelled) await typeLine(term, '', state);
       }
       if (!state.cancelled) {
-        renderSummary(summaryEl, totalTests, totalPass, totalFail, performance.now() - t0);
+        const ms = performance.now() - t0;
+        renderSummary(summaryEl, totalTests, totalPass, totalFail, ms);
+        // Minimal completion marker for build-time headless runs (roadmap
+        // 4.5): scripts/run-tests-headless.mjs polls for this global via
+        // page.waitForFunction() instead of guessing a timeout.
+        (window as unknown as { __ORRERY_TESTER_DONE__?: TesterRunResult }).__ORRERY_TESTER_DONE__ = {
+          at: Date.now(),
+          ms,
+          tests: totalTests,
+          pass: totalPass,
+          fail: totalFail,
+          suites: suiteResults,
+        };
       }
       suiteRunning = false;
       runSuiteBtn.disabled = false;
