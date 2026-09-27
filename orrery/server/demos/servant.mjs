@@ -115,7 +115,7 @@ export async function mount(app) {
   }
 
   // ---- the real servant server, port 7779 -------------------------------
-  await start({ port: PORT });
+  await start({ port: PORT, host: process.env.ORRERY_HOST || '127.0.0.1' });
 
   // CORS for the browser planet (vite :5173 or a deployed site) calling this port directly.
   const CORS = {

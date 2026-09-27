@@ -77,6 +77,10 @@ Spintax → Hashish and Chunker (generated corpora), Domable → JSX Studio (sca
 (structured headers). Every planet is deep-linkable (`#/<planet>?k=v`) with a copy-link button, ⌘K jumps between planets,
 a source drawer shows each planet's module, and the Tester Console's results appear as badges on the planets.
 
+## What's next
+
+[ROADMAP.md](./ROADMAP.md) is the plan from the last deep dive over every library: P0 fixes, seven tier-1 synergies (an agent-protocols switchboard, the model calling MCP tools, an Ecmanim studio with physics, the handoff bus across tabs, a real math server behind Agent Query, a deploy/pipeline tab, Raijin across tabs), a level-up per planet, site-wide mechanisms, and the upstream findings.
+
 ## Architecture
 
 Vite + vanilla TypeScript, no framework. `src/registry.ts` lists the planets; each planet is one module in
