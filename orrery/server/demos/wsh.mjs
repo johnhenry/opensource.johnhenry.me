@@ -11,8 +11,8 @@
  * The same `createWshHost()` runs in two places:
  *   - the ORRERY companion (`npm run node`): mount(app) serves it over
  *     app.ws('/wsh') on port 7777, with a sandbox dir in os.tmpdir() and a
- *     key allowlist the room fills via POST /wsh/authorize (dev convenience);
- *   - the browser: the Web Shell room imports createWshHost + memoryVfs and
+ *     key allowlist the planet fills via POST /wsh/authorize (dev convenience);
+ *   - the browser: the Web Shell planet imports createWshHost + memoryVfs and
  *     attaches it to one end of a MessageChannel, so the in-page stand-in
  *     speaks byte-identical QMux/CBOR to the real thing.
  * This module therefore imports nothing Node-specific at the top level.
@@ -679,7 +679,7 @@ export async function mount(app) {
     note: 'restricted host: built-in commands only, never a real shell',
   }));
 
-  // Dev convenience: the room registers its key so the Ed25519 path is real.
+  // Dev convenience: the planet registers its key so the Ed25519 path is real.
   app.route('POST', '/wsh/authorize', async (req) => {
     try {
       const body = await req.json();

@@ -1,8 +1,8 @@
 # ORRERY companion
 
 `npm run node` starts an **optional** Node companion on `http://localhost:7777`. It's
-never required — every room in the site works without it, falling back to an
-in-page stand-in. When it *is* running, rooms that have a server side talk to
+never required — every planet in the site works without it, falling back to an
+in-page stand-in. When it *is* running, planets that have a server side talk to
 the real library instead.
 
 `GET /orrery.json` (CORS-enabled) lists every demo the companion mounted, and
@@ -39,10 +39,10 @@ a machine where the package isn't installed, isn't buildable, or is the wrong
 OS/arch. `GET /afm/status` reports exactly why it isn't available (`wrong-os`,
 `wrong-arch`, `not-installed`, `import-error`, or Apple's own `Availability`
 reason such as `appleIntelligenceNotEnabled` / `modelNotReady`), plus the
-detected `os`/`arch`/`node` version, so the room can show an honest status
+detected `os`/`arch`/`node` version, so the planet can show an honest status
 card instead of guessing.
 
-Without it installed, the `afm` room in the browser still renders a full,
+Without it installed, the `afm` planet in the browser still renders a full,
 useful "API surface stand-in": it shows the wrapper's real option surface
 (`temperature`, `maximumResponseTokens`, `sampling`, `Instructions`), the
 exact JSON request it would send, and a canned response shaped like a real

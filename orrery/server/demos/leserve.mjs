@@ -1,14 +1,14 @@
 /**
- * Companion demo for the "leserve" room. Runs a REAL @johnhenry/leserve
+ * Companion demo for the "leserve" planet. Runs a REAL @johnhenry/leserve
  * serve() server on its own port (the companion itself owns 7777, so this
  * gets 7778 — reported below via `describe`, which lands in /orrery.json).
  *
- * The room's browser-side handler-source editor is synced here by POSTing
+ * The planet's browser-side handler-source editor is synced here by POSTing
  * the source text to `/leserve/handler` (a route on the companion, port
  * 7777); we compile it with `new Function` (a local dev tool — never do
  * this with untrusted input in production) and swap the live handler the
  * real server on 7778 dispatches to, so edits take effect without a
- * restart. GET reads the current source back (used by the room to confirm
+ * restart. GET reads the current source back (used by the planet to confirm
  * what's live).
  */
 import serve from '@johnhenry/leserve/serve';

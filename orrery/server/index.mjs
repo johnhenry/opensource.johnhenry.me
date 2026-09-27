@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ORRERY companion — OPTIONAL. `npm run node` starts it on http://localhost:7777.
- * Rooms probe GET /orrery.json; if it answers they use the real servers, otherwise
+ * Planets probe GET /orrery.json; if it answers they use the real servers, otherwise
  * they fall back to in-page stand-ins. Each demo lives in ./demos/<id>.mjs and exports
  * { id, describe, mount(app) }. A demo that throws is reported, never fatal.
  */
@@ -25,7 +25,7 @@ process.on('uncaughtException', (e) => {
 process.on('unhandledRejection', (e) => { console.error(`[companion] unhandled rejection: ${e?.message || e}`); });
 
 // CORS: the site runs on another origin (vite :5173, or a deployed https site) and talks to this
-// localhost process. Wildcards cover every room; no credentials are ever used. The private-network
+// localhost process. Wildcards cover every planet; no credentials are ever used. The private-network
 // header answers Chrome's Private Network Access preflight when a public https page calls localhost.
 const CORS = {
   'access-control-allow-origin': '*',

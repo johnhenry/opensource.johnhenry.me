@@ -1,12 +1,12 @@
 import { createRouter } from '@johnhenry/letterpress';
 
 export const id = 'letterpress';
-export const describe = 'the same REST-ish notes preset the room ships, served for real over HTTP under /letterpress/*';
+export const describe = 'the same REST-ish notes preset the planet ships, served for real over HTTP under /letterpress/*';
 
 /**
  * @johnhenry/letterpress does not export a `serve` function, and
  * @johnhenry/leserve's `serve()` binds its own http(s) server — it can't
- * share the companion's single listener on port 7777. So per the room's
+ * share the companion's single listener on port 7777. So per the planet's
  * README instructions, the router is mounted directly on the companion's
  * own dispatcher via a wildcard route, with the `/letterpress` prefix
  * stripped before the request reaches the router (whose patterns — GET
