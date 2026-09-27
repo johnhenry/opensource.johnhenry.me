@@ -1,62 +1,17 @@
-/* Laya as a judge, everywhere (ROADMAP 4.10) — fixed, collapsible,
-   site-wide. Next slot above the identity panel (right:14/bottom:118), so
-   each collapsed bubble adds another 52px up the right-edge stack. */
+/* Laya as a judge, everywhere (ROADMAP 4.10) — content styling only. This
+   used to be a fixed, collapsible corner dock; it now renders inside a Dev
+   Drawer tab pane (see src/dev-drawer.ts/.css), which owns all
+   positioning/collapse chrome. Scoped under .laya-judge-pane; do not rely
+   on any room's CSS. */
 
-.laya-judge {
-  position: fixed;
-  right: 14px;
-  bottom: 170px;
-  z-index: 90;
-  width: 340px;
-  max-width: calc(100vw - 28px);
-  font-family: var(--f-mono);
-  font-size: 12px;
-  color: var(--ink);
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
-  overflow: hidden;
-  transition: width .15s ease, height .15s ease, border-radius .15s ease;
-}
-.laya-judge.collapsed { width: 44px; height: 44px; border-radius: 50%; }
-
-.lj-handle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  background: none;
-  border: none;
-  color: var(--ink);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-.lj-handle:hover { background: var(--bg-inset); }
-.laya-judge.collapsed .lj-handle { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
-.laya-judge.collapsed .lj-title,
-.laya-judge.collapsed .lj-spacer,
-.laya-judge.collapsed .lj-caret { display: none; }
-.laya-judge.collapsed .lj-dot { width: 12px; height: 12px; }
-
-.lj-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3, #666); flex: none; }
-.lj-title { font-weight: 600; letter-spacing: .01em; }
-.lj-spacer { flex: 1; }
-.lj-caret { color: var(--ink-2); transition: transform .15s; }
-.laya-judge.collapsed .lj-caret { transform: rotate(-90deg); }
-
-.lj-body {
-  border-top: 1px solid var(--line);
-  padding: 10px 12px 12px;
+.laya-judge-pane {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 70vh;
-  overflow: auto;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--ink);
 }
-.laya-judge.collapsed .lj-body { display: none; }
 
 .lj-load { display: flex; flex-direction: column; gap: 8px; }
 .lj-load .stat { color: var(--ink-2); line-height: 1.5; }
@@ -64,7 +19,7 @@
 .lj-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-inset); overflow: hidden; }
 .lj-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 .lj-progress-text { color: var(--ink-2); font-size: 11px; white-space: nowrap; }
-.lj-load-err { color: #ff6a6a; }
+.lj-load-err { color: var(--error, #ff6a6a); }
 
 .lj-ready { display: flex; flex-direction: column; gap: 14px; }
 .lj-section { display: flex; flex-direction: column; gap: 6px; }
@@ -84,15 +39,15 @@
 
 .lj-verdict { font-weight: 600; padding: 4px 0; }
 .lj-verdict.lj-ok { color: var(--accent); }
-.lj-verdict.lj-bad { color: #ff6a6a; }
+.lj-verdict.lj-bad { color: var(--error, #ff6a6a); }
 .lj-approve-row { display: flex; gap: 8px; margin-top: 4px; }
 
 .lj-resp { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; background: var(--bg-inset); }
-.lj-resp.lj-bad { border-color: #ff6a6a55; }
+.lj-resp.lj-bad { border-color: color-mix(in srgb, var(--error, #ff6a6a) 35%, transparent); }
 .lj-resp.lj-winner { border-color: var(--accent); }
 .lj-resp-head { display: flex; align-items: center; gap: 8px; }
 .lj-resp-head .stat { margin-left: auto; }
 .lj-badge { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; }
 .lj-resp-text { font-size: 11.5px; line-height: 1.5; margin: 4px 0; }
 
-.stat { color: var(--ink-2); }
+.laya-judge-pane .stat { color: var(--ink-2); }
