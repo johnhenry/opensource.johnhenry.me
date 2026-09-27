@@ -3,6 +3,7 @@ title: laya-js
 description: Laya typed-decision models (choice / score / yes-no) in JavaScript — on native MLX, WebGPU, or a pure-TypeScript CPU reference, bit-identical to Python laya-mlx on MLX, with optional q8/q4 checkpoints.
 sidebar:
   order: 0
+planet: laya
 ---
 
 laya-js runs the published [Laya](https://github.com/NandhaKishorM/laya) checkpoints in JavaScript. You give it a **state** (text or JSON) and a set of typed **questions**, and it returns calibrated answers:

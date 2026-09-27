@@ -1,6 +1,7 @@
 ---
 title: "temporals"
 description: "Lazy sequences, ranges, intervals, and RRULE recurrence built on the TC39 Temporal API — with cron, business time, humanizing, and iCalendar as subpaths."
+planet: temporals
 ---
 
 **`@johnhenry/temporals`** is the sequence layer Temporal doesn't ship.

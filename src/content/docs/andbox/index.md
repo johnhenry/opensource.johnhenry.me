@@ -1,6 +1,7 @@
 ---
 title: "andbox"
 description: "Run JavaScript in its own Web Worker context with capability-gated RPC, import maps, rate limits, and hard-kill timeouts — zero dependencies. Not a security sandbox."
+planet: andbox
 ---
 
 andbox runs JavaScript in a dedicated Web Worker with a structured bridge back to the host. Code in that Worker can call host-provided "capabilities" via RPC, use import-mapped packages, and define virtual modules -- all with configurable rate limits, timeouts, and hard-kill semantics.

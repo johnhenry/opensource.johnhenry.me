@@ -1,6 +1,7 @@
 ---
 title: "fileable"
 description: "Declaratively describe filesystem artifacts — files, directories, deletions — using JSX, with Docker-flavored build discipline: content-hash caching, three interchangeable output shapes, and a filesystem-to-JSX reverse mode."
+planet: studio
 ---
 
 **`@johnhenry/fileable`** renders a JSX tree into real files and directories instead of a DOM. Three primitives — `Dir`, `File`, `Rm` — compose the same way any JSX does, but the output is a filesystem: static sites, scaffolded project skeletons, config bundles, build artifacts. `src` can pull in a local file, fetch a URL, `cmd` can shell out (opt-in), and content-hash caching (`.fileable-lock.json`) skips writing anything that hasn't actually changed.

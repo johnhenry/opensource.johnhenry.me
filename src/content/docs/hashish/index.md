@@ -1,6 +1,7 @@
 ---
 title: "hashish"
 description: "Locality-Sensitive Hashing (MinHash) for fast, scalable approximate nearest-neighbor / similarity search over text. TypeScript, zero native dependencies, pluggable storage (in-memory or Redis)."
+planet: hashish
 ---
 
 **`@johnhenry/hashish`** implements

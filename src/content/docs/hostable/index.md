@@ -1,6 +1,7 @@
 ---
 title: "hostable"
 description: "Declaratively describe an API gateway using JSX — routes across multiple domains/backend services by Host header, on top of servable's single-app (Request) => Response dispatcher."
+planet: studio
 ---
 
 **`@johnhenry/hostable`** describes an API gateway as JSX — routing across

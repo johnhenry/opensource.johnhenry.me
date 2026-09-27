@@ -1,6 +1,7 @@
 ---
 title: "tester"
 description: "A zero-dependency TAP testing framework that runs unchanged in Node, Deno, and the browser — tests are generators that yield assertion results."
+planet: tester
 ---
 
 **`@johnhenry/tester`** is a [tape](https://github.com/tape-testing/tape)-inspired

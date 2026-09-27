@@ -1,6 +1,7 @@
 ---
 title: browsermesh
 description: Peer-to-peer mesh networking for browser environments — cryptographic identity, CRDTs, virtual sockets, transport, sync, discovery, and a capability-secure microkernel across ten packages.
+planet: mesh
 ---
 
 browsermesh is peer-to-peer mesh networking for browser environments: cryptographic identity (Ed25519), CRDTs for state that merges instead of conflicting, capability-based trust and access control, a BSD-socket-style virtual network, and the higher-level building blocks — transport, sync, discovery, and an application runtime — that sit on top.

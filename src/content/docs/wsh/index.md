@@ -1,6 +1,7 @@
 ---
 title: "wsh"
 description: "Browser-native remote command execution over WebTransport and WebSocket, with Ed25519 authentication and a QMux-multiplexed wire."
+planet: wsh
 ---
 
 **`@johnhenry/wsh`** ("Web Shell") is a browser-native remote command

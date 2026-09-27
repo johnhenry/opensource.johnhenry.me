@@ -1,6 +1,7 @@
 ---
 title: "aimatey-middleware-andbox"
 description: "aimatey middleware for code-based tool execution: lets LLMs without native tool calling use tools by writing code, run sandboxed via andbox."
+planet: toolcode
 ---
 
 > Previously published as `ai-matey-middleware-andbox@0.1.1`.

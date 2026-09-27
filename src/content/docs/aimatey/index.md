@@ -1,6 +1,7 @@
 ---
 title: "aimatey"
 description: "Introduction to aimatey, the Universal AI Adapter System: one interface for many AI providers with routing, middleware, and streaming."
+planet: aimatey
 ---
 
 Welcome to **aimatey** - the Universal AI Adapter System that lets you write once and run anywhere.

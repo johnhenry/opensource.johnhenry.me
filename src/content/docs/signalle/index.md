@@ -1,6 +1,7 @@
 ---
 title: "signalle"
 description: "A beautiful, modern JavaScript signals library with optional DOM integration — fine-grained reactivity with a simple API, plus server-side streaming, scoped isolation, and cross-tab broadcast signals."
+planet: signalle
 ---
 
 **`signalle`** is a JavaScript signals library with optional DOM

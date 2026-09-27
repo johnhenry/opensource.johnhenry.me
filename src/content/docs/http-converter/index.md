@@ -1,6 +1,7 @@
 ---
 title: "http-converter"
 description: "A modern, browser-compatible HTTP format converter library. Transform between HTTP strings, HAR (HTTP Archive), cURL commands, and Fetch API calls."
+planet: converter
 ---
 
 **`@johnhenry/http-converter`** is a modern, browser-compatible HTTP format

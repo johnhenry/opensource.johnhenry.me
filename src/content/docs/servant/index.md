@@ -1,6 +1,7 @@
 ---
 title: "servant"
 description: "A self-contained, batteries-included HTTP/HTTPS server with built-in routing, middleware, and WebSocket support, dispatched through a service-worker-style addEventListener('fetch', ...) API."
+planet: servant
 ---
 
 **`@johnhenry/servant`** is a self-contained, batteries-included HTTP/HTTPS

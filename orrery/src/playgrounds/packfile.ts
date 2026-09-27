@@ -35,6 +35,14 @@ function bytesOf(f: VFile): Uint8Array {
   return f.kind === 'text' ? enc.encode(f.text ?? '') : (f.data ?? new Uint8Array());
 }
 
+/** Decodes a base64 string (as sent by studio.ts's handoff payload) back to bytes. */
+function fromBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
 /* ---- a tiny deterministic-ish PNG, drawn on a real canvas ---- */
 function makePng(seed: number, size = 48): Uint8Array {
   const c = document.createElement('canvas');
@@ -155,13 +163,23 @@ const playground: Playground = {
     let pngSeed = 8;
     let handoffHtml = '';
 
-    const h = receive<{ files: { path: string; content: string }[] }>();
+    const h = receive<{ files: { path: string; content: string; encoding?: 'utf8' | 'base64' }[]; droppedSymlinks?: number }>('packfile');
     if (h && h.kind === 'fileable-tree' && h.payload?.files?.length) {
-      files = new Map(h.payload.files.map((f) => [f.path, textFile(f.path, f.content)] as const));
+      files = new Map(
+        h.payload.files.map((f) => {
+          const vf: VFile = f.encoding === 'base64' ? { path: f.path, kind: 'binary', data: fromBase64(f.content) } : textFile(f.path, f.content);
+          return [f.path, vf] as const;
+        }),
+      );
       state.preset = '';
       const htmlFile = h.payload.files.find((f) => /\.html?$/.test(f.path));
       state.alias = htmlFile?.path ?? h.payload.files[0].path;
-      handoffHtml = handoffBanner(h, `Received ${h.payload.files.length} file${h.payload.files.length === 1 ? '' : 's'} from the fileable tree — packed below.`).outerHTML;
+      const dropped = h.payload.droppedSymlinks ?? 0;
+      handoffHtml = handoffBanner(
+        h,
+        `Received ${h.payload.files.length} file${h.payload.files.length === 1 ? '' : 's'} from the fileable tree — packed below.` +
+          (dropped > 0 ? ` ${dropped} symlink${dropped === 1 ? '' : 's'} ${dropped === 1 ? "wasn't" : "weren't"} carried (packfile has no symlink representation).` : ''),
+      ).outerHTML;
     } else {
       files = new Map(PRESETS[state.preset].make().map((f) => [f.path, f] as const));
       if (!state.alias || state.alias === DEFAULTS.alias) state.alias = PRESETS[state.preset].root;

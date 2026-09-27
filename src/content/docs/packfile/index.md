@@ -1,6 +1,7 @@
 ---
 title: "packfile"
 description: "Static file compiler and server. Compresses a directory into a gzip(application/webbundle) archive — the format Chrome's Isolated Web Apps are built on — and serves it back as HTTP responses."
+planet: packfile
 ---
 
 **`@johnhenry/packfile`** compresses a directory tree into a single archive

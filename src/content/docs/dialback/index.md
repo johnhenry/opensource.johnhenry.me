@@ -1,6 +1,7 @@
 ---
 title: "dialback"
 description: "Reverse proxy HTTP requests over web sockets — an agent dials out, the server dials back through that connection to reach it."
+planet: dialback
 ---
 
 **`@johnhenry/dialback`** is a library for creating a reverse proxy over

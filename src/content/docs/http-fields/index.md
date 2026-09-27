@@ -1,6 +1,7 @@
 ---
 title: "http-fields"
 description: "Parse and serialize HTTP Structured Field Values (RFC 8941 & RFC 9651) — strict, zero-dependency, bidirectional."
+planet: fields
 ---
 
 **`@johnhenry/http-fields`** parses and serializes [HTTP Structured Field

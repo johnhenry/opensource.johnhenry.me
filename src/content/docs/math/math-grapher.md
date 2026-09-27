@@ -1,6 +1,7 @@
 ---
 title: '@johnhenry/math-grapher'
 description: A headless, DOM-less reactive-cell runtime that an AI agent can drive over MCP — no arbitrary code execution.
+planet: grapher
 ---
 
 ```bash

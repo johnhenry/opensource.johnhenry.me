@@ -1,6 +1,7 @@
 ---
 title: 'math-plus: tensors'
 description: The tensor cluster — tensor-core's typed n-D arrays, autograd, expression fusion, Rust→WASM kernels, the WebGPU / MLX / CPU device packages, safetensors, and the canonical erf — and how to actually pick a backend.
+planet: tensor
 ---
 
 Nine packages. Four of them (`tensor-wasm`, `tensor-webgpu`, `tensor-mlx`, `tensor-cpu`) are ways to go faster or to run model code, and none of them swaps in underneath `Tensor`. Read [How do I pick a backend?](#how-do-i-pick-a-backend-read-this-first) before architecting anything around them.

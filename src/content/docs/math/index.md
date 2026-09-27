@@ -1,6 +1,7 @@
 ---
 title: math
 description: Geometry, intervals, tensors, signals, and units — a core mathematics library plus a family of focused extensions.
+planet: math
 ---
 
 Five separately published families, all MIT-licensed, all on npm under `@johnhenry/*`.

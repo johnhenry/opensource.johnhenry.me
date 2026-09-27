@@ -1,6 +1,7 @@
 ---
 title: oat
 description: A browser-native, capability-safe physical transport for signed state, structured artifacts, and negotiated UI — over just a display and a camera.
+planet: oat
 ---
 
 `<optical-send>` renders a signed, verified artifact as an animated, fountain-coded sequence of QR frames. `<optical-receive>` points a camera at the screen, reconstructs the artifact even under dropped/duplicated/reordered frames, verifies its digest and signature, and — if the sender proposed one — renders a receiver-sanitized UI for the user to accept, downgrade, or reject.

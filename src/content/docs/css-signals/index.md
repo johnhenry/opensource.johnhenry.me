@@ -3,6 +3,7 @@ title: "css-signals"
 description: "Publish live browser state — pointer, scroll, viewport, keyboard, time, gamepad, audio, form controls — as typed CSS custom properties under a runtime-configurable prefix. Native CSS where the browser can, batched JS where it can't."
 sidebar:
   order: 1
+planet: signals
 ---
 
 **`@johnhenry/css-signals`** turns things only JavaScript can see into custom properties CSS can use: `--sig-pointer-x`, `--sig-scroll-y-progress`, `--sig-key-KeyW`, `--sig-date-hour`. Each one is registered as a typed `<number>` with an initial value, so `calc()`, typed `@function` parameters and `transition` all work on it. Where the browser can compute a value in CSS alone — scroll progress, via a scroll timeline — it does, and no listener runs.

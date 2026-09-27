@@ -811,7 +811,7 @@ async function mountStudio(host: HTMLElement): Promise<() => void> {
     disposers.push(() => el.removeEventListener(ev, fn));
   };
 
-  const handoff = receive<{ tree?: unknown; name?: string }>();
+  const handoff = receive<{ tree?: unknown; name?: string }>('studio');
   const state = readState(DEFAULTS) as typeof DEFAULTS;
 
   // Restore / accept a Domable handoff preset
@@ -1076,11 +1076,29 @@ async function mountStudio(host: HTMLElement): Promise<() => void> {
       to: 'packfile',
       kind: 'fileable-tree',
       label: 'Pack this tree',
-      getPayload: () => ({
-        files: arts
-          .filter((a) => a.kind === 'file' && a.symlinkTo === undefined)
-          .map((a) => ({ path: a.outputPath, content: typeof a.content === 'string' ? a.content : '' })),
-      }),
+      getPayload: () => {
+        // packfile's toArchive() input (FileEntry: { data, size, hash }) has no
+        // symlink concept at all -- verified against packfile's types.ts, the
+        // real source of FileEntry -- so symlinks can't be carried; be honest
+        // about the drop instead of silently losing them.
+        const fileArts = arts.filter((a) => a.kind === 'file');
+        const symlinks = fileArts.filter((a) => a.symlinkTo !== undefined);
+        const regular = fileArts.filter((a) => a.symlinkTo === undefined);
+        const toBase64 = (bytes: Uint8Array): string => {
+          let bin = '';
+          const CHUNK = 0x8000;
+          for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+          return btoa(bin);
+        };
+        return {
+          files: regular.map((a) =>
+            typeof a.content === 'string'
+              ? { path: a.outputPath, content: a.content, encoding: 'utf8' as const }
+              : { path: a.outputPath, content: toBase64(a.content as Uint8Array), encoding: 'base64' as const },
+          ),
+          droppedSymlinks: symlinks.length,
+        };
+      },
     });
     $('.st-actions', out).append(packBtn);
     const tbody = $('tbody', out);
