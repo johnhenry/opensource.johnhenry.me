@@ -10,8 +10,16 @@ const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
   { value: 'light', label: 'Light' },
 ];
 
-/** The #/settings page: where the optional Node companion lives, and what it hosts. */
-export function renderSettings(app: HTMLElement): () => void {
+/**
+ * The Settings tab of the site drawer (formerly the standalone #/settings
+ * route -- see src/site-drawer.ts). Mounts a <main class="planet settings">
+ * into whatever container it's given and returns a cleanup fn, the same
+ * "mount into a provided container" shape planets-sidebar.ts's room cards
+ * already used. All internal logic (companion URL form/probe, theme picker,
+ * companion-rooms list) is unchanged from the old #/settings route -- only
+ * where it attaches to the DOM changed.
+ */
+export function renderSettings(container: HTMLElement): () => void {
   const main = document.createElement('main');
   main.className = 'planet settings';
   const companionRooms = playgrounds.filter((p) => p.companion);
@@ -55,7 +63,7 @@ npm run node        # companion on :7777 (+ :7778 leserve, :7779 servant)
 npm run dev         # the site, http://localhost:5173</pre>
       <p class="hint">The companion is a plain Node process (<code>server/index.mjs</code>). Demos live in <code>server/demos/*.mjs</code>; one that fails to mount is reported below instead of taking the process down. Apple On-Device additionally needs macOS 26 on Apple Silicon, Node 26, and <code>npm i @johnhenry/apple-foundation-models</code>.</p>
     </div>`;
-  app.appendChild(main);
+  container.appendChild(main);
 
   const input = main.querySelector<HTMLInputElement>('#curl')!;
   const status = main.querySelector<HTMLDivElement>('#cstatus')!;

@@ -1,0 +1,139 @@
+/* Site drawer (was planets-sidebar.ts/.css; now also hosts Settings behind a
+   tab strip -- see ROADMAP follow-up "combine the drawers using tabs ->
+   planets, settings"). Overlay + slide-in-from-the-right panel, openable
+   from the header on every route. Scoped under .site-drawer-overlay; do not
+   rely on .home's styles. The .sd- prefix below is this drawer's own (not
+   to be confused with chrome.ts's unrelated "sd-" source-drawer classes,
+   which live inside <orrery-source-drawer>, a different element entirely). */
+
+.site-drawer-overlay {
+  position: fixed;
+  /* `top` is set inline by site-drawer.ts, measured from the real (possibly
+     wrapped-to-two-lines, on narrow viewports) sticky topbar height, so the
+     drawer -- backdrop AND panel both -- starts right below the topbar
+     instead of overlapping it. That's what keeps BOTH the topbar's own
+     drawer-toggle button (re-toggling the drawer closed from the same
+     button that opened it) AND the drawer's own `.sdw-close` (X) button
+     clickable at once: with a plain `inset: 0` (the old planets-sidebar-
+     overlay's shape) the two sit in the very same top-right corner of the
+     viewport, so no single z-index ordering can make both reachable --
+     whichever layer wins covers the other's button. Falls back to `top: 0`
+     (pre-JS / no-JS) so the drawer still fully works, just overlapping the
+     topbar like the old sidebar did. */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 600;
+  background: hsl(230 45% 4% / .55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: flex-end;
+  animation: site-drawer-fade .15s ease;
+}
+@keyframes site-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.site-drawer {
+  width: min(480px, 92vw);
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 60px -20px rgba(0, 0, 0, .5);
+  display: flex;
+  flex-direction: column;
+  animation: site-drawer-slide .18s ease;
+}
+@keyframes site-drawer-slide { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.site-drawer .sdw-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--f-display);
+  font-size: 15px;
+  flex: none;
+}
+
+/* Tab strip, mirrors the earlier (since-reverted) Dev Drawer's .dd-tabs/.dd-tab shape. */
+.site-drawer .sdw-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.site-drawer .sdw-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--ink-2);
+  font: 12px var(--f-mono);
+  cursor: pointer;
+}
+.site-drawer .sdw-tab:hover { color: var(--ink); border-color: var(--accent-border); }
+.site-drawer .sdw-tab.active { color: var(--ink); background: var(--accent-soft); border-color: var(--accent-border); }
+
+.site-drawer .sdw-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+.site-drawer .sdw-pane[hidden] { display: none; }
+
+.site-drawer .rooms {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+.site-drawer .room-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  /* Dark/light audit (issue #18): the second gradient stop was a hardcoded
+     dark navy that didn't respond to the theme, so cards stayed a murky gray
+     with low-contrast text in light mode. --bg-inset already tracks light/dark. */
+  background: linear-gradient(170deg, hsl(var(--h) 60% 50% / .08), var(--bg-inset) 55%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.site-drawer .room-card:hover, .site-drawer .room-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: hsl(var(--h) 90% 55%);
+  box-shadow: 0 10px 32px -16px hsl(var(--h) 90% 55% / .6);
+}
+.site-drawer .room-card h3 {
+  margin: 0 0 4px;
+  font-family: var(--f-display);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.site-drawer .room-card h3::before {
+  content: '';
+  width: 9px; height: 9px; border-radius: 50%;
+  background: hsl(var(--h) 90% 60%);
+  box-shadow: 0 0 12px hsl(var(--h) 90% 60%);
+}
+.site-drawer .room-card p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.site-drawer .room-card .pkg { display: block; margin-top: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+.site-drawer .room-card .test-badge { margin-top: 8px; width: fit-content; }
+
+/* The settings pane hosts settings.ts's own <main class="planet settings">
+   verbatim; base.css's .room-head/.settings/.panel rules already target it
+   by class regardless of ancestor, so no overrides are needed here beyond
+   trimming the room-head's normal top-level spacing to fit the drawer. */
+.site-drawer .sdw-pane.settings-pane .room-head { margin-bottom: 14px; }
+
+@media (max-width: 480px) {
+  .site-drawer { width: 100vw; }
+}

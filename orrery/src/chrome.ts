@@ -26,7 +26,7 @@
  *    ONE `<orrery-topbar>` and ONE `<orrery-source-drawer>` for the app's
  *    whole lifetime, sitting outside `#app` so `route()` swapping the room
  *    out never touches them. That also means the theme toggle, the palette
- *    trigger and the planets-sidebar button only need wiring once instead
+ *    trigger and the site-drawer button only need wiring once instead
  *    of once per navigation.
  *
  * Upstream finding (verified against the pre-existing src/playgrounds/circuit.ts's
@@ -50,7 +50,7 @@ import '@erisera-code/circuit/palette.css';
 import { getThemeChoice, setThemeChoice } from './theme';
 import { playgrounds, type PlaygroundEntry } from './registry';
 import { copyLink } from './state';
-import { togglePlanetsSidebar } from './planets-sidebar';
+import { openSiteDrawer, toggleSiteDrawer } from './site-drawer';
 import { probeCompanion } from './companion';
 import './chrome.css';
 
@@ -60,9 +60,8 @@ const TOPBAR_HTML = `<header class="topbar c-header">
   <span class="spacer"></span>
   <nav>
     <button type="button" class="tb-btn" data-el="palette-btn" title="Jump to a planet (⌘K)">⌘K</button>
-    <button type="button" class="tb-btn" data-el="planets-btn" title="All planets">&#9776;</button>
+    <button type="button" class="tb-btn" data-el="drawer-btn" title="Planets &amp; settings">&#9776;</button>
     <button type="button" class="tb-btn" data-el="source-btn" title="View this planet's source">&lt;/&gt; source</button>
-    <a class="tb-btn" href="#/settings" title="Settings: theme, companion server">&#9881;</a>
     <a class="docs" data-el="docs-link" href="https://opensource.johnhenry.me/" target="_blank" rel="noopener">docs &#8599;</a>
     <a class="docs" href="https://github.com/johnhenry" target="_blank" rel="noopener">github &#8599;</a>
   </nav>
@@ -114,7 +113,7 @@ export function initChrome(opts: {
   const docsLinkEl = $<HTMLAnchorElement>(topbarEl, 'docs-link');
   const sourceBtn = $<HTMLButtonElement>(topbarEl, 'source-btn');
   const paletteBtn = $<HTMLButtonElement>(topbarEl, 'palette-btn');
-  const planetsBtn = $<HTMLButtonElement>(topbarEl, 'planets-btn');
+  const drawerBtn = $<HTMLButtonElement>(topbarEl, 'drawer-btn');
 
   const drawerAside = drawerEl.querySelector('.source-drawer')!;
   const sdTitleEl = $(drawerEl, 'sd-title');
@@ -193,15 +192,15 @@ export function initChrome(opts: {
         feedback: 'opening Tester…',
       },
       {
-        title: 'All planets (sidebar)',
+        title: 'All planets & settings (drawer)',
         icon: '☰',
-        run: () => togglePlanetsSidebar(),
+        run: () => openSiteDrawer('planets'),
       },
     ],
     openKey: '', // this site already owns "/" inside textareas/inputs on every room; ⌘K only
   });
 
-  planetsBtn.addEventListener('click', () => togglePlanetsSidebar());
+  drawerBtn.addEventListener('click', () => toggleSiteDrawer());
 
   // ---- source drawer -------------------------------------------------
   let openForId: string | null = null;
