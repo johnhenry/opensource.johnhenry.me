@@ -8,6 +8,11 @@ import {
   Unit, BASE_UNITS, PREFIXES, dimensionToString, isDimensionless,
   DimensionMismatchError, UnknownUnitError, UnitParseError, type Dimension,
 } from '@johnhenry/math-plus-unit';
+// ROADMAP 4.2 (Tensor Telemetry dock): backward()/optim.step() already emit "backward" trace
+// spans and "optim/gradNorm" metrics on their own whenever a sink is installed (hasSink()-gated
+// inside those packages). tensorSummary is the one event type nothing upstream emits by itself,
+// so this room emits one per train step — also gated by hasSink() — for the global dock to show.
+import { hasSink, tensorSummary } from '@johnhenry/math-plus-telemetry';
 import { readState, writeState, copyLink } from '../state';
 import './tensor.css';
 
@@ -39,6 +44,31 @@ const fmt = (x: number, d = 3) => {
 };
 const ms = (x: number) => (x < 1 ? x.toFixed(2) : x < 10 ? x.toFixed(1) : Math.round(x).toString()) + ' ms';
 const cssVar = (el: Element, name: string, fallback: string) => getComputedStyle(el).getPropertyValue(name).trim() || fallback;
+
+// ROADMAP 4.2: runId for this room's telemetry, and a summary-only (never raw values) reducer
+// feeding the global Tensor Telemetry dock's tensorSummary panel.
+const TELEMETRY_RUN = 'tensor-bench';
+function summarizeTensor(t: Tensor) {
+  const c = t.contiguous();
+  const buf = c.data;
+  const n = c.size;
+  let min = Infinity, max = -Infinity, sum = 0, finite = 0;
+  for (let i = 0; i < n; i++) {
+    const v = Number(buf[c.offset + i]);
+    if (Number.isFinite(v)) { finite++; if (v < min) min = v; if (v > max) max = v; sum += v; }
+  }
+  const mean = finite ? sum / finite : 0;
+  let variance = 0;
+  for (let i = 0; i < n; i++) {
+    const v = Number(buf[c.offset + i]);
+    if (Number.isFinite(v)) variance += (v - mean) ** 2;
+  }
+  const std = finite ? Math.sqrt(variance / finite) : 0;
+  return {
+    shape: t.shape, dtype: t.dtype, device: 'cpu',
+    stats: { min: Number.isFinite(min) ? min : 0, max: Number.isFinite(max) ? max : 0, mean, std, finite: n ? finite / n : 1 },
+  };
+}
 
 /** Tiny syntax colouring for the "calls used" panels. */
 function hl(code: string): string {
@@ -195,10 +225,14 @@ function mountGrad(root: HTMLElement, st: State, save: () => void): () => void {
   const forward = (X: Variable) => actVar(X.matmul(model.W1).add(model.b1), st.act).matmul(model.W2).add(model.b2);
 
   function trainStep(): number {
-    const loss = nn.binaryCrossEntropy(forward(Xv()), Yv());
+    const pred = forward(Xv());
+    const loss = nn.binaryCrossEntropy(pred, Yv());
     opt.zeroGrad();
-    loss.backward();
-    opt.step();
+    // runId/step tag the "backward" trace span and "optim/gradNorm" metric these two calls already
+    // emit on their own (ROADMAP 4.2) whenever a sink is installed — no other change needed for them.
+    loss.backward(undefined, { runId: TELEMETRY_RUN, step });
+    opt.step({ runId: TELEMETRY_RUN, step });
+    if (hasSink()) tensorSummary(TELEMETRY_RUN, step, 'prediction', summarizeTensor(pred.value));
     step++;
     const l = loss.value.item() as number;
     history.push(l);

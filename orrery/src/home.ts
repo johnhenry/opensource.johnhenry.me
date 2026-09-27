@@ -6,19 +6,93 @@ import type { PlaygroundEntry } from './registry';
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-/** ok/bad/unknown test badge for a planet, sourced from getRoomTests() (written by the Tester Console). */
+/**
+ * ok/bad/unknown test badge for a planet, sourced from getRoomTests()
+ * (written by the Tester Console into localStorage). `data-badge-room` /
+ * `data-badge-compact` let applyBuildTimeFallback() find and, if no live
+ * result exists yet, replace these badges in place once dist/tests.json
+ * (roadmap 4.5) has loaded.
+ */
 function badgeFor(id: string, tests: Record<string, RoomTests>, compact: boolean): string {
   const t = tests[id];
+  const attrs = `data-run-tests data-badge-room="${esc(id)}" data-badge-compact="${compact ? '1' : '0'}"`;
   if (!t) {
     const title = 'No test results yet · run in Tester Console';
     return compact
-      ? `<span class="test-badge unknown" data-run-tests title="${esc(title)}" role="link" tabindex="0">?</span>`
-      : `<span class="test-badge unknown" data-run-tests title="${esc(title)}" role="link" tabindex="0">Run the suite</span>`;
+      ? `<span class="test-badge unknown" ${attrs} title="${esc(title)}" role="link" tabindex="0">?</span>`
+      : `<span class="test-badge unknown" ${attrs} title="${esc(title)}" role="link" tabindex="0">Run the suite</span>`;
   }
-  const cls = t.fail === 0 ? 'ok' : 'bad';
-  const title = `${t.pass} passed, ${t.fail} failed · run in Tester Console`;
-  const label = compact ? (t.fail === 0 ? '✓' : '✕') : `${t.fail === 0 ? '✓' : '✕'} ${t.pass} pass · ${t.fail} fail`;
-  return `<span class="test-badge ${cls}" data-run-tests title="${esc(title)}" role="link" tabindex="0">${label}</span>`;
+  return `<span ${attrs} ${badgeSpanAttrs(t)}>${badgeLabel(t, compact, false)}</span>`;
+}
+
+/**
+ * class/title for one known-result badge <span>, shared by the initial
+ * (live) render above and applyBuildTimeFallback()'s in-place update below,
+ * so "you ran this" and "from last build" badges look identical apart from
+ * that one distinction.
+ */
+function badgeSpanAttrs(t: RoomTests, fromBuild = false): string {
+  const cls = `test-badge ${t.fail === 0 ? 'ok' : 'bad'}${fromBuild ? ' from-build' : ''}`;
+  const source = fromBuild ? 'from last build (headless CI run)' : 'you ran this · run in Tester Console';
+  const title = `${t.pass} passed, ${t.fail} failed · ${source}`;
+  return `class="${cls}" title="${esc(title)}" role="link" tabindex="0"`;
+}
+function badgeLabel(t: RoomTests, compact: boolean, fromBuild: boolean): string {
+  const mark = t.fail === 0 ? '✓' : '✕';
+  if (compact) return fromBuild ? `⟳${mark}` : mark;
+  const base = `${mark} ${t.pass} pass · ${t.fail} fail`;
+  return fromBuild ? `⟳ ${base} (last build)` : base;
+}
+
+/** Shape written by scripts/run-tests-headless.mjs (roadmap 4.5) into dist/tests.json. */
+interface HeadlessTestSnapshot {
+  rooms?: Record<string, { pass: number; fail: number; at: number }>;
+}
+
+/**
+ * Fallback test badges sourced from a build-time dist/tests.json snapshot
+ * (roadmap 4.5), for any planet that has no *live* (localStorage) result —
+ * i.e. no real visitor has run the Tester Console themselves yet. Fetched at
+ * most once per page load, and only if at least one planet actually needs
+ * it. Fully silent on failure (missing file on a fresh dev server, network
+ * error, bad JSON): the live-only badges already rendered are left as-is,
+ * no console noise, no broken UI.
+ */
+async function applyBuildTimeFallback(
+  main: HTMLElement,
+  entries: PlaygroundEntry[],
+  liveTests: Record<string, RoomTests>,
+  signal: AbortSignal,
+): Promise<void> {
+  const missing = entries.filter(e => !liveTests[e.id]);
+  if (missing.length === 0) return;
+
+  let snapshot: HeadlessTestSnapshot;
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}tests.json`, { signal, cache: 'no-store' });
+    if (!res.ok) return;
+    snapshot = await res.json();
+  } catch {
+    return; // no dist/tests.json yet, or a network hiccup — just skip the fallback
+  }
+  const rooms = snapshot?.rooms;
+  if (!rooms || signal.aborted) return;
+
+  for (const e of missing) {
+    const t = rooms[e.id];
+    if (!t) continue;
+    main.querySelectorAll<HTMLElement>(`[data-badge-room="${e.id}"]`).forEach(el => {
+      const compact = el.dataset.badgeCompact === '1';
+      el.className = `test-badge ${t.fail === 0 ? 'ok' : 'bad'} from-build`;
+      el.title = `${t.pass} passed, ${t.fail} failed · from last build (headless CI run)`;
+      el.textContent = badgeLabel(t, compact, true);
+      // No home.css rule owns `.from-build` yet, so distinguish it inline
+      // too (dashed border, slightly dimmer) rather than relying on the
+      // text/tooltip difference alone.
+      el.style.borderStyle = 'dashed';
+      el.style.opacity = '0.82';
+    });
+  }
 }
 
 /** Plug icon for planets that can use the optional Node companion. Coloured once the probe answers. */
@@ -133,6 +207,13 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
 
   // Side panel: the only JS in the interaction loop is swapping text on hover/focus.
   const ac = new AbortController();
+
+  // Build-time test badges (roadmap 4.5): for any planet with no live
+  // (localStorage) result yet, fetch dist/tests.json once and patch its
+  // badges in place. No-ops quietly if the file doesn't exist (a fresh dev
+  // server with no headless run performed yet) or the fetch otherwise fails.
+  void applyBuildTimeFallback(main, entries, roomTests, ac.signal);
+
   const info = main.querySelector('.info') as HTMLElement;
   const title = info.querySelector('.title')!;
   const blurb = info.querySelector('.blurb')!;
