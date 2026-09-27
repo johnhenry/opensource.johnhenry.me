@@ -178,7 +178,7 @@ const playground: Playground = {
       handoffHtml = handoffBanner(
         h,
         `Received ${h.payload.files.length} file${h.payload.files.length === 1 ? '' : 's'} from the fileable tree — packed below.` +
-          (dropped > 0 ? ` ${dropped} symlink${dropped === 1 ? '' : 's'} weren't carried (packfile has no symlink representation).` : ''),
+          (dropped > 0 ? ` ${dropped} symlink${dropped === 1 ? '' : 's'} ${dropped === 1 ? "wasn't" : "weren't"} carried (packfile has no symlink representation).` : ''),
       ).outerHTML;
     } else {
       files = new Map(PRESETS[state.preset].make().map((f) => [f.path, f] as const));
