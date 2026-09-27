@@ -37,9 +37,14 @@
 .pg-letterpress .lp-compile-error { border-color: var(--error, #f66); color: var(--error, #f66); margin-top: 10px; white-space: pre-wrap; }
 
 .pg-letterpress .lp-composer-panel { display: flex; flex-direction: column; gap: 12px; }
-.pg-letterpress .lp-row { display: flex; gap: 8px; align-items: stretch; }
+/* flex-wrap so the "Send" button drops to its own line on narrow viewports
+   instead of forcing the row wider than the viewport -- the path <input>'s
+   default flex-basis (auto, i.e. its content-based min width) plus the fixed
+   method <select> and button left no room to shrink at ~390px and the button
+   ran ~30px off the right edge (confirmed live). */
+.pg-letterpress .lp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 .pg-letterpress .lp-row select { flex: none; width: 100px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); }
-.pg-letterpress .lp-row input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 13px; }
+.pg-letterpress .lp-row input { flex: 1 1 140px; min-width: 140px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 13px; }
 .pg-letterpress .lp-row .btn { flex: none; }
 .pg-letterpress .lp-examples { display: flex; flex-wrap: wrap; gap: 6px; }
 .pg-letterpress .lp-examples .chip { cursor: pointer; border: none; font-family: var(--f-mono); }

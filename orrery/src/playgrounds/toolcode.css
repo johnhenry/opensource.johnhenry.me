@@ -20,7 +20,11 @@
 .pg-toolcode .tc-switch input:checked + .tc-knob::after { transform: translateX(16px); background: var(--accent); }
 .pg-toolcode .tc-switch input:focus-visible + .tc-knob { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pg-toolcode .tc-langs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.pg-toolcode .tc-lang { cursor: pointer; opacity: .4; border: 0; background: var(--accent-soft); color: var(--ink-2); }
+/* the base .chip padding (2px 8px, ~21px tall) is fine for a display-only
+   badge, but these are actual toggle buttons (which fenced-block languages
+   execute) -- grow the tap area. Scoped to .tc-langs so it doesn't touch the
+   unrelated .tc-lang used as a static language label on inline code blocks. */
+.pg-toolcode .tc-langs .tc-lang { cursor: pointer; opacity: .4; border: 0; background: var(--accent-soft); color: var(--ink-2); padding: 9px 12px; }
 .pg-toolcode .tc-lang.on { opacity: 1; color: var(--ink); border: 1px solid var(--accent-border); }
 
 /* presets */
@@ -59,7 +63,14 @@
 .pg-toolcode .tc-ran.ok { color: var(--tc-ok); background: color-mix(in oklch, var(--tc-ok) 12%, transparent); }
 .pg-toolcode .tc-ran.bad { color: var(--tc-bad); background: color-mix(in oklch, var(--tc-bad) 12%, transparent); }
 .pg-toolcode .tc-inline-code { position: relative; font-family: var(--f-mono); font-size: 12px; background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--line); border-radius: 8px; padding: 18px 10px 8px; margin: 6px 0; overflow: auto; white-space: pre; }
-.pg-toolcode .tc-lang { position: absolute; top: 3px; right: 8px; font-size: 10px; color: var(--ink-3); }
+/* Scoped to .tc-inline-code specifically (was the bare, generic
+   ".pg-toolcode .tc-lang") -- that selector tied at specificity with the
+   .tc-langs .tc-lang toggle-button rule above and, being later in the
+   file, won: every "which fenced-block languages execute" toggle button
+   was silently yanked out of flow to position:absolute; top:3px; right:8px,
+   stacking all four on top of each other in the page's top-right corner,
+   hidden behind the topbar and unusable via mouse or touch. */
+.pg-toolcode .tc-inline-code .tc-lang { position: absolute; top: 3px; right: 8px; font-size: 10px; color: var(--ink-3); }
 .pg-toolcode .tc-input { display: flex; gap: 8px; }
 .pg-toolcode .tc-input input { flex: 1; min-width: 0; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-size: 13px; }
 .pg-toolcode .tc-input input:focus { outline: none; border-color: var(--accent); }
