@@ -13,7 +13,10 @@
    classes vs. one) -- the drawer is `top:0; right:0`, which visually covers the sticky
    topbar's right-hand buttons (source/settings/theme/docs) once open; without this the
    topbar's own "source" button becomes unclickable the moment its drawer is open, so
-   there's no way to close it again from the button that opened it. */
+   there's no way to close it again from the button that opened it. (The site drawer,
+   site-drawer.css's `.site-drawer-overlay`, avoids this same problem a different way --
+   it starts below the topbar's real height instead of overlapping it -- since it has
+   its OWN close button in that same top-right corner that needs to stay reachable too.) */
 orrery-topbar .topbar.c-header { padding: 8px 20px; height: auto; border-top: 0; gap: 12px; position: sticky; top: 0; z-index: 95; }
 orrery-topbar .topbar nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 orrery-topbar .c-logo { font-size: inherit; gap: 0; }

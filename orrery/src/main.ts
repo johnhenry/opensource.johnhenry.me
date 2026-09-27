@@ -2,7 +2,7 @@ import './styles/base.css';
 import './styles/home.css';
 import { playgrounds } from './registry';
 import { renderHome } from './home';
-import { renderSettings } from './settings';
+import { openSiteDrawer } from './site-drawer';
 // Site theme, bridged into the root docs site's own `starlight-theme`
 // mechanism (see src/theme.ts) -- applied first, before anything paints.
 import { initSiteTheme } from './theme';
@@ -91,12 +91,13 @@ async function route() {
   window.scrollTo(0, 0);
 
   if (id === 'settings') {
-    setHue(25);
-    document.title = 'Settings · ORRERY';
-    siteChrome.setEntry(undefined, 'https://opensource.johnhenry.me/');
-    app.innerHTML = '';
-    cleanup = renderSettings(app);
-    return;
+    // #/settings is no longer its own room with its own #app content -- it's
+    // the site drawer's Settings tab. Open the drawer on that tab and let
+    // #app fall back to showing home underneath, same as any other
+    // unrecognised hash (the `!entry` branch below), rather than leaving
+    // #app blank. Bookmark/refresh at #/settings still works: this runs on
+    // every route() call, including the very first one on page load.
+    openSiteDrawer('settings');
   }
 
   if (!entry) {
@@ -104,7 +105,7 @@ async function route() {
     siteChrome.setEntry(undefined, 'https://opensource.johnhenry.me/');
     app.innerHTML = '';
     cleanup = renderHome(app, playgrounds);
-    document.title = 'ORRERY · the @johnhenry ecosystem, live';
+    document.title = id === 'settings' ? 'Settings · ORRERY' : 'ORRERY · the @johnhenry ecosystem, live';
     return;
   }
 
