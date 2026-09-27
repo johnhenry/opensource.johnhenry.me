@@ -1,6 +1,7 @@
 import type { Playground } from '../registry';
 import * as HTTPFields from '@johnhenry/http-fields';
 import type { FieldType, Item, Dictionary, List } from '@johnhenry/http-fields';
+import * as HTTPHeaders from '@johnhenry/http-fields/headers';
 import { receive, handoffBanner } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './fields.css';
@@ -61,6 +62,13 @@ const PRESETS: Preset[] = [
     value: '"Chromium";v="128", "Not(A:Brand";v="24", "Google Chrome";v="128"',
     type: 'list',
     note: 'UA Client Hints. Brands are Strings, not Tokens — brand names can contain punctuation a Token grammar forbids.',
+  },
+  {
+    name: 'No-Vary-Search',
+    header: 'no-vary-search',
+    value: 'key-order, params=("id" "sort")',
+    type: 'dictionary',
+    note: 'HTML spec. Tells caches/prefetchers which query parameters (and key order) do not change the response — here, "id" and "sort" don\'t matter, but key order does.',
   },
   {
     name: 'Signature-Input',
@@ -160,6 +168,44 @@ export function attemptParse(value: string, chosen: FType | 'auto'): ParseAttemp
     }
   }
   return { ok: false, type: first!.type, error: first!.error };
+}
+
+// ---------------------------------------------------------------------------
+// Typed helpers — @johnhenry/http-fields/headers
+//
+// The core parse()/serialize() above work on the generic Item/List/
+// Dictionary grammar; this subpath maps specific real headers onto named,
+// typed JS shapes (and back). Whenever the header name being edited matches
+// one of these, this planet also runs the real typed helper and shows its
+// plain-object result next to the generic tree.
+// ---------------------------------------------------------------------------
+
+interface TypedHelper { label: string; fn: (value: string) => unknown }
+
+function typedHelperFor(headerName: string): TypedHelper | null {
+  switch (headerName.trim().toLowerCase()) {
+    case 'priority':
+      return { label: 'parsePriority', fn: HTTPHeaders.parsePriority };
+    case 'cache-status':
+      return { label: 'parseCacheStatus', fn: HTTPHeaders.parseCacheStatus };
+    case 'accept-ch':
+      return { label: 'parseAcceptCH', fn: HTTPHeaders.parseAcceptCH };
+    case 'sec-ch-ua':
+    case 'sec-ch-ua-full-version-list':
+      return { label: 'parseSecCHUA', fn: HTTPHeaders.parseSecCHUA };
+    case 'no-vary-search':
+      return { label: 'parseNoVarySearch', fn: HTTPHeaders.parseNoVarySearch };
+    default:
+      return null;
+  }
+}
+
+interface UABrand { brand: string; version?: string }
+
+/** Real Client Hints brands from this browser (Chromium-family only), or null where unsupported. */
+function browserUABrands(): UABrand[] | null {
+  const uaData = (navigator as unknown as { userAgentData?: { brands?: UABrand[] } }).userAgentData;
+  return uaData?.brands && uaData.brands.length ? uaData.brands : null;
 }
 
 /** Largest prefix of `value` that parses cleanly as `type` — an approximate error offset. */
@@ -433,6 +479,7 @@ const playground: Playground = {
             </select>
           </label>
           <span class="chip fld-detected">type: —</span>
+          <button class="btn fld-use-uach" type="button" title="Build Sec-CH-UA from navigator.userAgentData.brands in this browser">Use my Sec-CH-UA</button>
           <button class="btn fld-copy-link" type="button" title="Copy a link to this header state">Copy link</button>
         </div>
         <label class="field">
@@ -452,6 +499,13 @@ const playground: Playground = {
           <h3>Canonical re-serialization <span class="chip fld-diff-status"></span></h3>
           <div class="fld-diff"></div>
         </div>
+      </div>
+
+      <div class="panel fld-typed">
+        <h3>Typed decode <span class="chip">@johnhenry/http-fields/headers</span></h3>
+        <p class="fld-note">Named headers (Priority, Cache-Status, Accept-CH, Sec-CH-UA, No-Vary-Search) also get a typed
+        JS shape from the <code>/headers</code> subpath — no generic Item/List/Dictionary wrapper, just plain values.</p>
+        <pre class="code fld-typed-out"></pre>
       </div>
 
       <div class="grid-2">
@@ -491,6 +545,8 @@ const playground: Playground = {
     const noteEl = $<HTMLParagraphElement>('.fld-note');
     const errorEl = $<HTMLPreElement>('.fld-error');
     const treeEl = $<HTMLDivElement>('.fld-tree');
+    const typedOutEl = $<HTMLPreElement>('.fld-typed-out');
+    const useUachBtn = $<HTMLButtonElement>('.fld-use-uach');
     const diffEl = $<HTMLDivElement>('.fld-diff');
     const diffStatus = $<HTMLSpanElement>('.fld-diff-status');
     const jsonEl = $<HTMLPreElement>('.fld-json');
@@ -528,6 +584,8 @@ const playground: Playground = {
       detectedChip.textContent = `type: ${result.type}`;
       writeState({ name: nameIn.value, value, type: chosen }, linkDefaults);
 
+      renderTyped(nameIn.value, value);
+
       if (!result.ok) {
         errorEl.hidden = false;
         const offset = findErrorOffset(value, result.type);
@@ -556,6 +614,23 @@ const playground: Playground = {
       diffStatus.textContent = changed ? 'normalized' : 'identical';
       jsonEl.textContent = JSON.stringify(result.parsed, null, 2);
       if (!editorDirty) editorTa.value = JSON.stringify(result.parsed, null, 2);
+    }
+
+    function renderTyped(headerName: string, value: string) {
+      const helper = typedHelperFor(headerName);
+      if (!helper) {
+        typedOutEl.classList.remove('fld-error-text');
+        typedOutEl.textContent = `(no typed helper for "${headerName.trim() || '(header)'}" — try priority, cache-status, accept-ch, sec-ch-ua, or no-vary-search)`;
+        return;
+      }
+      try {
+        const out = helper.fn(value);
+        typedOutEl.classList.remove('fld-error-text');
+        typedOutEl.textContent = `${helper.label}(${JSON.stringify(value)}) →\n\n${JSON.stringify(out, null, 2)}`;
+      } catch (e) {
+        typedOutEl.classList.add('fld-error-text');
+        typedOutEl.textContent = `${helper.label}() threw:\n${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`;
+      }
     }
 
     function applyPreset(i: number) {
@@ -591,6 +666,24 @@ const playground: Playground = {
       editorDirty = false;
       editorOut.textContent = '';
       editorOut.classList.remove('fld-error-text');
+    });
+
+    on(useUachBtn, 'click', () => {
+      presetSel.value = '';
+      nameIn.value = 'sec-ch-ua';
+      typeSel.value = 'list';
+      const brands = browserUABrands();
+      if (brands) {
+        const list = brands.map((b) => ({ value: b.brand, parameters: b.version ? { v: b.version } : {} }));
+        valueTa.value = serializeAny(list, 'list');
+        noteEl.textContent = `Built live from navigator.userAgentData.brands (${brands.length} brand${brands.length === 1 ? '' : 's'}) in this browser, then decoded back below with the typed parseSecCHUA() helper — a real round trip, not a canned example.`;
+      } else {
+        const preset = PRESETS.find((p) => p.header === 'sec-ch-ua')!;
+        valueTa.value = preset.value;
+        noteEl.textContent = `navigator.userAgentData isn't available in this browser (UA Client Hints are Chromium-only) — showing the canned example instead; parseSecCHUA() below still runs on it for real.`;
+      }
+      editorDirty = false;
+      update();
     });
 
     on(copyLinkBtn, 'click', async () => {

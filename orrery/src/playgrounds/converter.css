@@ -92,3 +92,13 @@
 .pg-converter .cv-bd-displaystring{ background: hsl(330 50% 18%); color: hsl(330 75% 80%); border-color: hsl(330 50% 42%); }
 .pg-converter .cv-bd-innerlist    { background: hsl(30 12% 20%);  color: hsl(30 20% 72%);  border-color: hsl(30 12% 40%); }
 .pg-converter .cv-bd-unknown      { background: var(--bg-inset);  color: var(--ink-3); }
+
+/* Response panel + body inspector */
+.pg-converter .cv-response .cv-presets { margin-bottom: 10px; }
+.pg-converter .cv-body-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.pg-converter .cv-body-col .stat { margin-bottom: 6px; }
+.pg-converter .cv-body-col pre.code { min-height: 80px; max-height: 220px; overflow: auto; }

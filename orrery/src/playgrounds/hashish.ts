@@ -1,12 +1,85 @@
 import type { Playground } from '../registry';
-import { Hashish, estimateSimilarity, type DocumentId } from '@johnhenry/hashish';
+import { Hashish, estimateSimilarity, type DocumentId, type StorageAdapter, type HashishExport } from '@johnhenry/hashish';
 import { mapConcurrentAsync } from '@johnhenry/iteration';
-import { receive, handoffBanner } from '../bus';
+import { receive, handoffBanner, sendToTab, onTabHandoff } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './hashish.css';
 
 /** Payload sent by Spintax Forge's "Send 200 variants to Hashish" button. */
 interface SpintaxVariants { template: string; variants: string[]; total: number | null; stride: number; pulled: number }
+/** Payload sent by Chunker Scope's "Send chunks to Hashish" button — a dedupe pipeline. */
+interface ChunkerChunksDedupe { chunks: string[] }
+
+// ---------------------------------------------------------------------------
+// A real StorageAdapter (the same 8-method interface RedisStorage and
+// MemoryStorage implement) backed by IndexedDB, so a Hashish index can be
+// shared between browser tabs on this origin instead of living only in one
+// tab's memory. `kv` holds documents/signatures; `buckets` holds the LSH
+// bucket -> DocumentId[] lists addToBucket/removeFromBucket/getBucket manage.
+// ---------------------------------------------------------------------------
+class IndexedDBStorage implements StorageAdapter {
+  private dbPromise: Promise<IDBDatabase> | null = null;
+  constructor(private readonly dbName: string) {}
+
+  private open(): Promise<IDBDatabase> {
+    if (!this.dbPromise) {
+      this.dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(this.dbName, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+          if (!db.objectStoreNames.contains('buckets')) db.createObjectStore('buckets');
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return this.dbPromise;
+  }
+
+  private async run<T>(storeName: 'kv' | 'buckets', mode: IDBTransactionMode, fn: (os: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+    const db = await this.open();
+    return new Promise<T>((resolve, reject) => {
+      const tx = db.transaction(storeName, mode);
+      const req = fn(tx.objectStore(storeName));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async get<T = unknown>(key: string): Promise<T | undefined> {
+    const v = await this.run<T>('kv', 'readonly', (os) => os.get(key) as IDBRequest<T>);
+    return v ?? undefined;
+  }
+  async set(key: string, value: unknown): Promise<void> {
+    await this.run('kv', 'readwrite', (os) => os.put(value, key));
+  }
+  async delete(key: string): Promise<void> {
+    await this.run('kv', 'readwrite', (os) => os.delete(key));
+  }
+  async has(key: string): Promise<boolean> {
+    const n = await this.run<number>('kv', 'readonly', (os) => os.count(key));
+    return n > 0;
+  }
+  async addToBucket(key: string, id: DocumentId): Promise<void> {
+    const cur = (await this.run<DocumentId[]>('buckets', 'readonly', (os) => os.get(key) as IDBRequest<DocumentId[]>)) ?? [];
+    if (!cur.includes(id)) cur.push(id);
+    await this.run('buckets', 'readwrite', (os) => os.put(cur, key));
+  }
+  async removeFromBucket(key: string, id: DocumentId): Promise<void> {
+    const cur = (await this.run<DocumentId[]>('buckets', 'readonly', (os) => os.get(key) as IDBRequest<DocumentId[]>)) ?? [];
+    await this.run('buckets', 'readwrite', (os) => os.put(cur.filter((x) => x !== id), key));
+  }
+  async getBucket(key: string): Promise<DocumentId[]> {
+    return (await this.run<DocumentId[]>('buckets', 'readonly', (os) => os.get(key) as IDBRequest<DocumentId[]>)) ?? [];
+  }
+  async clear(): Promise<void> {
+    await this.run('kv', 'readwrite', (os) => os.clear());
+    await this.run('buckets', 'readwrite', (os) => os.clear());
+  }
+}
+
+const SHARED_DB_NAME = 'orrery-hashish-shared';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -148,6 +221,26 @@ export default {
         </div>
       </div>
       <div class="panel">
+        <strong>Storage backend &amp; snapshot</strong>
+        <p class="hint" style="margin:6px 0 10px">
+          A <code>Hashish</code> index is just a config plus a <code>StorageAdapter</code> — the same 8-method interface the
+          library's own <code>RedisStorage</code> implements. Switching to <b>IndexedDB</b> below hands it an adapter backed by
+          the browser's IndexedDB instead of the default in-memory <code>Map</code>: open this planet in a second tab, switch both
+          to IndexedDB, and they read and write the <i>same</i> index — add a document here, watch it appear there.
+        </p>
+        <div class="storage-row">
+          <label class="storage-radio"><input type="radio" name="hh-storage" value="memory" checked> <span><b>in-memory</b> — this tab only</span></label>
+          <label class="storage-radio"><input type="radio" name="hh-storage" value="shared"> <span><b>IndexedDB</b> — shared across tabs <em>(locks the MinHash function count — signatures must match)</em></span></label>
+          <span class="stat" id="storage-status"></span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+          <button class="btn small" id="btn-export" title="Downloads exportIndex() — config + every document's raw text — as JSON">⬇ export index (.json)</button>
+          <button class="btn small" id="btn-import" title="Rebuilds an index from an exportIndex() snapshot via Hashish.importIndex()">⬆ import index (.json)</button>
+          <input type="file" id="file-import" accept="application/json" hidden>
+          <span class="stat" id="snapshot-status"></span>
+        </div>
+      </div>
+      <div class="panel">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
           <strong>Corpus — what gets indexed</strong>
           <span>
@@ -271,6 +364,11 @@ export default {
     const linkSlider = el<HTMLInputElement>('#link-slider');
     const linkVal = el<HTMLElement>('#link-val');
     const groupStrip = el<HTMLDivElement>('#group-strip');
+    const storageStatus = el<HTMLElement>('#storage-status');
+    const exportBtn = el<HTMLButtonElement>('#btn-export');
+    const importBtn = el<HTMLButtonElement>('#btn-import');
+    const importFile = el<HTMLInputElement>('#file-import');
+    const snapshotStatus = el<HTMLElement>('#snapshot-status');
 
     // ---------- deep link + handoff ----------
     const DEFAULT_QUERY = 'The quick brown fox jumps over a lazy dog';
@@ -291,20 +389,35 @@ export default {
     let minShared = clampNum(linked.link, 1, 30, 3);
     let initialQuery = linked.q;
 
-    const handoff = receive<SpintaxVariants>('hashish');
+    const handoff = receive<SpintaxVariants | ChunkerChunksDedupe>('hashish');
     let handoffDocs: string[] | null = null;
-    if (handoff && handoff.kind === 'spintax-variants' && Array.isArray(handoff.payload?.variants)) {
-      const variants = handoff.payload.variants.filter((v) => typeof v === 'string' && v.trim().length >= 5);
+    if (handoff && handoff.kind === 'spintax-variants' && Array.isArray((handoff.payload as SpintaxVariants)?.variants)) {
+      const p = handoff.payload as SpintaxVariants;
+      const variants = p.variants.filter((v) => typeof v === 'string' && v.trim().length >= 5);
       if (variants.length) {
         handoffDocs = variants;
         initialQuery = variants[Math.floor(Math.random() * variants.length)];
-        const p = handoff.payload;
         const totalLabel = p.total != null ? p.total.toLocaleString('en-US') : '∞';
         root.prepend(
           handoffBanner(
             handoff,
             `<span>Indexed <b>${variants.length}</b> spintax variants (every ${p.stride.toLocaleString('en-US')}${p.stride === 1 ? 'st' : 'th'} of ${totalLabel}, pulled lazily from <code>parse()</code>).
              The query is one of them — near-identical siblings pile into the same LSH buckets below.</span>`,
+          ),
+        );
+      }
+    } else if (handoff && handoff.kind === 'chunker-chunks-dedupe' && Array.isArray((handoff.payload as ChunkerChunksDedupe)?.chunks)) {
+      const p = handoff.payload as ChunkerChunksDedupe;
+      const chunks = p.chunks.filter((c) => typeof c === 'string' && c.trim().length >= 5);
+      if (chunks.length) {
+        handoffDocs = chunks;
+        initialQuery = chunks[0];
+        root.prepend(
+          handoffBanner(
+            handoff,
+            `<span>Indexed <b>${chunks.length}</b> chunks from Chunker Scope's current document — a dedupe pipeline: chunks that
+             land in the same LSH bucket below are near-identical, and worth merging or dropping before they go into an index or
+             a prompt.</span>`,
           ),
         );
       }
@@ -315,7 +428,16 @@ export default {
     let docs: Doc[] = (handoffDocs ?? PRESETS).map((text) => ({ id: nextId++, text, indexed: true }));
     let numberOfHashFunctions = Number(hfSlider.value);
     let bucketSize = Number(bwSlider.value);
-    let hashish = new Hashish({ seed: SEED, numberOfHashFunctions, bucketSize });
+    /** 'shared' hands the index an IndexedDBStorage adapter instead of the default in-memory Map. */
+    let storageMode: 'memory' | 'shared' = 'memory';
+    const makeHashish = () =>
+      new Hashish({
+        seed: SEED,
+        numberOfHashFunctions,
+        bucketSize,
+        ...(storageMode === 'shared' ? { storage: new IndexedDBStorage(SHARED_DB_NAME) } : {}),
+      });
+    let hashish = makeHashish();
     let destroyed = false;
     let queryDebounce: ReturnType<typeof setTimeout> | undefined;
     const editDebounces = new Map<number, ReturnType<typeof setTimeout>>();
@@ -362,7 +484,7 @@ export default {
       reindexAbort?.abort();
       const ac = new AbortController();
       reindexAbort = ac;
-      const idx = new Hashish({ seed: SEED, numberOfHashFunctions, bucketSize });
+      const idx = makeHashish();
       hashish = idx;
       const list = docs.slice();
       renderCells();
@@ -424,6 +546,7 @@ export default {
       renderCorpusList();
       await renderBuckets();
       await runQuery();
+      if (storageMode === 'shared') sendToTab('hashish', 'hashish', 'shared-index-changed', { at: Date.now() });
     }
 
     // ---------- LSH buckets / near-duplicate groups ----------
@@ -581,6 +704,7 @@ export default {
       if (c) { c.classList.remove('q', 'f', 'd', 'x'); c.classList.add(doc.indexed ? 'd' : 'x'); c.title = `#${doc.id} ${snippet(doc.text, 60)}`; }
       await renderBuckets();
       await runQuery();
+      if (storageMode === 'shared') sendToTab('hashish', 'hashish', 'shared-index-changed', { at: Date.now() });
     }
 
     // ---------- corpus panel ----------
@@ -629,6 +753,7 @@ export default {
           cell(doc.id)?.remove();
           await renderBuckets();
           await runQuery();
+          if (storageMode === 'shared') sendToTab('hashish', 'hashish', 'shared-index-changed', { at: Date.now() });
         });
         corpusListEl.appendChild(item);
       }
@@ -1003,6 +1128,133 @@ export default {
       void fullReindex();
     });
 
+    // ---------- storage backend: in-memory vs IndexedDB shared across tabs ----------
+    // A shared index needs every writer using the same numberOfHashFunctions (it fixes
+    // the signature length); bucketSize is purely query-time math over per-position
+    // buckets (see renderBucketsInner), so it stays free to change per tab.
+    function applyStorageLock() {
+      hfSlider.disabled = storageMode === 'shared';
+    }
+
+    /** Pulls whatever documents are already in the shared store (written by another tab, maybe) into `docs`. */
+    async function loadFromShared(idx: Hashish): Promise<Doc[]> {
+      const ids = (await idx.documentIds()).filter((id) => id !== QUERY_ID);
+      const loaded: Doc[] = [];
+      for (const id of ids) {
+        const text = await idx.getDocument(id);
+        if (text !== undefined) loaded.push({ id: Number(id), text, indexed: true });
+      }
+      return loaded.sort((a, b) => a.id - b.id);
+    }
+
+    async function switchStorage(mode: 'memory' | 'shared') {
+      if (mode === storageMode || destroyed) return;
+      storageMode = mode;
+      applyStorageLock();
+      if (mode === 'shared') {
+        storageStatus.textContent = 'connecting…';
+        const shared = makeHashish();
+        const loaded = await loadFromShared(shared);
+        if (destroyed) return;
+        hashish = shared;
+        if (loaded.length) {
+          docs = loaded;
+          nextId = Math.max(0, ...loaded.map((d) => d.id)) + 1;
+          renderCorpusList();
+          renderCells();
+          docs.forEach((d) => cell(d.id)?.classList.add('d'));
+          setIndexStats(0);
+          await renderBuckets();
+          await runQuery();
+          storageStatus.textContent = `connected — loaded ${loaded.length} document${loaded.length === 1 ? '' : 's'} another tab already wrote to IndexedDB`;
+        } else {
+          storageStatus.textContent = 'connected — this tab is the first writer, pushing its corpus in…';
+          await fullReindex();
+          storageStatus.textContent = 'connected — this tab is the first writer';
+        }
+      } else {
+        storageStatus.textContent = '';
+        await fullReindex();
+      }
+    }
+
+    /** Another tab wrote to the shared store: reload our view of it from scratch. */
+    async function refreshFromShared() {
+      if (storageMode !== 'shared' || destroyed) return;
+      const loaded = await loadFromShared(hashish);
+      if (destroyed) return;
+      docs = loaded;
+      nextId = Math.max(0, ...loaded.map((d) => d.id), nextId - 1) + 1;
+      renderCorpusList();
+      renderCells();
+      docs.forEach((d) => cell(d.id)?.classList.add('d'));
+      setIndexStats(0);
+      await renderBuckets();
+      await runQuery();
+      storageStatus.textContent = `connected — synced ${loaded.length} document${loaded.length === 1 ? '' : 's'} (another tab just wrote)`;
+    }
+
+    const offTabHandoff = onTabHandoff('hashish', (h) => {
+      if (h.kind === 'shared-index-changed') void refreshFromShared();
+    });
+
+    root.querySelectorAll<HTMLInputElement>('input[name="hh-storage"]').forEach((r) => {
+      r.addEventListener('change', () => { if (r.checked) void switchStorage(r.value as 'memory' | 'shared'); });
+    });
+
+    // ---------- export / import a portable snapshot (exportIndex / Hashish.importIndex) ----------
+    exportBtn.addEventListener('click', async () => {
+      try {
+        const snap: HashishExport = await hashish.exportIndex();
+        const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'hashish-index.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        snapshotStatus.textContent = `exported ${snap.documents.length} document${snap.documents.length === 1 ? '' : 's'} — this file is also what Packfile Vault or Jujutsu Timeline could carry`;
+      } catch (err) {
+        snapshotStatus.textContent = `export failed: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    });
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async () => {
+      const file = importFile.files?.[0];
+      importFile.value = '';
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text()) as HashishExport;
+        if (!data || !Array.isArray(data.documents)) throw new Error('not a Hashish exportIndex() snapshot (missing "documents")');
+        snapshotStatus.textContent = `importing ${data.documents.length} document${data.documents.length === 1 ? '' : 's'}…`;
+        const storage = storageMode === 'shared' ? new IndexedDBStorage(SHARED_DB_NAME) : undefined;
+        const imported = await Hashish.importIndex(data, storage);
+        if (destroyed) return;
+        hashish = imported;
+        if (data.options.numberOfHashFunctions) {
+          numberOfHashFunctions = data.options.numberOfHashFunctions;
+          hfSlider.value = String(Math.min(150, Math.max(10, numberOfHashFunctions)));
+          hfVal.textContent = hfLabel.textContent = hfSlider.value;
+        }
+        if (data.options.bucketSize) {
+          bucketSize = data.options.bucketSize;
+          bwSlider.value = String(Math.min(10, Math.max(1, bucketSize)));
+          bwVal.textContent = bwSlider.value;
+        }
+        docs = data.documents.map((d) => ({ id: Number(d.id), text: d.text, indexed: true }));
+        nextId = Math.max(0, ...docs.map((d) => d.id)) + 1;
+        renderCorpusList();
+        renderCells();
+        docs.forEach((d) => cell(d.id)?.classList.add('d'));
+        setIndexStats(0);
+        await renderBuckets();
+        await runQuery();
+        snapshotStatus.textContent = `imported ${docs.length} document${docs.length === 1 ? '' : 's'} via Hashish.importIndex()${data.options.seed == null ? ' (no seed in the file — signatures were freshly re-derived)' : ''}`;
+      } catch (err) {
+        snapshotStatus.textContent = `import failed: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    });
+
     // ---------- initial render ----------
     queryBox.value = initialQuery;
     renderCorpusList();
@@ -1015,6 +1267,7 @@ export default {
       if (queryDebounce) clearTimeout(queryDebounce);
       editDebounces.forEach((t) => clearTimeout(t));
       editDebounces.clear();
+      offTabHandoff();
     };
   },
 } satisfies Playground;

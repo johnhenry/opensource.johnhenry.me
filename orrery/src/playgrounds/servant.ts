@@ -1,5 +1,7 @@
 import type { Playground } from '../registry';
+import { har, type HarEntry } from '@johnhenry/http-converter';
 import { probeCompanion, hasDemo, companionBanner, type Companion } from '../companion';
+import { send } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './servant.css';
 
@@ -68,6 +70,22 @@ interface TraceStep { name: string; status: StepStatus; detail?: string }
 interface TraceEntry {
   ts: number; method: string; path: string; steps: TraceStep[];
   outcome: string; matchedRoute?: string; status?: number; by?: string; source: 'live' | 'emulated';
+  /** A full HAR entry for this dispatch, built with @johnhenry/http-converter's
+   *  har.fromResponse() from the exact request/response headers+body this
+   *  planet had in hand — only set for HTTP dispatches made from this tab
+   *  (the live trace stream from the companion carries method/path/status
+   *  only, not headers or bodies, so live entries never get one). */
+  harEntry?: HarEntry;
+}
+
+/** Builds a HAR entry from plain request/response shapes (never a native
+ *  Request/Response — those would need their bodies re-read, and callers
+ *  here already have the body/header values in hand from dispatch). */
+async function buildHarEntry(
+  req: { method: string; url: string; headers: Record<string, string>; body?: string | null },
+  res: { statusCode: number; statusText?: string; headers: Record<string, string>; body?: string | null },
+): Promise<HarEntry> {
+  return har.fromResponse(res, req);
 }
 
 /** In-page fetch-event emulator: identical semantics to servant's own dispatch, run entirely client-side. */
@@ -207,6 +225,41 @@ ctx.route('GET', '/config.json', () => new Response(JSON.stringify({ ok: true, m
 ctx.route('GET', '/teapot', () => new Response("I'm a teapot", { status: 418 }));
 `,
   },
+  {
+    name: 'Server-Sent Events',
+    script: `// GET /events streams six ticks as text/event-stream frames, built with
+// the exact wire format of servant's own createServerSentEvent(data, event?, id?)
+// (a pure string formatter — reproduced inline here since it's dependency-free
+// and this room can't import servant's Node-only entrypoint into the browser
+// bundle). Fetch /events from the composer, then watch the response body fill
+// in live as each frame arrives.
+const sse = (data, event, id) => {
+  let frame = '';
+  if (event) frame += \`event: \${event}\\n\`;
+  if (id) frame += \`id: \${id}\\n\`;
+  frame += \`data: \${JSON.stringify(data)}\\n\\n\`;
+  return frame;
+};
+
+ctx.route('GET', '/events', () => {
+  let n = 0;
+  const stream = new ReadableStream({
+    start(controller) {
+      const tick = () => {
+        controller.enqueue(new TextEncoder().encode(sse({ n, at: new Date().toISOString() }, 'tick', String(n))));
+        n++;
+        if (n < 6) setTimeout(tick, 500);
+        else controller.close();
+      };
+      tick();
+    },
+  });
+  return new Response(stream, { headers: { 'content-type': 'text/event-stream' } });
+});
+
+ctx.route('GET', '/', () => new Response('Servant SSE demo — GET /events streams six ticks as text/event-stream frames.', { status: 200 }));
+`,
+  },
 ];
 
 function escapeHtml(s: string): string {
@@ -266,6 +319,20 @@ const playground: Playground = {
               right shows exactly this journey for every request.
             </p>
           </div>
+          <div class="panel">
+            <h3>Event bus <span class="chip">emit() / addEventListener()</span></h3>
+            <p class="hint">
+              servant's real <code>emit(name, detail)</code> dispatches a <code>CustomEvent</code> on the same
+              <code>EventTarget</code> that <code>addEventListener</code> listens on — a request handler can notify
+              other in-process listeners (logging, metrics) synchronously, outside the response it returns. This is
+              the same mechanism, live in this tab: fire an event below and watch the listener below react.
+            </p>
+            <div class="event-bus-row">
+              <button class="btn" id="sv-emit">emit('orrery:ping', …) →</button>
+              <span class="stat" id="sv-emit-count"></span>
+            </div>
+            <div class="ws-log" id="sv-emit-log"></div>
+          </div>
         </div>
 
         <div class="col">
@@ -306,9 +373,12 @@ const playground: Playground = {
           <div class="panel">
             <div class="row-between">
               <h3>Dispatch trace</h3>
-              <button class="btn trace-clear" id="sv-trace-clear">clear</button>
+              <div>
+                <button class="btn" id="sv-trace-har" title="Download every dispatch that has a HAR entry as a .har file">⬇ .har</button>
+                <button class="btn trace-clear" id="sv-trace-clear">clear</button>
+              </div>
             </div>
-            <p class="hint">Live requests (HTTP or WS) travel through this list, newest first — colored by whether each middleware allowed, denied, or short-circuited the fetch event.</p>
+            <p class="hint">Live requests (HTTP or WS) travel through this list, newest first — colored by whether each middleware allowed, denied, or short-circuited the fetch event. Entries built from this tab's own dispatches also carry a full HAR entry (<code>@johnhenry/http-converter</code>'s <code>har.fromResponse()</code>) — open one in the HTTP Converter, or download the whole session.</p>
             <div class="trace-list" id="sv-trace"></div>
           </div>
         </div>
@@ -345,6 +415,31 @@ const playground: Playground = {
 
     const traceEl = root.querySelector<HTMLDivElement>('#sv-trace')!;
     const traceClearBtn = root.querySelector<HTMLButtonElement>('#sv-trace-clear')!;
+    const traceHarBtn = root.querySelector<HTMLButtonElement>('#sv-trace-har')!;
+
+    const emitBtn = root.querySelector<HTMLButtonElement>('#sv-emit')!;
+    const emitCountEl = root.querySelector<HTMLSpanElement>('#sv-emit-count')!;
+    const emitLogEl = root.querySelector<HTMLDivElement>('#sv-emit-log')!;
+
+    // ---- event bus (emit() / addEventListener() concept) --------------------
+    // A plain EventTarget, mirroring servant's real emit(name, detail) —
+    // target.dispatchEvent(new CustomEvent(name, { detail })) — and
+    // addEventListener(name, fn). Independent of live/emulated mode: this is
+    // the underlying mechanism ctx.use()/ctx.route()/ctx.ws() are built on.
+    const eventBus = new EventTarget();
+    const emit = (name: string, detail: unknown) => eventBus.dispatchEvent(new CustomEvent(name, { detail }));
+    let emitCount = 0;
+    eventBus.addEventListener('orrery:ping', (e) => {
+      emitCount++;
+      emitCountEl.textContent = `${emitCount} received`;
+      const row = document.createElement('div');
+      row.className = 'in';
+      row.textContent = `orrery:ping → ${JSON.stringify((e as CustomEvent).detail)}`;
+      emitLogEl.appendChild(row);
+      emitLogEl.scrollTop = emitLogEl.scrollHeight;
+      while (emitLogEl.children.length > 50) emitLogEl.removeChild(emitLogEl.firstChild as ChildNode);
+    });
+    emitBtn.addEventListener('click', () => emit('orrery:ping', { n: emitCount + 1, at: new Date().toISOString() }));
 
     // ---- companion probe --------------------------------------------------
     const companion: Companion | null = await probeCompanion();
@@ -410,21 +505,43 @@ const playground: Playground = {
 
     function renderTrace() {
       if (entries.length === 0) { traceEl.innerHTML = '<p class="trace-empty">No requests yet — send one from the composer or connect the WebSocket.</p>'; return; }
-      traceEl.innerHTML = entries.slice(0, TRACE_MAX_RENDER).map((e) => {
+      traceEl.innerHTML = entries.slice(0, TRACE_MAX_RENDER).map((e, i) => {
         const stepsHtml = e.steps.length
           ? e.steps.map((s) => `<span class="trace-step ${s.status}" title="${escapeHtml(s.detail ?? '')}">${escapeHtml(s.name)}</span>`).join('<span class="trace-arrow">→</span>')
           : '<span class="hint" style="margin:0">no middleware in this chain</span>';
         const statusLabel = e.status !== undefined ? `<span class="status ${statusClass(e.status)}">${e.status}</span>` : '';
+        const harRow = e.harEntry
+          ? `<button class="btn trace-har-open" type="button" data-har-open data-idx="${i}">Open in HTTP Converter →</button>`
+          : '';
         return `
           <div class="trace-entry">
             <div class="trace-head"><span class="path">${escapeHtml(e.method)} ${escapeHtml(e.path)}</span>${statusLabel}</div>
             <div class="trace-steps">${stepsHtml}</div>
             <div class="trace-outcome">${escapeHtml(e.outcome)}${e.matchedRoute ? ` · matched <b>${escapeHtml(e.matchedRoute)}</b>` : ''} · <i>${e.source}</i></div>
+            ${harRow}
           </div>`;
       }).join('');
     }
     function pushLocalEntry(e: TraceEntry) { entries.unshift(e); if (entries.length > 200) entries.length = 200; renderTrace(); }
     traceClearBtn.addEventListener('click', () => { entries.length = 0; renderTrace(); });
+    traceEl.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-har-open]');
+      if (!btn) return;
+      const entry = entries[Number(btn.dataset.idx)];
+      if (entry?.harEntry) send('servant', 'converter', 'har-entry', entry.harEntry);
+    });
+    traceHarBtn.addEventListener('click', () => {
+      const withHar = entries.filter((e) => e.harEntry).map((e) => e.harEntry);
+      if (!withHar.length) return;
+      const log = { log: { version: '1.2', creator: { name: 'Servant Hall (ORRERY)', version: '1.0' }, entries: withHar } };
+      const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'servant-session.har';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
     renderTrace();
 
     // ---- script apply -------------------------------------------------------
@@ -562,6 +679,12 @@ const playground: Playground = {
           const text = await response.clone().text();
           respStatusEl.innerHTML = `<span class="${statusClass(response.status)}">${response.status}</span>`;
           respBodyEl.textContent = text || '(empty body)';
+          try {
+            entry.harEntry = await buildHarEntry(
+              { method, url: url.toString(), headers: Object.fromEntries(headers.entries()), body: body ?? null },
+              { statusCode: response.status, statusText: response.statusText, headers: Object.fromEntries(response.headers.entries()), body: text },
+            );
+          } catch { /* HAR is a bonus — never block showing the response over it */ }
           pushLocalEntry(entry);
         }
       } catch (err) {

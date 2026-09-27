@@ -30,6 +30,21 @@
 
 .pg-leserve .lsv-wire pre.code { min-height: 140px; max-height: 260px; font-size: 12px; }
 
+.pg-leserve #resp-handoff { margin-top: 10px; }
+
+.pg-leserve .lsv-tests .lsv-note { margin: -2px 0 10px; }
+.pg-leserve .lsv-test-results { display: grid; gap: 8px; margin-top: 12px; }
+.pg-leserve .lsv-test-row {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-inset);
+  font-family: var(--f-mono); font-size: 12px;
+}
+.pg-leserve .lsv-test-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.pg-leserve .lsv-test-row.pass .lsv-test-dot { background: var(--success); }
+.pg-leserve .lsv-test-row.fail .lsv-test-dot { background: var(--error); }
+.pg-leserve .lsv-test-name { font-weight: 600; color: var(--ink); }
+.pg-leserve .lsv-test-detail { color: var(--ink-2); }
+
 @media (max-width: 720px) {
   .pg-leserve .lsv-toolbar .stat { margin-left: 0; }
 }
