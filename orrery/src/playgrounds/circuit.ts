@@ -42,6 +42,22 @@ const THEMES: Array<{ cls: string; hue: number }> = [
   { cls: 'theme-ecmanim', hue: 285 },
   { cls: 'theme-clawser', hue: 340 },
 ];
+/** themes.css's own doc comment: "Blocked union: [122°, 219°]." -- reserved for existing closed erisera products' ±20° buffers. */
+const HUE_BLOCKED: [number, number] = [122, 219];
+/**
+ * Which ORRERY planet (registry.ts `id`) each themes.css class is really
+ * "for" -- matey and clawser are erisera products with no ORRERY room
+ * (nothing to check them against here), the rest are the OSS tools this
+ * site actually runs live. See ROADMAP.md P0.4: planet hues have drifted
+ * from this registry before (objectify 105 vs 70, andbox 330 vs 95, mcpq
+ * 205 vs 250, ecmanim 45 vs 285, at the time that item was written).
+ */
+const THEME_ROOM_MAP: Record<string, string> = {
+  'theme-objectify': 'objectify',
+  'theme-andbox': 'andbox',
+  'theme-mcp-query': 'mcpq',
+  'theme-ecmanim': 'ecmanim',
+};
 
 // ---------------------------------------------------------------------------
 // Token groups, read straight off tokens.css
@@ -181,11 +197,17 @@ const playground: Playground = {
 
         <section class="panel" id="components-section">
           <h2>Components, light &amp; dark</h2>
-          <p class="hint">The same <code>components.css</code> markup, twice — one wrapper carries <code>.light</code>, the other <code>.dark</code>. Tokens.css supports scoping either class on any element, not just <code>&lt;html&gt;</code>.</p>
+          <p class="hint">The same <code>components.css</code> markup, twice — one wrapper carries <code>.light</code>, the other <code>.dark</code>. Tokens.css supports scoping either class on any element, not just <code>&lt;html&gt;</code>. Every class below is a real selector from <code>components.css</code>: <code>c-header</code>, <code>c-side</code>, <code>c-btn</code>, <code>c-badge</code>, <code>c-field</code>, <code>c-tabbar</code>, <code>c-codebox</code>, <code>c-termbox</code>, <code>c-callout</code>, <code>c-paramlist</code>.</p>
           <div class="showcase-halves">
             <div class="showcase-half light" id="showcase-light"><div class="half-label">.light</div></div>
             <div class="showcase-half dark" id="showcase-dark"><div class="half-label">.dark</div></div>
           </div>
+        </section>
+
+        <section class="panel" id="audit-section">
+          <h2>Hue registry check <span class="stat">P0.4</span></h2>
+          <p class="hint">themes.css's own doc comment names a registry: every erisera product gets a <code>--hue</code> at least 20° from every other, and the union <code>[122°, 219°]</code> is reserved for existing closed products' buffers. This checks ORRERY's live <code>registry.ts</code> against that source of truth — the six <code>theme-*</code> classes above (skipping <code>matey</code>/<code>clawser</code>, which have no ORRERY planet) and every planet's hue against the blocked arc.</p>
+          <div class="contrast-table audit-table" id="audit-table"></div>
         </section>
 
         <section class="panel" id="themes-section">
@@ -282,6 +304,10 @@ const playground: Playground = {
     // ---- components showcase, light + dark ----
     function componentsMarkup(): string {
       return `
+        <header class="c-header">
+          <div class="c-logo"><span class="co">erisera</span><span class="tool">circuit</span><span class="ver">v0.1.1</span></div>
+          <nav><a href="#" aria-current="page">Guide</a><a href="#">API</a><a href="#">Examples</a></nav>
+        </header>
         <div class="demo-row">
           <button class="c-btn primary">Primary</button>
           <button class="c-btn secondary">Secondary</button>
@@ -299,22 +325,56 @@ const playground: Playground = {
           <h4>Card</h4>
           <p>A .demo-card riding on --bg-panel / --line / --shadow-sm.</p>
         </div>
+        <nav class="c-side">
+          <h5>Getting started</h5>
+          <ul><li><a class="on" href="#">Installation</a></li><li><a href="#">Quickstart</a></li></ul>
+          <h5>Reference</h5>
+          <ul><li><a href="#">API</a></li><li><a href="#">Tokens</a></li></ul>
+        </nav>
         <div class="c-tabbar">
           <span class="tab on">Overview</span>
           <span class="tab">API</span>
           <span class="tab">Examples</span>
         </div>
         <div class="c-codebox">
-          <div class="cap"><span>demo.ts</span></div>
+          <div class="cap"><span>demo.ts</span><button class="cp">copy</button></div>
           <pre><span class="sx-kw">const</span> <span class="sx-fn">accent</span> = <span class="sx-str">'hsl(var(--hue) 95% 46%)'</span>;
 <span class="sx-cm">// numbers and booleans stay fixed too</span>
 <span class="sx-kw">const</span> n: <span class="sx-type">number</span> = <span class="sx-num">360</span>;
 <span class="sx-kw">const</span> ok: <span class="sx-type">boolean</span> = <span class="sx-bool">true</span>;</pre>
         </div>
+        <div class="c-termbox">
+          <div class="twin"><i></i><i></i><i></i></div>
+          <pre><span class="prompt">$</span> npm i @erisera-code/circuit
+<span class="out">added 1 package in 312ms</span></pre>
+        </div>
+        <div class="c-callout tip">
+          <span class="ic">TIP</span>
+          <p>Spin the dial above — <b>--hue</b> is the only thing that moves.</p>
+        </div>
+        <div class="c-callout warning">
+          <span class="ic">WARN</span>
+          <p>Hues in the 122–219° arc are reserved — see the registry check below.</p>
+        </div>
+        <div class="c-paramlist">
+          <div class="c-paramrow">
+            <span class="pname">hue</span><span class="ptype">number</span><span class="pdefault">= 25</span>
+            <span class="preq required">required</span>
+            <span class="pdesc">Accent hue (0–360). Everything else on the page holds still.</span>
+          </div>
+          <div class="c-paramrow">
+            <span class="pname">mount</span><span class="ptype">HTMLElement</span>
+            <span class="preq optional">optional</span>
+            <span class="pdesc">Root element a <code>createCommandPalette()</code> instance portals into.</span>
+          </div>
+        </div>
       `;
     }
     host.querySelector<HTMLElement>('#showcase-light')!.innerHTML += componentsMarkup();
     host.querySelector<HTMLElement>('#showcase-dark')!.innerHTML += componentsMarkup();
+    // These are decorative (c-header / c-side markup real docs sites link with), not
+    // in-app navigation -- keep clicks from touching the hash router.
+    host.querySelectorAll<HTMLAnchorElement>('.showcase-half a').forEach((a) => a.addEventListener('click', (e) => e.preventDefault()));
 
     // ---- themes gallery ----
     const themeGrid = host.querySelector<HTMLElement>('#theme-grid')!;
@@ -360,6 +420,47 @@ const playground: Playground = {
         </div>`;
       }).join('');
     }
+
+    // ---- hue registry audit (P0.4) ----
+    function renderHueAudit() {
+      const wrap = host.querySelector<HTMLElement>('#audit-table')!;
+      const themeRows = THEMES.map((t) => {
+        const roomId = THEME_ROOM_MAP[t.cls];
+        if (!roomId) {
+          return `<div class="contrast-row audit-row skip">
+            <span class="pair">${esc(t.cls)}</span>
+            <span class="demo">no ORRERY planet — closed/not run here</span>
+            <span class="ratio">--hue: ${t.hue}°</span>
+            <span class="grade aa">n/a</span>
+          </div>`;
+        }
+        const room = playgrounds.find((p) => p.id === roomId);
+        const match = !!room && room.hue === t.hue;
+        return `<div class="contrast-row audit-row ${match ? 'ok' : 'bad'}">
+          <span class="pair">${esc(t.cls)} ↔ #/${roomId}</span>
+          <span class="demo">themes.css: ${t.hue}° · registry.ts: ${room ? `${room.hue}°` : 'missing'}</span>
+          <span class="ratio"></span>
+          <span class="grade ${match ? 'aaa' : 'fail'}">${match ? 'OK' : 'MISMATCH'}</span>
+        </div>`;
+      }).join('');
+      const [lo, hi] = HUE_BLOCKED;
+      const blocked = playgrounds.filter((p) => p.hue >= lo && p.hue <= hi);
+      const blockedRows = blocked.length
+        ? blocked.map((p) => `<div class="contrast-row audit-row bad">
+            <span class="pair">#/${esc(p.id)}</span>
+            <span class="demo">--hue: ${p.hue}° — inside the blocked ${lo}–${hi}° arc</span>
+            <span class="ratio"></span>
+            <span class="grade fail">BLOCKED</span>
+          </div>`).join('')
+        : `<div class="contrast-row audit-row ok">
+            <span class="pair">blocked arc (${lo}°–${hi}°)</span>
+            <span class="demo">no planet's hue falls inside it</span>
+            <span class="ratio"></span>
+            <span class="grade aaa">CLEAR</span>
+          </div>`;
+      wrap.innerHTML = themeRows + blockedRows;
+    }
+    renderHueAudit();
 
     setHue(hue, false);
 
