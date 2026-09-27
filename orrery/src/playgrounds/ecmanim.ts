@@ -34,15 +34,23 @@ const PRESETS: Preset[] = [
 
 class CircleToSquare extends Scene {
   async construct() {
+    // Title sits well above the shape's rotated (diamond) bounding box: a
+    // square rotating 90° sweeps a corner up to its full half-diagonal
+    // (sideLength/√2 ≈ 2.12 world units), not just its half-height (1.5).
+    // At the old y=2.6/y=-0.3 layout that corner's peak came within ~10-40px
+    // of the title's own bounding box at 720p — both drawn in the same GOLD,
+    // so a near-miss read as a visible occlusion. Moving the title up and the
+    // settled shape down keeps a safe margin at every frame, including the
+    // Indicate() scale-up near the end.
     const title = new Text("ecmanim", { fontSize: 1.1, color: GOLD });
-    title.moveTo([0, 2.6, 0]);
+    title.moveTo([0, 2.9, 0]);
     await this.play(new Write(title), { runTime: 1.2 });
 
     const circle = new Circle({ radius: 1.6, color: BLUE, fillOpacity: 0.35 });
     await this.play(new Create(circle), { runTime: 1.2 });
 
     const square = new Square({ sideLength: 3, color: GOLD, fillOpacity: 0.35 });
-    square.moveTo([0, -0.3, 0]);
+    square.moveTo([0, -0.7, 0]);
     await this.play(new Transform(circle, square), { runTime: 1.4 });
     await this.play(new Rotate(circle, PI / 2), { runTime: 1 });
     await this.play(new Indicate(title));
@@ -867,7 +875,16 @@ const explainerFormatLocal: LocalFormat = {
       await scene.play(new idx.Write(title), { runTime: 1 });
       if (sub) await scene.play(new idx.FadeIn(sub, { shift: [0, 0.3, 0] }), { runTime: 0.5 });
       await scene.wait(0.8);
-      await scene.play(new idx.FadeOut(new idx.VGroup(...[title, sub].filter((m: any) => m != null))), { runTime: 0.5 });
+      const titleScreen = [title, sub].filter((m: any) => m != null);
+      await scene.play(new idx.FadeOut(new idx.VGroup(...titleScreen)), { runTime: 0.5 });
+      // `Write`/`FadeIn` each added their own mobject to the scene individually
+      // (that's how `getMobjectsToIntroduce()` works); the `VGroup` above only
+      // ever existed to animate them together and was never itself added to
+      // the scene. `Scene.remove()` does an exact top-level reference check,
+      // so removing the transient VGroup here would be a no-op and title/sub
+      // would silently linger (opaque, on top of) every section that follows
+      // — remove the actual mobjects that were actually added.
+      scene.remove(...titleScreen);
       for (const [i, sec] of plan.sections.entries() as any) {
         scene.nextSection(sec.heading || `section-${i + 1}`);
         const heading = new idx.Text(wrapText(sec.heading, 30), { fontSize: 0.6, point: [0, 2.6, 0], color: '#58C4DD' });
@@ -880,6 +897,10 @@ const explainerFormatLocal: LocalFormat = {
         for (const item of items) await scene.play(new idx.FadeIn(item, { shift: [0.4, 0, 0] }), { runTime: 0.35 });
         await scene.wait(sec.holdSeconds ?? 2.5);
         await scene.play(new idx.FadeOut(new idx.VGroup(heading, ...items)), { runTime: 0.4 });
+        // Same fix as the title screen above: remove the actual heading/item
+        // mobjects (not the throwaway VGroup) so the next section starts from
+        // a clean scene instead of piling up on every prior one.
+        scene.remove(heading, ...items);
       }
       if (plan.outro) {
         scene.nextSection('outro');
@@ -1192,6 +1213,23 @@ function mountAuthoringTab(container: HTMLElement, initialId: string, onFormatCh
   }
 
   function select(f: FormatSpec) {
+    // Cancel whatever format is still mid-render (its frameHandler checks
+    // `gen !== myGen` and throws Cancelled on its very next frame) and wipe
+    // the canvas/plan panel immediately — otherwise the previous format's
+    // scene keeps animating on this same canvas, drawing over the new
+    // format's controls until the user manually clicks Render again, which
+    // reads exactly like "old text/section doesn't get cleared".
+    gen++;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    stateChip.textContent = 'idle';
+    renderPlanPanel(planEl, null);
+    // The cancelled run's own `finally` only re-enables the button when its
+    // gen still matches — which, now that we've bumped gen above, it never
+    // will. Re-enable it ourselves (once the libs are actually loaded) so
+    // the newly-selected format is immediately renderable.
+    if (lib && studioLib) renderBtn.disabled = false;
     current = f;
     onFormatChange(f.id);
     picker.querySelectorAll<HTMLButtonElement>('.em-tab').forEach((b) => b.classList.toggle('active', b.dataset.id === f.id));
