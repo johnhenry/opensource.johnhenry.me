@@ -1,5 +1,5 @@
 import type { Playground } from '../registry';
-import { ComplexNumber, Rotor4, Bivector4, Vec4, Symbolic, type Expr } from '@johnhenry/math';
+import { ComplexNumber, Rotor4, Bivector4, Vec4, Symbolic, DualNumber, VectorCalculus, type Expr } from '@johnhenry/math';
 import { handoffButton } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './math.css';
@@ -17,6 +17,9 @@ const DEFAULTS = {
   plane: 'xy',
   expr: '',
   a: 1.5,
+  vf: 'well',
+  ad: 'single',
+  probe: [0.9, 0.4] as [number, number],
 };
 type MathState = typeof DEFAULTS;
 
@@ -1175,6 +1178,305 @@ Symbolic.toLatex(ast);</pre>
   };
 }
 
+/* =============================================================== VECTOR CALC */
+
+/** A scalar potential Φ; its field is ∇Φ, computed point-by-point via VectorCalculus.gradient (real autodiff, not a closed form). */
+interface VFPresetGradient {
+  id: 'well' | 'saddle';
+  short: string;
+  label: string;
+  kind: 'gradient';
+  potential: (xs: DualNumber[]) => DualNumber;
+  /** Same field, DualNumber-native (for divergence/curl3D — composing autodiff-of-autodiff isn't supported, so this is hand-derived). */
+  fieldDual: (xs: DualNumber[]) => [DualNumber, DualNumber];
+}
+/** A vector field with no scalar potential (not conservative) — evaluated directly. */
+interface VFPresetDirect {
+  id: 'vortex';
+  short: string;
+  label: string;
+  kind: 'direct';
+  field: (x: number, y: number) => [number, number];
+  fieldDual: (xs: DualNumber[]) => [DualNumber, DualNumber];
+}
+type VFPreset = VFPresetGradient | VFPresetDirect;
+
+const VF_PRESETS: VFPreset[] = [
+  {
+    id: 'well', short: 'Potential well', label: 'Potential well · Φ = ½(x²+y²) · F = ∇Φ', kind: 'gradient',
+    potential: xs => xs[0].pow(2).add(xs[1].pow(2)).multiply(0.5),
+    fieldDual: xs => [xs[0], xs[1]],
+  },
+  {
+    id: 'saddle', short: 'Saddle', label: 'Saddle · Φ = ½(x²−y²) · F = ∇Φ', kind: 'gradient',
+    potential: xs => xs[0].pow(2).subtract(xs[1].pow(2)).multiply(0.5),
+    fieldDual: xs => [xs[0], xs[1].negate()],
+  },
+  {
+    id: 'vortex', short: 'Vortex', label: 'Vortex · F = (−y, x) — not a gradient field', kind: 'direct',
+    field: (x, y) => [-y, x],
+    fieldDual: xs => [xs[1].negate(), xs[0]],
+  },
+];
+
+function sampleField(preset: VFPreset, x: number, y: number): [number, number] {
+  if (preset.kind === 'gradient') {
+    const g = VectorCalculus.gradient(preset.potential, [x, y]);
+    return [g[0] ?? 0, g[1] ?? 0];
+  }
+  return preset.field(x, y);
+}
+function divergenceAt(preset: VFPreset, x: number, y: number): number {
+  try { return VectorCalculus.divergence(preset.fieldDual, [x, y]); } catch { return NaN; }
+}
+/** z-component of curl3D with the field embedded in the z=0 plane (F_z ≡ 0) — the usual 2D scalar curl. */
+function curlZAt(preset: VFPreset, x: number, y: number): number {
+  try {
+    const f3 = (xs: DualNumber[]): DualNumber[] => {
+      const [fx, fy] = preset.fieldDual([xs[0], xs[1]]);
+      return [fx, fy, DualNumber.constant(0)];
+    };
+    return VectorCalculus.curl3D(f3, [x, y, 0])[2];
+  } catch { return NaN; }
+}
+
+/** A JS function alongside a hand-matched DualNumber version of the same formula, so forward-mode AD and the symbolic derivative are provably comparing the same math. */
+interface ADPreset { id: string; label: string; expr: string; vars: string[]; point: number[]; dual: (xs: DualNumber[]) => DualNumber }
+const AD_PRESETS: ADPreset[] = [
+  {
+    id: 'single', label: 'sin(1.5x)·e^(−x²/8)', expr: 'sin(1.5*x)*exp(-x^2/8)', vars: ['x'], point: [0.8],
+    dual: xs => DualNumber.sin(xs[0].multiply(1.5)).multiply(DualNumber.exp(xs[0].pow(2).multiply(-1 / 8))),
+  },
+  {
+    id: 'poly-trig', label: 'x²y + sin(xy)', expr: 'x^2*y + sin(x*y)', vars: ['x', 'y'], point: [1.1, 0.6],
+    dual: xs => xs[0].pow(2).multiply(xs[1]).add(DualNumber.sin(xs[0].multiply(xs[1]))),
+  },
+  {
+    id: 'log-cube', label: 'log(x²+1) − y³', expr: 'log(x^2+1) - y^3', vars: ['x', 'y'], point: [1.4, -0.7],
+    dual: xs => DualNumber.log(xs[0].pow(2).add(1)).subtract(xs[1].pow(3)),
+  },
+];
+
+const DOMAIN = 3; // half-width of the vector-field view (world units), also sent to Ecmanim as xRange/yRange
+
+function vectorMode(ctx0: RoomCtx): Mode {
+  const el = h('div', { class: 'mo-stage' });
+  el.innerHTML = `
+    <div class="mo-view">
+      <canvas class="mo-main"></canvas>
+      <div class="mo-hud"></div>
+      <div class="mo-hint">hover: move the probe · div/curl update live</div>
+    </div>
+    <div class="mo-side">
+      <div class="panel">
+        <h3>Vector field</h3>
+        <div class="mo-formula" data-vf-formula></div>
+        <div class="mo-row" data-export></div>
+        <div class="mo-row" data-vf-presets></div>
+        <div class="mo-kv" data-vf-stats></div>
+      </div>
+      <div class="panel">
+        <h3>Forward-mode AD vs symbolic</h3>
+        <div class="mo-row" data-ad-presets></div>
+        <div class="mo-formula" data-ad-formula></div>
+        <div class="mo-inline">
+          <label class="field">x <span class="stat" data-ad-xv></span><input type="range" min="-2.5" max="2.5" step="0.01" value="0.8" data-ad-x></label>
+          <label class="field" data-ad-yfield>y <span class="stat" data-ad-yv></span><input type="range" min="-2.5" max="2.5" step="0.01" value="0.6" data-ad-y></label>
+        </div>
+        <div class="mo-kv" data-ad-out></div>
+      </div>
+      <div class="panel mo-how">
+        <h3>How it's computed</h3>
+        <p>The AD panel evaluates the same formula twice: once through <code>DualNumber</code> arithmetic (exact forward-mode autodiff, no finite differences), once through <code>Symbolic</code> differentiation — and shows they agree to float precision. The field panel samples <code>VectorCalculus.gradient</code> at every grid point for the two potential fields, and probes <code>divergence</code>/<code>curl3D</code> live under the cursor.</p>
+<pre class="code">import { DualNumber, VectorCalculus } from '@johnhenry/math';
+
+DualNumber.derivative(f, x);           // single variable
+DualNumber.gradient(f, point);         // f: (xs: DualNumber[]) =&gt; DualNumber
+VectorCalculus.symbolicGradient(expr, vars, point); // the comparison
+
+VectorCalculus.gradient(potential, [x, y]);     // ∇Φ, per grid point
+VectorCalculus.divergence(field, [x, y]);       // tr(Jacobian)
+VectorCalculus.curl3D(field3, [x, y, 0])[2];    // 2D curl = ẑ-component</pre>
+      </div>
+    </div>`;
+
+  const canvas = $<HTMLCanvasElement>(el, 'canvas.mo-main');
+  const hud = $(el, '.mo-hud');
+  const ctx = canvas.getContext('2d')!;
+  const xIn = $<HTMLInputElement>(el, '[data-ad-x]');
+  const yIn = $<HTMLInputElement>(el, '[data-ad-y]');
+  const yField = $(el, '[data-ad-yfield]');
+
+  const state = {
+    vfIdx: 0,
+    adIdx: 0,
+    adPoint: [...AD_PRESETS[0].point] as number[],
+    probe: [0.9, 0.4] as [number, number],
+  };
+  {
+    const init = ctx0.initial;
+    if (ctx0.has('vf')) { const i = VF_PRESETS.findIndex(p => p.id === init.vf); if (i >= 0) state.vfIdx = i; }
+    if (ctx0.has('ad')) { const i = AD_PRESETS.findIndex(p => p.id === init.ad); if (i >= 0) { state.adIdx = i; state.adPoint = [...AD_PRESETS[i].point]; } }
+    if (ctx0.has('probe') && Array.isArray(init.probe) && init.probe.length === 2 && init.probe.every(Number.isFinite)) {
+      state.probe = [init.probe[0], init.probe[1]];
+    }
+  }
+  const sig = (n: number, d = 6) => +n.toPrecision(d);
+  function syncUrl() {
+    ctx0.sync({ vf: VF_PRESETS[state.vfIdx].id, ad: AD_PRESETS[state.adIdx].id, probe: [sig(state.probe[0]), sig(state.probe[1])] });
+  }
+  $(el, '[data-export]').append(exportButton('math-vector-field', () => ({
+    preset: VF_PRESETS[state.vfIdx].id,
+    xRange: [-DOMAIN, DOMAIN, 0.5],
+    yRange: [-DOMAIN, DOMAIN, 0.5],
+    probe: state.probe,
+  })));
+
+  let active = false;
+  let raf = 0;
+
+  /* ---- vector field grid ---- */
+  const vfRow = $(el, '[data-vf-presets]');
+  for (let i = 0; i < VF_PRESETS.length; i++) {
+    const b = h('button', { class: 'btn', 'data-i': String(i) }, VF_PRESETS[i].short);
+    b.addEventListener('click', () => { state.vfIdx = i; updateVFButtons(); syncUrl(); schedule(); });
+    vfRow.append(b);
+  }
+  function updateVFButtons() {
+    for (const b of el.querySelectorAll<HTMLButtonElement>('[data-vf-presets] .btn')) b.classList.toggle('on', b.dataset.i === String(state.vfIdx));
+    $(el, '[data-vf-formula]').textContent = VF_PRESETS[state.vfIdx].label;
+  }
+
+  function toField(e: MouseEvent): [number, number] {
+    const r = canvas.getBoundingClientRect();
+    const aspect = r.height / r.width;
+    const xr = DOMAIN, yr = DOMAIN * aspect;
+    return [-xr + ((e.clientX - r.left) / r.width) * 2 * xr, yr - ((e.clientY - r.top) / r.height) * 2 * yr];
+  }
+  function updateStats() {
+    const preset = VF_PRESETS[state.vfIdx];
+    const div = divergenceAt(preset, state.probe[0], state.probe[1]);
+    const curl = curlZAt(preset, state.probe[0], state.probe[1]);
+    hud.innerHTML = `<b>${esc(preset.label)}</b><br>at (${fmt(state.probe[0], 2)}, ${fmt(state.probe[1], 2)}): div F = ${fmt(div, 4)} · curl F·ẑ = ${fmt(curl, 4)}`;
+    $(el, '[data-vf-stats]').innerHTML = `
+      <span>div F (probe)</span><span>${fmt(div, 6)}</span>
+      <span>curl F·ẑ (probe)</span><span>${fmt(curl, 6)}</span>
+      <span>probe</span><span>(${fmt(state.probe[0], 3)}, ${fmt(state.probe[1], 3)})</span>`;
+  }
+
+  function draw() {
+    fit(canvas, 2);
+    const W = canvas.width, H = canvas.height, dpr = W / canvas.clientWidth;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, W, H);
+    const preset = VF_PRESETS[state.vfIdx];
+    const aspect = H / W;
+    const xr = DOMAIN, yr = DOMAIN * aspect;
+    const cols = 17;
+    const rows = Math.max(3, Math.round(cols * aspect));
+    const toPx = (x: number, y: number): [number, number] => [((x + xr) / (2 * xr)) * W, (1 - (y + yr) / (2 * yr)) * H];
+    const cellW = W / (cols - 1);
+    const pts: { x: number; y: number; v: [number, number] }[] = [];
+    let maxMag = 0;
+    for (let j = 0; j < rows; j++) {
+      const y = yr - (j / (rows - 1)) * 2 * yr;
+      for (let i = 0; i < cols; i++) {
+        const x = -xr + (i / (cols - 1)) * 2 * xr;
+        const v = sampleField(preset, x, y);
+        pts.push({ x, y, v });
+        maxMag = Math.max(maxMag, Math.hypot(v[0], v[1]));
+      }
+    }
+    for (const p of pts) {
+      const mag = Math.hypot(p.v[0], p.v[1]);
+      const t = maxMag > 1e-9 ? mag / maxMag : 0;
+      const [px, py] = toPx(p.x, p.y);
+      const len = cellW * (0.16 + 0.6 * t);
+      const ang = Math.atan2(-p.v[1], p.v[0]); // canvas y is flipped vs field y
+      const ex = px + Math.cos(ang) * len, ey = py + Math.sin(ang) * len;
+      const col = `hsl(${260 - t * 220}, 80%, ${55 + t * 10}%)`;
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5 * dpr;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(ex, ey); ctx.stroke();
+      const L = 5 * dpr;
+      ctx.beginPath(); ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - L * Math.cos(ang - 0.5), ey - L * Math.sin(ang - 0.5));
+      ctx.lineTo(ex - L * Math.cos(ang + 0.5), ey - L * Math.sin(ang + 0.5));
+      ctx.closePath(); ctx.fill();
+    }
+    const [ppx, ppy] = toPx(state.probe[0], state.probe[1]);
+    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.arc(ppx, ppy, 13 * dpr, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ppx, ppy, 3.5 * dpr, 0, Math.PI * 2); ctx.fill();
+    updateStats();
+  }
+  function schedule() { if (active && !raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); }
+
+  const onMove = (e: MouseEvent) => { state.probe = toField(e); schedule(); syncUrl(); };
+  canvas.addEventListener('mousemove', onMove);
+
+  /* ---- forward-mode AD vs symbolic ---- */
+  const adRow = $(el, '[data-ad-presets]');
+  for (let i = 0; i < AD_PRESETS.length; i++) {
+    const b = h('button', { class: 'btn', 'data-i': String(i) }, AD_PRESETS[i].label);
+    b.addEventListener('click', () => {
+      state.adIdx = i;
+      state.adPoint = [...AD_PRESETS[i].point];
+      xIn.value = String(state.adPoint[0]);
+      yIn.value = String(state.adPoint[1] ?? 0);
+      renderAD();
+      syncUrl();
+    });
+    adRow.append(b);
+  }
+  function renderAD() {
+    const preset = AD_PRESETS[state.adIdx];
+    for (const b of el.querySelectorAll<HTMLButtonElement>('[data-ad-presets] .btn')) b.classList.toggle('on', b.dataset.i === String(state.adIdx));
+    $(el, '[data-ad-formula]').textContent = `f = ${preset.expr}`;
+    yField.style.display = preset.vars.length < 2 ? 'none' : '';
+    $(el, '[data-ad-xv]').textContent = state.adPoint[0].toFixed(2);
+    $(el, '[data-ad-yv]').textContent = (state.adPoint[1] ?? 0).toFixed(2);
+    const point = preset.vars.map((_, i) => state.adPoint[i] ?? 0);
+    const pointRecord: Record<string, number> = {};
+    preset.vars.forEach((v, i) => (pointRecord[v] = point[i]));
+    let dual: number[];
+    try {
+      dual = preset.vars.length === 1
+        ? [DualNumber.derivative(x => preset.dual([x]), point[0])]
+        : DualNumber.gradient(preset.dual, point);
+    } catch (e) { dual = preset.vars.map(() => NaN); }
+    let sym: number[];
+    try { sym = VectorCalculus.symbolicGradient(preset.expr, preset.vars, pointRecord); }
+    catch (e) { sym = preset.vars.map(() => NaN); }
+    const rows = preset.vars
+      .map((v, i) => `<span>∂f/∂${v} (DualNumber)</span><span>${fmt(dual[i], 8)}</span><span>∂f/∂${v} (Symbolic)</span><span>${fmt(sym[i], 8)}</span>`)
+      .join('');
+    const maxDiff = Math.max(...preset.vars.map((_, i) => Math.abs(dual[i] - sym[i])));
+    $(el, '[data-ad-out]').innerHTML = `${rows}<span>max |Δ|</span><span>${fmt(maxDiff, 12)} ${maxDiff < 1e-6 ? '✓ agree' : ''}</span>`;
+  }
+  xIn.addEventListener('input', () => { state.adPoint[0] = +xIn.value; renderAD(); });
+  yIn.addEventListener('input', () => { state.adPoint[1] = +yIn.value; renderAD(); });
+
+  const ro = new ResizeObserver(() => { if (active) schedule(); });
+  ro.observe(el);
+
+  xIn.value = String(state.adPoint[0]);
+  yIn.value = String(state.adPoint[1] ?? AD_PRESETS[state.adIdx].point[1] ?? 0);
+  updateVFButtons();
+  renderAD();
+
+  return {
+    el,
+    activate() { active = true; schedule(); },
+    deactivate() { active = false; cancelAnimationFrame(raf); raf = 0; },
+    destroy() {
+      active = false;
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      canvas.removeEventListener('mousemove', onMove);
+    },
+  };
+}
+
 /* ==================================================================== PLANET */
 
 const playground: Playground = {
@@ -1200,6 +1502,7 @@ const playground: Playground = {
         if (m === 'fractal') Object.assign(pick, { preset: url.preset, kind: url.kind, c: url.c, zoom: url.zoom, center: url.center });
         if (m === 'rotor') pick.plane = url.plane;
         if (m === 'symbolic') Object.assign(pick, { expr: url.expr, a: url.a });
+        if (m === 'vector') Object.assign(pick, { vf: url.vf, ad: url.ad, probe: url.probe });
         writeState(pick, DEFAULTS);
       },
     };
@@ -1212,6 +1515,7 @@ const playground: Playground = {
       { id: 'fractal', label: '◐ Complex fractals', make: () => fractalMode(ctx) },
       { id: 'rotor', label: '⟳ Rotors in 4D', make: () => rotorMode(ctx) },
       { id: 'symbolic', label: 'ƒ Symbolic plotter', make: () => symbolicMode(ctx) },
+      { id: 'vector', label: '∇ Vector calculus', make: () => vectorMode(ctx) },
     ];
     const modes = new Map<string, Mode>();
     let current: Mode | null = null;
