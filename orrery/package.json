@@ -67,7 +67,7 @@
     "@johnhenry/servant": "^0.2.0",
     "@johnhenry/signalle": "^0.1.1",
     "@johnhenry/spintax": "^0.0.1",
-    "@johnhenry/temporals": "^0.0.0",
+    "@johnhenry/temporals": "^0.0.1",
     "@johnhenry/tester": "^0.0.1",
     "@johnhenry/wsh": "^0.17.1",
     "@xterm/xterm": "^6.0.0",

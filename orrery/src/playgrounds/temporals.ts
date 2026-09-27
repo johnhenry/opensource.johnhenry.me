@@ -14,8 +14,27 @@ import {
   startOf,
   endOf,
   Interval,
+  ruleFromString,
+  configureTemporal,
 } from '@johnhenry/temporals';
 import type { RecurRule, Weekday, WeekdaySpec } from '@johnhenry/temporals';
+import { cronToRule, ruleToCron, describeCron } from '@johnhenry/temporals/cron';
+import { toICS, fromICS, icsToSeq } from '@johnhenry/temporals/ics';
+import type { ICSEvent } from '@johnhenry/temporals/ics';
+import {
+  meetingSlots,
+  usFederalHolidays,
+  WorkingHours,
+  BusinessCalendar,
+} from '@johnhenry/temporals/business';
+import type { Participant, MeetingSlot } from '@johnhenry/temporals/business';
+import { fromNow } from '@johnhenry/temporals/humanize';
+
+// `fromNow`/`formatRelative` build their own "now" via the library's internal
+// getTemporal(), which otherwise falls back to `globalThis.Temporal` — absent
+// here since this room imports `temporal-polyfill` locally rather than
+// installing it globally. Point the library at the same polyfill explicitly.
+configureTemporal(Temporal);
 
 type ZDT = Temporal.ZonedDateTime;
 type Freq = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -503,6 +522,55 @@ function clampInt(v: unknown, lo: number, hi: number, fallback: number): number 
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
 }
 
+// ---- Tab state / deep links for the 5 new pieces ------------------------
+
+type TabId = 'recur' | 'cron' | 'meet' | 'paste';
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'recur', label: 'Recurrence' },
+  { id: 'cron', label: 'Cron ↔ RRULE' },
+  { id: 'meet', label: 'Meeting finder' },
+  { id: 'paste', label: 'Paste an RRULE' },
+];
+const isTime = (s: unknown): s is string => typeof s === 'string' && /^\d{1,2}:\d{2}$/.test(s);
+
+/** Defaults for the extra tabs. The meeting-finder range defaults to the next
+ * real US federal holiday (via `usFederalHolidays()`), so the room proves
+ * holiday exclusion with zero user input. */
+function extraLinkDefaults() {
+  const today = Temporal.Now.plainDateISO();
+  const tz = defaultTimeZone();
+  let meetStart = today.add({ days: 5 }).toString();
+  try {
+    const hol = usFederalHolidays();
+    const upcoming = [...hol.inYear(today.year), ...hol.inYear(today.year + 1)]
+      .filter((d) => Temporal.PlainDate.compare(d, today) >= 0)
+      .sort((a, b) => Temporal.PlainDate.compare(a, b));
+    if (upcoming[0]) meetStart = upcoming[0].subtract({ days: 2 }).toString();
+  } catch { /* fall back to today+5 above */ }
+  return {
+    tab: 'recur' as TabId,
+    cronExpr: '0 9 * * 1-5',
+    cronDate: today.toString(),
+    cronTime: '09:00',
+    cronTz: tz,
+    pasteRule: 'FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=6',
+    pasteDate: today.toString(),
+    pasteTime: '09:00',
+    pasteTz: tz,
+    meetTzA: 'America/New_York',
+    meetTzB: 'America/Los_Angeles',
+    meetStartA: '09:00',
+    meetEndA: '17:00',
+    meetStartB: '09:00',
+    meetEndB: '17:00',
+    meetHolidays: true,
+    meetRangeStart: meetStart,
+    meetRangeDays: 7,
+    meetDuration: 30,
+  };
+}
+type ExtraLink = ReturnType<typeof extraLinkDefaults>;
+
 function countdownText(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const d = Math.floor(total / 86400);
@@ -523,8 +591,33 @@ const playground: Playground = {
   docs: 'https://opensource.johnhenry.me/temporals/',
   mount(host) {
     const defaults = linkDefaults();
-    const init = readState<Link>(defaults);
+    const extraDefaults = extraLinkDefaults();
+    const init = readState<Link & ExtraLink>({ ...defaults, ...extraDefaults });
     const [ih, im] = (/^\d{1,2}:\d{2}$/.test(init.time) ? init.time : defaults.time).split(':').map(Number);
+
+    // Plain (non-Rx) state for the 4 new tabs — these are simple widgets, not
+    // part of the reactivity inspector's demo of the main rule engine.
+    const ex: ExtraLink = {
+      tab: TABS.some((t) => t.id === init.tab) ? init.tab : extraDefaults.tab,
+      cronExpr: typeof init.cronExpr === 'string' && init.cronExpr.trim() ? init.cronExpr : extraDefaults.cronExpr,
+      cronDate: isDate(init.cronDate) ? init.cronDate : extraDefaults.cronDate,
+      cronTime: isTime(init.cronTime) ? init.cronTime : extraDefaults.cronTime,
+      cronTz: ZONES.includes(init.cronTz) ? init.cronTz : extraDefaults.cronTz,
+      pasteRule: typeof init.pasteRule === 'string' && init.pasteRule.trim() ? init.pasteRule : extraDefaults.pasteRule,
+      pasteDate: isDate(init.pasteDate) ? init.pasteDate : extraDefaults.pasteDate,
+      pasteTime: isTime(init.pasteTime) ? init.pasteTime : extraDefaults.pasteTime,
+      pasteTz: ZONES.includes(init.pasteTz) ? init.pasteTz : extraDefaults.pasteTz,
+      meetTzA: ZONES.includes(init.meetTzA) ? init.meetTzA : extraDefaults.meetTzA,
+      meetTzB: ZONES.includes(init.meetTzB) ? init.meetTzB : extraDefaults.meetTzB,
+      meetStartA: isTime(init.meetStartA) ? init.meetStartA : extraDefaults.meetStartA,
+      meetEndA: isTime(init.meetEndA) ? init.meetEndA : extraDefaults.meetEndA,
+      meetStartB: isTime(init.meetStartB) ? init.meetStartB : extraDefaults.meetStartB,
+      meetEndB: isTime(init.meetEndB) ? init.meetEndB : extraDefaults.meetEndB,
+      meetHolidays: typeof init.meetHolidays === 'boolean' ? init.meetHolidays : extraDefaults.meetHolidays,
+      meetRangeStart: isDate(init.meetRangeStart) ? init.meetRangeStart : extraDefaults.meetRangeStart,
+      meetRangeDays: clampInt(init.meetRangeDays, 1, 60, extraDefaults.meetRangeDays),
+      meetDuration: clampInt(init.meetDuration, 5, 480, extraDefaults.meetDuration),
+    };
 
     // ---- sources: one signalle signal per control ------------------------
     const rx = new Rx();
@@ -565,11 +658,18 @@ const playground: Playground = {
           </div>
           <div class="loom-tools">
             <button type="button" class="btn small" id="t-rx" aria-pressed="false">◉ reactivity inspector</button>
+            <button type="button" class="btn small" id="t-ics">⬇ export .ics</button>
             <button type="button" class="btn small" id="t-copy">⧉ copy link</button>
             <span class="stat" id="t-note">every control is a <code>signal()</code>; the URL is a <code>computed()</code></span>
           </div>
         </div>
         <div id="rx-slot"></div>
+
+        <div class="loom-tabs" id="loom-tabs" role="tablist">
+          ${TABS.map((t) => `<button type="button" class="tab-btn" data-tab="${t.id}" role="tab">${t.label}</button>`).join('')}
+        </div>
+
+        <div id="tab-recur" class="tab-panel">
         <div class="grid-2">
           <div class="panel controls">
             <div class="presets">
@@ -658,6 +758,79 @@ const playground: Playground = {
         </div>
 
         <pre class="code error-box" id="out-error" hidden></pre>
+        <pre class="code error-box" id="out-ics-status" hidden></pre>
+        </div>
+
+        <div id="tab-cron" class="tab-panel" hidden>
+          <div class="panel">
+            <div class="panel-title">cron ↔ RRULE — <code>/cron</code> <code>cronToRule</code>, <code>ruleToCron</code>, <code>describeCron</code></div>
+            <p class="tab-copy">Type a cron expression (5 or 6 fields, Quartz <code>L</code>/<code>#</code> specials ok) or an RFC&nbsp;5545 RRULE string — each side converts the other live. The anchor date/time/zone below is the DTSTART used for the RRULE side (cron itself is clock-aligned and needs no anchor to fire, but an RRULE needs a start point).</p>
+            <div class="ctl-row">
+              <label class="field"><span>Anchor date</span><input id="cr-date" type="date" /></label>
+              <label class="field"><span>Anchor time</span><input id="cr-time" type="time" /></label>
+              <label class="field"><span>Anchor zone</span><select id="cr-zone"></select></label>
+            </div>
+            <div class="grid-2">
+              <label class="field"><span>Cron expression</span>
+                <input id="cr-cron" type="text" class="code" spellcheck="false" />
+              </label>
+              <label class="field"><span>RRULE string</span>
+                <input id="cr-rrule" type="text" class="code" spellcheck="false" />
+              </label>
+            </div>
+            <div class="stat" id="cr-describe"></div>
+            <div class="stat" id="cr-roundtrip"></div>
+            <pre class="code error-box" id="cr-error" hidden></pre>
+          </div>
+        </div>
+
+        <div id="tab-meet" class="tab-panel" hidden>
+          <div class="panel">
+            <div class="panel-title">meeting finder — <code>/business</code> <code>meetingSlots</code>, <code>usFederalHolidays</code>, <code>WorkingHours</code></div>
+            <p class="tab-copy">Two people, each with their own working hours and time zone. Slots must fall inside <em>both</em> people's working hours and, when the checkbox is on, must not land on a US federal holiday (weekend-observed).</p>
+            <div class="grid-2">
+              <div class="ctl-row">
+                <span class="ctl-label">Person A</span>
+                <label class="field mini"><span>zone</span><select id="mt-tza"></select></label>
+                <label class="field mini"><span>start</span><input id="mt-starta" type="time" /></label>
+                <label class="field mini"><span>end</span><input id="mt-enda" type="time" /></label>
+              </div>
+              <div class="ctl-row">
+                <span class="ctl-label">Person B</span>
+                <label class="field mini"><span>zone</span><select id="mt-tzb"></select></label>
+                <label class="field mini"><span>start</span><input id="mt-startb" type="time" /></label>
+                <label class="field mini"><span>end</span><input id="mt-endb" type="time" /></label>
+              </div>
+            </div>
+            <div class="ctl-row">
+              <label class="field"><span>Search from</span><input id="mt-start" type="date" /></label>
+              <label class="field mini"><span>for N days</span><input id="mt-days" type="number" min="1" max="60" /></label>
+              <label class="field mini"><span>meeting length (min)</span><input id="mt-dur" type="number" min="5" max="480" /></label>
+              <label class="radio"><input id="mt-holidays" type="checkbox" /> exclude US federal holidays</label>
+            </div>
+            <div class="stat" id="mt-holiday-note"></div>
+            <div class="occ-list" id="mt-slots"></div>
+            <pre class="code error-box" id="mt-error" hidden></pre>
+          </div>
+        </div>
+
+        <div id="tab-paste" class="tab-panel" hidden>
+          <div class="panel">
+            <div class="panel-title">paste an RRULE — <code>ruleFromString</code></div>
+            <p class="tab-copy"><strong>RRULE syntax only, not natural language.</strong> Paste a real RFC&nbsp;5545 recurrence rule, e.g. <code>FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=6</code>. Typing English like "every second Tuesday" will <em>not</em> work — this parses the standard's field syntax (<code>FREQ</code>, <code>BYDAY</code>, <code>INTERVAL</code>, <code>COUNT</code>, <code>UNTIL</code>, …), not free text.</p>
+            <div class="ctl-row">
+              <label class="field"><span>Anchor date</span><input id="ps-date" type="date" /></label>
+              <label class="field"><span>Anchor time</span><input id="ps-time" type="time" /></label>
+              <label class="field"><span>Anchor zone</span><select id="ps-zone"></select></label>
+            </div>
+            <label class="field"><span>RRULE string</span>
+              <input id="ps-rrule" type="text" class="code" spellcheck="false" />
+            </label>
+            <div class="stat" id="ps-stat"></div>
+            <div class="occ-list" id="ps-list"></div>
+            <pre class="code error-box" id="ps-error" hidden></pre>
+          </div>
+        </div>
       </div>
     `;
 
@@ -704,6 +877,55 @@ const playground: Playground = {
     const zoneLabel = host.querySelector<HTMLSpanElement>('#clk-zone')!;
     const noteEl = host.querySelector<HTMLSpanElement>('#t-note')!;
     const rruleEl = host.querySelector<HTMLElement>('#out-rrule')!;
+    const icsStatusEl = host.querySelector<HTMLPreElement>('#out-ics-status')!;
+
+    // ---- tabs -------------------------------------------------------------
+    const tabsEl = host.querySelector<HTMLDivElement>('#loom-tabs')!;
+    const tabButtons = Array.from(host.querySelectorAll<HTMLButtonElement>('.tab-btn'));
+    const tabPanels: Record<TabId, HTMLElement> = {
+      recur: host.querySelector<HTMLElement>('#tab-recur')!,
+      cron: host.querySelector<HTMLElement>('#tab-cron')!,
+      meet: host.querySelector<HTMLElement>('#tab-meet')!,
+      paste: host.querySelector<HTMLElement>('#tab-paste')!,
+    };
+
+    // ---- cron ↔ RRULE tab ---------------------------------------------------
+    const crDateInput = host.querySelector<HTMLInputElement>('#cr-date')!;
+    const crTimeInput = host.querySelector<HTMLInputElement>('#cr-time')!;
+    const crZoneSel = host.querySelector<HTMLSelectElement>('#cr-zone')!;
+    const crCronInput = host.querySelector<HTMLInputElement>('#cr-cron')!;
+    const crRruleInput = host.querySelector<HTMLInputElement>('#cr-rrule')!;
+    const crDescribeEl = host.querySelector<HTMLDivElement>('#cr-describe')!;
+    const crRoundtripEl = host.querySelector<HTMLDivElement>('#cr-roundtrip')!;
+    const crErrorEl = host.querySelector<HTMLPreElement>('#cr-error')!;
+
+    // ---- meeting finder tab -------------------------------------------------
+    const mtTzASel = host.querySelector<HTMLSelectElement>('#mt-tza')!;
+    const mtTzBSel = host.querySelector<HTMLSelectElement>('#mt-tzb')!;
+    const mtStartAInput = host.querySelector<HTMLInputElement>('#mt-starta')!;
+    const mtEndAInput = host.querySelector<HTMLInputElement>('#mt-enda')!;
+    const mtStartBInput = host.querySelector<HTMLInputElement>('#mt-startb')!;
+    const mtEndBInput = host.querySelector<HTMLInputElement>('#mt-endb')!;
+    const mtStartInput = host.querySelector<HTMLInputElement>('#mt-start')!;
+    const mtDaysInput = host.querySelector<HTMLInputElement>('#mt-days')!;
+    const mtDurInput = host.querySelector<HTMLInputElement>('#mt-dur')!;
+    const mtHolidaysCb = host.querySelector<HTMLInputElement>('#mt-holidays')!;
+    const mtHolidayNoteEl = host.querySelector<HTMLDivElement>('#mt-holiday-note')!;
+    const mtSlotsEl = host.querySelector<HTMLDivElement>('#mt-slots')!;
+    const mtErrorEl = host.querySelector<HTMLPreElement>('#mt-error')!;
+
+    // ---- paste-an-RRULE tab --------------------------------------------------
+    const psDateInput = host.querySelector<HTMLInputElement>('#ps-date')!;
+    const psTimeInput = host.querySelector<HTMLInputElement>('#ps-time')!;
+    const psZoneSel = host.querySelector<HTMLSelectElement>('#ps-zone')!;
+    const psRruleInput = host.querySelector<HTMLInputElement>('#ps-rrule')!;
+    const psStatEl = host.querySelector<HTMLDivElement>('#ps-stat')!;
+    const psListEl = host.querySelector<HTMLDivElement>('#ps-list')!;
+    const psErrorEl = host.querySelector<HTMLPreElement>('#ps-error')!;
+
+    for (const sel of [crZoneSel, mtTzASel, mtTzBSel, psZoneSel]) {
+      sel.innerHTML = ZONES.map((z) => `<option value="${z}">${z}</option>`).join('');
+    }
 
     // ---- derived values: computed() over the sources -----------------------
 
@@ -802,13 +1024,17 @@ const playground: Playground = {
       return out.join('');
     }, { property: 'innerHTML' });
 
-    rx.bound('occurrenceList', listEl, [occurrences, nextOcc], (occ: ZDT[] | undefined, next: ZDT | null | undefined) => {
+    // fromNow() (temporals/humanize): humanized alongside the raw date. `now`
+    // is a dependency so "in 3 days" ages into "in 2 days" as the clock ticks.
+    rx.bound('occurrenceList', listEl, [occurrences, nextOcc, now], (occ: ZDT[] | undefined, next: ZDT | null | undefined) => {
       if (!occ || !occ.length) return `<div class="empty-note">No occurrences match these controls.</div>`;
       const nextIdx = next ? occ.indexOf(next) : occ.length;
       return occ.slice(0, LIST_SAFETY_CAP).map((zdt, i) => {
         const cls = i < nextIdx ? ' past' : i === nextIdx ? ' next' : '';
         const tag = i === nextIdx ? '<span class="occ-tag">next</span>' : '';
-        return `<div class="occ-row${cls}"><span class="occ-idx">${i + 1}</span><span class="occ-date">${fmt(zdt, zdt.timeZoneId)}</span>${tag}</div>`;
+        let rel = '';
+        try { rel = fromNow(zdt); } catch { /* ignore */ }
+        return `<div class="occ-row${cls}"><span class="occ-idx">${i + 1}</span><span class="occ-date">${fmt(zdt, zdt.timeZoneId)}</span><span class="occ-fromnow">${rel}</span>${tag}</div>`;
       }).join('');
     }, { property: 'innerHTML' });
 
@@ -874,8 +1100,18 @@ const playground: Playground = {
       freq: f, every: iv, days: wds.join(','), ord, months: ms.join(','), start: sd, time: `${pad(h)}:${pad(mi)}`,
       tz, bound: bm, count: c, until: u, spans: im, dur: dm, payday: pd,
     }));
+    // Deep links for the 4 new tabs live in `ex` (plain state, not signalle
+    // signals) and are merged with the main rule's link JSON on every write —
+    // writeState() replaces the whole query string, so a partial write from
+    // one side would silently drop the other's fields.
+    const allLinkDefaults: Record<string, unknown> = { ...defaults, ...extraDefaults };
+    function persist(mainJson?: string) {
+      if (!host.isConnected) return;
+      const main = mainJson ? JSON.parse(mainJson) : JSON.parse(link.peek() ?? '{}');
+      writeState({ ...main, ...ex }, allLinkDefaults);
+    }
     // isConnected: a planet whose route was superseded mid-load must not rewrite the next planet's URL.
-    rx.effect('writeURL', link, (json) => { if (json && host.isConnected) writeState(JSON.parse(json), defaults); });
+    rx.effect('writeURL', link, (json) => persist(json));
 
     // ---- the live clock: @johnhenry/css-signals date() -----------------------
     // date() publishes --loom-date-rule-{year,month,monthday,hour24,minute,second}
@@ -958,6 +1194,255 @@ const playground: Playground = {
         });
       });
     });
+
+    // ---- .ics export (temporals/ics: toICS, fromICS, icsToSeq) -------------
+    function handleIcsExport() {
+      const r = rule.peek();
+      icsStatusEl.hidden = false;
+      if (!r || !r.ok) {
+        icsStatusEl.textContent = 'No valid rule to export — fix the controls above first.';
+        return;
+      }
+      try {
+        const event: ICSEvent<ZDT> = {
+          uid: `temporal-loom-${Date.now()}@opensource.johnhenry.me`,
+          summary: 'Temporal Loom recurrence',
+          start: r.rule.start,
+          rrule: r.rule,
+        };
+        const ics = toICS([event]);
+        // Round-trip validation, not just "did a download fire": parse the
+        // generated text back with fromICS()+icsToSeq() and confirm it
+        // reproduces the same occurrences, plus a structural sanity check.
+        const parsedBack = fromICS(ics)[0] as ICSEvent<ZDT> | undefined;
+        const back = parsedBack ? icsToSeq(parsedBack).take(50).toArray() : [];
+        const forward = recur(r.rule).take(50).toArray();
+        const sameCount = back.length === forward.length;
+        const sameInstants = sameCount && back.every((z, i) => z.epochMilliseconds === forward[i].epochMilliseconds);
+        const hasStructure = /BEGIN:VCALENDAR[\s\S]*BEGIN:VEVENT[\s\S]*DTSTART[:;][\s\S]*RRULE:[\s\S]*END:VEVENT[\s\S]*END:VCALENDAR/.test(ics)
+          && /\r\n/.test(ics); // RFC 5545 requires CRLF line endings
+        icsStatusEl.textContent = sameInstants && hasStructure
+          ? `.ics downloaded — round-trip verified: fromICS() + icsToSeq() reproduce the same ${back.length} occurrence(s) parsed back out, and the text has a well-formed VCALENDAR/VEVENT/DTSTART/RRULE structure.`
+          : `.ics downloaded, but the round-trip check found a mismatch (same instants: ${sameInstants}, structure ok: ${hasStructure}) — see console for the raw text.`;
+        if (!sameInstants || !hasStructure) console.warn('[temporals/ics] round-trip check', { ics, back, forward });
+
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'temporal-loom.ics';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch (err) {
+        icsStatusEl.textContent = `toICS() failed: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+    on(host.querySelector('#t-ics')!, 'click', handleIcsExport);
+
+    // ---- tabs ---------------------------------------------------------------
+    function showTab(id: TabId) {
+      ex.tab = id;
+      for (const btn of tabButtons) btn.classList.toggle('active', btn.dataset.tab === id);
+      (Object.keys(tabPanels) as TabId[]).forEach((k) => { tabPanels[k].hidden = k !== id; });
+      persist();
+    }
+    on(tabsEl, 'click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-tab]');
+      if (btn) showTab(btn.dataset.tab as TabId);
+    });
+    showTab(ex.tab);
+
+    // ---- cron ↔ RRULE tab (temporals/cron: cronToRule, ruleToCron, describeCron) ----
+    let crSyncing = false;
+    function crAnchor(): ZDT {
+      const [y, m, d] = ex.cronDate.split('-').map(Number);
+      const [hh, mm] = ex.cronTime.split(':').map(Number);
+      return Temporal.ZonedDateTime.from({ timeZone: ex.cronTz, year: y, month: m, day: d, hour: hh, minute: mm, second: 0 });
+    }
+    function renderCronFromCron() {
+      crErrorEl.hidden = true;
+      try {
+        const anchor = crAnchor();
+        let desc = '';
+        try { desc = describeCron(ex.cronExpr); } catch { /* best-effort */ }
+        crDescribeEl.textContent = desc ? `describeCron(): ${desc}` : '';
+        const derivedRule = cronToRule(ex.cronExpr, anchor);
+        if (!derivedRule) {
+          crSyncing = true; crRruleInput.value = ''; crSyncing = false;
+          crRoundtripEl.textContent = '';
+          crErrorEl.hidden = false;
+          crErrorEl.textContent = 'cronToRule(): this cron expression can\'t be represented as an RRULE (e.g. multiple hours/minutes, nearest-weekday "W", or a day-of-month/day-of-week OR condition) — returned null.';
+          return;
+        }
+        crSyncing = true;
+        crRruleInput.value = formatRule(derivedRule);
+        crSyncing = false;
+        const backToCron = ruleToCron(derivedRule);
+        crRoundtripEl.textContent = backToCron
+          ? `round-trip cron → RRULE → cron = "${backToCron}"${backToCron === ex.cronExpr.trim() ? ' — identical ✓' : ' (normalized, same schedule)'}`
+          : 'ruleToCron(): the derived rule can\'t be expressed back as cron.';
+      } catch (err) {
+        crErrorEl.hidden = false;
+        crErrorEl.textContent = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        crSyncing = true; crRruleInput.value = ''; crSyncing = false;
+      }
+    }
+    function renderCronFromRrule() {
+      crErrorEl.hidden = true;
+      try {
+        const anchor = crAnchor();
+        const parsed = ruleFromString(crRruleInput.value.trim(), anchor);
+        const cronStr = ruleToCron(parsed);
+        if (!cronStr) {
+          crRoundtripEl.textContent = '';
+          crErrorEl.hidden = false;
+          crErrorEl.textContent = 'ruleToCron(): this RRULE can\'t be represented as cron (e.g. INTERVAL>1, BYSETPOS, sub-daily rates, or an ordinal other than "last") — returned null.';
+          return;
+        }
+        crSyncing = true;
+        crCronInput.value = cronStr;
+        crSyncing = false;
+        ex.cronExpr = cronStr;
+        try { crDescribeEl.textContent = `describeCron(): ${describeCron(cronStr)}`; } catch { crDescribeEl.textContent = ''; }
+        crRoundtripEl.textContent = `parsed via ruleFromString() → ruleToCron() = "${cronStr}"`;
+        persist();
+      } catch (err) {
+        crErrorEl.hidden = false;
+        crErrorEl.textContent = `${err instanceof Error ? `${err.name}: ${err.message}` : String(err)} (ruleFromString expects RFC 5545 RRULE syntax, e.g. FREQ=DAILY;BYHOUR=9)`;
+      }
+    }
+    crDateInput.value = ex.cronDate;
+    crTimeInput.value = ex.cronTime;
+    crZoneSel.value = ex.cronTz;
+    crCronInput.value = ex.cronExpr;
+    on(crCronInput, 'input', () => { if (crSyncing) return; ex.cronExpr = crCronInput.value; renderCronFromCron(); persist(); });
+    on(crRruleInput, 'input', () => { if (crSyncing) return; renderCronFromRrule(); });
+    on(crDateInput, 'change', () => { ex.cronDate = crDateInput.value || ex.cronDate; renderCronFromCron(); persist(); });
+    on(crTimeInput, 'change', () => { ex.cronTime = crTimeInput.value || ex.cronTime; renderCronFromCron(); persist(); });
+    on(crZoneSel, 'change', () => { ex.cronTz = crZoneSel.value; renderCronFromCron(); persist(); });
+    renderCronFromCron();
+
+    // ---- meeting finder tab (temporals/business: meetingSlots, usFederalHolidays, WorkingHours) ----
+    function buildParticipant(tz: string, start: string, end: string, holidays: boolean): Participant {
+      const cal = holidays ? new BusinessCalendar({ holidays: usFederalHolidays() }) : new BusinessCalendar();
+      const hours = new WorkingHours({ windows: [[start, end]], calendar: cal });
+      return { hours, timeZone: tz };
+    }
+    function renderMeetings() {
+      mtErrorEl.hidden = true;
+      mtSlotsEl.innerHTML = '';
+      mtHolidayNoteEl.textContent = '';
+      try {
+        const [y, m, d] = ex.meetRangeStart.split('-').map(Number);
+        const rangeStart = Temporal.ZonedDateTime.from({ timeZone: 'UTC', year: y, month: m, day: d, hour: 0, minute: 0, second: 0 });
+        const rangeEnd = rangeStart.add({ days: ex.meetRangeDays });
+        const within = new Interval(rangeStart, rangeEnd);
+        const participants: Participant[] = [
+          buildParticipant(ex.meetTzA, ex.meetStartA, ex.meetEndA, ex.meetHolidays),
+          buildParticipant(ex.meetTzB, ex.meetStartB, ex.meetEndB, ex.meetHolidays),
+        ];
+        const slots: MeetingSlot[] = meetingSlots({ participants, within, duration: { minutes: ex.meetDuration }, limit: 30 });
+
+        if (ex.meetHolidays) {
+          const hol = usFederalHolidays();
+          const holsInRange: string[] = [];
+          let cursor = rangeStart.toPlainDate();
+          const endDate = rangeEnd.toPlainDate();
+          while (Temporal.PlainDate.compare(cursor, endDate) < 0) {
+            if (hol.has(cursor)) holsInRange.push(cursor.toString());
+            cursor = cursor.add({ days: 1 });
+          }
+          if (holsInRange.length) {
+            const slotDates = new Set(slots.map((s) => s.start.toPlainDate().toString()));
+            const clean = holsInRange.every((h) => !slotDates.has(h));
+            mtHolidayNoteEl.textContent = `US federal holiday(s) in range (usFederalHolidays()): ${holsInRange.join(', ')} — ${clean ? 'correctly excluded from every slot ✓' : 'WARNING: a slot landed on a holiday'}`;
+          } else {
+            mtHolidayNoteEl.textContent = 'No US federal holidays fall inside this search range — widen it to see one excluded.';
+          }
+        } else {
+          mtHolidayNoteEl.textContent = 'Holiday exclusion is off — slots may land on federal holidays.';
+        }
+
+        if (!slots.length) {
+          mtSlotsEl.innerHTML = `<div class="empty-note">No overlapping working-hours slot found — widen the range or hours.</div>`;
+          return;
+        }
+        mtSlotsEl.innerHTML = slots.map((s, i) => {
+          const localA = s.localStarts[0]?.toString().slice(0, 5) ?? '?';
+          const localB = s.localStarts[1]?.toString().slice(0, 5) ?? '?';
+          let rel = '';
+          try { rel = fromNow(s.start); } catch { /* ignore */ }
+          return `<div class="occ-row"><span class="occ-idx">${i + 1}</span><span class="occ-date">${fmt(s.start, s.start.timeZoneId)}</span><span class="occ-fromnow">${rel}</span><span class="occ-tag">A ${localA} · B ${localB}</span></div>`;
+        }).join('');
+      } catch (err) {
+        mtErrorEl.hidden = false;
+        mtErrorEl.textContent = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      }
+    }
+    mtTzASel.value = ex.meetTzA; mtTzBSel.value = ex.meetTzB;
+    mtStartAInput.value = ex.meetStartA; mtEndAInput.value = ex.meetEndA;
+    mtStartBInput.value = ex.meetStartB; mtEndBInput.value = ex.meetEndB;
+    mtStartInput.value = ex.meetRangeStart;
+    mtDaysInput.value = String(ex.meetRangeDays);
+    mtDurInput.value = String(ex.meetDuration);
+    mtHolidaysCb.checked = ex.meetHolidays;
+    on(mtTzASel, 'change', () => { ex.meetTzA = mtTzASel.value; renderMeetings(); persist(); });
+    on(mtTzBSel, 'change', () => { ex.meetTzB = mtTzBSel.value; renderMeetings(); persist(); });
+    on(mtStartAInput, 'change', () => { ex.meetStartA = mtStartAInput.value || ex.meetStartA; renderMeetings(); persist(); });
+    on(mtEndAInput, 'change', () => { ex.meetEndA = mtEndAInput.value || ex.meetEndA; renderMeetings(); persist(); });
+    on(mtStartBInput, 'change', () => { ex.meetStartB = mtStartBInput.value || ex.meetStartB; renderMeetings(); persist(); });
+    on(mtEndBInput, 'change', () => { ex.meetEndB = mtEndBInput.value || ex.meetEndB; renderMeetings(); persist(); });
+    on(mtStartInput, 'change', () => { ex.meetRangeStart = mtStartInput.value || ex.meetRangeStart; renderMeetings(); persist(); });
+    on(mtDaysInput, 'input', () => { ex.meetRangeDays = clampInt(mtDaysInput.value, 1, 60, ex.meetRangeDays); renderMeetings(); persist(); });
+    on(mtDurInput, 'input', () => { ex.meetDuration = clampInt(mtDurInput.value, 5, 480, ex.meetDuration); renderMeetings(); persist(); });
+    on(mtHolidaysCb, 'change', () => { ex.meetHolidays = mtHolidaysCb.checked; renderMeetings(); persist(); });
+    renderMeetings();
+
+    // ---- paste-an-RRULE tab (ruleFromString — RRULE syntax only, not NLP) ----
+    function psAnchor(): ZDT {
+      const [y, m, d] = ex.pasteDate.split('-').map(Number);
+      const [hh, mm] = ex.pasteTime.split(':').map(Number);
+      return Temporal.ZonedDateTime.from({ timeZone: ex.pasteTz, year: y, month: m, day: d, hour: hh, minute: mm, second: 0 });
+    }
+    function renderPaste() {
+      psErrorEl.hidden = true;
+      psListEl.innerHTML = '';
+      psStatEl.textContent = '';
+      const text = ex.pasteRule.trim();
+      if (!text) {
+        psListEl.innerHTML = `<div class="empty-note">Paste an RRULE string above.</div>`;
+        return;
+      }
+      try {
+        const anchor = psAnchor();
+        const parsed = ruleFromString(text, anchor);
+        const occ = recur(parsed).take(LIST_SAFETY_CAP).toArray();
+        psStatEl.innerHTML = `ruleFromString() parsed to <code>${formatRule(parsed)}</code> — ${occ.length}${occ.length >= LIST_SAFETY_CAP ? '+' : ''} occurrence(s)`;
+        if (!occ.length) {
+          psListEl.innerHTML = `<div class="empty-note">Parsed fine, but this rule produces no occurrences.</div>`;
+          return;
+        }
+        psListEl.innerHTML = occ.map((zdt, i) => {
+          let rel = '';
+          try { rel = fromNow(zdt); } catch { /* ignore */ }
+          return `<div class="occ-row"><span class="occ-idx">${i + 1}</span><span class="occ-date">${fmt(zdt, zdt.timeZoneId)}</span><span class="occ-fromnow">${rel}</span></div>`;
+        }).join('');
+      } catch (err) {
+        psErrorEl.hidden = false;
+        psErrorEl.textContent = `Not a valid RRULE — ruleFromString() only parses RFC 5545 syntax (FREQ=...;BYDAY=...), not natural language like "every second Tuesday": ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+    psDateInput.value = ex.pasteDate;
+    psTimeInput.value = ex.pasteTime;
+    psZoneSel.value = ex.pasteTz;
+    psRruleInput.value = ex.pasteRule;
+    on(psRruleInput, 'input', () => { ex.pasteRule = psRruleInput.value; renderPaste(); persist(); });
+    on(psDateInput, 'change', () => { ex.pasteDate = psDateInput.value || ex.pasteDate; renderPaste(); persist(); });
+    on(psTimeInput, 'change', () => { ex.pasteTime = psTimeInput.value || ex.pasteTime; renderPaste(); persist(); });
+    on(psZoneSel, 'change', () => { ex.pasteTz = psZoneSel.value; renderPaste(); persist(); });
+    renderPaste();
 
     const rxBtn = host.querySelector<HTMLButtonElement>('#t-rx')!;
     on(rxBtn, 'click', () => rxBtn.setAttribute('aria-pressed', String(rx.toggle())));
