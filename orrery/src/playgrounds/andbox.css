@@ -69,3 +69,12 @@
 .pg-andbox .ab-explain p { margin: 0 0 10px; max-width: 90ch; }
 .pg-andbox .ab-explain code { color: var(--ink); font-size: 12.5px; }
 .pg-andbox .ab-explain pre.code { font-size: 12px; }
+
+.pg-andbox .ab-engines-p { color: var(--ink-2); font-size: 13px; max-width: 90ch; margin: 0 0 10px; }
+.pg-andbox .ab-engines-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pg-andbox .ab-engine-rows { display: grid; gap: 6px; margin-top: 12px; }
+.pg-andbox .ab-engine-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-inset); font-family: var(--f-mono); font-size: 12px; }
+.pg-andbox .ab-engine-row .chip { flex: none; text-transform: none; }
+.pg-andbox .ab-engine-note { color: var(--ink-2); overflow-wrap: anywhere; }
+.pg-andbox .ab-engine-note b.ok { color: #7dffb0; }
+.pg-andbox .ab-engine-note b.bad { color: #ff5f7a; }

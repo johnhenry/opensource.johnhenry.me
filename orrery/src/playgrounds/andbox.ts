@@ -1,5 +1,5 @@
 import type { Playground } from '../registry';
-import { createSandbox as mkSandbox, gateCapabilities as gate } from '@johnhenry/andbox';
+import { createSandbox as mkSandbox, gateCapabilities as gate, createNetworkFetch, createStdio } from '@johnhenry/andbox';
 import type { Sandbox, GateStatsResult as GateStats } from '@johnhenry/andbox';
 import { readState, writeState, copyLink } from '../state';
 import './andbox.css';
@@ -100,9 +100,95 @@ for (let i = 0; i < 1024; i++) {
 console.warn(\`\${denied} calls bounced off the gate\`);
 return { ok, denied, reason };`,
   },
+  {
+    id: 'network', label: 'network allowlist · redirect-safe', timeout: 4000, maxCalls: 5000,
+    code: `// host.fetchAllowed(url) is backed by createNetworkFetch(['api.example.com'], mockFetch)
+// on the host side: a hostname allowlist, called with redirect: 'manual' so an
+// allowlisted host can't silently 302 you somewhere off the allowlist.
+await host.log('allowed host, ordinary response:');
+const ok = await host.fetchAllowed('https://api.example.com/data');
+await host.log(\`  \${ok.status} \${ok.body}\`);
+
+await host.log('allowed host that tries to 302 us to evil.example.com:');
+try {
+  await host.fetchAllowed('https://api.example.com/redirect-to-evil');
+} catch (e) {
+  await host.log(\`  blocked: \${e.message}\`);
+}
+
+await host.log('a host never on the allowlist, called directly:');
+try {
+  await host.fetchAllowed('https://evil.example.com/steal');
+} catch (e) {
+  await host.log(\`  blocked: \${e.message}\`);
+}
+
+return { note: "createNetworkFetch()'s allowlist rejects the redirect outright instead of following it (andbox#6)" };`,
+  },
+  {
+    id: 'cdn', label: 'importMap · real CDN module', timeout: 6000, maxCalls: 5000,
+    code: `// createSandbox({ importMap }) maps the bare specifier "nanoid" to a real
+// CDN URL. sandboxImport() resolves it via resolveWithImportMap() and hands
+// the result to a plain import() inside the worker — a genuine network
+// fetch of a real npm package, not a stub.
+const { nanoid, customAlphabet } = await sandboxImport('nanoid');
+const id1 = nanoid();
+const shortId = customAlphabet('0123456789abcdef', 8)();
+await host.log(\`nanoid() -> \${id1}\`);
+await host.log(\`customAlphabet('0-9a-f', 8)() -> \${shortId}\`);
+return { id1, shortId, from: 'https://esm.sh/nanoid@5' };`,
+  },
 ];
 
-const STATE_DEFAULTS = { preset: PRESETS[0].id, timeout: PRESETS[0].timeout, max: PRESETS[0].maxCalls, code: '' };
+const STATE_DEFAULTS = { preset: PRESETS[0].id, timeout: PRESETS[0].timeout, max: PRESETS[0].maxCalls, maxbytes: 0, code: '' };
+
+// A small allowlisted "API" for the network preset, backed by createNetworkFetch()
+// with a mock fetchFn so the demo never depends on real network access. Only the
+// hostname matters to the allowlist; the mock decides what each path returns.
+const NETWORK_ALLOWLIST = ['api.example.com'];
+const mockApiFetch: typeof fetch = async (input) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+  const { pathname } = new URL(url);
+  if (pathname === '/redirect-to-evil') {
+    return new Response(null, { status: 302, headers: { location: 'https://evil.example.com/steal' } });
+  }
+  return new Response(JSON.stringify({ hello: 'from the allowlisted mock API', path: pathname }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+};
+const gatedNetworkFetch = createNetworkFetch(NETWORK_ALLOWLIST, mockApiFetch);
+
+// A real CDN module, resolved by createSandbox({ importMap }) inside the worker.
+const IMPORT_MAP = { imports: { nanoid: 'https://esm.sh/nanoid@5' } };
+
+/**
+ * `createSandbox({ mode: 'inline' | 'data-uri' })` are real, documented andbox
+ * modes (README's "Sandbox Modes"), but the shipped .d.ts only models the
+ * default Worker mode's `{ evaluate, defineModule, dispose }` shape and the
+ * 'service-worker' mode's `{ define, remove, dispose }` — 'inline'/'data-uri'
+ * return a synchronous `{ execute, terminate }` pair the types don't cover, so
+ * this one cast boundary stands in for a mode the .d.ts doesn't declare.
+ */
+interface RawEngine {
+  execute(code: string, opts?: { timeout?: number }): Promise<{ success: boolean; output: string; returnValue?: unknown; error?: string }>;
+  terminate(): void;
+}
+/** Same bounded (non-infinite) compute in both shapes createSandbox() accepts: a
+ * function body ("return primes") for worker/inline, an ES module body
+ * ("export default primes") for data-uri, which runs the code as a real module. */
+const ENGINE_CODE_RETURN = `const N = 3_000_000;
+const sieve = new Uint8Array(N + 1);
+let primes = 0;
+for (let i = 2; i <= N; i++) {
+  if (sieve[i]) continue;
+  primes++;
+  for (let j = i * i; j <= N; j += i) sieve[j] = 1;
+}
+return primes;`;
+const ENGINE_CODE_MODULE = ENGINE_CODE_RETURN.replace('return primes;', 'export default primes;');
+const ENGINES = ['worker', 'inline', 'data-uri'] as const;
+type EngineMode = typeof ENGINES[number];
 
 const PALETTE_MODULE = `
 export function plasma(x, y, seed) {
@@ -148,6 +234,7 @@ const playground: Playground = {
           <button class="btn kill" data-act="kill" disabled>■ Kill</button>
           <label class="field">timeout ms<input type="number" min="100" step="100" data-f="timeout"></label>
           <label class="field">max calls / run<input type="number" min="0" step="50" data-f="max"></label>
+          <label class="field">max arg bytes / run<input type="number" min="0" step="100" data-f="maxbytes" title="policy.limits.maxArgBytes — 0 = unlimited"></label>
           <button class="btn ab-copy-link" type="button">🔗 copy link</button>
         </div>
         <span class="ab-status" data-state="booting">booting</span>
@@ -201,6 +288,23 @@ const playground: Playground = {
         <p><code>evaluate(code, { timeoutMs, signal })</code> races the worker. On timeout (or when Kill aborts the signal) andbox calls
         <code>worker.terminate()</code>, the only thing that can stop a <code>while (true)</code>, and boots a replacement worker. Note the fps counter:
         the page never stutters, because the runaway loop is burning a different thread.</p>
+        <p>The <b>network allowlist</b> and <b>importMap · real CDN module</b> presets add two more host capabilities:
+        <code>fetchAllowed(url)</code> is a host-side <code>createNetworkFetch(['api.example.com'], mockFetch)</code> — an
+        allowlisted host that tries to redirect off it gets rejected outright (<code>redirect: 'manual'</code>, no follow), not
+        silently obeyed. The CDN preset's <code>createSandbox({ importMap })</code> maps a bare specifier to a real
+        <code>esm.sh</code> URL that <code>sandboxImport()</code> resolves and imports for real. The event log's console lines
+        now travel through a real <code>createStdio()</code> stream — <code>onConsole</code> only <code>push()</code>es; a
+        background <code>for await</code> loop reading its <code>stream</code> is what actually renders the rows — and
+        <code>max arg bytes / run</code> wires <code>policy.limits.maxArgBytes</code> into the same gate as the call-count limit.</p>
+      </div>
+      <div class="panel ab-engines">
+        <h3 class="ab-h">sandbox modes <span class="stat">createSandbox({ mode })</span></h3>
+        <p class="ab-engines-p">The <em>same</em> bounded compute (count primes ≤ 3,000,000, no host capabilities) run through
+        all three engines with a timeout shorter than it needs to finish — worker mode hard-kills it via
+        <code>worker.terminate()</code>; inline/data-uri run same-thread, so nothing can preempt them mid-loop and the
+        "timeout" can only be noticed after the code already finished.</p>
+        <div class="ab-engines-bar"><button class="btn" data-a="engines">▶ run in worker / inline / data-uri</button><span class="stat" data-el="engineNote"></span></div>
+        <div class="ab-engine-rows" data-el="engineRows"></div>
       </div>`;
     host.appendChild(root);
 
@@ -210,6 +314,7 @@ const playground: Playground = {
     const killBtn = $<HTMLButtonElement>('[data-act=kill]');
     const timeoutIn = $<HTMLInputElement>('[data-f=timeout]');
     const maxIn = $<HTMLInputElement>('[data-f=max]');
+    const maxBytesIn = $<HTMLInputElement>('[data-f=maxbytes]');
     const copyLinkBtn = $<HTMLButtonElement>('.ab-copy-link');
     const statusEl = $<HTMLElement>('.ab-status');
     const logEl = $<HTMLElement>('.ab-log');
@@ -221,6 +326,7 @@ const playground: Playground = {
 
     let alive = true;
     let sandbox: Sandbox | null = null;
+    let stdio: ReturnType<typeof createStdio> | null = null;
     let abort: AbortController | null = null;
     let runId = 0;
     let runStart = 0;
@@ -284,6 +390,10 @@ const playground: Playground = {
         return true;
       },
       clear: (color?: unknown) => { clearPixels(typeof color === 'string' ? color : undefined); return true; },
+      fetchAllowed: async (url: unknown) => {
+        const res = await gatedNetworkFetch(String(url));
+        return { status: res.status, ok: res.ok, body: await res.text() };
+      },
     };
 
     function instrument(gated: Record<string, Cap>, myRun: number): Record<string, Cap> {
@@ -316,6 +426,8 @@ const playground: Playground = {
     async function teardown() {
       abort?.abort();
       abort = null;
+      stdio?.end();
+      stdio = null;
       const sb = sandbox;
       sandbox = null;
       if (sb) { try { await sb.dispose(); } catch { /* already gone */ } }
@@ -334,20 +446,33 @@ const playground: Playground = {
       runStart = performance.now(); runEnd = 0;
       const timeoutMs = Math.max(100, Number(timeoutIn.value) || 3000);
       const maxCalls = Math.max(0, Number(maxIn.value) | 0);
+      const maxArgBytes = Math.max(0, Number(maxBytesIn.value) | 0);
+
+      // createStdio(): onConsole only push()es; this background loop reading
+      // its async-iterable `stream` is what actually turns lines into log rows.
+      const myStdio = createStdio();
+      stdio = myStdio;
+      (async () => {
+        for await (const line of myStdio.stream) {
+          if (myRun !== runId) continue;
+          counts.con++; spawn('con'); lastMsg = performance.now();
+          log('console', line, 'con' + Math.random());
+        }
+      })();
 
       setState('booting', 'spawning worker');
-      const g = gate(raw, { limits: { maxCalls, maxConcurrent: 0 } });
+      const g = gate(raw, { limits: { maxCalls, maxArgBytes, maxConcurrent: 0 } });
       innerGateStats = g.stats;
       let sb: Sandbox;
       try {
         sb = await mkSandbox({
           capabilities: instrument(g.gated, myRun),
+          importMap: IMPORT_MAP,
           defaultTimeoutMs: timeoutMs,
           policy: { limits: { maxConcurrent: 0 } }, // limits live in our own gate so we can see denials
           onConsole: (level, ...args) => {
             if (myRun !== runId) return;
-            counts.con++; spawn('con'); lastMsg = performance.now();
-            log('console', `console.${level}: ${args.join(' ')}`, 'con' + Math.random());
+            myStdio.push(`console.${level}: ${args.join(' ')}`);
           },
         });
       } catch (e) {
@@ -393,6 +518,7 @@ const playground: Playground = {
         const txt = resultEl.textContent ?? '';
         resultEl.textContent = `${txt}\n\n// gateCapabilities().stats()\n${JSON.stringify({ totalCalls: gs.totalCalls, totalArgBytes: gs.totalArgBytes, perCapability: gs.perCapability }, null, 2)}`;
       }
+      if (stdio === myStdio) { myStdio.end(); stdio = null; }
       renderLog();
     }
 
@@ -550,6 +676,7 @@ const playground: Playground = {
       state.preset = currentPresetId;
       state.timeout = Math.max(100, Number(timeoutIn.value) || STATE_DEFAULTS.timeout);
       state.max = Math.max(0, Number(maxIn.value) | 0);
+      state.maxbytes = Math.max(0, Number(maxBytesIn.value) | 0);
       state.code = edited && ta.value.length <= CODE_CAP ? ta.value : '';
       writeState(state, STATE_DEFAULTS);
     };
@@ -573,6 +700,7 @@ const playground: Playground = {
     const onEdit = () => { root.querySelectorAll('.ab-preset').forEach(b => b.setAttribute('aria-pressed', 'false')); syncUrl(); };
     const onTimeoutChange = () => syncUrl();
     const onMaxChange = () => syncUrl();
+    const onMaxBytesChange = () => syncUrl();
     const onCopyLink = async () => {
       syncUrl();
       await new Promise((r) => setTimeout(r, 200)); // writeState is debounced
@@ -588,7 +716,65 @@ const playground: Playground = {
     ta.addEventListener('input', onEdit);
     timeoutIn.addEventListener('input', onTimeoutChange);
     maxIn.addEventListener('input', onMaxChange);
+    maxBytesIn.addEventListener('input', onMaxBytesChange);
     copyLinkBtn.addEventListener('click', onCopyLink);
+
+    // ---- sandbox modes: worker vs inline vs data-uri ----------------------
+    const enginesBtn = $<HTMLButtonElement>('[data-a=engines]');
+    const engineNote = $<HTMLElement>('[data-el=engineNote]');
+    const engineRows = $<HTMLElement>('[data-el=engineRows]');
+    let enginesBusy = false;
+    async function runOneEngine(mode: EngineMode, timeoutMs: number): Promise<{ mode: EngineMode; ok: boolean; ms: number; note: string }> {
+      const t0 = performance.now();
+      if (mode === 'worker') {
+        const sb = await mkSandbox({ defaultTimeoutMs: timeoutMs });
+        try {
+          const primes = await sb.evaluate(ENGINE_CODE_RETURN, { timeoutMs });
+          return { mode, ok: true, ms: performance.now() - t0, note: `${fmtArg(primes)} primes — finished before the timeout` };
+        } catch (e) {
+          const err = e as Error;
+          return { mode, ok: false, ms: performance.now() - t0, note: `${err.name}: hard-killed by worker.terminate() at the ${timeoutMs}ms mark` };
+        } finally {
+          await sb.dispose();
+        }
+      }
+      // inline/data-uri: createSandbox() returns a synchronous { execute, terminate }
+      // pair for these modes — see the RawEngine comment above for why the cast.
+      const code = mode === 'data-uri' ? ENGINE_CODE_MODULE : ENGINE_CODE_RETURN;
+      const engine = mkSandbox({ mode, defaultTimeoutMs: timeoutMs } as unknown as Parameters<typeof mkSandbox>[0]) as unknown as RawEngine;
+      try {
+        const r = await engine.execute(code, { timeout: timeoutMs });
+        const over = performance.now() - t0 > timeoutMs;
+        const note = r.success
+          ? `${fmtArg(r.returnValue)} primes — same-thread code can't be preempted, so the ${timeoutMs}ms "timeout" only fires after it's done${over ? ' (it ran well past it)' : ''}`
+          : `${r.error ?? 'failed'}`;
+        return { mode, ok: r.success, ms: performance.now() - t0, note };
+      } finally {
+        engine.terminate();
+      }
+    }
+    const onEngines = async () => {
+      if (enginesBusy) return;
+      enginesBusy = true;
+      enginesBtn.disabled = true;
+      engineNote.textContent = 'running…';
+      const timeoutMs = 50; // deliberately shorter than the sieve needs
+      engineRows.innerHTML = ENGINES.map(m => `<div class="ab-engine-row" data-m="${m}"><span class="chip">${m}</span><span class="ab-engine-note">running…</span></div>`).join('');
+      for (const mode of ENGINES) {
+        const rowEl = engineRows.querySelector<HTMLElement>(`[data-m="${mode}"] .ab-engine-note`);
+        try {
+          const r = await runOneEngine(mode, timeoutMs);
+          if (rowEl) rowEl.innerHTML = `<b class="${r.ok ? 'ok' : 'bad'}">${r.ms.toFixed(0)}ms</b> — ${esc(r.note)}`;
+        } catch (e) {
+          if (rowEl) rowEl.innerHTML = `<b class="bad">error</b> — ${esc(String((e as Error).message ?? e))}`;
+        }
+      }
+      engineNote.textContent = `timeout was set to ${timeoutMs}ms for all three`;
+      enginesBtn.disabled = false;
+      enginesBusy = false;
+    };
+    const onEnginesClick = () => { void onEngines(); };
+    enginesBtn.addEventListener('click', onEnginesClick);
 
     // default state: the saved (or linked) preset, with any overrides from the URL
     const startPreset = PRESETS.find(p => p.id === state.preset) ?? PRESETS[0];
@@ -596,6 +782,7 @@ const playground: Playground = {
     loadPreset(startPreset);
     timeoutIn.value = String(state.timeout);
     maxIn.value = String(state.max);
+    maxBytesIn.value = String(state.maxbytes);
     if (state.code) {
       ta.value = state.code;
       root.querySelectorAll<HTMLButtonElement>('.ab-preset').forEach(b => b.setAttribute('aria-pressed', 'false'));
@@ -615,9 +802,13 @@ const playground: Playground = {
       ta.removeEventListener('input', onEdit);
       timeoutIn.removeEventListener('input', onTimeoutChange);
       maxIn.removeEventListener('input', onMaxChange);
+      maxBytesIn.removeEventListener('input', onMaxBytesChange);
       copyLinkBtn.removeEventListener('click', onCopyLink);
+      enginesBtn.removeEventListener('click', onEnginesClick);
       abort?.abort();
       abort = null;
+      stdio?.end();
+      stdio = null;
       const sb = sandbox;
       sandbox = null;
       sb?.dispose().catch(() => {}); // terminates the worker + revokes its blob URL
