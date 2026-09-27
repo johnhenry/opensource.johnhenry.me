@@ -416,21 +416,20 @@ function renderMiniNode(item: AnyItem, label: string): HTMLElement {
     val.textContent = formatBareValue(item.value);
     head.appendChild(val);
   }
-  wrap.appendChild(head);
-
   const paramKeys = Object.keys(item.parameters ?? {});
   if (paramKeys.length) {
-    const params = document.createElement('div');
-    params.className = 'cv-shdr-params';
+    // Rendered as siblings inside `head` (not a separate block below it) so the
+    // parameter chips sit inline right after the value instead of dropping to
+    // their own line under the item.
     for (const k of paramKeys) {
       const pv = item.parameters[k];
       const pill = document.createElement('span');
       pill.className = `cv-shdr-pill cv-bd-${bareType(pv)}`;
       pill.textContent = `;${k}=${formatBareValue(pv)}`;
-      params.appendChild(pill);
+      head.appendChild(pill);
     }
-    wrap.appendChild(params);
   }
+  wrap.appendChild(head);
 
   if (isInner) {
     const inner = document.createElement('div');

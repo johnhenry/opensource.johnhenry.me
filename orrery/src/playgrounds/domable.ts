@@ -25,6 +25,18 @@ const CE_FACTORIES = { shadowOpen, shadowClosed, light } as const;
 const REACT_ELEMENT = Symbol.for('react.element');
 const REACT_FRAGMENT = Symbol.for('react.fragment');
 
+// Module-scoped (not per-mount): customElements is a single page-wide
+// registry that never forgets a name, but this room's SPA route can mount()
+// again after unmount() without a full page reload. A counter that reset to
+// 0 on every mount would redefine "my-card-1" / "my-register-demo-1" /
+// "my-superclass-demo-1" a second time and throw
+// "has already been used with this registry" right out of the gate. Keeping
+// the counters here instead means every define() call across the page's
+// lifetime gets a name the registry has never seen.
+let ceDefineCount = 0;
+let regDefineCountGlobal = 0;
+let scDefineCountGlobal = 0;
+
 type Fn = 'textToDom' | 'domToText' | 'domToReact' | 'reactToDom' | 'textToReact' | 'reactToText';
 const FNS: Fn[] = ['textToDom', 'domToText', 'domToReact', 'reactToDom', 'textToReact', 'reactToText'];
 
@@ -440,6 +452,7 @@ const playground: Playground = {
 
       <section class="panel trace">
         <div class="rail" data-el="rail">${FNS.map((f) => `<span class="chip fn" data-fn="${f}">${f}()</span>`).join('')}</div>
+        <div class="lt" data-el="log-title"></div>
         <ol class="log" data-el="log"></ol>
         <div class="warn" data-el="warn" hidden></div>
       </section>
@@ -707,7 +720,8 @@ const playground: Playground = {
       return out;
     }
     function showLog(title: string, steps: Step[]) {
-      log.innerHTML = `<li class="lt">${esc(title)}</li>` + steps.map((s) =>
+      $('log-title').textContent = title;
+      log.innerHTML = steps.map((s) =>
         `<li><code><b>${s.fn}</b>(${esc(s.arg)})</code> <span class="arrow-t">→</span> <code>${esc(s.out)}</code> <span class="stat">${s.ms.toFixed(2)} ms</span>${s.note ? ` <span class="stat">${esc(s.note)}</span>` : ''}</li>`).join('');
     }
 
@@ -973,7 +987,6 @@ const playground: Playground = {
     let attrs: Array<[string, string]> = [['tone', 'warn'], ['compact', '']];
     let defined: string | null = null;
     let instance: HTMLElement | null = null;
-    let defineCount = 0;
     // The instance lives inside its own shadow root so a `light` element's <style> can't
     // leak into the rest of the site.
     const ceHost = document.createElement('div');
@@ -1048,7 +1061,7 @@ const playground: Playground = {
       try {
         const mode = ceMode.value as 'shadowOpen' | 'shadowClosed' | 'light';
         const Cls = CE_FACTORIES[mode](ceHtml.value);
-        const name = `${baseName()}-${++defineCount}`;
+        const name = `${baseName()}-${++ceDefineCount}`;
         customElements.define(name, Cls);
         defined = name;
         ceCode.textContent = `const MyCard = ${mode}(htmlFromTextarea); // @johnhenry/domable\ncustomElements.define("${name}", MyCard);\n// custom element names can never be re-defined, so each click gets a fresh suffix\ndocument.createElement("${name}")  // + your attributes + slotted children`;
@@ -1123,10 +1136,9 @@ const playground: Playground = {
     const regDefine = $<HTMLButtonElement>('reg-define');
     const regStage = $('reg-stage');
     const regCode = $('reg-code');
-    let regDefineCount = 0;
     function defineRegister() {
       try {
-        const name = `my-register-demo-${++regDefineCount}`;
+        const name = `my-register-demo-${++regDefineCountGlobal}`;
         register(name, {})(regHtml.value);
         const el = document.createElement(name);
         regStage.replaceChildren(el);
@@ -1143,10 +1155,9 @@ const playground: Playground = {
     const scDefine = $<HTMLButtonElement>('sc-define');
     const scStage = $('sc-stage');
     const scCode = $('sc-code');
-    let scDefineCount = 0;
     function defineSuperclass() {
       try {
-        const name = `my-superclass-demo-${++scDefineCount}`;
+        const name = `my-superclass-demo-${++scDefineCountGlobal}`;
         const mode = scMode.value as 'open' | 'closed';
         const Cls = constructSuperclass({ HTML: scLightTa.value, shadowHTML: scShadowTa.value, shadowMode: mode });
         customElements.define(name, Cls);
