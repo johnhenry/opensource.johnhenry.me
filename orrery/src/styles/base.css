@@ -114,8 +114,17 @@ html:not(.dark):not(.light) { color-scheme: light dark; }
 .companion-banner code { font-size: 12px; background: var(--code-bg); color: var(--code-ink); padding: 1px 6px; border-radius: 4px; }
 .companion-banner .err { display: block; margin-top: 6px; color: var(--error); font-family: var(--f-mono); font-size: 12px; }
 
-/* ---- top bar on narrow screens: never cause horizontal page scroll ---- */
-html, body { max-width: 100%; overflow-x: hidden; }
+/* ---- top bar on narrow screens: never cause horizontal page scroll ----
+   `overflow-x: hidden` on BOTH html and body creates two nested scroll
+   containers; per spec, a non-visible overflow-x with a visible overflow-y
+   promotes overflow-y to `auto` too, so whichever element has it becomes an
+   actual (if usually empty) scroll box. With both set, `body` -- not the
+   viewport -- ends up as the nearest scrolling ancestor for any
+   `position: sticky` element inside it, and sticky positioning computed
+   against a container that never visibly scrolls just never pins. Keep this
+   on `html` only, so `html` stays the document's one real scrolling
+   element and sticky keeps working. */
+html { max-width: 100%; overflow-x: hidden; }
 .topbar { flex-wrap: wrap; row-gap: 6px; }
 @media (max-width: 640px) {
   .topbar { padding: 8px 12px; gap: 8px; }
