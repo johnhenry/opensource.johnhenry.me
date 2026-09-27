@@ -16,6 +16,12 @@ import {
   zipAsync,
   mapConcurrentAsync,
   HALT,
+  AsyncChannel,
+  CHANNEL_END,
+  abortable,
+  throwIfAborted,
+  teeAsync,
+  prefetchAsync,
   type Transducer,
   type ReducerStep,
 } from '@johnhenry/iteration';
@@ -541,6 +547,52 @@ const playground: Playground = {
           <h3>Composed code</h3>
           <pre class="code" id="codePre"></pre>
         </div>
+
+        <div class="panel bp-panel">
+          <h3>Backpressure &amp; cancellation lab <span class="stat">a slow consumer, a bursty producer, and the primitives that keep them honest</span></h3>
+          <p class="hint">
+            A single producer <code>put()</code>s into an <code>AsyncChannel({ limit })</code> — a bounded buffer, real
+            backpressure: once it's full, <code>put()</code>'s returned promise doesn't resolve until a <code>take()</code>
+            frees a slot. <code>teeAsync(2)</code> splits that one channel into two independent lanes reading the same
+            items at their own pace. Lane B additionally wraps its half in <code>prefetchAsync(n, …)</code>, which eagerly
+            reads ahead into its own buffer while the consumer is busy — watch its "wait per item" bars flatten out
+            compared to lane A's, especially when the producer bursts. <code>abortable(iterable, signal)</code> wraps every
+            consumer loop so <b>Stop</b> rejects them promptly mid-<code>await</code>; the producer checks
+            <code>throwIfAborted(signal)</code> itself before every <code>put()</code>, the kill switch that stops it from
+            even trying to make more work.
+          </p>
+          <div class="bp-controls">
+            <label class="field">channel capacity (limit)<input type="range" id="bpCapacity" min="1" max="12" step="1" value="3"> <span class="ck-val" id="bpCapacityVal">3</span></label>
+            <label class="field">producer interval (ms)<input type="range" id="bpProduceMs" min="20" max="600" step="20" value="120"> <span class="ck-val" id="bpProduceMsVal">120</span></label>
+            <label class="field">producer burst chance<input type="range" id="bpBurst" min="0" max="80" step="5" value="35"> <span class="ck-val" id="bpBurstVal">35</span>%</label>
+            <label class="field">consumer interval (ms, both lanes)<input type="range" id="bpConsumeMs" min="40" max="800" step="20" value="260"> <span class="ck-val" id="bpConsumeMsVal">260</span></label>
+            <label class="field">prefetch depth (lane B)<input type="range" id="bpPrefetch" min="1" max="10" step="1" value="4"> <span class="ck-val" id="bpPrefetchVal">4</span></label>
+          </div>
+          <div class="btn-row">
+            <button class="btn primary" id="bpStart">▶ Start</button>
+            <button class="btn" id="bpStop" disabled>■ Stop (abortable + throwIfAborted)</button>
+          </div>
+          <div class="bp-meter-row">
+            <div class="bp-meter">
+              <span class="bp-meter-label">channel buffer <b id="bpBufferLabel">0</b>/<b id="bpBufferCap">3</b></span>
+              <div class="bp-meter-track"><div class="bp-meter-fill" id="bpBufferFill"></div></div>
+              <span class="bp-blocked" id="bpBlocked" hidden>⏸ producer BLOCKED — put() pending, buffer full (backpressure)</span>
+            </div>
+          </div>
+          <div class="grid-2 bp-lanes">
+            <div class="bp-lane">
+              <h4>Lane A — direct <span class="stat">teeAsync(2)[0], no prefetch</span></h4>
+              <div class="bp-bars" id="bpBarsA"></div>
+              <div class="stat">avg wait <b id="bpAvgA">–</b> ms · items <b id="bpCountA">0</b></div>
+            </div>
+            <div class="bp-lane">
+              <h4>Lane B — prefetch(n) <span class="stat">teeAsync(2)[1] wrapped in prefetchAsync</span></h4>
+              <div class="bp-bars" id="bpBarsB"></div>
+              <div class="stat">avg wait <b id="bpAvgB">–</b> ms · items <b id="bpCountB">0</b></div>
+            </div>
+          </div>
+          <div class="bp-log" id="bpLog"></div>
+        </div>
       </div>`;
 
     const sinkListEl = host.querySelector('#sinkList') as HTMLOListElement;
@@ -1032,6 +1084,212 @@ const playground: Playground = {
       });
     }
 
+    // ---------------------------------------------------------------------------
+    // Backpressure & cancellation lab. Independent of the reactive pipeline
+    // above -- its own AsyncChannel, its own AbortController, plain DOM.
+    // ---------------------------------------------------------------------------
+    const bpCapacityIn = host.querySelector('#bpCapacity') as HTMLInputElement;
+    const bpCapacityVal = host.querySelector('#bpCapacityVal') as HTMLElement;
+    const bpProduceMsIn = host.querySelector('#bpProduceMs') as HTMLInputElement;
+    const bpProduceMsVal = host.querySelector('#bpProduceMsVal') as HTMLElement;
+    const bpBurstIn = host.querySelector('#bpBurst') as HTMLInputElement;
+    const bpBurstVal = host.querySelector('#bpBurstVal') as HTMLElement;
+    const bpConsumeMsIn = host.querySelector('#bpConsumeMs') as HTMLInputElement;
+    const bpConsumeMsVal = host.querySelector('#bpConsumeMsVal') as HTMLElement;
+    const bpPrefetchIn = host.querySelector('#bpPrefetch') as HTMLInputElement;
+    const bpPrefetchVal = host.querySelector('#bpPrefetchVal') as HTMLElement;
+    const bpStartBtn = host.querySelector('#bpStart') as HTMLButtonElement;
+    const bpStopBtn = host.querySelector('#bpStop') as HTMLButtonElement;
+    const bpBufferLabel = host.querySelector('#bpBufferLabel') as HTMLElement;
+    const bpBufferCap = host.querySelector('#bpBufferCap') as HTMLElement;
+    const bpBufferFill = host.querySelector('#bpBufferFill') as HTMLElement;
+    const bpBlockedEl = host.querySelector('#bpBlocked') as HTMLElement;
+    const bpBarsA = host.querySelector('#bpBarsA') as HTMLElement;
+    const bpBarsB = host.querySelector('#bpBarsB') as HTMLElement;
+    const bpAvgA = host.querySelector('#bpAvgA') as HTMLElement;
+    const bpAvgB = host.querySelector('#bpAvgB') as HTMLElement;
+    const bpCountA = host.querySelector('#bpCountA') as HTMLElement;
+    const bpCountB = host.querySelector('#bpCountB') as HTMLElement;
+    const bpLogEl = host.querySelector('#bpLog') as HTMLElement;
+
+    let bpRunning = false;
+    let bpAbort: AbortController | null = null;
+    let bpChannelRef: AsyncChannel<number> | null = null;
+    /** Mirrors the channel's own cache size: ++ right after a put() resolves, -- right after a take(). */
+    let bpBufferCount = 0;
+    let bpProducerBlockedSince = 0;
+    const bpTimers = new Set<number>();
+    function bpLater(fn: () => void, ms: number) {
+      const t = window.setTimeout(() => { bpTimers.delete(t); fn(); }, ms);
+      bpTimers.add(t);
+    }
+
+    function bpLog(msg: string) {
+      const line = document.createElement('div');
+      line.className = 'bp-log-line';
+      line.textContent = `${new Date().toLocaleTimeString([], { hour12: false })} · ${msg}`;
+      bpLogEl.appendChild(line);
+      while (bpLogEl.children.length > 50) bpLogEl.removeChild(bpLogEl.firstElementChild!);
+      bpLogEl.scrollTop = bpLogEl.scrollHeight;
+    }
+
+    function bpPaintBuffer(capacity: number, blocked: boolean) {
+      bpBufferLabel.textContent = String(bpBufferCount);
+      bpBufferCap.textContent = String(capacity);
+      bpBufferFill.style.width = `${capacity ? Math.min(100, (bpBufferCount / capacity) * 100) : 0}%`;
+      bpBlockedEl.hidden = !blocked;
+    }
+
+    function bpPushBar(container: HTMLElement, waitMs: number, maxMs: number) {
+      const bar = document.createElement('div');
+      bar.className = 'bp-bar';
+      bar.style.height = `${Math.max(3, Math.min(100, (waitMs / maxMs) * 100))}%`;
+      bar.title = `${waitMs.toFixed(0)} ms wait for this item`;
+      container.appendChild(bar);
+      while (container.children.length > 36) container.removeChild(container.firstElementChild!);
+      container.scrollLeft = container.scrollWidth;
+    }
+
+    /** Wraps channel.take() as an async generator, and is the single shared upstream teeAsync(2) splits. */
+    async function* bpChannelSource(channel: AsyncChannel<number>, capacity: number): AsyncGenerator<number> {
+      while (true) {
+        const v = await channel.take();
+        if (v === CHANNEL_END) return;
+        bpBufferCount = Math.max(0, bpBufferCount - 1);
+        bpPaintBuffer(capacity, bpProducerBlockedSince > 0);
+        yield v as number;
+      }
+    }
+
+    async function bpProducer(
+      channel: AsyncChannel<number>,
+      capacity: number,
+      signal: AbortSignal,
+      produceMsGetter: () => number,
+      burstChanceGetter: () => number,
+    ) {
+      let i = 0;
+      while (true) {
+        throwIfAborted(signal); // the kill switch: bail before doing any more work, not just downstream
+        const willBlock = bpBufferCount >= capacity;
+        if (willBlock) {
+          bpProducerBlockedSince = performance.now();
+          bpPaintBuffer(capacity, true);
+          bpLog(`producer BLOCKED on put(${i}) — buffer full (${bpBufferCount}/${capacity})`);
+        }
+        await channel.put(i);
+        if (willBlock) {
+          bpLog(`producer UNBLOCKED — put(${i}) accepted after ${(performance.now() - bpProducerBlockedSince).toFixed(0)} ms`);
+          bpProducerBlockedSince = 0;
+        }
+        bpBufferCount++;
+        bpPaintBuffer(capacity, false);
+        i++;
+        if (signal.aborted) return;
+        const burst = Math.random() * 100 < burstChanceGetter();
+        await pause(burst ? produceMsGetter() * 3 : produceMsGetter());
+      }
+    }
+
+    async function bpConsumeLane(
+      label: 'A' | 'B',
+      source: AsyncIterable<number>,
+      signal: AbortSignal,
+      consumeMsGetter: () => number,
+      barsEl: HTMLElement,
+      avgEl: HTMLElement,
+      countEl: HTMLElement,
+    ) {
+      const gen = abortable(source, signal);
+      let n = 0;
+      let total = 0;
+      try {
+        while (true) {
+          const t0 = performance.now();
+          const { value, done } = await gen.next();
+          if (done) break;
+          const waitMs = performance.now() - t0;
+          n++;
+          total += waitMs;
+          bpPushBar(barsEl, waitMs, Math.max(60, consumeMsGetter() * 1.5));
+          avgEl.textContent = (total / n).toFixed(0);
+          countEl.textContent = String(n);
+          bpLog(`lane ${label}: got ${value} after ${waitMs.toFixed(0)} ms wait`);
+          await pause(consumeMsGetter());
+        }
+      } catch {
+        /* aborted -- abortable() rejects the in-flight next() promptly */
+      }
+    }
+
+    function bpStartLab() {
+      if (bpRunning) return;
+      bpRunning = true;
+      bpStartBtn.disabled = true;
+      bpStopBtn.disabled = false;
+      bpCapacityIn.disabled = true;
+      bpPrefetchIn.disabled = true;
+      bpLogEl.innerHTML = '';
+      bpBarsA.innerHTML = '';
+      bpBarsB.innerHTML = '';
+      bpAvgA.textContent = '–';
+      bpAvgB.textContent = '–';
+      bpCountA.textContent = '0';
+      bpCountB.textContent = '0';
+      bpBufferCount = 0;
+      bpProducerBlockedSince = 0;
+
+      const capacity = Math.max(1, Number(bpCapacityIn.value));
+      const prefetchDepth = Math.max(1, Number(bpPrefetchIn.value));
+      bpPaintBuffer(capacity, false);
+
+      const ac = new AbortController();
+      bpAbort = ac;
+      const channel = new AsyncChannel<number>({ limit: capacity });
+      bpChannelRef = channel;
+
+      const [laneA, laneBRaw] = teeAsync(2)(bpChannelSource(channel, capacity));
+      const laneB = prefetchAsync(prefetchDepth, laneBRaw);
+
+      void bpProducer(channel, capacity, ac.signal, () => Number(bpProduceMsIn.value), () => Number(bpBurstIn.value)).catch(() => {});
+      void bpConsumeLane('A', laneA, ac.signal, () => Number(bpConsumeMsIn.value), bpBarsA, bpAvgA, bpCountA);
+      void bpConsumeLane('B', laneB, ac.signal, () => Number(bpConsumeMsIn.value), bpBarsB, bpAvgB, bpCountB);
+      bpLog(`started — AsyncChannel({ limit: ${capacity} }) → teeAsync(2) → lane A direct, lane B prefetchAsync(${prefetchDepth}, …)`);
+    }
+
+    function bpStopLab() {
+      if (!bpRunning) return;
+      bpRunning = false;
+      bpStartBtn.disabled = false;
+      bpStopBtn.disabled = true;
+      bpCapacityIn.disabled = false;
+      bpPrefetchIn.disabled = false;
+      bpAbort?.abort();
+      bpAbort = null;
+      // Unstick anything left waiting on the channel: break() resolves a
+      // pending take() (idle-buffer case) with CHANNEL_END; the extra take()
+      // calls drain any producer still blocked in put() on a full buffer, so
+      // no dangling promise is left awaiting forever inside the closure.
+      const ch = bpChannelRef;
+      bpChannelRef = null;
+      if (ch) {
+        void ch.break().catch(() => {});
+        const capacity = Math.max(1, Number(bpCapacityIn.value));
+        for (let i = 0; i < capacity + 2; i++) void ch.take().catch(() => {});
+      }
+      bpBlockedEl.hidden = true;
+      bpLog('stopped — abort() rejects both abortable() consumer loops; throwIfAborted() stops the producer before its next put()');
+    }
+
+    bpCapacityIn.addEventListener('input', () => { bpCapacityVal.textContent = bpCapacityIn.value; });
+    bpProduceMsIn.addEventListener('input', () => { bpProduceMsVal.textContent = bpProduceMsIn.value; });
+    bpBurstIn.addEventListener('input', () => { bpBurstVal.textContent = bpBurstIn.value; });
+    bpConsumeMsIn.addEventListener('input', () => { bpConsumeMsVal.textContent = bpConsumeMsIn.value; });
+    bpPrefetchIn.addEventListener('input', () => { bpPrefetchVal.textContent = bpPrefetchIn.value; });
+    bpStartBtn.addEventListener('click', bpStartLab);
+    bpStopBtn.addEventListener('click', bpStopLab);
+    bpLater(bpStartLab, 400); // auto-start so the lab is already running with zero input, like the pipe above
+
     host.addEventListener('input', onInput);
     host.addEventListener('change', onChange);
     host.addEventListener('click', onClick);
@@ -1048,6 +1306,9 @@ const playground: Playground = {
       host.removeEventListener('change', onChange);
       host.removeEventListener('click', onClick);
       rx.dispose();
+      bpAbort?.abort();
+      bpChannelRef?.break().catch(() => {});
+      for (const t of bpTimers) clearTimeout(t);
       host.innerHTML = '';
     };
   },
