@@ -6,6 +6,11 @@
 .pg-toolcode .tc-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: start; }
 .pg-toolcode .tc-intro p { margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; max-width: 90ch; }
 .pg-toolcode .tc-controls { display: grid; gap: 10px; min-width: 230px; }
+/* .tc-controls is a single-column grid, which stretches every item — including
+   the "copy link" button — to the full column width by default, turning it
+   into an oversized, left-aligned bar unlike every other "copy link" button
+   on the site (which just sizes to its content). */
+.pg-toolcode .tc-controls > [data-a="copy"] { justify-self: start; }
 .pg-toolcode .tc-controls .field { grid-template-columns: 1fr auto; align-items: center; }
 .pg-toolcode .tc-switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; color: var(--ink); user-select: none; }
 .pg-toolcode .tc-switch input { position: absolute; opacity: 0; pointer-events: none; }
@@ -19,8 +24,12 @@
 .pg-toolcode .tc-lang.on { opacity: 1; color: var(--ink); border: 1px solid var(--accent-border); }
 
 /* presets */
-.pg-toolcode .tc-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-.pg-toolcode .tc-preset { text-align: left; display: grid; gap: 3px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-panel); color: var(--ink); cursor: pointer; transition: border-color .15s, transform .15s; }
+/* auto-fill grid stretches whatever cards land on a short last row to fill it
+   (5 + 3 reads as ragged: the 3 leftover cards balloon wider than the row
+   above). A flex-wrap row with a capped card width keeps every card the same
+   size regardless of how many end up on the last line. */
+.pg-toolcode .tc-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.pg-toolcode .tc-preset { flex: 1 1 190px; max-width: 260px; text-align: left; display: grid; gap: 3px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-panel); color: var(--ink); cursor: pointer; transition: border-color .15s, transform .15s; }
 .pg-toolcode .tc-preset b { font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; color: var(--accent); }
 .pg-toolcode .tc-preset span { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
 .pg-toolcode .tc-preset:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
@@ -132,8 +141,12 @@
 .pg-toolcode .tc-diff { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--code-bg); }
 .pg-toolcode .tc-diff .tc-block-head { margin-bottom: 6px; }
 .pg-toolcode .tc-diff-body { overflow: auto; }
-.pg-toolcode .tc-dl { display: grid; grid-template-columns: 22px auto 1fr; align-items: baseline; gap: 6px; font-family: var(--f-mono); font-size: 12px; line-height: 1.6; padding: 0 4px; border-radius: 3px; }
-.pg-toolcode .tc-dl code { white-space: pre; color: var(--code-ink); }
+/* code was an "auto" column, sized to the unwrapped pre line's full min-content
+   width; that starved the tags column of room and pushed the annotation chips
+   onto their own line below the code. Give code a shrinkable column with its
+   own horizontal scroll, and a fixed-ish right gutter for the chips. */
+.pg-toolcode .tc-dl { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, max-content); align-items: baseline; gap: 6px; font-family: var(--f-mono); font-size: 12px; line-height: 1.6; padding: 0 4px; border-radius: 3px; }
+.pg-toolcode .tc-dl code { display: block; overflow-x: auto; white-space: pre; color: var(--code-ink); }
 .pg-toolcode .tc-ln { color: var(--ink-3); text-align: right; font-size: 10.5px; user-select: none; }
 .pg-toolcode .tc-dl.same code { opacity: .7; }
 .pg-toolcode .tc-dl.minus { background: color-mix(in oklch, var(--tc-bad) 9%, transparent); }

@@ -9,6 +9,10 @@
 /* top bar */
 .pg-grapher .gc-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .pg-grapher .gc-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Pattern F: "agent demo" and "copy link" were separate flex items, so when
+   the row wraps, copy link can be left behind alone on its own line. Group
+   them into one flex item so they wrap together. */
+.pg-grapher .gc-top-actions { display: flex; flex-wrap: wrap; gap: 10px; flex: none; }
 .pg-grapher .gc-chip { font-family: var(--f-mono); font-size: 12px; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink-2); cursor: pointer; }
 .pg-grapher .gc-chip:hover { color: var(--ink); border-color: var(--accent-border); }
 .pg-grapher .gc-chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent); }
@@ -16,8 +20,17 @@
 /* layout */
 .pg-grapher .gc-main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
 .pg-grapher .gc-col { display: grid; gap: 16px; min-width: 0; }
+/* Pattern C: the dependency-graph column is much shorter than the notebook.
+   NOTE: `position: sticky` (the textbook fix, kept here as the documented
+   intent) does not actually engage on this site — html AND body both set an
+   explicit `overflow` in src/styles/base.css, which makes body its own inert
+   scroll container and breaks every sticky element's containing block
+   site-wide. That's outside this room's file (base.css); align-items: start
+   at least removes the stretched empty void so the short column just ends
+   where its own content ends instead of stretching to match the notebook. */
 .pg-grapher .gc-side { position: sticky; top: 64px; }
-.pg-grapher .gc-bottom { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* match .gc-main's column ratio so the gutter lines up between the two rows */
+.pg-grapher .gc-bottom { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
 @media (max-width: 900px) {
   .pg-grapher .gc-main, .pg-grapher .gc-bottom { grid-template-columns: minmax(0, 1fr); }
   .pg-grapher .gc-side { position: static; }

@@ -30,6 +30,13 @@
 .sb-task-result { font-family: var(--f-mono); font-size: 12px; background: var(--code-bg); color: var(--code-ink); border-radius: 6px; padding: 6px 8px; }
 
 .sb-companion-banner .companion-banner { margin: 0 0 10px; }
+/* Pattern B: the shared .companion-banner is display:flex with flex-wrap,
+   which breaks its sentence at item edges (chip/link) instead of at word
+   boundaries. Render it as one flowing inline paragraph instead. */
+.sb-companion-banner .companion-banner { display: block; line-height: 1.6; }
+.sb-companion-banner .companion-banner .dot { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.sb-companion-banner .companion-banner code { display: inline; padding-block: 0; line-height: inherit; }
+.sb-companion-banner .companion-banner .err { display: block; margin-top: 6px; }
 
 .sb-inbox-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .sb-policy-field { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; }
@@ -38,8 +45,13 @@
 .sb-pend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-soft); }
 .sb-pend .ptype { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); }
 .sb-pend .ppayload { font-size: 12px; max-width: 50ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip.peer-mcp { background: hsl(calc(var(--hue) + 40) 55% 18%); }
-.chip.peer-a2a-local, .chip.peer-a2a-companion { background: hsl(calc(var(--hue) - 40) 55% 18%); }
+/* Dark/light: a fixed 18%-lightness background is only readable against the
+   dark theme's default ink colour — in light mode it's a near-black chip with
+   near-black inherited text, both close to unreadable. Mix the hue with the
+   theme's own --bg-inset (light in light mode, dark in dark mode) instead of
+   a hardcoded dark lightness, and pin the text to --ink so it always tracks. */
+.chip.peer-mcp { background: color-mix(in srgb, hsl(calc(var(--hue) + 40) 70% 50%) 24%, var(--bg-inset)); color: var(--ink); border-color: color-mix(in srgb, hsl(calc(var(--hue) + 40) 70% 50%) 55%, transparent); }
+.chip.peer-a2a-local, .chip.peer-a2a-companion { background: color-mix(in srgb, hsl(calc(var(--hue) - 40) 70% 50%) 24%, var(--bg-inset)); color: var(--ink); border-color: color-mix(in srgb, hsl(calc(var(--hue) - 40) 70% 50%) 55%, transparent); }
 
 .sb-log-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .sb-log { display: flex; flex-direction: column-reverse; gap: 2px; max-height: 260px; overflow-y: auto; font-family: var(--f-mono); font-size: 12px; }
@@ -47,8 +59,13 @@
 .sb-log-row:nth-child(odd) { background: color-mix(in srgb, var(--bg-inset) 60%, transparent); }
 .sb-log-row .ts { color: var(--ink-3); }
 .sb-log-row .src { text-transform: uppercase; letter-spacing: .03em; font-size: 10px; align-self: center; color: var(--ink-2); }
-.sb-log-row.s-mcp .src { color: hsl(calc(var(--hue) + 40) 85% 65%); }
-.sb-log-row.s-a2a-local .src, .sb-log-row.s-a2a-companion .src { color: hsl(calc(var(--hue) - 40) 85% 65%); }
+/* Same dark/light issue as the peer chips above: a fixed 65%-lightness hue
+   reads fine on the dark theme's near-black background but washes out to
+   near-invisible against the light theme's near-white one. Blend toward
+   --ink so contrast tracks the active theme while keeping the hue as an
+   identifying tint. */
+.sb-log-row.s-mcp .src { color: color-mix(in srgb, hsl(calc(var(--hue) + 40) 85% 55%) 70%, var(--ink)); }
+.sb-log-row.s-a2a-local .src, .sb-log-row.s-a2a-companion .src { color: color-mix(in srgb, hsl(calc(var(--hue) - 40) 85% 55%) 70%, var(--ink)); }
 .sb-log-row.s-broker .src { color: var(--accent); }
 .sb-log-row.s-companion .src { color: var(--ink-2); }
 .sb-log-row .txt { color: var(--ink); overflow-wrap: anywhere; }

@@ -5,15 +5,32 @@
 .pg-servant .row-between { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .pg-servant .row-between h3 { margin: 0; }
 
+/* Pattern B: the shared .companion-banner is display:flex with flex-wrap,
+   which breaks its sentence at item edges (chip/link) instead of at word
+   boundaries. Render it as one flowing inline paragraph instead. */
+.pg-servant .companion-banner { display: block; line-height: 1.6; }
+.pg-servant .companion-banner .dot { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.pg-servant .companion-banner code { display: inline; padding-block: 0; line-height: inherit; }
+.pg-servant .companion-banner .err { display: block; margin-top: 6px; }
+
 .pg-servant .hall {
   display: grid;
-  grid-template-columns: minmax(280px, 1.15fr) minmax(280px, 1.3fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.3fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 @media (max-width: 1000px) { .pg-servant .hall { grid-template-columns: 1fr; } }
 
-.pg-servant .col { display: grid; gap: 16px; align-content: start; }
+/* Pattern A: .col is display:grid with an implicit auto column, whose
+   automatic minimum size floors at the widest descendant's min-content (a long
+   unwrapped response line, a row of inputs+button, etc). That blew the column
+   — and the panel painted inside it — past the .hall track and over the next
+   column (P1: Dispatch Trace covering the Request Composer). min-width: 0
+   everywhere down the tree removes that floor so panel/pre/input width:100%
+   rules can actually shrink to the track instead of overflowing it. */
+.pg-servant .col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.pg-servant .col > * { min-width: 0; }
+.pg-servant .panel { min-width: 0; }
 
 /* left: script editor -------------------------------------------------- */
 .pg-servant .presets { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -26,7 +43,11 @@
 .pg-servant .script-status.err { color: var(--error); }
 
 .pg-servant .chips-wrap { margin-top: 12px; }
-.pg-servant .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* Pattern F: wrapping this flex row lands each "chip →" pair on its own line,
+   with the arrow orphaned at the end. Keep it one flowing row and let it
+   scroll horizontally instead. */
+.pg-servant .chips { display: flex; flex-wrap: nowrap; overflow-x: auto; align-items: center; gap: 8px; padding-bottom: 2px; }
+.pg-servant .chip-mw, .pg-servant .chip-arrow, .pg-servant .chip-end { flex: none; }
 .pg-servant .chip-mw {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 10px; border-radius: 999px;
@@ -45,23 +66,24 @@
 .pg-servant .routes-list b { color: var(--accent); }
 
 /* middle: composer + response + ws -------------------------------------- */
-.pg-servant .composer-row { display: flex; gap: 8px; margin-bottom: 10px; }
-.pg-servant .composer-row select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
-.pg-servant .composer-row input[type="text"] { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
-.pg-servant .headers-editor { display: grid; gap: 6px; margin-bottom: 8px; }
-.pg-servant .header-row { display: flex; gap: 6px; }
-.pg-servant .header-row input { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); font-size: 12px; }
+.pg-servant .composer-row { display: flex; gap: 8px; margin-bottom: 10px; min-width: 0; }
+.pg-servant .composer-row select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); flex: none; min-width: 0; }
+.pg-servant .composer-row input[type="text"] { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
+.pg-servant .headers-editor { display: grid; gap: 6px; margin-bottom: 8px; min-width: 0; }
+.pg-servant .header-row { display: flex; gap: 6px; min-width: 0; }
+.pg-servant .header-row input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); font-size: 12px; }
 .pg-servant .header-row button { background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-2); cursor: pointer; padding: 4px 8px; }
 .pg-servant textarea.code#sv-body { min-height: 70px; font-size: 12.5px; margin-bottom: 8px; }
 .pg-servant .response-viewer { margin-top: 12px; }
 .pg-servant .resp-status { font-family: var(--f-mono); font-size: 13px; margin-bottom: 6px; }
+.pg-servant .resp-status:empty { display: none; }
 .pg-servant .resp-status .code-2xx { color: var(--success); }
 .pg-servant .resp-status .code-4xx, .pg-servant .resp-status .code-5xx { color: var(--error); }
 .pg-servant .resp-status .code-3xx { color: var(--accent); }
 
 .pg-servant .ws-panel { margin-top: 4px; }
-.pg-servant .ws-row { display: flex; gap: 8px; margin-bottom: 8px; }
-.pg-servant .ws-row input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); }
+.pg-servant .ws-row { display: flex; gap: 8px; margin-bottom: 8px; min-width: 0; }
+.pg-servant .ws-row input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); text-overflow: ellipsis; }
 .pg-servant .ws-log { height: 160px; overflow: auto; background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-family: var(--f-mono); font-size: 12px; display: grid; gap: 4px; align-content: start; }
 .pg-servant .ws-log .out { color: var(--accent); }
 .pg-servant .ws-log .in { color: var(--success); }

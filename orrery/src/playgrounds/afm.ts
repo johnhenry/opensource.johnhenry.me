@@ -182,10 +182,12 @@ async function buildRoom(host: HTMLElement): Promise<() => void> {
             Every call this planet can make, mapped 1-to-1 from Swift.
             Full reference: <a href="https://opensource.johnhenry.me/apple-foundation-models/" target="_blank" rel="noreferrer">opensource.johnhenry.me/apple-foundation-models</a>.
           </p>
-          <table class="pg-api-table">
-            <thead><tr><th>Swift</th><th>JavaScript / TypeScript</th></tr></thead>
-            <tbody data-el="api-rows"></tbody>
-          </table>
+          <div class="pg-api-table-wrap">
+            <table class="pg-api-table">
+              <thead><tr><th>Swift</th><th>JavaScript / TypeScript</th></tr></thead>
+              <tbody data-el="api-rows"></tbody>
+            </table>
+          </div>
 
           <details class="pg-snippet-block" open>
             <summary>quick start</summary>

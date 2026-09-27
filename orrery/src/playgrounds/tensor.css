@@ -58,7 +58,16 @@
 .pg-tensor svg.graph .node.input rect { fill: var(--bg-inset); stroke: var(--ink-3); }
 
 /* fft */
-.pg-tensor .fft-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); }
+/* Pattern C: align-items defaults to stretch, so the short chart column gets
+   force-stretched to match the tall "the calls, verbatim" code column,
+   leaving a big empty void below the actual chart content. align-items:start
+   lets it size to its own content instead. (`position: sticky` would be the
+   textbook next step to keep it in view while the long column scrolls, but
+   it doesn't actually engage on this site: html AND body both set an
+   explicit `overflow` in src/styles/base.css, which makes body its own inert
+   scroll container and breaks every sticky element's containing block
+   site-wide — outside this room's files.) */
+.pg-tensor .fft-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); align-items: start; }
 .pg-tensor canvas.wave { cursor: crosshair; aspect-ratio: 1000 / 220; touch-action: none; }
 .pg-tensor canvas.spec { aspect-ratio: 1000 / 240; }
 .pg-tensor .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2); margin-top: 8px; font-family: var(--f-mono); }
@@ -69,7 +78,8 @@
 .pg-tensor .fft-grid .controls label.field { flex-basis: 100%; }
 
 /* image */
-.pg-tensor .img-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); }
+/* Same pattern-C void as .fft-grid above (see the note there re: sticky). */
+.pg-tensor .img-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); align-items: start; }
 .pg-tensor .img-pair { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 .pg-tensor .img-pair figure { margin: 0; }
 .pg-tensor .img-pair canvas { aspect-ratio: auto; image-rendering: pixelated; }

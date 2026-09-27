@@ -1,5 +1,14 @@
 .pg-leserve { display: grid; gap: 16px; }
 
+/* Pattern B: the shared .companion-banner is display:flex with flex-wrap,
+   which breaks its sentence at item edges (chip/link) instead of at word
+   boundaries, stacking the title/text/code chip/link onto separate ragged
+   lines. Render it as one flowing inline paragraph instead. */
+.pg-leserve .companion-banner { display: block; line-height: 1.6; }
+.pg-leserve .companion-banner .dot { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.pg-leserve .companion-banner code { display: inline; padding-block: 0; line-height: inherit; }
+.pg-leserve .companion-banner .err { display: block; margin-top: 6px; }
+
 .pg-leserve .lsv-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .pg-leserve .lsv-toolbar .stat { margin-left: auto; }
 
@@ -28,7 +37,13 @@
 .pg-leserve #resp-headers { min-height: 0; max-height: 120px; }
 .pg-leserve #resp-body { min-height: 90px; max-height: 220px; }
 
-.pg-leserve .lsv-wire pre.code { min-height: 140px; max-height: 260px; font-size: 12px; }
+/* Pattern E: the two wire-view columns are plain divs, so each `pre` just
+   sizes to its own content — the Request side (a few header lines) reads far
+   shorter than the Response side (headers + a JSON body). Make each column a
+   column-flex box with align-items:stretch on the row (the .grid-2 default)
+   so both panes fill the row's full height. */
+.pg-leserve .lsv-wire .grid-2 > div { display: flex; flex-direction: column; }
+.pg-leserve .lsv-wire pre.code { min-height: 140px; max-height: 260px; font-size: 12px; flex: 1; }
 
 .pg-leserve #resp-handoff { margin-top: 10px; }
 
