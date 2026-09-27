@@ -14,6 +14,16 @@ import './mcpq.css';
 // mcp-gate's package entry resolves to its browser-safe subset (exports["."].browser →
 // dist/index.browser.js: compilePolicy, redact, …) under Vite's browser condition.
 import { compilePolicy, redact as gateRedact } from '@johnhenry/mcp-gate';
+// The Aimatey bridge (2.2): a real aimatey-core Bridge whose runTools() loop calls tools
+// through THIS room's own MCPClient — same gate interceptor chain, same wire timeline,
+// same approval inbox as every callTool() above. aimatey-mcp never imports aimatey-core
+// itself (it composes `bridge.runTools` from the outside), and never imports an MCP SDK —
+// mcp-query's MCPClient satisfies its McpClientLike structurally (listTools is sync,
+// callTool matches) with zero adapter code needed.
+import { createBridge } from '@johnhenry/aimatey-core';
+import { createGenericFrontend } from '@johnhenry/aimatey-frontend';
+import { runMcpTools } from '@johnhenry/aimatey-mcp';
+import type { BackendAdapter, AdapterMetadata, IRChatRequest, IRChatResponse, ToolResultContent, FinishReason, RunToolsStep } from '@johnhenry/aimatey-types';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Agent Query — mcp-query's reactive cache + mcp-gate's policy compiler, driven
@@ -242,6 +252,68 @@ const MATH_PRESETS: [label: string, tool: string][] = [
   ['stats on 8 numbers', 'stats_summary'],
   ['sum a 2×2 matrix', 'tensor_pipeline'],
 ];
+
+/* ───────────────────────────── Aimatey bridge: canned "asks" ─────────────────────────────
+ * Each ask names the one real MCP tool a genuine LLM would plausibly pick for that sentence.
+ * The mock backend below is honest about not doing that reasoning itself (no model is running
+ * in the browser) — it just forces that one tool via IRChatRequest.toolChoice, the same knob
+ * a real OpenAI/Anthropic backend honors. Everything after "decide to call a tool" — building
+ * ToolDefinitions from this client's live tools, executing via client.callTool(), the gate
+ * chain, the approval inbox, feeding the result back and getting a final answer — is the real
+ * aimatey-core agentic loop (`Bridge.runTools()` via `@johnhenry/aimatey-mcp`'s `runMcpTools`). */
+interface AgentAsk { label: string; tool: string; args: Json }
+const AGENT_ASKS_DEMO: AgentAsk[] = [
+  { label: 'What’s the weather in Tokyo?', tool: 'get_weather', args: { city: 'Tokyo', units: 'C' } },
+  { label: 'Search for "reactive cache" patterns', tool: 'slow_search', args: { query: 'reactive cache', delayMs: 900 } },
+  { label: 'Jot down a note about this bridge', tool: 'add_note', args: { text: 'aimatey called an MCP tool through the same gate policy' } },
+  { label: 'Echo my email back to me', tool: 'echo', args: { text: 'ping from alice@example.com, ssn 123-45-6789' } },
+  { label: 'Wipe every note (destructive — watch the gate)', tool: 'delete_everything', args: { confirm: true } },
+];
+const AGENT_ASKS_MATH: AgentAsk[] = MATH_PRESETS.map(([label, tool]) => ({ label, tool, args: MATH_EXAMPLES[tool] }));
+const agentAsksFor = (k: ServerKind) => (k === 'demo' ? AGENT_ASKS_DEMO : AGENT_ASKS_MATH);
+
+/** A mock BackendAdapter standing in for an LLM. It never talks to a network; it only knows
+ *  two moves: force the one tool named by `nextCall` (set right before each ask), or — once a
+ *  tool_result comes back on the next turn of the runTools loop — summarize it in one line. */
+class BridgeMockModel implements BackendAdapter<IRChatRequest, IRChatResponse> {
+  readonly metadata: AdapterMetadata = {
+    name: 'orrery-mock-agent',
+    version: '0.1.0',
+    provider: 'orrery-mock',
+    capabilities: { streaming: false, multiModal: false, tools: true, systemMessageStrategy: 'in-messages', supportsMultipleSystemMessages: true, supportsTemperature: false },
+  };
+  nextCall: { tool: string; args: Json } | null = null;
+
+  private stamp(content: IRChatResponse['message']['content'], finishReason: FinishReason, requestId: string): IRChatResponse {
+    return {
+      message: { role: 'assistant', content },
+      finishReason,
+      usage: { promptTokens: 6, completionTokens: 6, totalTokens: 12 },
+      metadata: { requestId, timestamp: Date.now(), provenance: { backend: this.metadata.name } },
+    };
+  }
+
+  async execute(request: IRChatRequest): Promise<IRChatResponse> {
+    const requestId = request.metadata.requestId;
+    const last = request.messages[request.messages.length - 1];
+    const results = Array.isArray(last?.content)
+      ? (last.content.filter((c) => (c as { type: string }).type === 'tool_result') as ToolResultContent[])
+      : [];
+    if (results.length) {
+      const bad = results.find((r) => r.isError);
+      const text = results.map((r) => (typeof r.content === 'string' ? r.content : r.content.map((t) => t.text).join(' '))).join(' ').trim();
+      return this.stamp(bad ? `The tool call didn't go through: ${text}` : `Done — ${text.slice(0, 600)}`, 'stop', requestId);
+    }
+    const call = this.nextCall;
+    const tool = call && request.tools?.find((t) => t.name === call.tool);
+    if (!call || !tool) return this.stamp("I don't have a tool that matches this ask.", 'stop', requestId);
+    return this.stamp(
+      [{ type: 'tool_use', id: `call_${Math.random().toString(36).slice(2, 10)}`, name: call.tool, input: call.args }],
+      'tool_calls',
+      requestId,
+    );
+  }
+}
 
 /* ───────────────────────────── policy ───────────────────────────── */
 
@@ -718,6 +790,62 @@ const playground: Playground = {
     $('.mq-call').addEventListener('click', () => void run('call'));
     $('.mq-query').addEventListener('click', () => void run('query'));
 
+    /* ── Aimatey bridge: the model calls MCP tools through THIS client ── */
+    const agentSel = $<HTMLSelectElement>('.mq-agent-select');
+    const agentOut = $('.mq-agent-out');
+    const agentTrace = $('.mq-agent-trace');
+    const agentBtn = $<HTMLButtonElement>('.mq-agent-ask');
+    let agentBusy = false;
+
+    function renderAgentStep(s: RunToolsStep): string {
+      const calls = s.toolCalls.map((tc) =>
+        `<div class="mq-agent-line"><span class="who">model</span><code>${esc(tc.name)}(${esc(JSON.stringify(tc.input))})</code></div>`,
+      ).join('');
+      const results = s.toolResults.map((tr) =>
+        `<div class="mq-agent-line ${tr.isError ? 'err' : 'ok'}"><span class="who">${tr.isError ? 'error' : 'tool'}</span><code>${esc(String(tr.result).slice(0, 240))}</code></div>`,
+      ).join('');
+      return `<div class="mq-agent-step"><div class="mq-agent-step-h">turn ${s.iteration}</div>${calls || results ? calls + results : '<div class="mq-agent-line"><span class="who">model</span><code>(final answer, no tool call)</code></div>'}</div>`;
+    }
+
+    function populateAgentAsks(): void {
+      agentSel.innerHTML = agentAsksFor(kind).map((a, i) => `<option value="${i}">${esc(a.label)}</option>`).join('');
+    }
+
+    async function runAgentAsk(): Promise<void> {
+      if (agentBusy) return;
+      const pick = agentAsksFor(kind)[Number(agentSel.value) || 0];
+      if (!pick) return;
+      agentBusy = true;
+      agentBtn.setAttribute('disabled', 'true');
+      agentOut.className = 'code mq-agent-out busy';
+      agentOut.textContent = `runMcpTools(bridge.runTools, { client, server: '${SERVER}' }) — forcing tool "${pick.tool}" on turn 1…\nIf the active policy requires approval, check "Waiting for approval" above.`;
+      agentTrace.innerHTML = '';
+      pushEv({ lane: 'local', kind: 'note', label: `aimatey bridge: "${pick.label}" → forcing ${pick.tool}` });
+      const model = new BridgeMockModel();
+      model.nextCall = { tool: pick.tool, args: pick.args };
+      const bridge = createBridge(createGenericFrontend({ name: 'orrery-agent' }), model);
+      try {
+        const result = await runMcpTools(bridge.runTools, {
+          client,
+          server: SERVER,
+          prompt: pick.label,
+          toolChoice: { name: pick.tool },
+          maxIterations: 4,
+        });
+        agentOut.className = 'code mq-agent-out ok';
+        agentOut.textContent = result.text;
+        agentTrace.innerHTML = result.steps.map(renderAgentStep).join('');
+        pushEv({ lane: 'local', kind: 'note', label: `aimatey bridge: finished in ${result.steps.length} turn(s), finishReason=${result.finishReason}` });
+      } catch (e: any) {
+        agentOut.className = 'code mq-agent-out err';
+        agentOut.textContent = `${e?.name ?? 'Error'}: ${e?.message ?? e}`;
+      } finally {
+        agentBusy = false;
+        agentBtn.removeAttribute('disabled');
+      }
+    }
+    agentBtn.addEventListener('click', () => void runAgentAsk());
+
     /* ── demo-only live widgets: clock, notes (optimistic), weather ── */
     const noteOpts = {
       optimistic: (a: Json) => [{ key: kResource('notes://inbox'), recipe: (prev: any) => {
@@ -815,6 +943,10 @@ const playground: Playground = {
         currentTool = ''; args = {};
 
         presetSel.innerHTML = `<option value="">presets…</option>` + Object.keys(presetsFor(kind)).map((k) => `<option>${esc(k)}</option>`).join('');
+        populateAgentAsks();
+        agentOut.className = 'code mq-agent-out';
+        agentOut.textContent = 'Pick an ask above and send it — the "model" forces one real tool call, which runs through client.callTool() exactly like the panel above.';
+        agentTrace.innerHTML = '';
 
         out.className = 'code mq-out busy';
         if (kind === 'demo') {
@@ -987,6 +1119,13 @@ const TEMPLATE = `
     <div class="mq-tl-list"></div>
   </section>
 </div>
+
+<section class="panel mq-agent">
+  <header><h3>Aimatey bridge — the model calls MCP tools</h3><select class="mq-agent-select"></select><button class="btn primary mq-agent-ask">Ask</button></header>
+  <p class="muted small">A real <code>@johnhenry/aimatey-core</code> <b>Bridge</b> runs <code>bridge.runTools()</code>, its built-in agentic tool-execution loop. <code>@johnhenry/aimatey-mcp</code>'s <code>runMcpTools(bridge.runTools, { client })</code> lists this room's live tools with <code>client.listTools()</code>, wraps each as a <code>ToolDefinition</code> whose <code>execute()</code> is a plain <code>client.callTool()</code>, and hands them to the loop — so a tool call the "model" makes goes through the exact same gate policy, approval inbox and wire timeline as every call above. The one thing not real here: no LLM runs in the browser, so picking an ask below stands in for "the model decided to call this tool" (a mock <code>BackendAdapter</code> forces it via <code>toolChoice</code>); everything downstream is production code.</p>
+  <div class="mq-agent-trace"></div>
+  <pre class="code mq-agent-out">Pick an ask above and send it.</pre>
+</section>
 
 <section class="panel mq-explain">
   <h3>What's happening</h3>
