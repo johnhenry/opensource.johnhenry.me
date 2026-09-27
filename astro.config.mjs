@@ -44,6 +44,7 @@ export default defineConfig({
       // entry — the autogenerate config now goes inside a group's `items`.
       sidebar: [
         { label: 'Overview', link: '/' },
+        { label: 'Orrery · live playground', link: '/orrery/', badge: { text: 'live', variant: 'success' } },
         ...[
           { label: 'aimatey', directory: 'aimatey' },
           { label: 'browsermesh', directory: 'browsermesh' },

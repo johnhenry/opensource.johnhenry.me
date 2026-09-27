@@ -1,0 +1,51 @@
+.pg-math { display: grid; gap: 16px; }
+.pg-math .mo-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.pg-math .mo-tabs .btn[aria-selected="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-math .mo-stage { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+@media (max-width: 880px) { .pg-math .mo-stage { grid-template-columns: minmax(0, 1fr); } }
+.pg-math .mo-view { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
+.pg-math .mo-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pg-math .mo-view canvas.mo-main { cursor: crosshair; }
+.pg-math .mo-view canvas.mo-overlay { pointer-events: none; }
+.pg-math .mo-hud { position: absolute; left: 10px; top: 10px; pointer-events: none; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; color: var(--ink); background: color-mix(in srgb, #04050c 72%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; backdrop-filter: blur(4px); max-width: calc(100% - 20px); }
+.pg-math .mo-hud b { color: var(--accent); font-weight: 600; }
+.pg-math .mo-hint { position: absolute; right: 8px; bottom: 8px; background: color-mix(in srgb, #04050c 70%, transparent); padding: 2px 8px; border-radius: 6px; pointer-events: none; font-size: 11px; color: var(--ink-3); font-family: var(--f-mono); }
+.pg-math .mo-progress { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); transition: width .08s linear, opacity .4s; }
+.pg-math .mo-side { display: grid; gap: 12px; }
+.pg-math .mo-side .panel { display: grid; gap: 10px; padding: 14px; }
+.pg-math .mo-side h3 { margin: 0; font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.pg-math .mo-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-math .mo-row .btn { padding: 5px 10px; font-size: 12px; }
+.pg-math .mo-row .btn.on { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-math input[type="range"] { width: 100%; accent-color: var(--accent); }
+.pg-math .mo-kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-family: var(--f-mono); font-size: 12px; }
+.pg-math .mo-kv span:nth-child(odd) { color: var(--ink-3); }
+.pg-math .mo-kv span:nth-child(even) { color: var(--ink); overflow-wrap: anywhere; }
+.pg-math .mo-formula { font-family: var(--f-mono); font-size: 15px; color: var(--ink); padding: 8px 10px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); overflow-wrap: anywhere; }
+.pg-math .mo-formula b { color: var(--accent); }
+.pg-math .mo-picker { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); aspect-ratio: 3 / 2; background: #04050c; cursor: grab; }
+.pg-math .mo-picker canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pg-math .mo-bars { display: grid; gap: 4px; font-family: var(--f-mono); font-size: 11px; }
+.pg-math .mo-bar { display: grid; grid-template-columns: 44px 1fr 64px; align-items: center; gap: 8px; }
+.pg-math .mo-bar .lbl { color: var(--ink-2); }
+.pg-math .mo-bar .val { text-align: right; color: var(--ink); }
+.pg-math .mo-bar .track { position: relative; height: 8px; border-radius: 4px; background: var(--bg-inset); overflow: hidden; }
+.pg-math .mo-bar .track::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.pg-math .mo-bar .fill { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
+.pg-math .mo-bar.ps .fill { background: #f5a524; }
+.pg-math .mo-how { font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+.pg-math .mo-how p { margin: 0 0 6px; }
+.pg-math .mo-how pre.code { font-size: 11.5px; max-height: none; white-space: pre-wrap; }
+.pg-math input.mo-expr { width: 100%; font-family: var(--f-mono); font-size: 15px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--code-bg); color: var(--code-ink, var(--ink)); }
+.pg-math input.mo-expr:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pg-math input.mo-expr.bad { border-color: var(--error); }
+.pg-math .mo-legend { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
+.pg-math .mo-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+.pg-math pre.code.mo-err { color: var(--error); white-space: pre-wrap; max-height: 160px; }
+.pg-math .mo-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.pg-math select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); }
+.pg-math .mo-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pg-math .mo-inline label.field input { width: 100%; }
+.pg-math .mo-tabs .mo-link { margin-left: auto; }
+.pg-math .mo-export { border-color: var(--accent-border); }
+.pg-math .mo-export:hover { background: var(--accent-soft); }

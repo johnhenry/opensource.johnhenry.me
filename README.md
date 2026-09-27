@@ -193,3 +193,20 @@ git push dokku main
 Nixpacks builds it and runs the `Procfile`, which serves `dist/` on `$PORT`.
 The Node version is pinned in `.node-version`, `.nvmrc`, and `engines.node` —
 keep all three in sync, since Nixpacks does not consistently prefer one.
+
+
+## Orrery (live playground) at /orrery
+
+`orrery/` is a self-contained Vite app that runs every library in the browser. `npm run build` builds it into
+`public/orrery/` (via `npm run build:orrery`), so it ships with the site at https://opensource.johnhenry.me/orrery/.
+It is hash-routed and built with `--base=/orrery/`, so no server rewrites are needed.
+
+Six planets can also talk to an optional Node companion for real servers (leserve, servant, dialback, wsh,
+letterpress, Apple on-device). Run it locally with:
+
+```bash
+npm run orrery:node     # http://localhost:7777 (+ :7778 leserve, :7779 servant)
+```
+
+then open the Orrery and its Settings page (`/orrery/#/settings`) to point it at that URL. See `orrery/README.md`
+and `orrery/server/README.md`.

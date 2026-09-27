@@ -6,3 +6,5 @@ public/src/
 .DS_Store
 *.log
 public/circuit/showcase/
+# Built from ./orrery at build time (npm run build:orrery)
+public/orrery/

@@ -1,0 +1,53 @@
+.pg-letterpress { display: flex; flex-direction: column; gap: 16px; }
+
+.pg-letterpress .lp-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.pg-letterpress .lp-toolbar select { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 12.5px; }
+.pg-letterpress .lp-toolbar .stat { margin-left: auto; }
+.pg-letterpress .lp-toolbar .stat.err { color: var(--error, #f66); }
+
+.pg-letterpress .lp-editor-wrap { position: relative; }
+.pg-letterpress .lp-highlight,
+.pg-letterpress .lp-source {
+  font-family: var(--f-mono); font-size: 12.5px; line-height: 1.55; margin: 0; padding: 12px;
+  border-radius: 8px; border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word;
+  min-height: 320px; max-height: 420px; overflow: auto; width: 100%; box-sizing: border-box;
+}
+.pg-letterpress .lp-highlight { position: absolute; inset: 0; background: var(--code-bg); color: var(--code-ink); pointer-events: none; z-index: 0; }
+.pg-letterpress .lp-highlight mark { background: hsl(var(--hue) 90% 45% / .35); color: inherit; border-radius: 3px; box-shadow: 0 0 0 1px hsl(var(--hue) 90% 60% / .6); }
+.pg-letterpress .lp-source {
+  position: relative; z-index: 1; background: transparent; color: transparent; caret-color: var(--ink);
+  resize: vertical;
+}
+.pg-letterpress .lp-source::selection { background: hsl(var(--hue) 80% 60% / .35); }
+
+.pg-letterpress .lp-compile-error { border-color: var(--error, #f66); color: var(--error, #f66); margin-top: 10px; white-space: pre-wrap; }
+
+.pg-letterpress .lp-composer-panel { display: flex; flex-direction: column; gap: 12px; }
+.pg-letterpress .lp-row { display: flex; gap: 8px; align-items: stretch; }
+.pg-letterpress .lp-row select { flex: none; width: 100px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); }
+.pg-letterpress .lp-row input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 13px; }
+.pg-letterpress .lp-row .btn { flex: none; }
+.pg-letterpress .lp-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-letterpress .lp-examples .chip { cursor: pointer; border: none; font-family: var(--f-mono); }
+.pg-letterpress .lp-examples .chip:hover { background: var(--accent); color: #fff; }
+
+.pg-letterpress .lp-results-panel { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.pg-letterpress .lp-result-block h4 { margin: 0 0 8px; font-family: var(--f-display); font-size: 14px; color: var(--ink-2); }
+.pg-letterpress .lp-match-info { font-family: var(--f-mono); font-size: 12.5px; line-height: 1.7; }
+.pg-letterpress .lp-match-info .yes { color: hsl(140 70% 55%); }
+.pg-letterpress .lp-match-info .no { color: hsl(0 70% 60%); }
+.pg-letterpress .lp-params { list-style: none; margin: 6px 0 0; padding: 0; }
+.pg-letterpress .lp-params li { display: flex; gap: 6px; }
+.pg-letterpress .lp-params b { color: var(--accent); min-width: 70px; }
+.pg-letterpress .lp-status { display: inline-block; padding: 2px 8px; border-radius: 6px; font-family: var(--f-mono); font-weight: 700; font-size: 12px; }
+.pg-letterpress .lp-status.ok { background: hsl(140 60% 20%); color: hsl(140 70% 70%); }
+.pg-letterpress .lp-status.err { background: hsl(0 60% 24%); color: hsl(0 70% 75%); }
+
+.pg-letterpress .lp-route-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 12.5px; }
+.pg-letterpress .lp-route-table th, .pg-letterpress .lp-route-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.pg-letterpress .lp-route-table tr.matched { background: hsl(var(--hue) 80% 50% / .14); }
+.pg-letterpress .lp-route-table .m { color: var(--accent); font-weight: 700; }
+.pg-letterpress .lp-route-table .h { color: var(--ink-3); }
+
+.pg-letterpress .lp-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pg-letterpress .lp-what { color: var(--ink-2); font-size: 13.5px; max-width: 70ch; }
