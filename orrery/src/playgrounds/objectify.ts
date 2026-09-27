@@ -735,15 +735,27 @@ const playground: Playground = {
       <div id="ob-banner"></div>
 
       <div class="ob-layout">
-        <div class="panel ob-col">
-          <strong>Class editor</strong>
-          <div class="ob-presets" id="ob-presets"></div>
-          <textarea class="code" id="ob-source" spellcheck="false"></textarea>
-          <div class="ob-editor-row">
-            <button class="btn primary" id="ob-parse">parse &amp; reflect</button>
-            <span class="stat" id="ob-parse-stat"></span>
+        <div class="ob-layout-left">
+          <div class="panel ob-col">
+            <strong>Class editor</strong>
+            <div class="ob-presets" id="ob-presets"></div>
+            <textarea class="code" id="ob-source" spellcheck="false"></textarea>
+            <div class="ob-editor-row">
+              <button class="btn primary" id="ob-parse">parse &amp; reflect</button>
+              <span class="stat" id="ob-parse-stat"></span>
+            </div>
+            <pre class="code ob-reflection" id="ob-reflection"></pre>
           </div>
-          <pre class="code ob-reflection" id="ob-reflection"></pre>
+
+          <div class="panel ob-col">
+            <div class="ob-detail-head">
+              <strong>State &amp; history</strong>
+              <button class="btn small" id="ob-copy">copy link</button>
+            </div>
+            <div class="stat" id="ob-store-stat">objects <b id="ob-count">0</b></div>
+            <div class="ob-instances" id="ob-instances"></div>
+            <div id="ob-detail"></div>
+          </div>
         </div>
 
         <div class="panel ob-col ob-term-col">
@@ -755,16 +767,6 @@ const playground: Playground = {
             <input class="ob-input" id="ob-input" autocomplete="off" spellcheck="false" placeholder="create &quot;sprint tasks&quot; --class=TaskList">
           </div>
           <div class="ob-suggest" id="ob-suggest"></div>
-        </div>
-
-        <div class="panel ob-col">
-          <div class="ob-detail-head">
-            <strong>State &amp; history</strong>
-            <button class="btn small" id="ob-copy">copy link</button>
-          </div>
-          <div class="stat" id="ob-store-stat">objects <b id="ob-count">0</b></div>
-          <div class="ob-instances" id="ob-instances"></div>
-          <div id="ob-detail"></div>
         </div>
       </div>
     `;
