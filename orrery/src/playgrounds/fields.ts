@@ -601,17 +601,33 @@ const playground: Playground = {
     });
 
     // Priority on load: an incoming handoff (e.g. from the HTTP Converter's
-    // "Structured headers" panel) wins, then a shareable deep link, then the
-    // first preset.
-    const handoff = receive<{ name: string; value: string; type: FType | 'auto' }>('fields');
+    // "Structured headers" panel, or the site-wide HAR recorder's "headers
+    // in Fields" button) wins, then a shareable deep link, then the first
+    // preset.
+    const handoff = receive<{ name: string; value: string; type: FType | 'auto' } | Array<{ name: string; value: string }>>('fields');
     if (handoff && handoff.kind === 'header-field') {
-      nameIn.value = handoff.payload.name;
-      valueTa.value = handoff.payload.value;
-      typeSel.value = handoff.payload.type;
+      const payload = handoff.payload as { name: string; value: string; type: FType | 'auto' };
+      nameIn.value = payload.name;
+      valueTa.value = payload.value;
+      typeSel.value = payload.type;
       noteEl.textContent = '';
       editorDirty = false;
-      root.prepend(handoffBanner(handoff, `loaded header "${handoff.payload.name}" for inspection.`));
+      root.prepend(handoffBanner(handoff, `loaded header "${payload.name}" for inspection.`));
       update();
+    } else if (handoff && handoff.kind === 'har-headers') {
+      // A captured HAR entry's request+response headers, sent as a list —
+      // load the first one; its name can be edited above to inspect another.
+      const list = handoff.payload as Array<{ name: string; value: string }>;
+      const first = list[0];
+      if (first) {
+        nameIn.value = first.name;
+        valueTa.value = first.value;
+        typeSel.value = 'auto';
+        noteEl.textContent = '';
+        editorDirty = false;
+        root.prepend(handoffBanner(handoff, `loaded "${first.name}" from a captured HAR entry (${list.length} header${list.length === 1 ? '' : 's'} total — edit the header name above to inspect another).`));
+        update();
+      }
     } else if (location.hash.includes('?')) {
       const s = readState(linkDefaults);
       nameIn.value = s.name;
