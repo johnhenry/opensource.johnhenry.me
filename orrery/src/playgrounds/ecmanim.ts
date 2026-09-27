@@ -12,6 +12,15 @@ import './ecmanim.css';
  */
 
 type Lib = typeof import('@johnhenry/ecmanim/browser');
+/** `/authoring`: formats, plan IR, quality gates — browser-safe (see below). */
+type AuthoringLib = typeof import('@johnhenry/ecmanim/authoring');
+/** `/studio`: dev-tooling helpers; we only use `schemaToControls`. */
+type StudioLib = typeof import('@johnhenry/ecmanim/studio');
+/** `/physics/rapier2d|3d`: real WASM rigid-body engines (optional deps). */
+type Rapier2DLib = typeof import('@johnhenry/ecmanim/physics/rapier2d');
+type Rapier3DLib = typeof import('@johnhenry/ecmanim/physics/rapier3d');
+/** `/browser-three`: the GPU (WebGL) backend; lazy-loads `three` itself. */
+type ThreeLib = typeof import('@johnhenry/ecmanim/browser-three');
 
 interface Preset { id: string; name: string; note: string; source: string }
 
@@ -552,18 +561,1261 @@ const H = 720;
 
 class Cancelled extends Error {}
 
+/** What a lazily-mounted tab (Authoring/Physics/WebGL) returns: `pause()`
+ *  cancels any in-flight render (cooperative — bumps the tab's own `gen`
+ *  counter) without tearing the tab's DOM/state down, called whenever the
+ *  user switches to a DIFFERENT top-level tab so background tabs don't keep
+ *  competing for animation frames forever; `dispose()` is the full cleanup,
+ *  called when the whole room unmounts. */
+interface TabHandle { pause(): void; dispose(): void }
+
+/**
+ * Run a compiled SceneClass/construct on a 2D canvas with real-time pacing and
+ * cooperative cancellation. ecmanim's own exported `play()` owns its
+ * frameHandler outright and can't be interrupted mid-scene (see browser.js);
+ * this reimplements the same loop (Camera → CanvasRenderer → makeScene →
+ * runConstruct, exactly what the Stage tab's own run() does below) so
+ * switching tabs/presets never leaves a stray render animating against a
+ * detached canvas. Also used for ThreeDScene subclasses — that camera is
+ * Canvas-2D pseudo-3D (renderer/CanvasRenderer + scene/three_d.ts), no WebGL.
+ */
+async function runOnCanvas2D(opts: {
+  lib: Lib; sceneOrConstruct: any; canvas: HTMLCanvasElement;
+  pixelWidth: number; pixelHeight: number; fps: number; background: string;
+  isCancelled: () => boolean;
+}): Promise<any> {
+  const { lib, sceneOrConstruct, canvas, pixelWidth, pixelHeight, fps, background, isCancelled } = opts;
+  canvas.width = pixelWidth;
+  canvas.height = pixelHeight;
+  const ctx = canvas.getContext('2d')!;
+  const baseCamera = new lib.Camera({ pixelWidth, pixelHeight, background });
+  const scene: any = lib.makeScene(sceneOrConstruct, { fps, camera: baseCamera });
+  // ThreeDScene upgrades `camera` to a ThreeDCamera inside its own constructor
+  // (scene/three_d.ts) — read it back so ambient rotation etc. mutates the
+  // same object this renderer reads, instead of the plain Camera we passed in.
+  const camera = scene.camera ?? baseCamera;
+  const renderer = new lib.CanvasRenderer(ctx, camera);
+  const start = performance.now();
+  let frame = 0;
+  scene.frameHandler = async (mobjects: any[]) => {
+    if (isCancelled()) throw new Cancelled();
+    renderer.renderScene(mobjects);
+    frame++;
+    const target = start + (frame * 1000) / fps;
+    while (performance.now() < target) {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (isCancelled()) throw new Cancelled();
+    }
+  };
+  await lib.runConstruct(sceneOrConstruct, scene);
+  return scene;
+}
+
+/** Same idea, GPU-backed via `/browser-three`'s ThreeRenderer (real WebGL). */
+async function runOnCanvasGL(opts: {
+  lib3: ThreeLib; THREE: any; sceneOrConstruct: any; canvas: HTMLCanvasElement;
+  pixelWidth: number; pixelHeight: number; fps: number; background: string;
+  isCancelled: () => boolean;
+}): Promise<any> {
+  const { lib3, THREE, sceneOrConstruct, canvas, pixelWidth, pixelHeight, fps, background, isCancelled } = opts;
+  canvas.width = pixelWidth;
+  canvas.height = pixelHeight;
+  const baseCamera = new (lib3 as any).ThreeDCamera({ pixelWidth, pixelHeight, background });
+  const scene: any = lib3.makeScene(sceneOrConstruct, { fps, camera: baseCamera });
+  const camera = scene.camera ?? baseCamera;
+  const renderer = new (lib3 as any).ThreeRenderer(THREE, { canvas, camera, background, antialias: true });
+  const start = performance.now();
+  let frame = 0;
+  scene.frameHandler = async (mobjects: any[]) => {
+    if (isCancelled()) throw new Cancelled();
+    renderer.render(mobjects, 1 / fps);
+    frame++;
+    const target = start + (frame * 1000) / fps;
+    while (performance.now() < target) {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (isCancelled()) throw new Cancelled();
+    }
+  };
+  await lib3.runConstruct(sceneOrConstruct, scene);
+  renderer.dispose?.();
+  return scene;
+}
+
+/* ================================================================== */
+/* Authoring: schema-driven "formats" (explainer, chart-reveal,         */
+/* quote-card, title-card), editable via schema-generated controls      */
+/* (@johnhenry/ecmanim/studio's real schemaToControls), rendered        */
+/* through a render provider we write ourselves — {kind:'render',       */
+/* name:'browser', invoke({scene,options}) => ...} — plus a real        */
+/* toPlanIR()/runQualityGates() readout beside the canvas.              */
+/*                                                                        */
+/* CONFIRMED UPSTREAM BUG — worth reading before assuming this should    */
+/* just import @johnhenry/ecmanim/authoring directly (the obvious first  */
+/* approach, and what this room did until the build below caught it):    */
+/* the real `/authoring` subpath ships the real toPlanIR/                */
+/* runQualityGates/explainerFormat/chartRevealFormat/quoteCardFormat,    */
+/* but its barrel (dist/authoring.js) unconditionally re-exports         */
+/* authoring/showrunner.js too (titleCardFormat + the Node-only          */
+/* manimRenderProvider live there together). showrunner.js's             */
+/* manimRenderProvider.invoke() dynamically imports "../node.js" —       */
+/* fine at runtime (never called here), but Rollup must still fully      */
+/* BUNDLE that lazy chunk at build time, and node.js statically re-      */
+/* exports renderer/fonts-node.js (which calls execFileSync in a way     */
+/* Vite's node:* browser stub can't satisfy) and transitively reaches    */
+/* the @napi-rs/canvas native .node binary. Both are hard Rollup         */
+/* failures. Verified empirically in this room (isolated single-import   */
+/* probe builds, before wiring this file up for real):                   */
+/*   import('@johnhenry/ecmanim/authoring')  → `vite build` FAILS        */
+/*     (dev mode is fine — exactly the dev/prod split this brief         */
+/*      warned about). @johnhenry/ecmanim/studio (schemaToControls)      */
+/*   and both /physics/rapier2d|3d subpaths build CLEANLY and ARE used   */
+/*   for real below and in the Physics tab.                              */
+/*                                                                        */
+/* Fix: @johnhenry/ecmanim/studio (real, used below) supplies            */
+/* schemaToControls; the quality-gate math and the four formats'         */
+/* plan()/compose() logic are ported VERBATIM from the installed         */
+/* package's real authoring/quality.ts, authoring/plan.ts and            */
+/* authoring/formats_builtin.ts / authoring/showrunner.ts sources (read  */
+/* in full via the installed .js) — same algorithm, same output shape —  */
+/* just reachable without the broken barrel. narration/diagram fields    */
+/* are dropped (voiceover.ts pulls in Node TTS providers, and they were  */
+/* never exposed as a control here anyway — TTS stays silent everywhere  */
+/* in this room, per the brief).                                         */
+/* ================================================================== */
+
+/** Real STYLE_PRESETS / ASPECT_RATIO_PRESETS keys (core/presets.ts, confirmed
+ *  by reading the installed package) so the pickers below don't need the
+ *  module loaded just to enumerate options. */
+const STYLE_NAMES = ['3b1b-dark', 'bold-neon', 'clean-corporate', 'light', 'midnight', 'chalkboard', 'print'];
+const ASPECT_NAMES = ['16:9', '9:16', '1:1', '4:3', '21:9'];
+
+interface FormatSpec {
+  id: string;
+  /** The real Format's `.name`, as registered by formats_builtin.ts / showrunner.ts. */
+  formatName: string;
+  label: string;
+  note: string;
+  schemaSpec: Record<string, { type: 'string' | 'number' | 'boolean' | 'color' | 'enum'; default?: any; values?: string[]; min?: number; max?: number; description?: string }>;
+  jsonField: string | null;
+  jsonHint: string;
+  jsonDefault: unknown;
+}
+
+const FORMAT_SPECS: FormatSpec[] = [
+  {
+    id: 'explainer', formatName: 'explainer', label: 'Explainer',
+    note: "explainerFormat.plan() turns a topic + sections into a title card, per-section beats and an outro; compose() drives a real Scene through the render provider on the right (authoring/formats_builtin.ts).",
+    schemaSpec: {
+      topic: { type: 'string', default: 'How photosynthesis works', description: 'title/section fallback' },
+      title: { type: 'string', default: '' },
+      subtitle: { type: 'string', default: 'a two-section explainer' },
+      outro: { type: 'string', default: 'Thanks for watching' },
+      style: { type: 'enum', values: STYLE_NAMES, default: '3b1b-dark' },
+    },
+    jsonField: 'sections',
+    jsonHint: '[{ "heading": string, "bullets": [string, …], "narration"?: string }]',
+    jsonDefault: [
+      { heading: 'What is it?', bullets: ['A process plants use', 'Turns light into chemical energy'] },
+      { heading: 'Why it matters', bullets: ['Produces the oxygen we breathe', 'The base of almost every food chain'] },
+    ],
+  },
+  {
+    id: 'chart-reveal', formatName: 'chart-reveal', label: 'Chart Reveal',
+    note: "chartRevealFormat grows bars from a baseline, staggered, with value labels — the data below flows straight into plan() and back out through the same compose()/render-provider path.",
+    schemaSpec: {
+      title: { type: 'string', default: 'Weekly signups' },
+      unit: { type: 'string', default: '' },
+      color: { type: 'color', default: '#58c4dd' },
+      style: { type: 'enum', values: STYLE_NAMES, default: '3b1b-dark' },
+      holdSeconds: { type: 'number', default: 2, min: 0, max: 6 },
+    },
+    jsonField: 'data',
+    jsonHint: '[{ "label": string, "value": number }]',
+    jsonDefault: [
+      { label: 'Mon', value: 12 }, { label: 'Tue', value: 19 }, { label: 'Wed', value: 7 },
+      { label: 'Thu', value: 24 }, { label: 'Fri', value: 31 },
+    ],
+  },
+  {
+    id: 'quote-card', formatName: 'quote-card', label: 'Quote Card',
+    note: "quoteCardFormat renders any aspect preset; the render provider below resolves aspectRatio → real pixel dimensions with resolveAspectRatio() (core/presets.ts) before playing.",
+    schemaSpec: {
+      quote: { type: 'string', default: 'Programs must be written for people to read, and only incidentally for machines to execute.' },
+      attribution: { type: 'string', default: 'Harold Abelson' },
+      aspectRatio: { type: 'enum', values: ASPECT_NAMES, default: '1:1' },
+      style: { type: 'enum', values: STYLE_NAMES, default: '3b1b-dark' },
+      holdSeconds: { type: 'number', default: 2.5, min: 0, max: 6 },
+    },
+    jsonField: null, jsonHint: '', jsonDefault: null,
+  },
+  {
+    id: 'title-card', formatName: 'title-card', label: 'Title Card',
+    note: "titleCardFormat lives in authoring/showrunner.ts — the same module that defines the Node-only manimRenderProvider — as a minimal plan → compose → revise example format.",
+    schemaSpec: {
+      topic: { type: 'string', default: 'Ecmanim Studio' },
+      title: { type: 'string', default: '' },
+      style: { type: 'enum', values: STYLE_NAMES, default: '3b1b-dark' },
+    },
+    jsonField: 'bullets',
+    jsonHint: '[string, string, …]',
+    jsonDefault: ['Real Scene code', 'Runs in Node and the browser', 'Physics, WebGL, and schema-driven authoring'],
+  },
+];
+
+/* ---- local port of authoring/quality.ts (verbatim logic) ---- */
+interface QualityContext { fps: number; width: number; height: number; durationSeconds: number; segments: Array<{ kind: string; startFrame: number; endFrame: number }>; motionFraction?: number; promise?: string }
+interface QualityGateResult { gate: string; ok: boolean; message: string; severity: string }
+interface QualityReport { ok: boolean; slideshowRisk: number; results: QualityGateResult[] }
+
+function slideshowRiskOf(ctx: QualityContext): number {
+  const total = ctx.segments.reduce((s, seg) => s + (seg.endFrame - seg.startFrame), 0) || 1;
+  const waitFrames = ctx.segments.filter((s) => s.kind === 'wait').reduce((s, seg) => s + (seg.endFrame - seg.startFrame), 0);
+  const waitRatio = waitFrames / total;
+  if (ctx.motionFraction != null) return Math.max(0, Math.min(1, 0.6 * (1 - ctx.motionFraction) + 0.4 * waitRatio));
+  return Math.max(0, Math.min(1, waitRatio));
+}
+function checkDeliveryPromiseOf(ctx: QualityContext): { ok: boolean; message: string } {
+  const risk = slideshowRiskOf(ctx);
+  if (ctx.promise === 'motion-led' || ctx.promise === 'animated') {
+    if (risk > 0.6) return { ok: false, message: `promised "${ctx.promise}" but slideshow-risk is ${risk.toFixed(2)} (mostly static)` };
+  }
+  if (ctx.promise === 'static' && risk < 0.2) return { ok: false, message: `promised "static" but the output is quite animated (risk ${risk.toFixed(2)})` };
+  return { ok: true, message: `delivery-promise "${ctx.promise ?? 'none'}" satisfied (risk ${risk.toFixed(2)})` };
+}
+const QUALITY_GATES: Array<{ name: string; check: (c: QualityContext) => { ok: boolean; message: string; severity: 'warn' | 'error' } }> = [
+  { name: 'min_fps', check: (c) => ({ ok: c.fps >= 12, message: `fps ${c.fps} (>= 12)`, severity: 'warn' }) },
+  { name: 'even_dimensions', check: (c) => ({ ok: c.width % 2 === 0 && c.height % 2 === 0, message: `dims ${c.width}x${c.height} even`, severity: 'error' }) },
+  { name: 'nonempty', check: (c) => ({ ok: c.durationSeconds > 0 && c.segments.length > 0, message: `has ${c.segments.length} segments`, severity: 'error' }) },
+  { name: 'slideshow_risk', check: (c) => { const r = slideshowRiskOf(c); return { ok: r <= 0.8, message: `slideshow-risk ${r.toFixed(2)} (<= 0.8)`, severity: 'warn' }; } },
+  { name: 'delivery_promise', check: (c) => { const d = checkDeliveryPromiseOf(c); return { ok: d.ok, message: d.message, severity: 'warn' }; } },
+];
+function runQualityGatesLocal(ctx: QualityContext): QualityReport {
+  const results = QUALITY_GATES.map((g) => { const r = g.check(ctx); return { gate: g.name, ok: r.ok, message: r.message, severity: r.severity }; });
+  const ok = results.every((r) => r.ok || r.severity !== 'error');
+  return { ok, slideshowRisk: slideshowRiskOf(ctx), results };
+}
+
+/** Local port of authoring/plan.ts's toPlanIR(): dry-run sceneOrConstruct with
+ *  a no-op frameHandler (no pixels rendered) and harvest its real segment/
+ *  section bookkeeping, exactly like the original — just built on the
+ *  already-loaded `@johnhenry/ecmanim/browser` Scene instead of a second
+ *  dynamic import of scene/Scene.js. */
+async function toPlanIRLocal(lib: Lib, sceneOrConstruct: any, options: { fps?: number; width?: number; height?: number; style?: string; aspectRatio?: string } = {}) {
+  const fps = options.fps ?? 30;
+  const width = options.width ?? 1920;
+  const height = options.height ?? 1080;
+  const SceneCtor: any = (lib as any).Scene;
+  const isSceneClass = sceneOrConstruct?.prototype instanceof SceneCtor;
+  const scene: any = isSceneClass ? new sceneOrConstruct({ fps }) : new SceneCtor({ fps });
+  scene.fps = fps;
+  scene.frameHandler = async () => {};
+  scene.onSegment = () => ({ skip: true });
+  if (isSceneClass) await scene.render();
+  else if (typeof sceneOrConstruct === 'function') { await sceneOrConstruct(scene); scene.finalizeSections(); }
+  else await scene.render();
+  const segments = (scene.playRecords ?? []).map((r: any) => ({ index: r.index, kind: r.kind, startFrame: r.startFrame, endFrame: r.endFrame, hash: r.hash }));
+  const estimatedFrames = scene.frameCount ?? (segments.length ? segments[segments.length - 1].endFrame : 0);
+  const durationSeconds = estimatedFrames / fps;
+  const chapters = (scene.sections ?? []).map((s: any) => ({ name: s.name, startFrame: s.startFrame, endFrame: s.endFrame }));
+  const quality = runQualityGatesLocal({
+    fps, width, height, durationSeconds,
+    segments: segments.map((s: any) => ({ kind: s.kind, startFrame: s.startFrame, endFrame: s.endFrame })),
+  });
+  return {
+    version: '1', scene: { name: sceneOrConstruct?.name },
+    config: { fps, width, height, style: options.style, aspectRatio: options.aspectRatio },
+    segments, chapters, estimatedFrames, durationSeconds, quality,
+  };
+}
+
+/** Word-wrap (identical to formats_builtin.ts's private `wrap()`). */
+function wrapText(text: string, width = 38): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if (cur && (cur + ' ' + w).length > width) { lines.push(cur); cur = w; }
+    else cur = cur ? cur + ' ' + w : w;
+  }
+  if (cur) lines.push(cur);
+  return lines.join('\n');
+}
+
+/** Local Format shape, matching authoring/formats.ts's real `Format` interface
+ *  minus `generateAssets`/`revise` (unused by any of the four ports below). */
+interface LocalFormat {
+  name: string;
+  plan(ctx: { topic?: string; params?: Record<string, any> }): any;
+  compose(plan: any, lib: Lib, provider: { invoke(input: { scene: any; options?: Record<string, any> }): Promise<any> }): Promise<any>;
+}
+
+/** Ported from authoring/formats_builtin.ts's `explainerFormat` (LLM expansion
+ *  and narration/diagram branches dropped — not exposed as controls here). */
+const explainerFormatLocal: LocalFormat = {
+  name: 'explainer',
+  plan(ctx) {
+    const p = ctx.params ?? {};
+    const sections = p.sections?.length ? p.sections : [{ heading: ctx.topic ?? 'Overview', bullets: ['(no sections given)'] }];
+    return { title: p.title || ctx.topic || 'Untitled', subtitle: p.subtitle, sections, outro: p.outro, style: p.style ?? '3b1b-dark' };
+  },
+  async compose(plan, lib, provider) {
+    const build = async (scene: any) => {
+      const idx: any = lib;
+      const title = new idx.Text(wrapText(plan.title, 26), { fontSize: 0.85, point: [0, 0.6, 0], color: '#FFD700' });
+      const sub = plan.subtitle ? new idx.Text(wrapText(plan.subtitle, 40), { fontSize: 0.42, point: [0, -0.5, 0], color: '#DDDDDD' }) : null;
+      scene.nextSection('title');
+      await scene.play(new idx.Write(title), { runTime: 1 });
+      if (sub) await scene.play(new idx.FadeIn(sub, { shift: [0, 0.3, 0] }), { runTime: 0.5 });
+      await scene.wait(0.8);
+      await scene.play(new idx.FadeOut(new idx.VGroup(...[title, sub].filter((m: any) => m != null))), { runTime: 0.5 });
+      for (const [i, sec] of plan.sections.entries() as any) {
+        scene.nextSection(sec.heading || `section-${i + 1}`);
+        const heading = new idx.Text(wrapText(sec.heading, 30), { fontSize: 0.6, point: [0, 2.6, 0], color: '#58C4DD' });
+        const items = (sec.bullets ?? []).map((b: string, j: number) => {
+          const t = new idx.Text('• ' + wrapText(b, 44), { fontSize: 0.4, point: [0, 1.4 - j * 0.75, 0], align: 'left' });
+          t.shift([-5.6 - t.getBoundaryPoint([-1, 0, 0])[0], 0, 0]);
+          return t;
+        });
+        await scene.play(new idx.Write(heading), { runTime: 0.6 });
+        for (const item of items) await scene.play(new idx.FadeIn(item, { shift: [0.4, 0, 0] }), { runTime: 0.35 });
+        await scene.wait(sec.holdSeconds ?? 2.5);
+        await scene.play(new idx.FadeOut(new idx.VGroup(heading, ...items)), { runTime: 0.4 });
+      }
+      if (plan.outro) {
+        scene.nextSection('outro');
+        const out = new idx.Text(wrapText(plan.outro, 34), { fontSize: 0.55, color: '#FFD700' });
+        await scene.play(new idx.FadeIn(out, { scale: 1.15 }), { runTime: 0.7 });
+        await scene.wait(1.2);
+        await scene.play(new idx.FadeOut(out), { runTime: 0.4 });
+      }
+    };
+    return provider.invoke({ scene: build, options: { style: plan.style } });
+  },
+};
+
+/** Ported from authoring/formats_builtin.ts's `chartRevealFormat`. */
+const chartRevealFormatLocal: LocalFormat = {
+  name: 'chart-reveal',
+  plan(ctx) {
+    const p = ctx.params ?? {};
+    const data = p.data ?? [];
+    if (!data.length) throw new Error('chart-reveal: params.data ([{label, value}, ...]) is required');
+    for (const d of data) if (typeof d.value !== 'number' || !Number.isFinite(d.value) || d.value < 0) throw new Error(`chart-reveal: bad value for "${d.label}" (need a finite number >= 0)`);
+    return { title: p.title ?? ctx.topic ?? '', data, unit: p.unit, color: p.color || '#58C4DD', style: p.style ?? '3b1b-dark', holdSeconds: p.holdSeconds ?? 2 };
+  },
+  async compose(plan, lib, provider) {
+    const build = async (scene: any) => {
+      const idx: any = lib;
+      const n = plan.data.length;
+      const maxV = Math.max(...plan.data.map((d: any) => d.value), 1e-9);
+      const chartW = Math.min(10, n * 1.7);
+      const barW = (chartW / n) * 0.62;
+      const maxH = 4, baseY = -2.2;
+      const x = (i: number) => -chartW / 2 + (i + 0.5) * (chartW / n);
+      scene.nextSection('chart');
+      if (plan.title) {
+        const t = new idx.Text(wrapText(plan.title, 34), { fontSize: 0.55, point: [0, 3.1, 0], color: '#FFD700' });
+        await scene.play(new idx.Write(t), { runTime: 0.6 });
+      }
+      const baseline = new idx.Line([-chartW / 2 - 0.4, baseY, 0], [chartW / 2 + 0.4, baseY, 0], { color: '#888888' });
+      await scene.play(new idx.Create(baseline), { runTime: 0.4 });
+      for (const [i, d] of plan.data.entries() as any) {
+        const h = (d.value / maxV) * maxH;
+        const bar = new idx.Rectangle({ width: barW, height: Math.max(h, 1e-3), color: plan.color, fillColor: plan.color, fillOpacity: 0.75, strokeWidth: 2 });
+        bar.moveTo([x(i), baseY + h / 2, 0]);
+        const label = new idx.Text(wrapText(d.label, 12), { fontSize: 0.32, point: [x(i), baseY - 0.45, 0] });
+        const value = new idx.Text(`${d.value}${plan.unit ?? ''}`, { fontSize: 0.34, point: [x(i), baseY + h + 0.35, 0], color: plan.color });
+        scene.add(label);
+        await scene.play(new idx.GrowFromEdge(bar, [0, -1, 0]), { runTime: 0.45 });
+        await scene.play(new idx.FadeIn(value, { shift: [0, 0.15, 0] }), { runTime: 0.25 });
+      }
+      await scene.wait(plan.holdSeconds);
+    };
+    return provider.invoke({ scene: build, options: { style: plan.style } });
+  },
+};
+
+/** Ported from authoring/formats_builtin.ts's `quoteCardFormat`. */
+const quoteCardFormatLocal: LocalFormat = {
+  name: 'quote-card',
+  plan(ctx) {
+    const p = ctx.params ?? {};
+    const quote = p.quote || ctx.topic;
+    if (!quote) throw new Error('quote-card: params.quote (or a topic) is required');
+    return { quote, attribution: p.attribution, aspectRatio: p.aspectRatio ?? '1:1', style: p.style ?? '3b1b-dark', holdSeconds: p.holdSeconds ?? 2.5 };
+  },
+  async compose(plan, lib, provider) {
+    const narrow = plan.aspectRatio === '9:16';
+    const build = async (scene: any) => {
+      const idx: any = lib;
+      scene.nextSection('quote');
+      const q = new idx.Text(`“${wrapText(plan.quote, narrow ? 20 : 30)}”`, { fontSize: narrow ? 0.5 : 0.6, point: [0, 0.4, 0], color: '#FFFFFF' });
+      await scene.play(new idx.Write(q), { runTime: Math.min(2.4, 0.05 * plan.quote.length + 0.8) });
+      if (plan.attribution) {
+        const a = new idx.Text('— ' + plan.attribution, { fontSize: narrow ? 0.36 : 0.4, point: [0, -(q.getHeight?.() ?? 1.5) / 2 - 0.9, 0], color: '#58C4DD' });
+        await scene.play(new idx.FadeIn(a, { shift: [0, 0.25, 0] }), { runTime: 0.5 });
+      }
+      await scene.wait(plan.holdSeconds);
+    };
+    return provider.invoke({ scene: build, options: { aspectRatio: plan.aspectRatio, style: plan.style } });
+  },
+};
+
+/** Ported from authoring/showrunner.ts's `titleCardFormat`. */
+const titleCardFormatLocal: LocalFormat = {
+  name: 'title-card',
+  plan(ctx) {
+    const title = ctx.params?.title || ctx.topic || 'Untitled';
+    const bullets = ctx.params?.bullets?.length ? ctx.params.bullets : ['Point one', 'Point two', 'Point three'];
+    return { title, bullets, style: ctx.params?.style ?? '3b1b-dark' };
+  },
+  async compose(plan, lib, provider) {
+    const build = async (scene: any) => {
+      const idx: any = lib;
+      const title = new idx.Text(plan.title, { fontSize: 0.9, point: [0, 2.4, 0], color: '#FFD700' });
+      scene.add(title);
+      await scene.play(new idx.Write(title), { runTime: 0.6 });
+      plan.bullets.forEach((b: string, i: number) => {
+        const t = new idx.Text('• ' + b, { fontSize: 0.5, point: [-3, 0.8 - i * 0.9, 0], align: 'left' });
+        scene.add(t);
+      });
+      await scene.wait(0.6);
+    };
+    return provider.invoke({ scene: build, options: { style: plan.style } });
+  },
+};
+
+const LOCAL_FORMATS: Record<string, LocalFormat> = {
+  explainer: explainerFormatLocal, 'chart-reveal': chartRevealFormatLocal,
+  'quote-card': quoteCardFormatLocal, 'title-card': titleCardFormatLocal,
+};
+
+/** Mirrors the real authoring/formats.ts's `runFormat()`: plan() → compose(). */
+async function runFormatLocal(
+  format: LocalFormat, ctx: { topic?: string; params?: Record<string, any> }, lib: Lib,
+  provider: { invoke(input: { scene: any; options?: Record<string, any> }): Promise<any> },
+) {
+  const plan = await format.plan(ctx);
+  const output = await format.compose(plan, lib, provider);
+  return { plan, output };
+}
+
+/** Build a browser-only `render` Provider ({kind:'render', name, invoke}) that
+ *  drives the cancel-aware canvas loop above, and captures a `toPlanIRLocal()`
+ *  dry-run — which bundles `runQualityGatesLocal()` / `slideshowRiskOf()` into
+ *  its `.quality` field — before actually rendering. Matches the real Provider
+ *  shape from authoring/formats.ts: `{ kind: "render", name, available?(),
+ *  invoke(input, opts?) }`. */
+function makeBrowserRenderProvider(opts: {
+  lib: Lib; canvas: HTMLCanvasElement; isCancelled: () => boolean; onPlan: (ir: any) => void;
+}) {
+  const { lib, canvas, isCancelled, onPlan } = opts;
+  return {
+    kind: 'render' as const,
+    name: 'browser',
+    available: () => true,
+    async invoke(input: { scene: any; options?: Record<string, any> }) {
+      const o: Record<string, any> = { ...(input.options ?? {}) };
+      let pixelWidth: number | undefined = o.pixelWidth;
+      let pixelHeight: number | undefined = o.pixelHeight;
+      if (o.aspectRatio) {
+        const ar = (lib as any).resolveAspectRatio(o.aspectRatio, pixelHeight);
+        if (ar) { pixelWidth = ar.pixelWidth; pixelHeight = ar.pixelHeight; }
+      }
+      pixelWidth = pixelWidth || 1280;
+      pixelHeight = pixelHeight || 720;
+      // Cap render resolution so a live in-page demo stays real-time (formats
+      // default to up to 1920x1080+); keep dimensions even (a quality gate).
+      const scale = Math.min(1, 900 / Math.max(pixelWidth, pixelHeight));
+      pixelWidth = Math.max(2, Math.round((pixelWidth * scale) / 2) * 2);
+      pixelHeight = Math.max(2, Math.round((pixelHeight * scale) / 2) * 2);
+      const fps = o.fps ?? 30;
+
+      const planIR = await toPlanIRLocal(lib, input.scene, {
+        fps, width: pixelWidth, height: pixelHeight, style: o.style, aspectRatio: o.aspectRatio,
+      });
+      onPlan(planIR);
+      if (isCancelled()) throw new Cancelled();
+
+      await runOnCanvas2D({
+        lib, sceneOrConstruct: input.scene, canvas, pixelWidth, pixelHeight, fps,
+        background: o.background ?? BG, isCancelled,
+      });
+      return { canvas };
+    },
+  };
+}
+
+/** Render PropControl[] (from studio's schemaToControls) as real inputs. */
+function renderControls(el: HTMLElement, controls: any[], values: Record<string, any>, onChange: () => void) {
+  el.innerHTML = '';
+  for (const c of controls) {
+    if (!(c.name in values) || values[c.name] === undefined) values[c.name] = c.default;
+    const wrap = document.createElement('label');
+    wrap.className = 'field';
+    const span = document.createElement('span');
+    span.textContent = c.label ?? c.name;
+    wrap.appendChild(span);
+    let input: HTMLInputElement | HTMLSelectElement;
+    if (c.control === 'select') {
+      const sel = document.createElement('select');
+      for (const opt of c.options ?? []) {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt;
+        sel.appendChild(o);
+      }
+      sel.value = String(values[c.name] ?? '');
+      input = sel;
+    } else if (c.control === 'checkbox') {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!values[c.name];
+      input = cb;
+    } else {
+      const inp = document.createElement('input');
+      inp.type = c.control === 'number' ? 'number' : c.control === 'color' ? 'color' : 'text';
+      if (c.min != null) inp.min = String(c.min);
+      if (c.max != null) inp.max = String(c.max);
+      inp.value = String(values[c.name] ?? '');
+      input = inp;
+    }
+    input.addEventListener('input', () => {
+      values[c.name] = c.control === 'checkbox' ? (input as HTMLInputElement).checked
+        : c.control === 'number' ? Number((input as HTMLInputElement).value)
+        : input.value;
+      onChange();
+    });
+    wrap.appendChild(input);
+    if (c.description) {
+      const hint = document.createElement('small');
+      hint.className = 'em-field-hint';
+      hint.textContent = c.description;
+      wrap.appendChild(hint);
+    }
+    el.appendChild(wrap);
+  }
+}
+
+/** Render a PlanIR (toPlanIR's output; `.quality` is a real runQualityGates() report). */
+function renderPlanPanel(el: HTMLElement, ir: any | null) {
+  if (!ir) {
+    el.innerHTML = `<p class="em-note">Render once to see the real plan IR and quality gates.</p>`;
+    return;
+  }
+  const q = ir.quality ?? { ok: false, slideshowRisk: 0, results: [] };
+  const riskPct = Math.round((q.slideshowRisk ?? 0) * 100);
+  el.innerHTML = `
+    <div class="em-plan-stats">
+      <span class="stat"><b>${ir.segments.length}</b> segments</span>
+      <span class="stat"><b>${ir.chapters.length}</b> chapters</span>
+      <span class="stat"><b>${ir.estimatedFrames}</b> frames</span>
+      <span class="stat"><b>${ir.durationSeconds.toFixed(2)}</b>s @ ${ir.config.fps}fps</span>
+      <span class="stat"><b>${ir.config.width}×${ir.config.height}</b></span>
+      <span class="chip ${q.ok ? 'em-ok' : 'em-fail'}">${q.ok ? 'quality gates pass' : 'quality gates fail'}</span>
+      <span class="chip">slideshow-risk ${riskPct}%</span>
+    </div>
+    <ul class="em-gate-list">
+      ${q.results.map((r: any) => `<li class="em-gate ${r.ok ? 'ok' : 'fail'}"><b>${escapeHtml(r.gate)}</b><span>${escapeHtml(r.message)}</span></li>`).join('')}
+    </ul>`;
+}
+
+/** Mount the Authoring tab into `container`; returns a cleanup fn. */
+function mountAuthoringTab(container: HTMLElement, initialId: string, onFormatChange: (id: string) => void): TabHandle {
+  container.innerHTML = `
+    <div class="em-auth">
+      <div class="em-picker em-auth-picker" role="tablist"></div>
+      <div class="em-auth-body">
+        <div class="em-auth-form panel">
+          <p class="em-note em-auth-note"></p>
+          <div class="em-auth-controls"></div>
+          <label class="field em-auth-json" hidden>
+            <span class="em-auth-json-label"></span>
+            <textarea class="code em-auth-json-input" rows="6" spellcheck="false"></textarea>
+          </label>
+          <div class="em-auth-actions">
+            <button class="btn primary em-auth-render" disabled>▶ Render</button>
+            <span class="chip em-auth-state">idle</span>
+          </div>
+          <pre class="code em-err em-auth-err" hidden></pre>
+        </div>
+        <div class="em-stage">
+          <div class="em-canvas-wrap em-auth-canvas-wrap">
+            <canvas width="900" height="900"></canvas>
+            <div class="em-loading"><div class="em-spinner"></div><span>loading @johnhenry/ecmanim/authoring…</span></div>
+          </div>
+          <div class="panel em-auth-plan">
+            <p class="em-note">Render once to see the real plan IR and quality gates.</p>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const $ = <T extends Element>(s: string) => container.querySelector(s) as T;
+  const picker = $<HTMLDivElement>('.em-auth-picker');
+  const noteEl = $<HTMLParagraphElement>('.em-auth-note');
+  const controlsEl = $<HTMLDivElement>('.em-auth-controls');
+  const jsonWrap = $<HTMLLabelElement>('.em-auth-json');
+  const jsonLabel = $<HTMLSpanElement>('.em-auth-json-label');
+  const jsonInput = $<HTMLTextAreaElement>('.em-auth-json-input');
+  const renderBtn = $<HTMLButtonElement>('.em-auth-render');
+  const stateChip = $<HTMLSpanElement>('.em-auth-state');
+  const errEl = $<HTMLPreElement>('.em-auth-err');
+  const loading = $<HTMLDivElement>('.em-loading');
+  const canvas = $<HTMLCanvasElement>('canvas');
+  const planEl = $<HTMLDivElement>('.em-auth-plan');
+
+  let disposed = false;
+  let lib: Lib | null = null;
+  let studioLib: StudioLib | null = null;
+  let current = FORMAT_SPECS.find((f) => f.id === initialId) ?? FORMAT_SPECS[0];
+  let gen = 0; // bump to cancel an in-flight render
+  const values = new Map<string, Record<string, any>>();
+  const jsonValues = new Map<string, string>();
+  const listeners: Array<() => void> = [];
+  const on = (el: EventTarget, ev: string, fn: EventListener) => { el.addEventListener(ev, fn); listeners.push(() => el.removeEventListener(ev, fn)); };
+
+  const ctx0 = canvas.getContext('2d')!;
+  ctx0.fillStyle = BG; ctx0.fillRect(0, 0, canvas.width, canvas.height);
+
+  function showErr(e: unknown) {
+    errEl.hidden = false;
+    errEl.textContent = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  }
+
+  for (const f of FORMAT_SPECS) {
+    const b = document.createElement('button');
+    b.className = 'em-tab';
+    b.textContent = f.label;
+    b.dataset.id = f.id;
+    on(b, 'click', () => select(f));
+    picker.appendChild(b);
+  }
+
+  function select(f: FormatSpec) {
+    current = f;
+    onFormatChange(f.id);
+    picker.querySelectorAll<HTMLButtonElement>('.em-tab').forEach((b) => b.classList.toggle('active', b.dataset.id === f.id));
+    noteEl.textContent = f.note;
+    errEl.hidden = true;
+    if (!values.has(f.id)) {
+      const v: Record<string, any> = {};
+      for (const [k, spec] of Object.entries(f.schemaSpec)) v[k] = spec.default;
+      values.set(f.id, v);
+    }
+    if (f.jsonField) {
+      if (!jsonValues.has(f.id)) jsonValues.set(f.id, JSON.stringify(f.jsonDefault, null, 2));
+      jsonWrap.hidden = false;
+      jsonLabel.textContent = `${f.jsonField}  ${f.jsonHint}`;
+      jsonInput.value = jsonValues.get(f.id) ?? '';
+    } else {
+      jsonWrap.hidden = true;
+    }
+    renderFormControls();
+  }
+
+  function renderFormControls() {
+    if (!studioLib || !lib) return;
+    const schema = (lib as any).defineSchema(current.schemaSpec);
+    const controls = studioLib.schemaToControls(schema);
+    renderControls(controlsEl, controls, values.get(current.id)!, () => {});
+  }
+
+  select(current);
+  on(jsonInput, 'input', () => jsonValues.set(current.id, jsonInput.value));
+
+  async function runCurrent() {
+    if (!lib || disposed) return;
+    gen++;
+    const myGen = gen;
+    errEl.hidden = true;
+    renderBtn.disabled = true;
+    stateChip.textContent = 'rendering…';
+    try {
+      const v = values.get(current.id) ?? {};
+      const params: Record<string, any> = { ...v };
+      const topic = v.topic ?? '';
+      if (current.jsonField) {
+        try {
+          params[current.jsonField] = JSON.parse(jsonInput.value);
+        } catch (e) {
+          throw new Error(`${current.jsonField}: invalid JSON — ${e instanceof Error ? e.message : e}`);
+        }
+      }
+      const format = LOCAL_FORMATS[current.formatName];
+      if (!format) throw new Error(`Format "${current.formatName}" is not registered`);
+      // TTS must always stay silent in the browser (no browser voiceover
+      // provider exists upstream yet) — force it regardless of any control.
+      const provider = makeBrowserRenderProvider({
+        lib, canvas,
+        isCancelled: () => disposed || gen !== myGen,
+        onPlan: (ir) => { if (!disposed && gen === myGen) renderPlanPanel(planEl, ir); },
+      });
+      await runFormatLocal(format, { topic, params: { ...params, tts: 'silent' } }, lib, provider);
+      if (gen === myGen && !disposed) stateChip.textContent = 'done';
+    } catch (e) {
+      if (!(e instanceof Cancelled) && gen === myGen && !disposed) {
+        showErr(e);
+        stateChip.textContent = 'error';
+      }
+    } finally {
+      if (!disposed && gen === myGen) renderBtn.disabled = false;
+    }
+  }
+  on(renderBtn, 'click', () => void runCurrent());
+
+  Promise.all([
+    import('@johnhenry/ecmanim/browser'),
+    import('@johnhenry/ecmanim/studio'),
+  ]).then(([m, s]) => {
+    if (disposed) return;
+    lib = m; studioLib = s;
+    loading.remove();
+    renderBtn.disabled = false;
+    renderFormControls();
+    void runCurrent();
+  }).catch((e) => {
+    if (disposed) return;
+    loading.innerHTML = '<span>failed to load @johnhenry/ecmanim/browser or /studio</span>';
+    showErr(e);
+  });
+
+  return {
+    pause() { gen++; },
+    dispose() {
+      disposed = true;
+      gen++;
+      for (const off of listeners) off();
+    },
+  };
+}
+
+/* ================================================================== */
+/* Physics: real WASM rigid bodies via /physics/rapier2d|3d (optional   */
+/* deps of ecmanim, lazily loaded only when this tab needs them) plus   */
+/* the built-in, dependency-free Pendulum / ElectricField / StandingWave*/
+/* mobjects. Presets are source strings compiled by the same compile()  */
+/* used for the Stage tab's PRESETS — what you read is what runs.       */
+/* ================================================================== */
+
+interface PhysicsPreset { id: string; name: string; note: string; source: string; mod: 'rapier2d' | 'rapier3d' | null }
+
+const PHYSICS_PRESETS: PhysicsPreset[] = [
+  {
+    id: 'rapier2d', name: 'Rapier 2D — bouncing balls', mod: 'rapier2d',
+    note: "rapier2d(scene, opts) awaits RAPIER.init() (WASM) then builds a World and attaches an invisible carrier mobject that calls engine.step(dt) every frame; addBody() reads each mobject's live position/shape.",
+    source: `import { Scene, Dot, Line, Text, Create, Write, FadeOut, Group,
+  TEAL, PINK, GOLD, RED, BLUE_E } from "@johnhenry/ecmanim/browser";
+import { rapier2d } from "@johnhenry/ecmanim/physics/rapier2d";
+
+class Rapier2DBalls extends Scene {
+  async construct() {
+    const title = new Text("Rapier2D — real WASM rigid bodies", { fontSize: 0.5, color: GOLD });
+    title.moveTo([0, 3.35, 0]);
+    const ground = new Line([-6.4, -3, 0], [6.4, -3, 0], { color: "#666666", strokeWidth: 4 });
+    await this.play(new Write(title), new Create(ground), { runTime: 0.8 });
+
+    // await-ed: RAPIER.init() (real WASM) runs inside rapier2d() before this resolves.
+    const engine = await rapier2d(this, { gravity: [0, -9.8, 0], floor: -3, restitution: 0.5 });
+
+    const colors = [TEAL, PINK, GOLD, RED, BLUE_E];
+    const balls = colors.map((color, i) =>
+      new Dot({ point: [-4.8 + i * 2.4, 2.2 + (i % 3) * 1.1, 0], radius: 0.34, color }));
+    this.add(...balls);
+    balls.forEach((b, i) => engine.addBody(b, { restitution: 0.4 + i * 0.12, angularVelocity: i - 2 }));
+
+    await this.wait(6); // every frame: engine.step(dt) reads Rapier's World and shifts each Dot
+    await this.play(new FadeOut(new Group(title, ground, ...balls)));
+  }
+}`,
+  },
+  {
+    id: 'rapier3d', name: 'Rapier 3D — falling boxes', mod: 'rapier3d',
+    note: "Rapier3DEngine mirrors the 2D adapter exactly (World.createRigidBody/createCollider) but syncs a quaternion; rendered through ThreeDScene's Canvas-2D pseudo-3D camera — no WebGL/three here, that's the WebGL tab.",
+    source: `import { ThreeDScene, Box, Text, DEGREES, Write, FadeOut, Group,
+  GOLD, TEAL, PINK, RED, BLUE_E } from "@johnhenry/ecmanim/browser";
+import { rapier3d } from "@johnhenry/ecmanim/physics/rapier3d";
+
+class Rapier3DBoxes extends ThreeDScene {
+  async construct() {
+    this.setCameraOrientation({ phi: 65 * DEGREES, theta: -50 * DEGREES, focalDistance: 12 });
+    const title = new Text("Rapier3D — real WASM, quaternion sync", { fontSize: 0.45, color: GOLD });
+    this.addFixedInFrameMobjects(title);
+    title.moveTo([0, 3.3, 0]);
+    this.add(title);
+
+    const floor = new Box({ dimensions: [7, 0.2, 7], color: "#444444", fillOpacity: 0.5 });
+    floor.moveTo([0, -2.6, 0]);
+    this.add(floor);
+
+    const engine = await rapier3d(this, { gravity: [0, -9.8, 0], floor: -2.5, restitution: 0.35 });
+    const colors = [TEAL, PINK, GOLD, RED, BLUE_E];
+    const boxes = colors.map((color) => new Box({ dimensions: [0.7, 0.7, 0.7], color, fillOpacity: 0.85 }));
+    boxes.forEach((b, i) => b.moveTo([(i - 2) * 1.1, 1.5 + i * 1.1, (i % 2) * 0.6 - 0.3]));
+    this.add(...boxes);
+    boxes.forEach((b, i) => engine.addBody(b, { restitution: 0.3, angularVelocity: [i - 2, 1, i - 2] }));
+
+    this.beginAmbientCameraRotation({ rate: 0.12 });
+    await this.wait(6);
+    this.stopAmbientCameraRotation();
+    await this.play(new FadeOut(new Group(title, floor, ...boxes)));
+  }
+}`,
+  },
+  {
+    id: 'pendulum', name: 'Pendulum', mod: null,
+    note: "Pendulum integrates θ'' = -(g/L)·sinθ inside its own addUpdater — no engine object at all, just a mobject that steps itself every frame (physics/rigid.ts).",
+    source: `import { Scene, Pendulum, Line, Text, alwaysRedraw, Write, Create,
+  FadeOut, Group, GOLD, TEAL, PINK } from "@johnhenry/ecmanim/browser";
+
+class PendulumDemo extends Scene {
+  async construct() {
+    const title = new Text("Pendulum — real-time integration", { fontSize: 0.46, color: GOLD });
+    title.moveTo([0, 3.3, 0]);
+    const ceiling = new Line([-4, 2, 0], [4, 2, 0], { color: "#666666", strokeWidth: 4 });
+    await this.play(new Write(title), new Create(ceiling), { runTime: 0.8 });
+
+    const pendulums = [
+      new Pendulum({ length: 2.2, initialAngle: 0.9, pivot: [-2.2, 2, 0], color: TEAL }),
+      new Pendulum({ length: 1.4, initialAngle: -1.2, pivot: [2.2, 2, 0], color: PINK }),
+    ];
+    this.add(...pendulums);
+
+    const readout = alwaysRedraw(() => {
+      const e = pendulums.map((p) => p.energy().toFixed(2)).join("  /  ");
+      const t = new Text("energy: " + e, { fontSize: 0.34, color: "#dddddd" });
+      t.moveTo([0, -3.3, 0]);
+      return t;
+    });
+    this.add(readout);
+
+    await this.wait(8);
+    readout.clearUpdaters();
+    for (const p of pendulums) p.clearUpdaters();
+    await this.play(new FadeOut(new Group(title, ceiling, readout, ...pendulums)));
+  }
+}`,
+  },
+  {
+    id: 'electric-field', name: 'Electric field', mod: null,
+    note: "ElectricField extends ArrowVectorField over electricFieldFunc(charges) — a real Coulomb summation, sampled on a grid (physics/fields.ts). No time integration here; the interest is the field shape itself.",
+    source: `import { Scene, ElectricField, electricFieldFunc, Dot, Text, Create,
+  Write, FadeIn, FadeOut, Group, GOLD, RED, BLUE_E, TEAL } from "@johnhenry/ecmanim/browser";
+
+class ElectricFieldDemo extends Scene {
+  async construct() {
+    const title = new Text("Electric field — a dipole (+ / -)", { fontSize: 0.45, color: GOLD });
+    title.moveTo([0, 3.4, 0]);
+    await this.play(new Write(title), { runTime: 0.8 });
+
+    const charges = [
+      { position: [-2, 0, 0], magnitude: 1 },
+      { position: [2, 0, 0], magnitude: -1 },
+    ];
+    const field = new ElectricField(charges, {
+      xRange: [-4.5, 4.5, 0.6], yRange: [-3, 3, 0.6],
+      minColor: BLUE_E, maxColor: RED, strokeWidth: 2.5,
+    });
+    await this.play(new Create(field), { runTime: 1.6 });
+
+    const markers = charges.map((c) => new Dot({ point: c.position, radius: 0.18, color: c.magnitude > 0 ? RED : BLUE_E }));
+    await this.play(new FadeIn(new Group(...markers)), { runTime: 0.4 });
+
+    const probe = [0.8, 1.3];
+    const E = electricFieldFunc(charges)([probe[0], probe[1], 0]);
+    const mag = Math.hypot(E[0], E[1]);
+    const readout = new Text("|E| at (" + probe[0] + ", " + probe[1] + ") = " + mag.toFixed(3), { fontSize: 0.34, color: TEAL });
+    readout.moveTo([0, -3.4, 0]);
+    const probeDot = new Dot({ point: [probe[0], probe[1], 0], radius: 0.1, color: "#ffffff" });
+    await this.play(new FadeIn(probeDot), new Write(readout), { runTime: 0.6 });
+
+    await this.wait(2);
+    await this.play(new FadeOut(new Group(title, field, ...markers, probeDot, readout)));
+  }
+}`,
+  },
+  {
+    id: 'standing-wave', name: 'Standing wave', mod: null,
+    note: "StandingWave is y = A·sin(kx)·cos(ωt); an addUpdater calls setTime() every frame (physics/waves.ts) — the same live-updater pattern as the Stage tab's \"Ripple of dots\" preset.",
+    source: `import { Scene, StandingWave, Text, Dot, Write, FadeIn, FadeOut,
+  Group, GOLD, TEAL } from "@johnhenry/ecmanim/browser";
+
+class StandingWaveDemo extends Scene {
+  async construct() {
+    const title = new Text("Standing wave — y = A·sin(kx)·cos(ωt)", { fontSize: 0.45, color: GOLD });
+    title.moveTo([0, 3.4, 0]);
+    await this.play(new Write(title), { runTime: 0.8 });
+
+    const wave = new StandingWave({ xRange: [-6, 6, 0.08], amplitude: 1.4, wavelength: 4, frequency: 0.4, color: TEAL });
+    const nodes = [-4, 0, 4].map((x) => new Dot({ point: [x, 0, 0], radius: 0.08, color: "#ffffff" }));
+    let t = 0;
+    wave.addUpdater((m, dt) => { t += dt; m.setTime(t); });
+    this.add(wave, ...nodes);
+    await this.play(new FadeIn(wave), { runTime: 0.4 });
+
+    await this.wait(7);
+    wave.clearUpdaters();
+    await this.play(new FadeOut(new Group(title, wave, ...nodes)));
+  }
+}`,
+  },
+];
+
+/** Mount the Physics tab into `container`; returns a cleanup fn. */
+function mountPhysicsTab(container: HTMLElement, initialId: string, onPresetChange: (id: string) => void): TabHandle {
+  container.innerHTML = `
+    <div class="em-bar panel">
+      <div class="em-picker em-phys-picker" role="tablist"></div>
+      <div class="em-controls">
+        <button class="btn primary em-phys-play" disabled>▶ Run</button>
+        <span class="chip em-phys-state">idle</span>
+      </div>
+    </div>
+    <div class="em-main">
+      <div class="em-stage">
+        <div class="em-canvas-wrap">
+          <canvas width="${W}" height="${H}"></canvas>
+          <div class="em-loading"><div class="em-spinner"></div><span>ready</span></div>
+        </div>
+        <p class="em-note em-phys-note"></p>
+      </div>
+      <div class="em-code-col">
+        <div class="em-code-head"><span class="chip em-phys-file"></span><span class="em-code-hint">compiled live from this text</span></div>
+        <pre class="code em-code em-phys-code"></pre>
+        <pre class="code em-err em-phys-err" hidden></pre>
+      </div>
+    </div>`;
+
+  const $ = <T extends Element>(s: string) => container.querySelector(s) as T;
+  const picker = $<HTMLDivElement>('.em-phys-picker');
+  const playBtn = $<HTMLButtonElement>('.em-phys-play');
+  const stateChip = $<HTMLSpanElement>('.em-phys-state');
+  const noteEl = $<HTMLParagraphElement>('.em-phys-note');
+  const codeEl = $<HTMLPreElement>('.em-phys-code');
+  const errEl = $<HTMLPreElement>('.em-phys-err');
+  const fileEl = $<HTMLSpanElement>('.em-phys-file');
+  const loading = $<HTMLDivElement>('.em-loading');
+  const canvas = $<HTMLCanvasElement>('canvas');
+
+  let disposed = false;
+  let lib: Lib | null = null;
+  let mods: Mods | null = null;
+  let current = PHYSICS_PRESETS.find((p) => p.id === initialId) ?? PHYSICS_PRESETS[0];
+  let gen = 0;
+  const listeners: Array<() => void> = [];
+  const on = (el: EventTarget, ev: string, fn: EventListener) => { el.addEventListener(ev, fn); listeners.push(() => el.removeEventListener(ev, fn)); };
+
+  const ctx0 = canvas.getContext('2d')!;
+  ctx0.fillStyle = BG; ctx0.fillRect(0, 0, W, H);
+
+  function showErr(e: unknown) {
+    errEl.hidden = false;
+    errEl.textContent = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  }
+
+  for (const p of PHYSICS_PRESETS) {
+    const b = document.createElement('button');
+    b.className = p.mod ? 'em-tab em-tab-math' : 'em-tab';
+    b.textContent = p.name;
+    b.dataset.id = p.id;
+    on(b, 'click', () => select(p, true));
+    picker.appendChild(b);
+  }
+
+  function select(p: PhysicsPreset, autorun: boolean) {
+    current = p;
+    onPresetChange(p.id);
+    picker.querySelectorAll<HTMLButtonElement>('.em-tab').forEach((b) => b.classList.toggle('active', b.dataset.id === p.id));
+    codeEl.innerHTML = highlight(p.source);
+    noteEl.textContent = p.note;
+    const cls = p.source.match(/class\s+(\w+)/)?.[1] ?? 'scene';
+    fileEl.textContent = `${cls}.ts`;
+    errEl.hidden = true;
+    if (autorun && lib) void run();
+  }
+  select(current, false);
+
+  /** Static per-branch dynamic imports (literal specifiers) so Vite can code-split
+   *  each optional physics subpath into its own chunk — a variable specifier
+   *  (`import(preset.mod)`) can't be analyzed by Rollup at build time. */
+  async function loadPhysicsMod(id: 'rapier2d' | 'rapier3d'): Promise<{ key: string; mod: Record<string, unknown> }> {
+    if (id === 'rapier2d') {
+      const mod = await import('@johnhenry/ecmanim/physics/rapier2d');
+      return { key: '@johnhenry/ecmanim/physics/rapier2d', mod: mod as unknown as Record<string, unknown> };
+    }
+    const mod = await import('@johnhenry/ecmanim/physics/rapier3d');
+    return { key: '@johnhenry/ecmanim/physics/rapier3d', mod: mod as unknown as Record<string, unknown> };
+  }
+
+  async function run() {
+    if (!lib || !mods || disposed) return;
+    gen++;
+    const myGen = gen;
+    errEl.hidden = true;
+    playBtn.disabled = true;
+    stateChip.textContent = 'loading…';
+    try {
+      if (current.mod && !mods[`@johnhenry/ecmanim/physics/${current.mod}`]) {
+        const { key, mod } = await loadPhysicsMod(current.mod);
+        if (gen !== myGen || disposed) return;
+        mods[key] = mod;
+      }
+      const SceneClass = compile(mods, current.source);
+      stateChip.textContent = 'running';
+      await runOnCanvas2D({
+        lib, sceneOrConstruct: SceneClass, canvas, pixelWidth: W, pixelHeight: H, fps: FPS,
+        background: BG, isCancelled: () => disposed || gen !== myGen,
+      });
+      if (gen === myGen && !disposed) stateChip.textContent = 'done';
+    } catch (e) {
+      if (!(e instanceof Cancelled) && gen === myGen && !disposed) {
+        showErr(e);
+        stateChip.textContent = 'error';
+      }
+    } finally {
+      if (!disposed && gen === myGen) playBtn.disabled = false;
+    }
+  }
+  on(playBtn, 'click', () => void run());
+
+  import('@johnhenry/ecmanim/browser').then((m) => {
+    if (disposed) return;
+    lib = m;
+    mods = { [ECM]: m as unknown as Record<string, unknown> };
+    loading.remove();
+    playBtn.disabled = false;
+    void run();
+  }).catch((e) => {
+    if (disposed) return;
+    loading.innerHTML = '<span>failed to load ecmanim</span>';
+    showErr(e);
+  });
+
+  return {
+    pause() { gen++; },
+    dispose() {
+      disposed = true;
+      gen++;
+      for (const off of listeners) off();
+    },
+  };
+}
+
+/* ================================================================== */
+/* WebGL: /browser-three, a real GPU backend (Three.js WebGLRenderer)   */
+/* for the exact same Scene/mobject/animation classes — only the draw   */
+/* step differs (renderer/ThreeRenderer.ts). `three` (peer, optional    */
+/* dep of ecmanim) is lazy-loaded only when this tab opens.             */
+/* ================================================================== */
+
+interface WebglPreset { id: string; name: string; note: string; source: string }
+const BROWSER_THREE = '@johnhenry/ecmanim/browser-three';
+
+const WEBGL_PRESETS: WebglPreset[] = [
+  {
+    id: 'torus', name: 'Spinning torus', note: "Torus (mobject/surface.ts) is a real quad-mesh VGroup — ThreeRenderer uploads its vertex-colored faces as a BufferGeometry each frame and Three.js's WebGLRenderer draws it on the GPU.",
+    source: `import { ThreeDScene, Torus, Text, VGroup, DEGREES, Write, FadeOut,
+  GOLD } from "${BROWSER_THREE}";
+
+class SpinningTorus extends ThreeDScene {
+  async construct() {
+    this.setCameraOrientation({ phi: 65 * DEGREES, theta: -50 * DEGREES, focalDistance: 11 });
+    const title = new Text("Torus — real WebGL triangle mesh", { fontSize: 0.45, color: GOLD });
+    this.addFixedInFrameMobjects(title);
+    title.moveTo([0, 3.3, 0]);
+    this.add(title);
+    await this.play(new Write(title), { runTime: 0.6 });
+
+    const torus = new Torus({ majorRadius: 2, minorRadius: 0.75, color: "#9A72AC", resolution: [48, 24] });
+    this.add(torus);
+
+    this.beginAmbientCameraRotation({ rate: 0.25 });
+    torus.addUpdater((m, dt) => m.rotate(dt * 0.6, { axis: [1, 0.4, 0] }));
+    await this.wait(6);
+    this.stopAmbientCameraRotation();
+    torus.clearUpdaters();
+    await this.play(new FadeOut(new VGroup(title, torus)));
+  }
+}`,
+  },
+  {
+    id: 'surface', name: 'Parametric surface', note: 'Surface builds a quad-mesh from func(u,v) → [x,y,z] with per-vertex shading (mobject/surface.ts); ThreeRenderer uploads it as a real BufferGeometry with computed normals.',
+    source: `import { ThreeDScene, Surface, Text, DEGREES, Write, FadeOut, VGroup,
+  interpolateColor, GOLD, TEAL, PINK } from "${BROWSER_THREE}";
+
+class ParametricSurfaceDemo extends ThreeDScene {
+  async construct() {
+    this.setCameraOrientation({ phi: 62 * DEGREES, theta: -55 * DEGREES, focalDistance: 13 });
+    const title = new Text("Surface — a saddle, z = (x² − y²) / 4", { fontSize: 0.4, color: GOLD });
+    this.addFixedInFrameMobjects(title);
+    title.moveTo([0, 3.3, 0]);
+    this.add(title);
+    await this.play(new Write(title), { runTime: 0.6 });
+
+    const saddle = new Surface((u, v) => [u, v, (u * u - v * v) / 4], {
+      uRange: [-3, 3], vRange: [-3, 3], resolution: [28, 28],
+      colorFunc: (u) => interpolateColor(TEAL, PINK, (u + 3) / 6),
+      shade: true, smooth: true,
+    });
+    this.add(saddle);
+
+    this.beginAmbientCameraRotation({ rate: 0.2 });
+    await this.wait(7);
+    this.stopAmbientCameraRotation();
+    await this.play(new FadeOut(new VGroup(title, saddle)));
+  }
+}`,
+  },
+];
+
+/** Mount the WebGL tab into `container`; returns a cleanup fn. */
+function mountWebglTab(container: HTMLElement, initialId: string, onPresetChange: (id: string) => void): TabHandle {
+  container.innerHTML = `
+    <div class="em-bar panel">
+      <div class="em-picker em-gl-picker" role="tablist"></div>
+      <div class="em-controls">
+        <button class="btn primary em-gl-play" disabled>▶ Run</button>
+        <span class="chip em-gl-state">idle</span>
+      </div>
+    </div>
+    <div class="em-main">
+      <div class="em-stage">
+        <div class="em-canvas-wrap">
+          <canvas width="${W}" height="${H}"></canvas>
+          <div class="em-loading"><div class="em-spinner"></div><span>loading three + @johnhenry/ecmanim/browser-three…</span></div>
+        </div>
+        <p class="em-note em-gl-note"></p>
+      </div>
+      <div class="em-code-col">
+        <div class="em-code-head"><span class="chip em-gl-file"></span><span class="em-code-hint">compiled live from this text</span></div>
+        <pre class="code em-code em-gl-code"></pre>
+        <pre class="code em-err em-gl-err" hidden></pre>
+      </div>
+    </div>`;
+
+  const $ = <T extends Element>(s: string) => container.querySelector(s) as T;
+  const picker = $<HTMLDivElement>('.em-gl-picker');
+  const playBtn = $<HTMLButtonElement>('.em-gl-play');
+  const stateChip = $<HTMLSpanElement>('.em-gl-state');
+  const noteEl = $<HTMLParagraphElement>('.em-gl-note');
+  const codeEl = $<HTMLPreElement>('.em-gl-code');
+  const errEl = $<HTMLPreElement>('.em-gl-err');
+  const fileEl = $<HTMLSpanElement>('.em-gl-file');
+  const loading = $<HTMLDivElement>('.em-loading');
+  const canvas = $<HTMLCanvasElement>('canvas');
+
+  let disposed = false;
+  let lib3: ThreeLib | null = null;
+  let THREE: any = null;
+  let mods: Mods | null = null;
+  let current = WEBGL_PRESETS.find((p) => p.id === initialId) ?? WEBGL_PRESETS[0];
+  let gen = 0;
+  const listeners: Array<() => void> = [];
+  const on = (el: EventTarget, ev: string, fn: EventListener) => { el.addEventListener(ev, fn); listeners.push(() => el.removeEventListener(ev, fn)); };
+
+  // No getContext('2d') priming here (unlike the Stage/Physics canvases): a
+  // canvas may only ever bind ONE context type for its lifetime, and
+  // ThreeRenderer needs a real 'webgl'/'webgl2' context on this exact
+  // element — grabbing '2d' first to paint a placeholder would permanently
+  // block WebGL from ever attaching. The wrapper's CSS background (#0b0f1c)
+  // already shows through the untouched, transparent canvas.
+
+  function showErr(e: unknown) {
+    errEl.hidden = false;
+    errEl.textContent = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  }
+
+  for (const p of WEBGL_PRESETS) {
+    const b = document.createElement('button');
+    b.className = 'em-tab';
+    b.textContent = p.name;
+    b.dataset.id = p.id;
+    on(b, 'click', () => select(p, true));
+    picker.appendChild(b);
+  }
+
+  function select(p: WebglPreset, autorun: boolean) {
+    current = p;
+    onPresetChange(p.id);
+    picker.querySelectorAll<HTMLButtonElement>('.em-tab').forEach((b) => b.classList.toggle('active', b.dataset.id === p.id));
+    codeEl.innerHTML = highlight(p.source);
+    noteEl.textContent = p.note;
+    const cls = p.source.match(/class\s+(\w+)/)?.[1] ?? 'scene';
+    fileEl.textContent = `${cls}.ts`;
+    errEl.hidden = true;
+    if (autorun && lib3) void run();
+  }
+  select(current, false);
+
+  async function run() {
+    if (!lib3 || !mods || disposed) return;
+    gen++;
+    const myGen = gen;
+    errEl.hidden = true;
+    playBtn.disabled = true;
+    stateChip.textContent = 'running';
+    try {
+      const SceneClass = compile(mods, current.source);
+      await runOnCanvasGL({
+        lib3, THREE, sceneOrConstruct: SceneClass, canvas, pixelWidth: W, pixelHeight: H, fps: FPS,
+        background: BG, isCancelled: () => disposed || gen !== myGen,
+      });
+      if (gen === myGen && !disposed) stateChip.textContent = 'done';
+    } catch (e) {
+      if (!(e instanceof Cancelled) && gen === myGen && !disposed) {
+        showErr(e);
+        stateChip.textContent = 'error';
+      }
+    } finally {
+      if (!disposed && gen === myGen) playBtn.disabled = false;
+    }
+  }
+  on(playBtn, 'click', () => void run());
+
+  Promise.all([import('@johnhenry/ecmanim/browser-three'), import('three')]).then(([m3, threeMod]) => {
+    if (disposed) return;
+    lib3 = m3;
+    THREE = threeMod;
+    mods = { [BROWSER_THREE]: m3 as unknown as Record<string, unknown> };
+    loading.remove();
+    playBtn.disabled = false;
+    void run();
+  }).catch((e) => {
+    if (disposed) return;
+    loading.innerHTML = '<span>failed to load three / browser-three</span>';
+    showErr(e);
+  });
+
+  return {
+    pause() { gen++; },
+    dispose() {
+      disposed = true;
+      gen++;
+      for (const off of listeners) off();
+    },
+  };
+}
+
 const playground: Playground = {
   id: 'ecmanim',
   title: 'Ecmanim Stage',
   pkg: '@johnhenry/ecmanim',
-  hue: 45,
+  hue: 285,
   blurb: 'A TypeScript manim. Same Scene code renders in Node and, right here, in canvas.',
   docs: 'https://opensource.johnhenry.me/ecmanim/',
   mount(host) {
     // Pick up a scene exported from another planet (Math Observatory) before anything else.
     const incoming: Handoff | null = receive('ecmanim');
-    const DEFAULTS = { scene: PRESETS[0].id, speed: 1, gen: '' };
+    const DEFAULTS = {
+      scene: PRESETS[0].id, speed: 1, gen: '', tab: 'stage',
+      format: FORMAT_SPECS[0].id, physics: PHYSICS_PRESETS[0].id, webgl: WEBGL_PRESETS[0].id,
+    };
     const st = readState(DEFAULTS);
+    // Top-level tab state, read up front so syncUrl() (called from Stage's own
+    // select()) can include it regardless of source order below.
+    let activeTab = (['stage', 'authoring', 'physics', 'webgl'].includes(String(st.tab)) ? String(st.tab) : 'stage');
+    let authoringFormatId = FORMAT_SPECS.some((f) => f.id === st.format) ? String(st.format) : FORMAT_SPECS[0].id;
+    let physicsPresetId = PHYSICS_PRESETS.some((p) => p.id === st.physics) ? String(st.physics) : PHYSICS_PRESETS[0].id;
+    let webglPresetId = WEBGL_PRESETS.some((p) => p.id === st.webgl) ? String(st.webgl) : WEBGL_PRESETS[0].id;
     let generated: Generated | null = null;
     if (incoming && incoming.kind.startsWith('math-')) {
       generated = { kind: incoming.kind, payload: incoming.payload };
@@ -580,44 +1832,64 @@ const playground: Playground = {
     const root = document.createElement('div');
     root.className = 'pg-ecmanim';
     root.innerHTML = `
-      <div class="em-bar panel">
-        <div class="em-picker" role="tablist"></div>
-        <div class="em-controls">
-          <button class="btn primary em-play" disabled>▶ Play</button>
-          <label class="em-speed">speed <input type="range" min="0.25" max="3" step="0.25" value="1"> <span class="chip">1×</span></label>
-          <button class="btn em-dl" disabled>⤓ Download WebM</button>
-          <button class="btn em-link" title="Copy a link to this scene and speed">🔗 copy link</button>
+      <div class="em-tabbar" role="tablist">
+        <button class="em-toptab" data-tab="stage">Stage</button>
+        <button class="em-toptab" data-tab="authoring">Authoring</button>
+        <button class="em-toptab" data-tab="physics">Physics</button>
+        <button class="em-toptab" data-tab="webgl">WebGL</button>
+      </div>
+      <div class="em-panel" data-panel="stage">
+        <div class="em-bar panel">
+          <div class="em-picker" role="tablist"></div>
+          <div class="em-controls">
+            <button class="btn primary em-play" disabled>▶ Play</button>
+            <label class="em-speed">speed <input type="range" min="0.25" max="3" step="0.25" value="1"> <span class="chip">1×</span></label>
+            <button class="btn em-dl" disabled>⤓ Download WebM</button>
+            <button class="btn em-link" title="Copy a link to this scene and speed">🔗 copy link</button>
+          </div>
+        </div>
+        <div class="em-main">
+          <div class="em-stage">
+            <div class="em-canvas-wrap">
+              <canvas width="${W}" height="${H}"></canvas>
+              <div class="em-loading"><div class="em-spinner"></div><span>loading ecmanim…</span></div>
+            </div>
+            <div class="em-status">
+              <span class="chip em-state">idle</span>
+              <span class="em-time mono">t = 0.00s</span>
+              <span class="em-frames mono">frame 0</span>
+              <span class="em-anim mono"></span>
+            </div>
+            <p class="em-note"></p>
+            <div class="em-explain">
+              <b>What's happening</b>
+              <p><code>construct()</code> is an ordinary async script. Each <code>this.play(...)</code> advances the scene's
+              own clock one frame at a time and hands the mobject list to a <code>frameHandler</code>; here that handler is a
+              <code>CanvasRenderer</code> drawing to this canvas and pacing itself with <code>requestAnimationFrame</code>
+              (the speed slider rescales the pacing). The same class, unmodified, renders to MP4 in Node via
+              <code>render(Scene)</code> — and <b>Download WebM</b> replays it through <code>record()</code> and
+              <code>MediaRecorder</code>.</p>
+            </div>
+          </div>
+          <div class="em-code-col">
+            <div class="em-code-head">
+              <span class="chip em-file"></span>
+              <span class="em-code-hint">compiled live from this text</span>
+              <button class="btn em-edit-toggle">✎ Edit source</button>
+            </div>
+            <pre class="code em-code"></pre>
+            <textarea class="code em-code-edit" hidden spellcheck="false"></textarea>
+            <div class="em-edit-actions" hidden>
+              <button class="btn primary em-edit-run">▶ Run edited (⌘⏎)</button>
+              <button class="btn em-edit-reset">↺ Reset to preset</button>
+            </div>
+            <pre class="code em-err" hidden></pre>
+          </div>
         </div>
       </div>
-      <div class="em-main">
-        <div class="em-stage">
-          <div class="em-canvas-wrap">
-            <canvas width="${W}" height="${H}"></canvas>
-            <div class="em-loading"><div class="em-spinner"></div><span>loading ecmanim…</span></div>
-          </div>
-          <div class="em-status">
-            <span class="chip em-state">idle</span>
-            <span class="em-time mono">t = 0.00s</span>
-            <span class="em-frames mono">frame 0</span>
-            <span class="em-anim mono"></span>
-          </div>
-          <p class="em-note"></p>
-          <div class="em-explain">
-            <b>What's happening</b>
-            <p><code>construct()</code> is an ordinary async script. Each <code>this.play(...)</code> advances the scene's
-            own clock one frame at a time and hands the mobject list to a <code>frameHandler</code>; here that handler is a
-            <code>CanvasRenderer</code> drawing to this canvas and pacing itself with <code>requestAnimationFrame</code>
-            (the speed slider rescales the pacing). The same class, unmodified, renders to MP4 in Node via
-            <code>render(Scene)</code> — and <b>Download WebM</b> replays it through <code>record()</code> and
-            <code>MediaRecorder</code>.</p>
-          </div>
-        </div>
-        <div class="em-code-col">
-          <div class="em-code-head"><span class="chip em-file"></span><span class="em-code-hint">compiled live from this text</span></div>
-          <pre class="code em-code"></pre>
-          <pre class="code em-err" hidden></pre>
-        </div>
-      </div>`;
+      <div class="em-panel" data-panel="authoring" hidden></div>
+      <div class="em-panel" data-panel="physics" hidden></div>
+      <div class="em-panel" data-panel="webgl" hidden></div>`;
     host.appendChild(root);
     if (incoming && fromMath) {
       const what = incoming.kind === 'math-rotor' ? 'a 4D rotor'
@@ -643,6 +1915,11 @@ const playground: Playground = {
     const codeEl = $<HTMLPreElement>('.em-code');
     const errEl = $<HTMLPreElement>('.em-err');
     const fileEl = $<HTMLSpanElement>('.em-file');
+    const editToggle = $<HTMLButtonElement>('.em-edit-toggle');
+    const codeTextarea = $<HTMLTextAreaElement>('.em-code-edit');
+    const editActions = $<HTMLDivElement>('.em-edit-actions');
+    const editRunBtn = $<HTMLButtonElement>('.em-edit-run');
+    const editResetBtn = $<HTMLButtonElement>('.em-edit-reset');
 
     let disposed = false;
     let lib: Lib | null = null;
@@ -652,6 +1929,12 @@ const playground: Playground = {
     let runId = 0; // bump to cancel whichever run is in flight
     let playing = false;
     let recording = false;
+    let editing = false;
+    // Per-preset edited source (in-memory only — not deep-linked). Stage's
+    // docstring promise ("what you read is exactly what runs") extends here:
+    // compile()/record() always read this, never the preset's original text.
+    const edits = new Map<string, string>();
+    const effectiveSource = (): string => edits.get(current.id) ?? current.source;
     const listeners: Array<() => void> = [];
     const on = (el: EventTarget, ev: string, fn: EventListener) => {
       el.addEventListener(ev, fn);
@@ -691,12 +1974,38 @@ const playground: Playground = {
       const cls = p.source.match(/class\s+(\w+)/)?.[1] ?? 'scene';
       fileEl.textContent = `${cls}.ts`;
       errEl.hidden = true;
+      if (editing) codeTextarea.value = effectiveSource();
       syncUrl();
       if (autoplay && lib) void run();
     }
 
+    function setEditing(on: boolean) {
+      editing = on;
+      codeEl.hidden = on;
+      codeTextarea.hidden = !on;
+      editActions.hidden = !on;
+      editToggle.textContent = on ? '👁 View highlighted' : '✎ Edit source';
+      if (on) codeTextarea.value = effectiveSource();
+    }
+    on(editToggle, 'click', () => setEditing(!editing));
+    on(codeTextarea, 'input', () => edits.set(current.id, codeTextarea.value));
+    on(codeTextarea, 'keydown', (ev) => {
+      const e = ev as KeyboardEvent;
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (lib) void run(); }
+    });
+    on(editRunBtn, 'click', () => { if (lib) void run(); });
+    on(editResetBtn, 'click', () => {
+      edits.delete(current.id);
+      codeTextarea.value = current.source;
+      errEl.hidden = true;
+    });
+
     function syncUrl() {
-      writeState({ scene: current.id, speed, gen: current === fromMath && generated ? JSON.stringify(generated) : '' }, DEFAULTS);
+      writeState({
+        scene: current.id, speed,
+        gen: current === fromMath && generated ? JSON.stringify(generated) : '',
+        tab: activeTab, format: authoringFormatId, physics: physicsPresetId, webgl: webglPresetId,
+      }, DEFAULTS);
     }
     const linkBtn = $<HTMLButtonElement>('.em-link');
     on(linkBtn, 'click', async () => {
@@ -714,7 +2023,7 @@ const playground: Playground = {
       errEl.hidden = true;
       let SceneClass: any;
       try {
-        SceneClass = compile(mods, current.source);
+        SceneClass = compile(mods, effectiveSource());
       } catch (e) {
         showError(e);
         return;
@@ -790,7 +2099,7 @@ const playground: Playground = {
       const label = dlBtn.textContent;
       dlBtn.textContent = '● Recording…';
       try {
-        const SceneClass = compile(mods, current.source);
+        const SceneClass = compile(mods, effectiveSource());
         const blob = await lib.record(SceneClass, { quality: 'medium', background: BG, fps: FPS });
         if (disposed) return;
         const url = URL.createObjectURL(blob);
@@ -835,10 +2144,60 @@ const playground: Playground = {
         showError(e);
       });
 
+    /* ---------------- Top-level tabs: Authoring / Physics / WebGL (lazy) --------------- */
+    const tabbar = $<HTMLDivElement>('.em-tabbar');
+    const panels: Record<string, HTMLDivElement> = {
+      stage: $('.em-panel[data-panel="stage"]'),
+      authoring: $('.em-panel[data-panel="authoring"]'),
+      physics: $('.em-panel[data-panel="physics"]'),
+      webgl: $('.em-panel[data-panel="webgl"]'),
+    };
+    const tabHandles: Record<string, TabHandle | null> = { authoring: null, physics: null, webgl: null };
+
+    /**
+     * Stop whatever tab is currently active before switching away from it.
+     * None of the mount*Tab render loops know about each other, so without
+     * this, leaving a tab mid-scene (e.g. Physics still stepping a 6s
+     * Rapier3D fall) leaves its requestAnimationFrame loop running forever
+     * in the background — competing for frames with whichever tab is opened
+     * next indefinitely (confirmed live: it visibly stalled the next tab's
+     * WASM/WebGL warm-up during verification). Stage has its own
+     * play/pause via stop(); the other three each expose pause() for this.
+     */
+    function pauseTab(tab: string) {
+      if (tab === 'stage' && playing) stop();
+      else if (tab !== 'stage') tabHandles[tab]?.pause();
+    }
+
+    function showTab(tab: string) {
+      if (tab === activeTab) return;
+      pauseTab(activeTab);
+      activeTab = tab;
+      for (const key of Object.keys(panels)) panels[key].hidden = key !== tab;
+      tabbar.querySelectorAll<HTMLButtonElement>('.em-toptab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+      if (tab === 'authoring' && !tabHandles.authoring) {
+        tabHandles.authoring = mountAuthoringTab(panels.authoring, authoringFormatId, (id) => { authoringFormatId = id; syncUrl(); });
+      } else if (tab === 'physics' && !tabHandles.physics) {
+        tabHandles.physics = mountPhysicsTab(panels.physics, physicsPresetId, (id) => { physicsPresetId = id; syncUrl(); });
+      } else if (tab === 'webgl' && !tabHandles.webgl) {
+        tabHandles.webgl = mountWebglTab(panels.webgl, webglPresetId, (id) => { webglPresetId = id; syncUrl(); });
+      }
+      syncUrl();
+    }
+    for (const b of tabbar.querySelectorAll<HTMLButtonElement>('.em-toptab')) {
+      on(b, 'click', () => showTab(b.dataset.tab!));
+    }
+    // First activation: run the body of showTab() without the "already
+    // active, no-op" early return (activeTab already equals this value).
+    { const t = activeTab; activeTab = ''; showTab(t); }
+
     return () => {
       disposed = true;
       runId++;
       for (const off of listeners) off();
+      tabHandles.authoring?.dispose();
+      tabHandles.physics?.dispose();
+      tabHandles.webgl?.dispose();
       root.remove();
     };
   },
