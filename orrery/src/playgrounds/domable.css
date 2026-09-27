@@ -124,3 +124,25 @@
 .pg-domable [data-el="ce-add"] { justify-self: start; padding: 5px 12px; font-size: 13px; }
 .pg-domable .hs-out pre.code { white-space: pre-wrap; word-break: break-word; }
 .pg-domable .ce-host { display: block; }
+
+/* register() / constructSuperclass() */
+.pg-domable .regsc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+.pg-domable .regsc-col { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.pg-domable .regsc-col h3 { margin: 0; font-size: 14px; font-family: var(--f-display); }
+.pg-domable .regsc-col h3 code { font-family: var(--f-mono); font-size: 12.5px; }
+.pg-domable .regsc-col textarea.code { min-height: 84px; white-space: pre-wrap; }
+.pg-domable .regsc-col pre.code { max-height: 160px; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+.pg-domable .regsc-col .ce-controls { align-items: end; }
+
+/* mathml */
+.pg-domable .mathml-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0; }
+.pg-domable .mathml-grid input { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 13px; }
+.pg-domable .mathml-grid input.bad { border-color: #ff5c7a; }
+.pg-domable .mathml-out { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.pg-domable .mathml-cell { display: grid; gap: 6px; }
+.pg-domable .mathml-stage { min-height: 90px; padding: 16px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--ink); font-size: 20px; overflow: auto; }
+.pg-domable [data-el="mathml-banner"]:empty { display: none; }
+
+@media (max-width: 820px) {
+  .pg-domable .regsc-grid, .pg-domable .mathml-grid, .pg-domable .mathml-out { grid-template-columns: 1fr; }
+}

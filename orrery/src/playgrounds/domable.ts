@@ -1,12 +1,16 @@
 import type { Playground } from '../registry';
 import {
   textToDom, domToText, domToReact, reactToDom, textToReact, reactToText,
-  createElement, createSVGElement, _,
-  shadowOpen, shadowClosed, light,
+  createElement, createSVGElement, createMathMLElement, _,
+  shadowOpen, shadowClosed, light, register, constructSuperclass,
   domToSource,
 } from '@johnhenry/domable';
 import type { ReactElementLike } from '@johnhenry/domable';
-import { handoffButton } from '../bus';
+// One function per tag, e.g. html.div(props?, ...children) === createElement("div", props, ...children).
+// Deliberately NOT re-exported from the package root -- see @johnhenry/domable's own index.mjs doc comment.
+import * as htmlTags from '@johnhenry/domable/html';
+import * as svgTags from '@johnhenry/domable/svg';
+import { handoffButton, receive, handoffBanner } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './domable.css';
 
@@ -243,6 +247,129 @@ function diffTokens(a: string[], b: string[]): DiffOp[] | null {
 }
 
 // ---------------------------------------------------------------------------
+// A tiny algebraic-expression parser + MathML renderer, built on
+// createMathMLElement. This isn't a CAS -- it doesn't simplify or
+// differentiate anything -- it just turns "cos(x) + 2*x" into a real
+// <math> tree the same way the rest of this room turns HTML into DOM: one
+// small, honest converter, exercising the one domable export (the MathML
+// namespace factory) nothing else on this page reaches.
+// ---------------------------------------------------------------------------
+
+type MExpr =
+  | { t: 'num'; v: string }
+  | { t: 'var'; v: string }
+  | { t: 'neg'; v: MExpr }
+  | { t: 'call'; fn: string; args: MExpr[] }
+  | { t: 'bin'; op: '+' | '-' | '*' | '/' | '^'; l: MExpr; r: MExpr };
+
+function tokenizeMExpr(src: string): string[] {
+  const toks = src.match(/[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|[+\-*/^(),]/g) ?? [];
+  if (toks.join('') !== src.replace(/\s+/g, '')) throw new Error('unexpected character in expression');
+  return toks;
+}
+
+function parseMExpr(src: string): MExpr {
+  const toks = tokenizeMExpr(src);
+  let i = 0;
+  const peek = () => toks[i];
+  const eat = (want?: string): string => {
+    const tok = toks[i++];
+    if (want !== undefined && tok !== want) throw new Error(`expected "${want}", got ${tok === undefined ? 'end of input' : `"${tok}"`}`);
+    return tok;
+  };
+  function parseAdd(): MExpr {
+    let left = parseMul();
+    while (peek() === '+' || peek() === '-') { const op = eat() as '+' | '-'; left = { t: 'bin', op, l: left, r: parseMul() }; }
+    return left;
+  }
+  function parseMul(): MExpr {
+    let left = parseUnary();
+    while (peek() === '*' || peek() === '/') { const op = eat() as '*' | '/'; left = { t: 'bin', op, l: left, r: parseUnary() }; }
+    return left;
+  }
+  function parseUnary(): MExpr {
+    if (peek() === '-') { eat('-'); return { t: 'neg', v: parseUnary() }; }
+    if (peek() === '+') { eat('+'); return parseUnary(); }
+    return parsePow();
+  }
+  function parsePow(): MExpr {
+    const base = parsePrimary();
+    if (peek() === '^') { eat('^'); return { t: 'bin', op: '^', l: base, r: parseUnary() }; }
+    return base;
+  }
+  function parsePrimary(): MExpr {
+    const tok = peek();
+    if (tok === undefined) throw new Error('unexpected end of expression');
+    if (tok === '(') { eat('('); const e = parseAdd(); eat(')'); return e; }
+    if (/^\d/.test(tok)) { eat(); return { t: 'num', v: tok }; }
+    if (/^[A-Za-z_]/.test(tok)) {
+      eat();
+      if (peek() === '(') {
+        eat('(');
+        const args: MExpr[] = [];
+        if (peek() !== ')') { args.push(parseAdd()); while (peek() === ',') { eat(','); args.push(parseAdd()); } }
+        eat(')');
+        return { t: 'call', fn: tok, args };
+      }
+      return { t: 'var', v: tok };
+    }
+    throw new Error(`unexpected token "${tok}"`);
+  }
+  const result = parseAdd();
+  if (i !== toks.length) throw new Error(`unexpected trailing token "${toks[i]}"`);
+  return result;
+}
+
+function precOfM(e: MExpr): number {
+  if (e.t === 'bin') return e.op === '+' || e.op === '-' ? 1 : e.op === '*' || e.op === '/' ? 2 : 4;
+  if (e.t === 'neg') return 3;
+  return 5;
+}
+// createMathMLElement's return type is `Element | DocumentFragment` (a bare
+// `createElement()` call with no tag returns a fragment) -- every call below
+// always passes a real tag name, so the result is always an Element; `mml`
+// narrows that back down once instead of casting at every call site.
+function mml(tag: string, ...rest: Array<Record<string, unknown> | string | Node>): Element {
+  return (createMathMLElement as (t: string, ...r: unknown[]) => Element)(tag, ...rest);
+}
+function renderMNode(e: MExpr): Element {
+  switch (e.t) {
+    case 'num': return mml('mn', e.v);
+    case 'var': return mml('mi', e.v);
+    case 'neg': return mml('mrow', mml('mo', '-'), wrapM(e.v, 3));
+    case 'call': {
+      if (e.fn === 'sqrt' && e.args.length === 1) return mml('msqrt', wrapM(e.args[0], 0));
+      const args = mml('mrow', mml('mo', '('));
+      e.args.forEach((a, idx) => {
+        if (idx) args.append(mml('mo', ','));
+        args.append(wrapM(a, 1));
+      });
+      args.append(mml('mo', ')'));
+      // U+2061 FUNCTION APPLICATION -- invisible, but the character MathML wants between a function name and its arguments.
+      return mml('mrow', mml('mi', e.fn), mml('mo', '⁡'), args);
+    }
+    case 'bin':
+      if (e.op === '/') return mml('mfrac', wrapM(e.l, 0), wrapM(e.r, 0));
+      if (e.op === '^') return mml('msup', wrapM(e.l, 5), wrapM(e.r, 0));
+      return mml(
+        'mrow',
+        wrapM(e.l, precOfM(e)),
+        mml('mo', e.op === '*' ? '·' : e.op),
+        wrapM(e.r, e.op === '-' ? precOfM(e) + 1 : precOfM(e)),
+      );
+  }
+}
+function wrapM(e: MExpr, minPrec: number): Element {
+  const node = renderMNode(e);
+  if (precOfM(e) < minPrec) return mml('mrow', mml('mo', '('), node, mml('mo', ')'));
+  return node;
+}
+/** `createMathMLElement`, exercised end to end: source string → AST → real `<math>` tree, `display="block"` so the browser lays it out like an equation rather than an inline glyph. */
+function exprToMathML(src: string): Element {
+  return mml('math', { display: 'block' }, renderMNode(parseMExpr(src)));
+}
+
+// ---------------------------------------------------------------------------
 // Planet
 // ---------------------------------------------------------------------------
 
@@ -265,6 +392,13 @@ const playground: Playground = {
       el.addEventListener(ev, fn);
       offs.push(() => el.removeEventListener(ev, fn));
     };
+
+    // A "send to Domable" handoff from Math Observatory: { expr, derivative }
+    // (accepting a couple of likely field-name spellings since nothing on
+    // the site sends this kind yet -- this is the receiving half only).
+    const mathHandoff = receive<{ expr?: string; f?: string; derivative?: string; dStr?: string; df?: string }>('domable');
+    const handoffExpr = mathHandoff?.payload?.expr ?? mathHandoff?.payload?.f;
+    const handoffDeriv = mathHandoff?.payload?.derivative ?? mathHandoff?.payload?.dStr ?? mathHandoff?.payload?.df;
 
     const root = document.createElement('div');
     root.className = 'pg-domable';
@@ -368,6 +502,69 @@ const playground: Playground = {
             <pre class="code" data-el="ce-ser"></pre>
           </div>
         </div>
+      </section>
+
+      <section class="panel tagfns">
+        <header class="sec-h"><h2>Tag functions</h2>
+          <span class="stat">one function per element from <code>@johnhenry/domable/html</code> and <code>@johnhenry/domable/svg</code> — <code>div(props?, ...children)</code> is exactly <code>createElement("div", props, ...children)</code></span></header>
+        <div class="tabs" data-el="tagfn-tabs">
+          <button class="tab on" data-tagfn="html">html</button>
+          <button class="tab" data-tagfn="svg">svg</button>
+        </div>
+        <div class="hs-grid">
+          <textarea class="code" data-el="tagfn-code" spellcheck="false"></textarea>
+          <div class="hs-out">
+            <div class="preview small" data-el="tagfn-preview"></div>
+            <div class="stat">domToText(result):</div>
+            <pre class="code" data-el="tagfn-text"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel regsc">
+        <header class="sec-h"><h2>register() &amp; constructSuperclass()</h2>
+          <span class="stat">two more routes from HTML to a Custom Element class, beyond shadowOpen/shadowClosed/light above</span></header>
+        <div class="regsc-grid">
+          <div class="regsc-col">
+            <h3><code>register(tagname, options)\`html\`</code></h3>
+            <p class="stat">Builds the class <em>and</em> calls <code>customElements.define()</code> in one step.</p>
+            <textarea class="code" data-el="reg-html" spellcheck="false"></textarea>
+            <button class="btn primary" data-el="reg-define">register a fresh &lt;my-register-demo&gt;</button>
+            <div class="ce-stage" data-el="reg-stage"><div class="stat">Not registered yet.</div></div>
+            <pre class="code" data-el="reg-code"></pre>
+          </div>
+          <div class="regsc-col">
+            <h3><code>constructSuperclass({HTML, shadowHTML, shadowMode})</code></h3>
+            <p class="stat">Lower-level: light-DOM fallback content and shadow-DOM content, controlled independently on the same element.</p>
+            <textarea class="code" data-el="sc-shadow" spellcheck="false" placeholder="shadowHTML"></textarea>
+            <textarea class="code" data-el="sc-light" spellcheck="false" placeholder="HTML (light DOM)"></textarea>
+            <div class="ce-controls">
+              <label class="field">shadow mode
+                <select data-el="sc-mode"><option value="open">open</option><option value="closed">closed</option></select>
+              </label>
+              <button class="btn primary" data-el="sc-define">construct &amp; define a fresh &lt;my-superclass-demo&gt;</button>
+            </div>
+            <div class="ce-stage" data-el="sc-stage"><div class="stat">Not defined yet.</div></div>
+            <pre class="code" data-el="sc-code"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel mathml">
+        <header class="sec-h"><h2>MathML</h2>
+          <span class="stat"><code>createMathMLElement</code> — the same factory shape as <code>createElement</code>/<code>createSVGElement</code>, namespaced to MathML instead of (X)HTML/SVG</span></header>
+        <div data-el="mathml-banner"></div>
+        <p class="explain">Type an expression and its derivative — or send one over from Math Observatory's symbolic differentiator — and both are parsed into a small AST and built as real <code>&lt;math&gt;</code> trees with <code>createMathMLElement</code>. The browser typesets the result natively; nothing here does layout.</p>
+        <div class="mathml-grid">
+          <label class="field">f(x) <input data-el="mathml-f" spellcheck="false" autocomplete="off"></label>
+          <label class="field">f′(x) <input data-el="mathml-df" spellcheck="false" autocomplete="off"></label>
+        </div>
+        <div class="mathml-out">
+          <div class="mathml-cell"><div class="stat">f(x)</div><div class="mathml-stage" data-el="mathml-f-stage"></div></div>
+          <div class="mathml-cell"><div class="stat">f′(x)</div><div class="mathml-stage" data-el="mathml-df-stage"></div></div>
+        </div>
+        <div class="stat">domToText() of the &lt;math&gt; tree for f(x):</div>
+        <pre class="code" data-el="mathml-src"></pre>
       </section>
     `;
     host.appendChild(root);
@@ -865,6 +1062,136 @@ const playground: Playground = {
     let slotDeb = 0;
     on(ceSlot, 'input', () => { slotDeb = debounce(slotDeb, instantiate, 250); });
 
+    // ------------------------------------------------------------------ tag functions (/html, /svg)
+    const TAG_SETS = { html: htmlTags, svg: svgTags } as const;
+    const TAGFN_DEFAULTS: Record<'html' | 'svg', string> = {
+      html: `div({ class: 'tagcard' },
+  h3('Tag functions'),
+  p('One function per element: ', code('div(...)'),
+    ' is exactly ', code('createElement("div", ...)'), '.'),
+  ul({},
+    li('a'), li('button'), li('input'), li('label'))
+)`,
+      svg: `svg({ viewBox: '0 0 24 24', width: 44, height: 44 },
+  circle({ cx: 12, cy: 12, r: 9, fill: 'none', stroke: '#19b4d8', 'stroke-width': 2 }),
+  path({ d: 'M8 12l3 3 5-6', stroke: '#6fe38f', 'stroke-width': 2, fill: 'none' })
+)`,
+    };
+    let tagfnMode: 'html' | 'svg' = 'html';
+    const tagfnCode = $<HTMLTextAreaElement>('tagfn-code');
+    const tagfnPreview = $('tagfn-preview');
+    const tagfnText = $('tagfn-text');
+    const tagfnShadow = tagfnPreview.attachShadow({ mode: 'open' });
+    tagfnShadow.innerHTML = `<style>
+      :host { display:block; }
+      .stage { padding: 14px; color:#dfe9f5; font-family: system-ui, sans-serif; min-height: 90px; }
+      .tagcard { border:1px solid #1f4d63; border-radius:12px; padding:12px 16px; background:#0c1b29; }
+      code { color:#6fe3ff; }
+    </style><div class="stage"></div>`;
+    const tagfnStage = tagfnShadow.querySelector('.stage') as HTMLDivElement;
+    function runTagFn() {
+      const code = tagfnCode.value;
+      const tags = TAG_SETS[tagfnMode];
+      const names = Object.keys(tags);
+      try {
+        let factory: (...a: unknown[]) => unknown;
+        try { factory = new Function(...names, `"use strict"; return (${code}\n);`) as typeof factory; }
+        catch { factory = new Function(...names, `"use strict";\n${code}`) as typeof factory; }
+        const res = factory(...Object.values(tags));
+        if (!(res instanceof Node)) throw new Error(`Expected a Node, got ${res === undefined ? 'undefined (use return … for statement bodies)' : typeof res}`);
+        const shown = res.cloneNode(true);
+        sanitize(shown);
+        tagfnStage.replaceChildren(shown);
+        tagfnCode.classList.remove('bad');
+        tagfnText.textContent = domToText(res);
+      } catch (err) {
+        tagfnCode.classList.add('bad');
+        tagfnText.textContent = `⚠ ${(err as Error)?.message ?? err}`;
+      }
+    }
+    let tagfnDeb = 0;
+    on(tagfnCode, 'input', () => { tagfnDeb = debounce(tagfnDeb, runTagFn, 220); });
+    root.querySelectorAll<HTMLButtonElement>('[data-tagfn]').forEach((b) => on(b, 'click', () => {
+      tagfnMode = b.dataset.tagfn as 'html' | 'svg';
+      root.querySelectorAll('[data-tagfn]').forEach((x) => x.classList.toggle('on', x === b));
+      tagfnCode.value = TAGFN_DEFAULTS[tagfnMode];
+      runTagFn();
+    }));
+
+    // ------------------------------------------------------------------ register() & constructSuperclass()
+    const regHtml = $<HTMLTextAreaElement>('reg-html');
+    const regDefine = $<HTMLButtonElement>('reg-define');
+    const regStage = $('reg-stage');
+    const regCode = $('reg-code');
+    let regDefineCount = 0;
+    function defineRegister() {
+      try {
+        const name = `my-register-demo-${++regDefineCount}`;
+        register(name, {})(regHtml.value);
+        const el = document.createElement(name);
+        regStage.replaceChildren(el);
+        regCode.textContent = `register("${name}", {})\`${regHtml.value}\`;\n// builds the class AND calls customElements.define() in one step\ndocument.createElement("${name}")\n// custom element names can never be re-defined, so each click gets a fresh suffix`;
+      } catch (err) {
+        regCode.textContent = `⚠ ${(err as Error)?.message ?? err}`;
+      }
+    }
+    on(regDefine, 'click', defineRegister);
+
+    const scShadowTa = $<HTMLTextAreaElement>('sc-shadow');
+    const scLightTa = $<HTMLTextAreaElement>('sc-light');
+    const scMode = $<HTMLSelectElement>('sc-mode');
+    const scDefine = $<HTMLButtonElement>('sc-define');
+    const scStage = $('sc-stage');
+    const scCode = $('sc-code');
+    let scDefineCount = 0;
+    function defineSuperclass() {
+      try {
+        const name = `my-superclass-demo-${++scDefineCount}`;
+        const mode = scMode.value as 'open' | 'closed';
+        const Cls = constructSuperclass({ HTML: scLightTa.value, shadowHTML: scShadowTa.value, shadowMode: mode });
+        customElements.define(name, Cls);
+        const el = document.createElement(name);
+        scStage.replaceChildren(el);
+        scCode.textContent = `const Cls = constructSuperclass({\n  HTML: lightHtml, shadowHTML: shadowHtml, shadowMode: "${mode}",\n});\ncustomElements.define("${name}", Cls);\ndocument.createElement("${name}")\n// light-DOM fallback content only renders if the shadow tree includes a <slot>`;
+      } catch (err) {
+        scCode.textContent = `⚠ ${(err as Error)?.message ?? err}`;
+      }
+    }
+    on(scDefine, 'click', defineSuperclass);
+
+    // ------------------------------------------------------------------ MathML
+    const mathmlBanner = $('mathml-banner');
+    const mathmlF = $<HTMLInputElement>('mathml-f');
+    const mathmlDf = $<HTMLInputElement>('mathml-df');
+    const mathmlFStage = $('mathml-f-stage');
+    const mathmlDfStage = $('mathml-df-stage');
+    const mathmlSrc = $('mathml-src');
+    if (mathHandoff && (handoffExpr || handoffDeriv)) {
+      mathmlBanner.appendChild(handoffBanner(mathHandoff, `Received an expression from Math Observatory — rendered below as MathML, not re-differentiated here.`));
+    }
+    function renderMathML() {
+      try {
+        const fTree = exprToMathML(mathmlF.value);
+        mathmlFStage.replaceChildren(fTree);
+        mathmlSrc.textContent = domToText(fTree);
+        mathmlF.classList.remove('bad');
+      } catch (err) {
+        mathmlFStage.replaceChildren();
+        mathmlF.classList.add('bad');
+        mathmlSrc.textContent = `⚠ f(x): ${(err as Error)?.message ?? err}`;
+      }
+      try {
+        mathmlDfStage.replaceChildren(exprToMathML(mathmlDf.value));
+        mathmlDf.classList.remove('bad');
+      } catch (err) {
+        mathmlDfStage.replaceChildren();
+        mathmlDf.classList.add('bad');
+      }
+    }
+    let mathmlDeb = 0;
+    on(mathmlF, 'input', () => { mathmlDeb = debounce(mathmlDeb, renderMathML, 200); });
+    on(mathmlDf, 'input', () => { mathmlDeb = debounce(mathmlDeb, renderMathML, 200); });
+
     // ------------------------------------------------------------------ default state
     htmlTa.value = initialState.html && initialState.html.length <= SIZE_CAP ? initialState.html : PRESETS[initPreset];
     root.querySelector(`.preset[data-preset="${initPreset}"]`)?.classList.add('on');
@@ -882,6 +1209,16 @@ const playground: Playground = {
     requestAnimationFrame(() => drawEdges());
     runHs();
     define();
+    tagfnCode.value = TAGFN_DEFAULTS.html;
+    runTagFn();
+    regHtml.value = `<style>:host{display:block;padding:12px 16px;border-radius:10px;border:1px solid #22415a;background:linear-gradient(160deg,#10263a,#0a1422);color:#d9f3ff;font-family:system-ui,sans-serif}</style><b>defined via register()</b>`;
+    defineRegister();
+    scShadowTa.value = `<style>:host{display:block;padding:12px 16px;border-radius:10px;border:1px solid #3a2246;background:#1a0f22;color:#f0d9ff;font-family:system-ui,sans-serif}</style><b>shadow-DOM content</b><div class="slotted"><slot></slot></div>`;
+    scLightTa.value = `<em>light-DOM content</em> — only visible because the shadow tree above includes a slot.`;
+    defineSuperclass();
+    mathmlF.value = handoffExpr ?? 'sin(x) + x^2';
+    mathmlDf.value = handoffDeriv ?? 'cos(x) + 2*x';
+    renderMathML();
 
     return () => {
       for (const id of timers) clearTimeout(id);
