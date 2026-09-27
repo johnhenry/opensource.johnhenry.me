@@ -252,7 +252,7 @@
 .home .rooms { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .home .room-card {
   display: block; text-decoration: none; color: inherit;
-  background: linear-gradient(170deg, hsl(var(--h) 60% 50% / .06), hsl(228 40% 9% / .8) 50%);
+  background: linear-gradient(170deg, hsl(var(--h) 60% 50% / .06), var(--bg-inset) 50%);
   border: 1px solid var(--line); border-radius: 12px; padding: 16px;
   backdrop-filter: blur(6px);
   transition: transform .2s, border-color .2s, box-shadow .2s;
