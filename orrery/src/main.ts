@@ -14,8 +14,14 @@ import { registerEdgeServiceWorker } from './edge-client';
 // to whichever tab has that planet's room open. See src/edge-client.ts.
 void registerEdgeServiceWorker();
 
+// ROADMAP 4.2: one global, site-wide Tensor Telemetry dock (fixed position, outside #app so it
+// survives route changes) — owns the single math-plus-telemetry sink slot for the whole page.
+import { mountTelemetryDock } from './telemetry-dock';
+
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
+
+mountTelemetryDock();
 
 /** Raw source of every playground module, for the "view source" drawer. */
 const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
