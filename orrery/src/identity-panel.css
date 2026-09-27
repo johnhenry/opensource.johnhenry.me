@@ -1,64 +1,14 @@
-/* One key, many identities (ROADMAP 4.9) — fixed, collapsible, site-wide.
-   Stacked above the HAR recorder's own 44px collapsed circle (right:14/
-   bottom:66) the same way that one stacks above the Tensor Telemetry dock
-   (right:14/bottom:14): each collapsed bubble adds another 52px. */
+/* One key, many identities (ROADMAP 4.9) — content styling only. This used
+   to be a fixed, collapsible corner dock; it now renders inside a Dev
+   Drawer tab pane (see src/dev-drawer.ts/.css), which owns all
+   positioning/collapse chrome. Scoped under .identity-panel-pane; do not
+   rely on any room's CSS. */
 
-.identity-panel {
-  position: fixed;
-  right: 14px;
-  bottom: 118px;
-  z-index: 90;
-  width: 320px;
-  max-width: calc(100vw - 28px);
-  font-family: var(--f-mono);
-  font-size: 12px;
-  color: var(--ink);
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
-  overflow: hidden;
-  transition: width .15s ease, height .15s ease, border-radius .15s ease;
-}
-
-.identity-panel.collapsed { width: 44px; height: 44px; border-radius: 50%; }
-
-.ip-handle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  background: none;
-  border: none;
-  color: var(--ink);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-.ip-handle:hover { background: var(--bg-inset); }
-.identity-panel.collapsed .ip-handle { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
-.identity-panel.collapsed .ip-title,
-.identity-panel.collapsed .ip-spacer,
-.identity-panel.collapsed .ip-caret { display: none; }
-.identity-panel.collapsed .ip-dot { width: 12px; height: 12px; }
-
-.ip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex: none; }
-.ip-title { font-weight: 600; letter-spacing: .01em; }
-.ip-spacer { flex: 1; }
-.ip-caret { color: var(--ink-2); transition: transform .15s; }
-.identity-panel.collapsed .ip-caret { transform: rotate(-90deg); }
-
-.ip-body {
-  border-top: 1px solid var(--line);
-  padding: 10px 12px 12px;
+.identity-panel-pane {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 60vh;
-  overflow: auto;
 }
-.identity-panel.collapsed .ip-body { display: none; }
 
 .ip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ip-row.stat { color: var(--ink-2); line-height: 1.4; }

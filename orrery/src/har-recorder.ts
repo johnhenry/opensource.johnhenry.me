@@ -20,6 +20,7 @@
 import * as http from '@johnhenry/http-converter';
 import type { HarEntry, HttpRequest, HttpResponse } from '@johnhenry/http-converter';
 import { send } from './bus';
+import { registerDevTool } from './dev-drawer';
 import './har-recorder.css';
 
 const { har } = http;
@@ -280,74 +281,66 @@ function renderRow(e: CapturedEntry): string {
   </div>`;
 }
 
-/** Mounts the drawer toggle + panel into `document.body` (once) and returns
- *  a live capture. Safe to call more than once (e.g. accidental double
- *  import) — a second call is a no-op. */
+let installed = false;
+
+/** Mounts the HAR list/actions into the Dev Drawer's "HAR" tab (once) and
+ *  returns a live capture. Safe to call more than once (e.g. accidental
+ *  double import) — a second call is a no-op. Note: `installFetchInterceptor()`
+ *  above already ran at module load — this only adds the UI, it does not
+ *  affect when capture starts. */
 export function installHarRecorder(): void {
-  if (document.querySelector('[data-har-recorder]')) return;
+  if (installed) return;
+  installed = true;
 
-  const root = document.createElement('div');
-  root.className = 'har-rec';
-  root.setAttribute('data-har-recorder', '');
-  root.innerHTML = `
-    <button type="button" class="har-rec-toggle" data-har-toggle title="Site-wide HAR recorder">
-      <span class="har-rec-dot"></span><span class="har-rec-label">HAR <span class="har-rec-count" data-har-count>0</span></span>
-    </button>
-    <aside class="har-rec-drawer" data-har-drawer hidden>
-      <div class="har-rec-head">
-        <b>HAR recorder</b>
-        <span class="stat" data-har-sub>0 requests captured</span>
-        <span class="har-rec-spacer"></span>
-        <button type="button" class="tb-btn" data-har-clear>clear</button>
-        <button type="button" class="tb-btn" data-har-download>.har download</button>
-        <button type="button" class="tb-btn" data-har-close>✕</button>
-      </div>
-      <div class="har-rec-list" data-har-list></div>
-    </aside>`;
-  document.body.appendChild(root);
+  registerDevTool({
+    id: 'har',
+    label: 'HAR',
+    icon: '📡',
+    mount(container) {
+      container.classList.add('har-rec-pane');
+      container.innerHTML = `
+        <div class="har-rec-head">
+          <span class="stat" data-har-sub>0 requests captured</span>
+          <span class="har-rec-spacer"></span>
+          <button type="button" class="tb-btn" data-har-clear>clear</button>
+          <button type="button" class="tb-btn" data-har-download>.har download</button>
+        </div>
+        <div class="har-rec-list" data-har-list></div>`;
 
-  const toggle = root.querySelector<HTMLButtonElement>('[data-har-toggle]')!;
-  const drawer = root.querySelector<HTMLElement>('[data-har-drawer]')!;
-  const list = root.querySelector<HTMLElement>('[data-har-list]')!;
-  const count = root.querySelector<HTMLElement>('[data-har-count]')!;
-  const sub = root.querySelector<HTMLElement>('[data-har-sub]')!;
-  const closeBtn = root.querySelector<HTMLButtonElement>('[data-har-close]')!;
-  const clearBtn = root.querySelector<HTMLButtonElement>('[data-har-clear]')!;
-  const downloadBtn = root.querySelector<HTMLButtonElement>('[data-har-download]')!;
+      const list = container.querySelector<HTMLElement>('[data-har-list]')!;
+      const sub = container.querySelector<HTMLElement>('[data-har-sub]')!;
+      const clearBtn = container.querySelector<HTMLButtonElement>('[data-har-clear]')!;
+      const downloadBtn = container.querySelector<HTMLButtonElement>('[data-har-download]')!;
 
-  function render() {
-    count.textContent = String(entries.length);
-    sub.textContent = `${entries.length} request${entries.length === 1 ? '' : 's'} captured (site-wide, last ${MAX_ENTRIES} kept)`;
-    // Most recent first.
-    list.innerHTML = entries.length
-      ? [...entries].reverse().map(renderRow).join('')
-      : '<p class="har-rec-empty stat">No requests yet — every fetch() any planet makes will show up here.</p>';
-  }
+      function render() {
+        sub.textContent = `${entries.length} request${entries.length === 1 ? '' : 's'} captured (site-wide, last ${MAX_ENTRIES} kept)`;
+        // Most recent first.
+        list.innerHTML = entries.length
+          ? [...entries].reverse().map(renderRow).join('')
+          : '<p class="har-rec-empty stat">No requests yet — every fetch() any planet makes will show up here.</p>';
+      }
 
-  function openDrawer() { drawer.hidden = false; toggle.classList.add('is-open'); }
-  function closeDrawer() { drawer.hidden = true; toggle.classList.remove('is-open'); }
+      clearBtn.addEventListener('click', () => { entries.length = 0; render(); });
+      downloadBtn.addEventListener('click', () => {
+        if (!entries.length) return;
+        downloadHarFile();
+      });
 
-  toggle.addEventListener('click', () => { drawer.hidden ? openDrawer() : closeDrawer(); });
-  closeBtn.addEventListener('click', closeDrawer);
-  clearBtn.addEventListener('click', () => { entries.length = 0; render(); });
-  downloadBtn.addEventListener('click', () => {
-    if (!entries.length) return;
-    downloadHarFile();
+      list.addEventListener('click', (ev) => {
+        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-act]');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        const captured = entries.find((e) => e.id === id);
+        if (!captured) return;
+        if (btn.dataset.act === 'converter') {
+          send('har-recorder', 'converter', 'har-entry', captured.entry);
+        } else if (btn.dataset.act === 'fields') {
+          send('har-recorder', 'fields', 'har-headers', headersOf(captured.entry));
+        }
+      });
+
+      listeners.add(render);
+      render();
+    },
   });
-
-  list.addEventListener('click', (ev) => {
-    const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-act]');
-    if (!btn) return;
-    const id = Number(btn.dataset.id);
-    const captured = entries.find((e) => e.id === id);
-    if (!captured) return;
-    if (btn.dataset.act === 'converter') {
-      send('har-recorder', 'converter', 'har-entry', captured.entry);
-    } else if (btn.dataset.act === 'fields') {
-      send('har-recorder', 'fields', 'har-headers', headersOf(captured.entry));
-    }
-  });
-
-  listeners.add(render);
-  render();
 }

@@ -1,0 +1,92 @@
+/* Dev Drawer: one header-toggleable drawer replacing six separate
+   self-mounting floating docks (telemetry / HAR / almanac / conductor /
+   identity / signal bus). Scoped under .dd-overlay; do not rely on any
+   room's CSS. Mirrors planets-sidebar.css's overlay+slide-in-panel shape. */
+
+.dd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 610;
+  background: hsl(230 45% 4% / .55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: flex-end;
+  animation: dd-fade .15s ease;
+}
+@keyframes dd-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Same specificity trap the HAR recorder drawer hit (issue fixed in an
+   earlier session): a `display: flex` rule at (0,1,0) specificity loads
+   after the UA stylesheet's `[hidden] { display: none }` (also (0,1,0)) and
+   wins on source order alone, so the drawer never actually disappears
+   without an explicit `[hidden]` override here. */
+.dd-overlay[hidden] {
+  display: none;
+}
+
+.dd-panel {
+  width: min(560px, 94vw);
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 60px -20px rgba(0, 0, 0, .5);
+  display: flex;
+  flex-direction: column;
+  animation: dd-slide .18s ease;
+}
+@keyframes dd-slide { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.dd-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--f-display);
+  font-size: 15px;
+  flex: none;
+}
+
+.dd-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.dd-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--ink-2);
+  font: 12px var(--f-mono);
+  cursor: pointer;
+}
+.dd-tab:hover { color: var(--ink); border-color: var(--accent-border); }
+.dd-tab.active { color: var(--ink); background: var(--accent-soft); border-color: var(--accent-border); }
+.dd-tab-icon { line-height: 1; }
+
+.dd-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+/* Each registered tool's pane. Content-specific styling stays in each
+   module's own CSS file (telemetry-dock.css, har-recorder.css, …); this
+   drawer only owns the shell + tab-switching visibility. */
+.dev-tool-pane {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--ink);
+}
+.dev-tool-pane[hidden] { display: none; }
+
+@media (max-width: 560px) {
+  .dd-panel { width: 100vw; }
+}

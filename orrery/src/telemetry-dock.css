@@ -1,88 +1,26 @@
-/* Tensor Telemetry dock (ROADMAP 4.2) — fixed, collapsible, site-wide.
-   Scoped under .telemetry-dock; do not rely on any room's CSS. */
+/* Tensor Telemetry (ROADMAP 4.2) — content styling only. This used to be a
+   fixed, collapsible corner dock; it now renders inside a Dev Drawer tab
+   pane (see src/dev-drawer.ts/.css), which owns all positioning/collapse
+   chrome. Scoped under .telemetry-dock-pane; do not rely on any room's CSS. */
 
-.telemetry-dock {
-  position: fixed;
-  right: 14px;
-  bottom: 14px;
-  z-index: 500;
-  width: 320px;
-  max-width: calc(100vw - 28px);
-  font-family: var(--f-mono);
-  font-size: 12px;
-  color: var(--ink);
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
-  overflow: hidden;
-  transition: width .15s ease, height .15s ease, border-radius .15s ease;
-}
-
-/* Collapsed state shrinks to a small round handle — a 320px bar sitting
-   over every room on every route was the actual complaint, not just that
-   the body kept showing. */
-.telemetry-dock.collapsed {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-}
-
-.td-handle {
-  width: 100%;
+.telemetry-dock-pane {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  background: none;
-  border: none;
-  color: var(--ink);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
+  flex-direction: column;
+  gap: 10px;
 }
-.td-handle:hover { background: var(--bg-inset); }
-.telemetry-dock.collapsed .td-handle {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  justify-content: center;
-  border-radius: 50%;
-}
-.telemetry-dock.collapsed .td-title,
-.telemetry-dock.collapsed .td-spacer,
-.telemetry-dock.collapsed .td-count,
-.telemetry-dock.collapsed .td-caret {
-  display: none;
-}
-.telemetry-dock.collapsed .td-dot { width: 12px; height: 12px; }
 
 .td-dot {
+  display: inline-block;
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--ink-3, #666);
   box-shadow: none;
   transition: background .2s, box-shadow .2s;
-  flex: none;
+  vertical-align: middle;
 }
-.telemetry-dock.live .td-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-.telemetry-dock.paused .td-dot { background: #ffab4a; }
+.telemetry-dock-pane.live .td-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.telemetry-dock-pane.paused .td-dot { background: #ffab4a; }
 
-.td-title { font-weight: 600; letter-spacing: .01em; }
-.td-spacer { flex: 1; }
 .td-count { color: var(--ink-2); }
-.td-caret { color: var(--ink-2); transition: transform .15s; }
-.telemetry-dock.collapsed .td-caret { transform: rotate(-90deg); }
-
-.td-body {
-  border-top: 1px solid var(--line);
-  padding: 10px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 60vh;
-  overflow: auto;
-}
-.telemetry-dock.collapsed .td-body { display: none; }
 
 .td-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .td-row .btn { padding: 5px 10px; font-size: 12px; }

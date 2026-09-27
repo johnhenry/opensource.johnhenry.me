@@ -35,6 +35,7 @@
 import { setSink, hasSink, type TrainingEvent } from '@johnhenry/math-plus-telemetry';
 import { Tensor, random } from '@johnhenry/math-plus-tensor-core';
 import { constant, nn, optim } from '@johnhenry/math-plus-tensor-autograd';
+import { registerDevTool } from './dev-drawer';
 import './telemetry-dock.css';
 
 const MAX_GRAD_POINTS = 80;
@@ -58,44 +59,55 @@ export function mountTelemetryDock(): void {
   let lastEventAt = 0; // Date.now(), display-only ("Ns ago"), never mixed with span timing
   let dirty = true;
 
-  const root = document.createElement('div');
-  root.className = 'telemetry-dock collapsed';
-  root.innerHTML = `
-    <button class="td-handle" type="button" aria-expanded="false" title="Toggle the Tensor Telemetry dock">
-      <span class="td-dot"></span>
-      <span class="td-title">Tensor Telemetry</span>
-      <span class="td-spacer"></span>
-      <span class="td-count">0 events</span>
-      <span class="td-caret">&#9662;</span>
-    </button>
-    <div class="td-body">
-      <div class="td-row">
-        <button class="btn primary td-pause" type="button">Pause</button>
-        <button class="btn td-probe" type="button">Measure cost</button>
-      </div>
-      <div class="td-row stat">hasSink(): <b class="td-hassink">true</b> &middot; last event <span class="td-age">&mdash;</span></div>
-      <div class="td-row td-probe-result"></div>
-      <div class="td-empty">No tensor/autograd activity captured yet. Visit <a href="#/tensor">Tensor Bench</a> and train a model &mdash; this sink is global, so real autograd work from any room lights it up.</div>
-      <div class="td-live" hidden>
-        <div class="td-section">
-          <div class="td-label">gradient norm &middot; optim/gradNorm</div>
-          <canvas class="td-spark" width="280" height="40"></canvas>
-          <div class="stat td-spark-stat">&mdash;</div>
+  // The dock used to be its own floating root (`.telemetry-dock`) appended to
+  // document.body, with a `.td-handle` toggle button that collapsed it to a
+  // small circle. Both are gone — this pane now lives inside the Dev Drawer,
+  // whose own tab strip is the toggle. Everything below queries `container`
+  // (the drawer's pane element) instead of the old dock's own `root`.
+  // The `.td-count`/`.td-dot` readouts that used to live inside the removed
+  // handle are relocated into the body's own top stat row so the same
+  // information stays visible.
+  let container!: HTMLElement;
+  registerDevTool({
+    id: 'telemetry',
+    label: 'Telemetry',
+    icon: '📈',
+    mount(host) {
+      container = host;
+      container.classList.add('telemetry-dock-pane');
+      container.innerHTML = `
+        <div class="td-row stat">
+          <span class="td-dot"></span>
+          <span class="td-count">0 events</span>
+          &middot; hasSink(): <b class="td-hassink">true</b>
+          &middot; last event <span class="td-age">&mdash;</span>
         </div>
-        <div class="td-section">
-          <div class="td-label">backward spans &middot; flame</div>
-          <div class="td-flame"></div>
+        <div class="td-row">
+          <button class="btn primary td-pause" type="button">Pause</button>
+          <button class="btn td-probe" type="button">Measure cost</button>
         </div>
-        <div class="td-section">
-          <div class="td-label">tensorSummary</div>
-          <pre class="code td-summary">&mdash;</pre>
+        <div class="td-row td-probe-result"></div>
+        <div class="td-empty">No tensor/autograd activity captured yet. Visit <a href="#/tensor">Tensor Bench</a> and train a model &mdash; this sink is global, so real autograd work from any room lights it up.</div>
+        <div class="td-live" hidden>
+          <div class="td-section">
+            <div class="td-label">gradient norm &middot; optim/gradNorm</div>
+            <canvas class="td-spark" width="280" height="40"></canvas>
+            <div class="stat td-spark-stat">&mdash;</div>
+          </div>
+          <div class="td-section">
+            <div class="td-label">backward spans &middot; flame</div>
+            <div class="td-flame"></div>
+          </div>
+          <div class="td-section">
+            <div class="td-label">tensorSummary</div>
+            <pre class="code td-summary">&mdash;</pre>
+          </div>
         </div>
-      </div>
-      <div class="td-clock-note">metric.time is Date.now(); trace spans use performance.now() &mdash; the two clocks are never compared against each other here.</div>
-    </div>`;
-  document.body.appendChild(root);
+        <div class="td-clock-note">metric.time is Date.now(); trace spans use performance.now() &mdash; the two clocks are never compared against each other here.</div>`;
+    },
+  });
 
-  const handle = root.querySelector<HTMLButtonElement>('.td-handle')!;
+  const root = container;
   const pauseBtn = root.querySelector<HTMLButtonElement>('.td-pause')!;
   const probeBtn = root.querySelector<HTMLButtonElement>('.td-probe')!;
   const hasSinkEl = root.querySelector<HTMLElement>('.td-hassink')!;
@@ -108,11 +120,6 @@ export function mountTelemetryDock(): void {
   const sparkStatEl = root.querySelector<HTMLElement>('.td-spark-stat')!;
   const flameEl = root.querySelector<HTMLElement>('.td-flame')!;
   const summaryEl = root.querySelector<HTMLElement>('.td-summary')!;
-
-  handle.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('collapsed');
-    handle.setAttribute('aria-expanded', String(!collapsed));
-  });
 
   /** The dock's own sink — the one global slot this app ever installs. */
   function onEvent(e: TrainingEvent): void {
@@ -248,6 +255,10 @@ export function mountTelemetryDock(): void {
       const y = h - 4 - ((v - lo) / span) * (h - 8);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
+    // `--accent` is a document-wide custom property (see src/styles/base.css /
+    // circuit/tokens.css) that this pane never overrides locally, so reading
+    // it off `root` (== the drawer's pane element) returns the same value
+    // `document.documentElement` would — kept as `root` for minimal diff.
     ctx.strokeStyle = getComputedStyle(root).getPropertyValue('--accent').trim() || '#6ea0ff';
     ctx.lineWidth = 1.5;
     ctx.stroke();

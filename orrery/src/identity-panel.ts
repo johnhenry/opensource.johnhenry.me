@@ -72,6 +72,7 @@ import { derivePodId, AccessGrant, generateGrantId, type CheckResult } from '@jo
 import { Server as DialbackServer, Agent as DialbackAgent } from '@johnhenry/dialback';
 import type { Connection } from '@johnhenry/dialback';
 import { signPayload, verifySignature, type Ed25519KeyPair, type ArtifactSignature } from '@johnhenry/oat-protocol';
+import { registerDevTool } from './dev-drawer';
 import './identity-panel.css';
 
 /* ------------------------------------------------------------------ */
@@ -203,30 +204,28 @@ export function mountIdentityPanel(): void {
   if (mounted) return;
   mounted = true;
 
-  const root = document.createElement('div');
-  root.className = 'identity-panel collapsed';
-  root.innerHTML = `
-    <button class="ip-handle" type="button" aria-expanded="false" title="One key, many identities">
-      <span class="ip-dot"></span><span class="ip-title">One Key</span><span class="ip-spacer"></span><span class="ip-caret">&#9662;</span>
-    </button>
-    <div class="ip-body">
-      <div class="ip-row stat">One Ed25519 keypair (WebCrypto), shown as four real identities. No network, no keys leave this tab.</div>
-      <div class="ip-cards"></div>
-      <div class="ip-row">
-        <button class="btn ip-new" type="button">New key</button>
-        <button class="btn primary ip-revoke" type="button" disabled>Revoke this key</button>
-      </div>
-    </div>`;
-  document.body.appendChild(root);
-
-  const handle = root.querySelector<HTMLButtonElement>('.ip-handle')!;
-  const cards = root.querySelector<HTMLElement>('.ip-cards')!;
-  const newBtn = root.querySelector<HTMLButtonElement>('.ip-new')!;
-  const revokeBtn = root.querySelector<HTMLButtonElement>('.ip-revoke')!;
-
-  handle.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('collapsed');
-    handle.setAttribute('aria-expanded', String(!collapsed));
+  // The panel used to be its own floating root (`.identity-panel`) appended
+  // to document.body, with an `.ip-handle` toggle button that collapsed it
+  // to a small circle. Both are gone — this pane now lives inside the Dev
+  // Drawer, whose own tab strip is the toggle.
+  let cards!: HTMLElement, newBtn!: HTMLButtonElement, revokeBtn!: HTMLButtonElement;
+  registerDevTool({
+    id: 'identity',
+    label: 'Identity',
+    icon: '🔑',
+    mount(container) {
+      container.classList.add('identity-panel-pane');
+      container.innerHTML = `
+        <div class="ip-row stat">One Ed25519 keypair (WebCrypto), shown as four real identities. No network, no keys leave this tab.</div>
+        <div class="ip-cards"></div>
+        <div class="ip-row">
+          <button class="btn ip-new" type="button">New key</button>
+          <button class="btn primary ip-revoke" type="button" disabled>Revoke this key</button>
+        </div>`;
+      cards = container.querySelector<HTMLElement>('.ip-cards')!;
+      newBtn = container.querySelector<HTMLButtonElement>('.ip-new')!;
+      revokeBtn = container.querySelector<HTMLButtonElement>('.ip-revoke')!;
+    },
   });
 
   let identity: Identity | null = null;

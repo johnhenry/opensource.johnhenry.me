@@ -41,6 +41,7 @@
  * newcomer yet) to the same state within one round trip.
  */
 import { createBroadcastSignal, type BroadcastSignal } from '@johnhenry/signalle/broadcast';
+import { registerDevTool } from './dev-drawer';
 import './signal-bus.css';
 
 /* ------------------------------------------------------------------ */
@@ -181,59 +182,56 @@ export function otherTabsOn(planet: string): number {
 }
 
 /* ------------------------------------------------------------------ */
-/* corner widget: shown while a room is mounted                        */
+/* dev-drawer pane: was a per-room floating corner widget (created while    */
+/* a room was mounted, torn down on the way back to home); now a           */
+/* persistent Dev Drawer pane that just repaints for whichever planet is   */
+/* current, since the pane itself is never removed. See dev-drawer.ts's    */
+/* file comment for why panes have to stay mounted for the app's whole     */
+/* lifetime rather than come and go with the drawer's open/closed state.   */
 /* ------------------------------------------------------------------ */
-let widgetRoot: HTMLElement | null = null;
+let paneEl: HTMLElement | null = null;
 let widgetPlanet = '';
 let widgetOff: (() => void) | null = null;
+let pendingQuery: string | null = null;
 
 function renderWidget(): void {
-  if (!widgetRoot) return;
+  if (!paneEl) return;
+  const roomEl = paneEl.querySelector<HTMLElement>('.sb-room')!;
+  const linkedEl = paneEl.querySelector<HTMLElement>('.sb-linked')!;
+  if (!widgetPlanet) {
+    roomEl.textContent = 'no planet open in this tab (home page)';
+    linkedEl.textContent = '';
+    paneEl.classList.remove('sb-has-others');
+    return;
+  }
   const others = otherTabsOn(widgetPlanet);
-  const linkedEl = widgetRoot.querySelector('.sb-linked')!;
+  roomEl.textContent = `this tab: ${widgetPlanet}`;
   linkedEl.textContent = others > 0 ? `linked · ${others} other tab${others === 1 ? '' : 's'} here` : 'no other tabs here';
-  widgetRoot.classList.toggle('sb-has-others', others > 0);
+  paneEl.classList.toggle('sb-has-others', others > 0);
 }
 
-function teardownWidget(): void {
+function teardownWidgetSubs(): void {
   widgetOff?.(); widgetOff = null;
-  widgetRoot?.remove(); widgetRoot = null;
-  widgetPlanet = '';
 }
 
 function setupWidgetFor(planet: string): void {
   if (widgetPlanet === planet) return;
-  teardownWidget();
-  if (!planet) return;
+  teardownWidgetSubs();
   widgetPlanet = planet;
-
-  const root = document.createElement('div');
-  root.className = 'signal-widget';
-  root.innerHTML = `
-    <span class="sb-dot"></span>
-    <span class="sb-linked">linked · checking…</span>
-    <span class="sb-changed" hidden>state changed in another tab — <button type="button" class="sb-sync">sync &amp; reload</button></span>`;
-  document.body.appendChild(root);
-  widgetRoot = root;
+  pendingQuery = null;
+  if (paneEl) paneEl.querySelector<HTMLElement>('.sb-changed')!.hidden = true;
   renderWidget();
+  if (!planet) return;
 
   const offCount = subscribeLiveCounts(() => renderWidget());
-  const changedEl = root.querySelector<HTMLElement>('.sb-changed')!;
-  const syncBtn = root.querySelector<HTMLButtonElement>('.sb-sync')!;
-  let pendingQuery: string | null = null;
   const offState = onPlanetStateChanged(planet, (query) => {
     if (query === currentQuery()) return; // our own echo, or already matches
     pendingQuery = query;
-    changedEl.hidden = false;
-    root.classList.add('sb-pulse');
-    setTimeout(() => root.classList.remove('sb-pulse'), 900);
+    if (!paneEl) return;
+    paneEl.querySelector<HTMLElement>('.sb-changed')!.hidden = false;
+    paneEl.classList.add('sb-pulse');
+    setTimeout(() => paneEl?.classList.remove('sb-pulse'), 900);
   });
-  syncBtn.addEventListener('click', () => {
-    if (pendingQuery === null) return;
-    history.replaceState(null, '', `#/${planet}${pendingQuery ? '?' + pendingQuery : ''}`);
-    location.reload();
-  });
-
   widgetOff = () => { offCount(); offState(); };
 }
 
@@ -245,6 +243,30 @@ let mounted = false;
 export function mountSignalBus(): void {
   if (mounted) return;
   mounted = true;
+
+  // The corner widget used to be its own floating root (`.signal-widget`),
+  // created while a room was mounted and removed on the way back to home.
+  // It's gone — this pane now lives inside the Dev Drawer, whose own tab
+  // strip is the toggle; setupWidgetFor()/renderWidget() above just repaint
+  // this persistent pane instead of creating/destroying a floating div.
+  registerDevTool({
+    id: 'signal-bus',
+    label: 'Signal Bus',
+    icon: '📶',
+    mount(container) {
+      container.classList.add('signal-widget-pane');
+      container.innerHTML = `
+        <div class="sb-row"><span class="sb-dot"></span><span class="sb-room">checking…</span></div>
+        <div class="sb-row sb-linked">linked · checking…</div>
+        <div class="sb-row sb-changed" hidden>state changed in another tab — <button type="button" class="sb-sync">sync &amp; reload</button></div>`;
+      paneEl = container;
+      container.querySelector<HTMLButtonElement>('.sb-sync')!.addEventListener('click', () => {
+        if (pendingQuery === null || !widgetPlanet) return;
+        history.replaceState(null, '', `#/${widgetPlanet}${pendingQuery ? '?' + pendingQuery : ''}`);
+        location.reload();
+      });
+    },
+  });
 
   installHistoryPatch();
   installResync();

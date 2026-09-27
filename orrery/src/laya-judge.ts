@@ -50,6 +50,7 @@ import { guardQuestions } from '@johnhenry/laya-presets';
 import type { Question, Questions, Answer } from '@johnhenry/laya';
 import { createRouter } from '@johnhenry/aimatey-core';
 import type { BackendAdapter, AdapterMetadata, IRChatRequest, IRChatResponse } from '@johnhenry/aimatey-types';
+import { registerDevTool } from './dev-drawer';
 import './laya-judge.css';
 
 const CHECKPOINT = { repo: 'aac6fef/laya-multilingual-mlx', label: 'multilingual · mmBERT-base 322M · fp16 · ~678 MB' };
@@ -128,43 +129,43 @@ export function mountLayaJudge(): void {
   if (mounted) return;
   mounted = true;
 
-  const root = document.createElement('div');
-  root.className = 'laya-judge collapsed';
-  root.innerHTML = `
-    <button class="lj-handle" type="button" aria-expanded="false" title="Laya as a judge everywhere">
-      <span class="lj-dot"></span><span class="lj-title">Laya Judge</span><span class="lj-spacer"></span><span class="lj-caret">&#9662;</span>
-    </button>
-    <div class="lj-body">
-      <div class="lj-load">
-        <p class="stat">Loads a real <code>@johnhenry/laya</code> checkpoint (${CHECKPOINT.label}) in this tab — a genuine multi-hundred-MB download, so it never starts automatically.</p>
-        <button class="btn primary lj-load-btn" type="button">Load Laya judge</button>
-        <div class="lj-progress" hidden><div class="lj-bar"><i></i></div><span class="lj-progress-text"></span></div>
-        <div class="lj-load-err stat" hidden></div>
-      </div>
-      <div class="lj-ready" hidden>
-        <div class="lj-section">
-          <div class="lj-label">MCP tool call &middot; pre-pass gate (guardQuestions)</div>
-          <select class="lj-mcp-pick"></select>
-          <pre class="code lj-mcp-view"></pre>
-          <button class="btn lj-mcp-run" type="button">Run pre-pass judge</button>
-          <div class="lj-mcp-result"></div>
+  // Used to be its own floating root (`.laya-judge`) with an `.lj-handle`
+  // toggle that collapsed it to a small circle. Both are gone — this pane
+  // now lives inside the Dev Drawer, whose own tab strip is the toggle.
+  let container!: HTMLElement;
+  registerDevTool({
+    id: 'laya-judge',
+    label: 'Laya Judge',
+    icon: '⚖️',
+    mount(host) {
+      container = host;
+      container.classList.add('laya-judge-pane');
+      container.innerHTML = `
+        <div class="lj-load">
+          <p class="stat">Loads a real <code>@johnhenry/laya</code> checkpoint (${CHECKPOINT.label}) in this tab — a genuine multi-hundred-MB download, so it never starts automatically.</p>
+          <button class="btn primary lj-load-btn" type="button">Load Laya judge</button>
+          <div class="lj-progress" hidden><div class="lj-bar"><i></i></div><span class="lj-progress-text"></span></div>
+          <div class="lj-load-err stat" hidden></div>
         </div>
-        <div class="lj-section">
-          <div class="lj-label">aimatey Router.dispatchParallel(strategy:'all') &middot; judged</div>
-          <textarea class="lj-prompt" rows="2">A customer wants a refund and is getting impatient. What should I tell them?</textarea>
-          <button class="btn lj-dispatch-run" type="button">Dispatch to 3 mock backends &amp; judge</button>
-          <div class="lj-dispatch-result"></div>
-        </div>
-      </div>
-    </div>`;
-  document.body.appendChild(root);
-
-  const handle = root.querySelector<HTMLButtonElement>('.lj-handle')!;
-  handle.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('collapsed');
-    handle.setAttribute('aria-expanded', String(!collapsed));
+        <div class="lj-ready" hidden>
+          <div class="lj-section">
+            <div class="lj-label">MCP tool call &middot; pre-pass gate (guardQuestions)</div>
+            <select class="lj-mcp-pick"></select>
+            <pre class="code lj-mcp-view"></pre>
+            <button class="btn lj-mcp-run" type="button">Run pre-pass judge</button>
+            <div class="lj-mcp-result"></div>
+          </div>
+          <div class="lj-section">
+            <div class="lj-label">aimatey Router.dispatchParallel(strategy:'all') &middot; judged</div>
+            <textarea class="lj-prompt" rows="2">A customer wants a refund and is getting impatient. What should I tell them?</textarea>
+            <button class="btn lj-dispatch-run" type="button">Dispatch to 3 mock backends &amp; judge</button>
+            <div class="lj-dispatch-result"></div>
+          </div>
+        </div>`;
+    },
   });
 
+  const root = container;
   const loadSection = root.querySelector<HTMLElement>('.lj-load')!;
   const loadBtn = root.querySelector<HTMLButtonElement>('.lj-load-btn')!;
   const progressWrap = root.querySelector<HTMLElement>('.lj-progress')!;
