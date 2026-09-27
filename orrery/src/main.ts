@@ -3,6 +3,7 @@ import './styles/home.css';
 import { playgrounds, type PlaygroundEntry } from './registry';
 import { renderHome } from './home';
 import { renderSettings } from './settings';
+import { togglePlanetsSidebar } from './planets-sidebar';
 import { initThemeToggle } from '@erisera-code/circuit/theme-toggle.js';
 // Site-wide HAR recorder (ROADMAP 4.3): patches fetch at import time, then mounts its drawer UI.
 import { installHarRecorder } from './har-recorder';
@@ -40,6 +41,7 @@ function topbar(entry?: PlaygroundEntry) {
     ${entry ? `<span class="pkg">${entry.pkg}</span>` : `<span class="pkg">@johnhenry/* · live</span>`}
     <span class="spacer"></span>
     <button class="tb-btn" id="palette-btn" title="Jump to a planet (⌘K)">⌘K</button>
+    <button class="tb-btn" id="planets-btn" title="All planets">&#9776; planets</button>
     ${entry ? `<button class="tb-btn" id="source-btn" title="View this planet's source">&lt;/&gt; source</button>` : ''}
     <a class="tb-btn" href="#/settings" title="Settings: companion server">⚙ settings</a>
     <button class="tb-btn" id="theme-btn" title="Theme"></button>
@@ -134,6 +136,7 @@ async function route() {
     app.innerHTML = topbar();
     wireTheme();
     document.getElementById('palette-btn')!.addEventListener('click', openPalette);
+    document.getElementById('planets-btn')!.addEventListener('click', togglePlanetsSidebar);
     cleanup = renderSettings(app);
     return;
   }
@@ -143,6 +146,7 @@ async function route() {
     app.innerHTML = topbar();
     wireTheme();
     document.getElementById('palette-btn')!.addEventListener('click', openPalette);
+    document.getElementById('planets-btn')!.addEventListener('click', togglePlanetsSidebar);
     cleanup = renderHome(app, playgrounds);
     document.title = 'ORRERY · the @johnhenry ecosystem, live';
     return;
@@ -156,6 +160,7 @@ async function route() {
   </main>`;
   wireTheme();
   document.getElementById('palette-btn')!.addEventListener('click', openPalette);
+  document.getElementById('planets-btn')!.addEventListener('click', togglePlanetsSidebar);
   document.getElementById('source-btn')!.addEventListener('click', () => openSource(entry));
   const host = document.getElementById('host')!;
   try {
