@@ -48,6 +48,11 @@
   max-height: min(60vh, 640px);
   display: flex;
   flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / .45);
+  overflow: hidden;
 }
 /* .har-rec-drawer's own `display: flex` above has the same specificity as
    the UA stylesheet's `[hidden] { display: none }` and loads after it, so
@@ -55,11 +60,6 @@
    silently beaten and the drawer never actually disappears. */
 .har-rec-drawer[hidden] {
   display: none;
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: 0 24px 64px rgb(0 0 0 / .45);
-  overflow: hidden;
 }
 
 .har-rec-head {
