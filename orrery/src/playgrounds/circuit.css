@@ -231,6 +231,17 @@ html.dark .pg-circuit,
 .pg-circuit .demo-card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px; box-shadow: var(--shadow-sm); }
 .pg-circuit .demo-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--ink); }
 .pg-circuit .demo-card p { margin: 0; font-size: 12px; color: var(--ink-2); }
+/* c-header/c-side assume a full-width docs shell; give them a border and let
+   them wrap so they read sensibly inside a narrow showcase card instead of
+   overflowing it. */
+.pg-circuit .showcase-half .c-header { height: auto; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); border-top: 2px solid var(--accent); }
+.pg-circuit .showcase-half .c-header nav { flex-wrap: wrap; gap: 10px; }
+.pg-circuit .showcase-half .c-side { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 10px 12px; background: var(--bg-panel); }
+
+/* ---- hue registry audit ---- */
+.pg-circuit .audit-table { margin-top: 8px; }
+.pg-circuit .audit-row .demo { text-align: left; background: none; padding: 0; font: 11px var(--f-mono); color: var(--ink-3); }
+.pg-circuit .audit-row.ok, .pg-circuit .audit-row.skip { opacity: .85; }
 
 /* ---- themes gallery ---- */
 .pg-circuit .theme-grid {
