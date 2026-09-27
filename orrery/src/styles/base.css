@@ -142,6 +142,7 @@ a.tb-btn { text-decoration: none; }
 
 /* ---- settings page ---- */
 .settings .panel { margin-bottom: 16px; }
+.theme-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .settings-form { display: grid; gap: 12px; margin: 12px 0; }
 .settings-form input { font-family: var(--f-mono); }
 .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }

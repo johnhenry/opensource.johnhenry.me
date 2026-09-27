@@ -1,7 +1,14 @@
 import { DEFAULT_COMPANION_URL, getCompanionUrl, setCompanionUrl, probeCompanion, type Companion } from './companion';
 import { playgrounds } from './registry';
+import { getThemeChoice, setThemeChoice, onThemeChange, type ThemeChoice } from './theme';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+];
 
 /** The #/settings page: where the optional Node companion lives, and what it hosts. */
 export function renderSettings(app: HTMLElement): () => void {
@@ -10,6 +17,13 @@ export function renderSettings(app: HTMLElement): () => void {
   const companionRooms = playgrounds.filter((p) => p.companion);
   main.innerHTML = `
     <div class="room-head"><h1>Settings</h1><p>Where ORRERY looks for the optional Node companion. Every planet works without it; these planets get a real server when it answers.</p></div>
+    <div class="panel">
+      <strong>Appearance</strong>
+      <p class="hint">Shared with the rest of <code>opensource.johnhenry.me</code> — changing it here changes the docs site too, and vice versa.</p>
+      <div class="theme-picker" role="radiogroup" aria-label="Theme">
+        ${THEME_OPTIONS.map((o) => `<button type="button" class="btn theme-opt" data-theme-choice="${o.value}" role="radio" aria-checked="${getThemeChoice() === o.value}">${o.label}</button>`).join('')}
+      </div>
+    </div>
     <div class="panel">
       <strong>Companion server</strong>
       <p class="hint">Start it with <code>npm run node</code> in the repo (default <code>${DEFAULT_COMPANION_URL}</code>), or point this at one running elsewhere (an SSH tunnel, or a machine started with <code>ORRERY_HOST=0.0.0.0</code> and <code>ORRERY_ALLOWED_ORIGINS=&lt;this site's origin&gt;</code>). The origin only; no path.</p>
@@ -48,6 +62,20 @@ npm run dev         # the site, http://localhost:5173</pre>
   const demos = main.querySelector<HTMLDivElement>('#cdemos')!;
   const ac = new AbortController();
 
+  const themeBtns = [...main.querySelectorAll<HTMLButtonElement>('.theme-opt')];
+  const paintTheme = (choice: ThemeChoice) => {
+    themeBtns.forEach((btn) => {
+      const active = btn.dataset.themeChoice === choice;
+      btn.classList.toggle('primary', active);
+      btn.setAttribute('aria-checked', String(active));
+    });
+  };
+  themeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => setThemeChoice(btn.dataset.themeChoice as ThemeChoice), { signal: ac.signal });
+  });
+  paintTheme(getThemeChoice());
+  const unsubTheme = onThemeChange(paintTheme);
+
   const paint = (c: Companion | null) => {
     const url = getCompanionUrl();
     status.className = `companion-banner ${c ? 'live' : 'fallback'}`;
@@ -81,5 +109,5 @@ npm run dev         # the site, http://localhost:5173</pre>
   main.querySelector('#cprobe')!.addEventListener('click', () => { void probe(); }, { signal: ac.signal });
   void probe();
 
-  return () => { ac.abort(); main.remove(); };
+  return () => { ac.abort(); unsubTheme(); main.remove(); };
 }
