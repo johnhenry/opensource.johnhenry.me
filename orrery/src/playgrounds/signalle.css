@@ -35,7 +35,7 @@
 .pg-signalle .sl-graph path.flow { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: 6 5; animation: sl-flow .8s linear; }
 @keyframes sl-flow { from { stroke-dashoffset: 44; } to { stroke-dashoffset: 0; } }
 
-.pg-signalle .sl-node { transition: opacity .35s; cursor: default; }
+.pg-signalle .sl-node { transition: opacity .35s; cursor: pointer; }
 .pg-signalle .sl-node .body { fill: var(--bg-panel); stroke-width: 1.6; }
 .pg-signalle .sl-node.k-source .body { stroke: #7dd3fc; }
 .pg-signalle .sl-node.k-computed .body { stroke: var(--accent); }
@@ -97,9 +97,21 @@
 .pg-signalle .sl-th-k { font: 11px var(--f-mono); color: var(--ink-3); }
 
 /* ---------- batching ---------- */
+/* .grid-2 (site-wide helper) uses minmax(300px, 1fr) tracks — the 300px
+   floor plus a grid item's default auto min-width (content-based) let the
+   sl-small code block force its column past a 390px viewport and drag the
+   whole page into horizontal scroll. min-width: 0 on the column lets the
+   pre's own overflow-x:auto (from the shared pre.code rule) contain it. */
+.pg-signalle .grid-2 > div { min-width: 0; }
 .pg-signalle pre.code.sl-small { font-size: 12px; margin-bottom: 10px; }
 .pg-signalle .sl-batch-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.pg-signalle .sl-table { width: 100%; border-collapse: collapse; font: 12px var(--f-mono); }
+/* 5 columns of header text ("values effect saw", "createEffect runs", …)
+   don't fit 300-ish px no matter how the grid track is capped — table
+   auto-layout ignores width:100% once cell min-content demands more, so on
+   phones this table itself needs to scroll horizontally instead of the
+   whole page doing it. */
+.pg-signalle .sl-table { width: 100%; min-width: 480px; border-collapse: collapse; font: 12px var(--f-mono); }
+.pg-signalle .sl-table-wrap { max-width: 100%; overflow-x: auto; }
 .pg-signalle .sl-table th { text-align: left; color: var(--ink-3); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .pg-signalle .sl-table td { padding: 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .pg-signalle .sl-table td b { color: var(--accent); }

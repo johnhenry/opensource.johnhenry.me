@@ -2,6 +2,12 @@
 
 .pg-circuit {
   display: grid;
+  /* minmax(0, 1fr): a bare grid with no grid-template-columns falls back to
+     an implicit auto column sized to its widest child's max-content width —
+     the marks/theme galleries and the hue-list inside the command palette
+     were enough to blow this out past a phone viewport and drag the whole
+     room into horizontal scroll. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   /* Room-local hue override: redeclares the SAME formula tokens.css uses at
      :root, but reads --hue from THIS element. Because a custom property's
@@ -13,6 +19,11 @@
   --accent-soft: hsl(var(--hue) 95% 53% / 0.09);
   --accent-border: hsl(var(--hue) 95% 46% / 0.35);
 }
+/* A capped track alone isn't enough — each grid ITEM also defaults to
+   min-width:auto (content-based), so wide sections still forced themselves
+   past the track unless explicitly told they may shrink below their
+   content (their own internal layout still wraps/scrolls normally). */
+.pg-circuit > * { min-width: 0; }
 html.dark .pg-circuit,
 [data-theme='dark'] .pg-circuit {
   --accent: hsl(var(--hue) 92% 58%);
@@ -79,6 +90,10 @@ html.dark .pg-circuit,
     hsl(0 85% 55%), hsl(60 85% 55%), hsl(120 85% 55%), hsl(180 85% 55%),
     hsl(240 85% 55%), hsl(300 85% 55%), hsl(360 85% 55%));
   box-shadow: var(--shadow-lg);
+  /* the whole disc is a pointerdown+pointermove drag surface (set the hue
+     from the drag angle); without this, touch-dragging across it also
+     pans/scrolls the page underneath the finger, fighting the gesture. */
+  touch-action: none;
 }
 .pg-circuit .dial::before {
   content: '';
@@ -310,7 +325,11 @@ html.dark .pg-circuit,
 .pg-circuit .contrast-table { display: grid; gap: 6px; }
 .pg-circuit .contrast-row {
   display: grid;
-  grid-template-columns: 130px 1fr 90px 60px;
+  /* minmax(0, 1fr): the hue-registry audit row reuses this class with a
+     long unbroken "themes.css: N° · registry.ts: N°" string in .demo — a
+     bare 1fr still has an auto min-width from that content and pushed the
+     row past a phone viewport. */
+  grid-template-columns: 130px minmax(0, 1fr) 90px 60px;
   gap: 10px;
   align-items: center;
   padding: 6px 8px;
