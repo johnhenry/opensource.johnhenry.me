@@ -1,6 +1,7 @@
 import { createSignals, pointer, scroll, date } from '@johnhenry/css-signals';
 import { getRoomTests, type RoomTests } from './bus';
 import { probeCompanion, hasDemo } from './companion';
+import { subscribeLiveCounts } from './signal-bus';
 import type { PlaygroundEntry } from './registry';
 
 const esc = (s: string) =>
@@ -95,6 +96,16 @@ export async function applyBuildTimeFallback(
   }
 }
 
+/**
+ * "live in N tabs" chip (ROADMAP 4.6/4.11's Signal Bus): a placeholder,
+ * hidden until subscribeLiveCounts() reports a nonzero count for this
+ * planet id from wireRoomCardInteractions() below. Cross-tab presence is
+ * tracked in src/signal-bus.ts, not here.
+ */
+export function liveFor(id: string): string {
+  return `<span class="live-chip" data-live-room="${esc(id)}" hidden><span class="dot"></span><span class="n"></span></span>`;
+}
+
 /** Plug icon for planets that can use the optional Node companion. Coloured once the probe answers. */
 export function plugFor(e: PlaygroundEntry, compact: boolean): string {
   if (!e.companion) return '';
@@ -110,7 +121,7 @@ export function plugFor(e: PlaygroundEntry, compact: boolean): string {
  * same badgeFor()/plugFor() this file already owns.
  */
 export function roomCardHtml(e: PlaygroundEntry, roomTests: Record<string, RoomTests>): string {
-  return `<a class="room-card" href="#/${e.id}" style="--h:${e.hue}"><h3>${esc(e.title)}</h3><p>${esc(e.blurb)}</p><span class="pkg">${esc(e.pkg)}</span>${plugFor(e, false)}${badgeFor(e.id, roomTests, false)}</a>`;
+  return `<a class="room-card" href="#/${e.id}" style="--h:${e.hue}"><h3>${esc(e.title)}</h3><p>${esc(e.blurb)}</p><span class="pkg">${esc(e.pkg)}</span>${plugFor(e, false)}${badgeFor(e.id, roomTests, false)}${liveFor(e.id)}</a>`;
 }
 
 /**
@@ -153,6 +164,22 @@ export function wireRoomCardInteractions(container: HTMLElement, signal: AbortSi
       else { el.classList.add('bad'); el.title = 'Companion is up but this demo failed to mount · click for settings'; }
     });
   });
+
+  // "live in N tabs" (ROADMAP 4.11, Signal Bus): cross-tab presence, kept
+  // live for as long as this card list stays mounted.
+  const offLive = subscribeLiveCounts((counts) => {
+    if (signal.aborted) return;
+    container.querySelectorAll<HTMLElement>('[data-live-room]').forEach((el) => {
+      const id = el.dataset.liveRoom || '';
+      const n = counts[id] ?? 0;
+      el.hidden = n <= 0;
+      if (n > 0) {
+        el.querySelector('.n')!.textContent = `${n} live`;
+        el.title = `${n} tab${n === 1 ? '' : 's'} currently have this planet open`;
+      }
+    });
+  });
+  signal.addEventListener('abort', () => offLive());
 }
 
 /** Deterministic PRNG so the starfield and orbital phases are stable across visits. */
@@ -197,7 +224,7 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
         <div class="arm">
           <a class="planet" href="#/${e.id}" data-i="${i}" style="--size:${size}px" aria-label="${esc(e.title)}: ${esc(e.pkg)}">
             <span class="body" aria-hidden="true"></span>
-            <span class="label">${esc(e.title)}${plugFor(e, true)}${badgeFor(e.id, roomTests, true)}</span>
+            <span class="label">${esc(e.title)}${plugFor(e, true)}${badgeFor(e.id, roomTests, true)}${liveFor(e.id)}</span>
           </a>
         </div>
       </div>`;

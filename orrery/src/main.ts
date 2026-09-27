@@ -19,10 +19,28 @@ void registerEdgeServiceWorker();
 // survives route changes) — owns the single math-plus-telemetry sink slot for the whole page.
 import { mountTelemetryDock } from './telemetry-dock';
 
+// ROADMAP 4.9: one key, many identities — a single Ed25519 keypair shown as
+// four real derived identities (wsh, browsermesh, dialback, OAT), with a
+// single "revoke" reacting across all four. See src/identity-panel.ts.
+import { mountIdentityPanel } from './identity-panel';
+
+// ROADMAP 4.11: Signal Bus — one createBroadcastSignal per planet mirroring
+// writeState()'s deep-link query across tabs, plus cross-tab presence for
+// "live in N tabs" (read by src/home.ts). See src/signal-bus.ts.
+import { mountSignalBus } from './signal-bus';
+
+// ROADMAP 4.10: Laya as a judge everywhere — guardQuestions() pre-passes MCP
+// tool-call arguments before approval and the results of an aimatey
+// Router.dispatchParallel(strategy:'all') call. See src/laya-judge.ts.
+import { mountLayaJudge } from './laya-judge';
+
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
 
 mountTelemetryDock();
+mountIdentityPanel();
+mountSignalBus();
+mountLayaJudge();
 
 /** Raw source of every playground module, for the "view source" drawer. */
 const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;

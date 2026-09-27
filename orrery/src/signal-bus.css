@@ -1,0 +1,60 @@
+/* Signal Bus (ROADMAP 4.11) — per-room corner widget, opposite corner from
+   the telemetry dock / HAR recorder / identity panel stack so it never
+   collides with them. */
+
+.signal-widget {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+  max-width: calc(100vw - 28px);
+}
+
+.sb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3, #666); flex: none; }
+.signal-widget.sb-has-others .sb-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+.sb-changed { color: var(--ink); }
+.sb-sync {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  font: inherit;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.sb-sync:hover { background: var(--bg-inset); }
+
+.signal-widget.sb-pulse { animation: sb-pulse .9s ease; }
+@keyframes sb-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent), 0 8px 24px rgba(0,0,0,.3); }
+  60% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent), 0 8px 24px rgba(0,0,0,.3); }
+  100% { box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+}
+
+/* "live in N tabs" chip on planet cards / orbit labels, updated by
+   src/signal-bus.ts's subscribeLiveCounts(). Hidden (via [hidden]) until a
+   nonzero count arrives. */
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 1.6;
+}
+.live-chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 5px var(--accent); }
