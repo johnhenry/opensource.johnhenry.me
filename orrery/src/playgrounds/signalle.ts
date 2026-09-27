@@ -431,10 +431,12 @@ await batch(async () => {
             </div>
           </div>
           <div>
-            <table class="sl-table">
-              <thead><tr><th>mode</th><th>sum recomputes</th><th>effect(sum) runs</th><th>values effect saw</th><th>createEffect runs</th></tr></thead>
-              <tbody class="sl-batch-rows"><tr class="sl-empty"><td colspan="5">click a button…</td></tr></tbody>
-            </table>
+            <div class="sl-table-wrap">
+              <table class="sl-table">
+                <thead><tr><th>mode</th><th>sum recomputes</th><th>effect(sum) runs</th><th>values effect saw</th><th>createEffect runs</th></tr></thead>
+                <tbody class="sl-batch-rows"><tr class="sl-empty"><td colspan="5">click a button…</td></tr></tbody>
+              </table>
+            </div>
             <p class="sl-muted sl-small-p">Without <code>batch()</code>, the first write starts a recompute before the others land, so
             <code>effect(sum)</code> can observe an intermediate (glitch) total. <code>batch()</code> queues the three signals and, on flush, drives
             them through a single coordinated propagation wave, so <code>sum</code> recomputes exactly once no matter how many of its
@@ -566,6 +568,7 @@ await batch(async () => {
       epoch.timer = later(endEpoch, 140);
     };
 
+    let pinnedNode: string | null = null;
     function layout(L: Loom) {
       const nodes = [...L.nodes.values()];
       const depth = new Map<string, number>();
@@ -643,8 +646,18 @@ await batch(async () => {
         n.valEl.textContent = n.value;
         n.cntEl.textContent = String(n.runs);
         svg.appendChild(g);
-        on(g, 'mouseenter', () => { svg.classList.add('hovering'); highlightChain(L, n.id, true); });
-        on(g, 'mouseleave', () => { svg.classList.remove('hovering'); highlightChain(L, n.id, false); });
+        on(g, 'mouseenter', () => { if (!pinnedNode) { svg.classList.add('hovering'); highlightChain(L, n.id, true); } });
+        on(g, 'mouseleave', () => {
+          if (pinnedNode) { svg.classList.add('hovering'); highlightChain(L, pinnedNode, true); }
+          else { svg.classList.remove('hovering'); highlightChain(L, n.id, false); }
+        });
+        // hover has no touch equivalent, so tapping a node pins the same
+        // dependency-chain highlight (tap again, or tap another node, to
+        // change it); this also gives mouse users a way to lock it in place.
+        on(g, 'click', () => {
+          if (pinnedNode === n.id) { pinnedNode = null; svg.classList.remove('hovering'); highlightChain(L, n.id, false); }
+          else { pinnedNode = n.id; svg.classList.add('hovering'); highlightChain(L, n.id, true); }
+        });
       });
     }
 

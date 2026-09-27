@@ -510,7 +510,8 @@ const playground: Playground = {
           <header><h3>Shared pixels <span class="chip">LWWMap</span></h3><span class="stat" data-r="pxstat"></span></header>
           <canvas data-r="canvas" width="${GRID * 22}" height="${GRID * 22}"></canvas>
           <div class="canvas-foot">
-            <span class="stat" data-r="hover">click or drag to paint in your colour · shift/right-click erases</span>
+            <span class="stat" data-r="hover">click or drag to paint in your colour · shift/right-click erases, or tap "erase" below</span>
+            <button class="btn ghost" data-r="erase" type="button" aria-pressed="false">erase</button>
             <button class="btn ghost" data-r="clear">clear my strokes</button>
           </div>
         </section>
@@ -893,6 +894,19 @@ const playground: Playground = {
     });
 
     /* ---- painting ---- */
+    // shift-click / right-click erase has no touch equivalent (no shift key,
+    // no right-click on a touchscreen), so a plain tap-to-toggle "erase"
+    // button makes it reachable without a mouse. It also just works as a
+    // mouse convenience: leave it on and every click erases.
+    let eraseMode = false;
+    const eraseBtn = $<HTMLButtonElement>('erase');
+    const setEraseMode = (on: boolean) => {
+      eraseMode = on;
+      eraseBtn.classList.toggle('on', on);
+      eraseBtn.setAttribute('aria-pressed', String(on));
+      eraseBtn.textContent = on ? 'erasing — tap to paint instead' : 'erase';
+    };
+    eraseBtn.addEventListener('click', () => setEraseMode(!eraseMode));
     let painting: 'paint' | 'erase' | null = null;
     let lastKey = '';
     const cellAt = (ev: PointerEvent) => {
@@ -908,7 +922,7 @@ const playground: Playground = {
     };
     canvas.addEventListener('contextmenu', ev => ev.preventDefault());
     canvas.addEventListener('pointerdown', ev => {
-      painting = ev.button === 2 || ev.shiftKey ? 'erase' : 'paint';
+      painting = ev.button === 2 || ev.shiftKey || eraseMode ? 'erase' : 'paint';
       lastKey = '';
       canvas.setPointerCapture(ev.pointerId);
       stroke(cellAt(ev));

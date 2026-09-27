@@ -34,7 +34,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 @media (max-width: 700px) {
-  .pg-converter .cv-grid { grid-template-columns: 1fr; }
+  /* plain `1fr` keeps an implicit auto min-width, so a wide pre.code (long
+     header value, curl one-liner, …) still blows the single column past the
+     viewport and drags the whole page into horizontal scroll. minmax(0, 1fr)
+     is what actually caps it, same as the 2-col rule above. */
+  .pg-converter .cv-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .pg-converter .cv-pane .cv-h { justify-content: space-between; }

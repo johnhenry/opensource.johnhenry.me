@@ -1,4 +1,14 @@
-.pg-mcpq { display: grid; gap: 16px; }
+/* minmax(0, 1fr): a bare grid with no grid-template-columns defaults to an
+   implicit auto column sized to its widest child's max-content width — the
+   query-key cache table (5 columns, min-width floors on a couple of them)
+   was blowing that out well past a phone's viewport even though its own
+   .mq-cache-wrap has overflow-x:auto, because the *ancestor* track had no
+   cap to defer to that inner scroll. */
+.pg-mcpq { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* A capped track alone isn't enough — each grid ITEM also defaults to
+   min-width:auto (content-based), so the cache section still forced itself
+   wide unless it's explicitly told it may shrink below its content. */
+.pg-mcpq > * { min-width: 0; }
 .pg-mcpq h3 { margin: 0; font-family: var(--f-display); font-size: 16px; letter-spacing: .01em; }
 .pg-mcpq h4 { margin: 14px 0 6px; font-size: 12px; font-family: var(--f-mono); color: var(--ink-2); font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pg-mcpq header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -67,6 +77,7 @@
 
 /* two-up grids */
 .mq-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); align-items: start; }
+.mq-grid > .panel { min-width: 0; }
 
 /* tool call */
 .mq-call-panel .mq-tool { flex: 1; min-width: 160px; }
@@ -198,3 +209,7 @@
 /* explainer */
 .mq-explain ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; color: var(--ink-2); font-size: 13.5px; max-width: 95ch; }
 .mq-explain b { color: var(--ink); }
+/* some inline <code> tool lists ("symbolic_parse/simplify/differentiate/…")
+   are one unbroken run with no space to wrap at, wide enough on its own to
+   force the whole page into horizontal scroll on a phone. */
+.mq-explain code { overflow-wrap: break-word; word-break: break-word; }
