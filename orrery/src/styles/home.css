@@ -9,7 +9,15 @@
 
 .home {
   position: relative;
+  /* 100vh on iOS Safari is the height WITH the address bar collapsed, so it
+     doesn't match the actually-visible viewport most of the time -- the
+     browser chrome showing/hiding as you scroll changes the real visible
+     height without changing 100vh, which is a well-known source of layout
+     jumps on iPhone. 100dvh (dynamic viewport height) tracks the real
+     visible area instead; kept as a second declaration (not a replacement)
+     so browsers without dvh support keep the 100vh fallback above it. */
   min-height: calc(100vh - 52px);
+  min-height: calc(100dvh - 52px);
   overflow: hidden;
   isolation: isolate;
   background: #03050d;
