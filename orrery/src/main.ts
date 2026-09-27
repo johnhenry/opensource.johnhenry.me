@@ -1,6 +1,6 @@
 import './styles/base.css';
 import './styles/home.css';
-import { playgrounds } from './registry';
+import { playgrounds, pkgDocsUrl, type PlaygroundEntry } from './registry';
 import { renderHome } from './home';
 import { openSiteDrawer } from './site-drawer';
 // Site theme, bridged into the root docs site's own `starlight-theme`
@@ -70,8 +70,24 @@ const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 
 const DOCS: Record<string, string> = {
   signals: 'css-signals', chunker: 'semantic-chunker', fields: 'http-fields', converter: 'http-converter',
   mesh: 'browsermesh', jj: 'isomorphic-jj', studio: 'servable', mcpq: 'agent-query', laya: 'laya-js', objectify: 'objectify', toolcode: 'aimatey-middleware-andbox', tensor: 'math', grapher: 'math', afm: 'apple-foundation-models',
+  // @johnhenry/iteration is a page under /math/, not its own top-level docs section
+  // (see registry.ts's PKG_DOCS, which is the ground-truthed source for this fold).
+  iteration: 'math',
 };
 export function docsUrl(id: string) { return `https://opensource.johnhenry.me/${DOCS[id] ?? id}/`; }
+
+/** Room-head chips: primary pkg first, then any secondaryPkgs, each linking to
+ *  its real docs section (registry.ts's PKG_DOCS) when known, or an unlinked
+ *  `.chip` span when it isn't — never a link to a URL we can't confirm exists. */
+function chipsHtml(entry: PlaygroundEntry): string {
+  const pkgs = [entry.pkg, ...(entry.secondaryPkgs ?? [])];
+  return pkgs.map((pkg) => {
+    const href = pkgDocsUrl(pkg);
+    return href
+      ? `<a class="chip" href="${href}" target="_blank" rel="noopener">${pkg}</a>`
+      : `<span class="chip">${pkg}</span>`;
+  }).join('');
+}
 
 function setHue(h: number) { document.documentElement.style.setProperty('--hue', String(h)); }
 
@@ -113,7 +129,7 @@ async function route() {
   document.title = `${entry.title} · ORRERY`;
   siteChrome.setEntry(entry, docsUrl(entry.id));
   app.innerHTML = `<main class="room">
-    <div class="room-head"><h1>${entry.title}</h1><span class="chip">${entry.pkg}</span><p>${entry.blurb}</p></div>
+    <div class="room-head"><h1>${entry.title}</h1><div class="chips">${chipsHtml(entry)}</div><p>${entry.blurb}</p></div>
     <div id="host" class="loading">loading ${entry.pkg}…</div>
   </main>`;
   const host = document.getElementById('host')!;
