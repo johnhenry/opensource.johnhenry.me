@@ -167,6 +167,29 @@ html { max-width: 100%; overflow-x: hidden; }
 .home .planet .companion-plug { padding: 0 4px; }
 a.tb-btn { text-decoration: none; }
 
+/* ---- version-available banner (src/version-check.ts) ---- */
+/* Bottom-left, deliberately: the Dev Drawer widget lives bottom-right
+   (src/dev-drawer.css) -- this stays clear of it rather than stacking. */
+.version-banner {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  max-width: calc(100vw - 28px);
+  background: var(--bg-panel);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+  font-size: 13px;
+  color: var(--ink);
+}
+.version-banner .btn { padding: 5px 12px; font-size: 12px; flex: none; }
+.version-banner .tb-btn { padding: 4px 8px; flex: none; }
+
 /* ---- settings page ---- */
 .settings .panel { margin-bottom: 16px; }
 .theme-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
