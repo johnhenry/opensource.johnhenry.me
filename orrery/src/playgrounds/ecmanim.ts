@@ -161,6 +161,7 @@ class Ripple extends Scene {
 export interface RotorPayload { planes: string[]; k: number; angle: number; vector: number[]; steps: number; camera?: { yaw: number; pitch: number } }
 export interface JuliaPayload { kind: 'julia' | 'mandelbrot'; c: [number, number]; zoom: number; center: [number, number]; span: number; iterations: number }
 export interface GraphPayload { expr: string; xRange: [number, number]; a: number }
+export interface VectorFieldPayload { preset: 'well' | 'saddle' | 'vortex'; xRange: [number, number, number]; yRange: [number, number, number]; probe: [number, number] }
 export interface Generated { kind: string; payload: unknown }
 
 const PLANE_NAMES = ['xy', 'xz', 'xw', 'yz', 'yw', 'zw'];
@@ -396,6 +397,84 @@ class GraphFromObservatory extends Scene {
 }`;
 }
 
+function vectorFieldSource(p: VectorFieldPayload): string {
+  const preset = p.preset === 'saddle' || p.preset === 'vortex' ? p.preset : 'well';
+  const xr = Array.isArray(p.xRange) && p.xRange.length === 3 ? p.xRange.map(Number) : [-3, 3, 0.5];
+  const yr = Array.isArray(p.yRange) && p.yRange.length === 3 ? p.yRange.map(Number) : [-3, 3, 0.5];
+  const probe = Array.isArray(p.probe) && p.probe.length === 2 ? p.probe.map(Number) : [0.9, 0.4];
+  const label = preset === 'well' ? 'Potential well  Φ = ½(x²+y²)   F = ∇Φ'
+    : preset === 'saddle' ? 'Saddle  Φ = ½(x²−y²)   F = ∇Φ'
+    : 'Vortex  F = (−y, x)   — not a gradient field';
+  return `import { Scene, ArrowVectorField, StreamLines, Text, Dot, Group,
+  Write, Create, FadeIn, FadeOut, GOLD, BLUE_E, TEAL, RED } from "@johnhenry/ecmanim/browser";
+import { DualNumber, VectorCalculus } from "@johnhenry/math";
+
+// ← exported from the Math Observatory (Vector calculus)
+const PRESET  = "${preset}";
+const X_RANGE = [${lit(xr[0])}, ${lit(xr[1])}, ${lit(xr[2], 3, 0.5)}];
+const Y_RANGE = [${lit(yr[0])}, ${lit(yr[1])}, ${lit(yr[2], 3, 0.5)}];
+const PROBE   = [${lit(probe[0])}, ${lit(probe[1])}];
+const LABEL   = ${JSON.stringify(label)};
+
+// Same field the Observatory offered: a scalar potential for the gradient
+// presets (rendered via VectorCalculus.gradient, point by point — real
+// autodiff, not a closed form) and a DualNumber-native form of the field
+// itself (for VectorCalculus.divergence / .curl3D — composing autodiff of
+// autodiff isn't supported, so this is the same formula hand-derived once).
+const potentialDual = (xs) => PRESET === "saddle"
+  ? xs[0].pow(2).subtract(xs[1].pow(2)).multiply(0.5)
+  : xs[0].pow(2).add(xs[1].pow(2)).multiply(0.5);
+const fieldDual = (xs) => PRESET === "vortex"
+  ? [xs[1].negate(), xs[0]]
+  : [xs[0], PRESET === "saddle" ? xs[1].negate() : xs[1]];
+const field3Dual = (xs) => {
+  const [fx, fy] = fieldDual([xs[0], xs[1]]);
+  return [fx, fy, DualNumber.constant(0)];
+};
+
+/** The field function ArrowVectorField/StreamLines sample: point [x, y, z] → vector [vx, vy, vz]. */
+function fieldXY(point) {
+  const [x, y] = point;
+  if (PRESET === "vortex") return [-y, x, 0];
+  const g = VectorCalculus.gradient(potentialDual, [x, y]);
+  return [g[0], g[1], 0];
+}
+
+const DIVERGENCE = VectorCalculus.divergence(fieldDual, PROBE);
+const CURL_Z = VectorCalculus.curl3D(field3Dual, [PROBE[0], PROBE[1], 0])[2];
+
+class VectorFieldFromObservatory extends Scene {
+  async construct() {
+    const title = new Text(LABEL, { fontSize: 0.4, color: GOLD });
+    title.moveTo([0, 3.5, 0]);
+    await this.play(new Write(title), { runTime: 1 });
+
+    const field = new ArrowVectorField(fieldXY, {
+      xRange: X_RANGE, yRange: Y_RANGE,
+      minColor: BLUE_E, maxColor: RED, strokeWidth: 2.5,
+    });
+    await this.play(new Create(field), { runTime: 2 });
+
+    const probe = new Dot({ point: [PROBE[0], PROBE[1], 0], radius: 0.11, color: "#ffffff" });
+    const readout = new Text(
+      "div F = " + DIVERGENCE.toFixed(3) + "    curl F·ẑ = " + CURL_Z.toFixed(3) + "    at (" + PROBE[0] + ", " + PROBE[1] + ")",
+      { fontSize: 0.32, color: TEAL },
+    );
+    readout.moveTo([0, -3.4, 0]);
+    await this.play(new FadeIn(probe), new Write(readout), { runTime: 0.8 });
+    await this.wait(1);
+
+    const stream = new StreamLines(fieldXY, {
+      xRange: X_RANGE, yRange: Y_RANGE, strokeWidth: 1.6,
+      minColor: BLUE_E, maxColor: TEAL, virtualTime: 3, dt: 0.05,
+    });
+    await this.play(new FadeOut(field), new FadeIn(stream), { runTime: 1.2 });
+    await this.wait(1.5);
+    await this.play(new FadeOut(new Group(title, stream, probe, readout)));
+  }
+}`;
+}
+
 /** Build a fifth "From Math Observatory" scene from a math-* handoff. */
 export function sceneFromMath(g: Generated): Preset | null {
   const p = (g.payload ?? {}) as any;
@@ -410,6 +489,10 @@ export function sceneFromMath(g: Generated): Preset | null {
   if (g.kind === 'math-graph') return {
     id: 'math', name: 'From Math Observatory', source: graphSource(p),
     note: `f(x) = ${String(p.expr)} compiled by Symbolic.compile and drawn with Axes.plot over the Observatory's x-range; poles and gaps split the curve into runs.`,
+  };
+  if (g.kind === 'math-vector-field') return {
+    id: 'math', name: 'From Math Observatory', source: vectorFieldSource(p),
+    note: `The ${p.preset === 'vortex' ? 'vortex field' : p.preset === 'saddle' ? 'saddle potential' : 'potential well'} from the Observatory: an ArrowVectorField sampled with VectorCalculus.gradient, its divergence and curl3D recomputed live at the probe point, then a StreamLines pass traces the flow.`,
   };
   return null;
 }
@@ -537,7 +620,10 @@ const playground: Playground = {
       </div>`;
     host.appendChild(root);
     if (incoming && fromMath) {
-      const what = incoming.kind === 'math-rotor' ? 'a 4D rotor' : incoming.kind === 'math-julia' ? 'a fractal view' : 'a symbolic function';
+      const what = incoming.kind === 'math-rotor' ? 'a 4D rotor'
+        : incoming.kind === 'math-julia' ? 'a fractal view'
+        : incoming.kind === 'math-vector-field' ? 'a vector field'
+        : 'a symbolic function';
       root.prepend(handoffBanner(incoming, `Built a new Scene from ${what} — see the <b>From Math Observatory</b> tab and its generated source.`));
     }
 
