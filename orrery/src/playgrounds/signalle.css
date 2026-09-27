@@ -1,6 +1,6 @@
 .pg-signalle { display: grid; gap: 16px; }
 .pg-signalle h2 { font-family: var(--f-display); font-size: 20px; margin: 0 0 6px; }
-.pg-signalle code { font-family: var(--f-mono); font-size: .92em; color: var(--accent); }
+.pg-signalle code { font-family: var(--f-mono); font-size: .92em; color: var(--accent); white-space: nowrap; }
 .pg-signalle .sl-muted { color: var(--ink-2); margin: 0 0 12px; max-width: 80ch; }
 .pg-signalle .sl-intro p { margin: 0; color: var(--ink-2); max-width: 90ch; }
 
@@ -19,7 +19,9 @@
   background: radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%), var(--code-bg);
   border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto;
 }
-.pg-signalle .sl-graph { width: 100%; min-width: 620px; display: block; height: auto; }
+/* width/height are set inline by renderGraph() (native px, not a shrink-to-fit
+   percentage) so node-label text never scales below its declared 12px. */
+.pg-signalle .sl-graph { min-width: 620px; display: block; }
 .pg-signalle .sl-legend { display: flex; gap: 14px; flex-wrap: wrap; font: 11px var(--f-mono); color: var(--ink-3); padding: 6px 4px 0; }
 .pg-signalle .sl-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid; }
 .pg-signalle .sl-legend .k-source::before { border-radius: 50%; border-color: #7dd3fc; }
@@ -115,11 +117,21 @@
 .pg-signalle .sl-dom-inputs input[type=range] { accent-color: var(--accent); padding: 0; }
 .pg-signalle .sl-card {
   --card-hue: 280;
+  margin-top: 8px;
   border-radius: 14px; padding: 16px; border: 1px solid hsl(var(--card-hue) 70% 60% / .5);
   background: linear-gradient(135deg, hsl(var(--card-hue) 60% 22% / .8), var(--bg-inset));
   transition: box-shadow .4s, border-color .4s, background .4s;
 }
-.pg-signalle .sl-card.is-hot { box-shadow: 0 0 0 2px #fb923c, 0 0 36px -6px #fb923c; }
+/* the dark gradient stop is theme-independent by design (a colorful tinted card),
+   but it left the default (dark, theme-following) --ink text nearly invisible over
+   that dark corner in light mode -- flip to a light tint + dark text there instead. */
+html.light .pg-signalle .sl-card {
+  background: linear-gradient(135deg, hsl(var(--card-hue) 65% 93% / .9), var(--bg-inset));
+}
+html.light .pg-signalle .sl-card h3,
+html.light .pg-signalle .sl-card .d-pct { color: hsl(var(--card-hue) 55% 28%); }
+/* keep the glow contained to the card instead of bleeding onto the inputs row above it. */
+.pg-signalle .sl-card.is-hot { box-shadow: 0 0 0 2px #fb923c, 0 0 18px -6px #fb923c; }
 .pg-signalle .sl-card h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 22px; }
 .pg-signalle .sl-meter { height: 10px; border-radius: 6px; background: var(--code-bg); overflow: hidden; }
 .pg-signalle .sl-meter > div { height: 100%; background: hsl(var(--card-hue) 85% 65%); transition: width .25s; }

@@ -6,6 +6,9 @@
 .pg-fields .fld-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .pg-fields .fld-row .field { min-width: 160px; flex: 1 1 160px; }
 .pg-fields .fld-row .field:nth-child(2) { flex: 1 1 220px; }
+/* the preset <select>'s intrinsic (content) width can exceed its 240px field column
+   and run under the next field (Header name) -- force it to respect the column. */
+.pg-fields .fld-preset { width: 100%; min-width: 0; }
 .pg-fields .fld-detected { align-self: center; margin-bottom: 2px; white-space: nowrap; }
 .pg-fields .fld-copy-link { align-self: center; margin-bottom: 2px; white-space: nowrap; font-size: 12px; padding: 6px 10px; }
 .pg-fields .fld-value { min-height: 64px; }
@@ -42,9 +45,13 @@
 .pg-fields .bd-innerlist    { background: hsl(30 12% 20%);  color: hsl(30 20% 72%);  border-color: hsl(30 12% 40%); }
 .pg-fields .bd-unknown      { background: var(--bg-inset);  color: var(--ink-3); }
 
-/* Diff */
-.pg-fields .fld-diff { display: grid; gap: 6px; }
-.pg-fields .fld-diff-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; }
+/* Diff: the "input" / "canonical" rows used to each be their own independent
+   auto/1fr grid, so the label column sized itself per-row -- a longer "canonical"
+   chip pushed that row's value column further right than "input"'s. Make the
+   label column shared by both rows (a single grid + display:contents rows) so
+   both values start at the same x, and center each row instead of top-aligning. */
+.pg-fields .fld-diff { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
+.pg-fields .fld-diff-row { display: contents; }
 .pg-fields .fld-diff-line { margin: 0; white-space: pre-wrap; word-break: break-all; max-height: 160px; }
 .pg-fields .fld-diff-del { background: hsl(0 60% 25%); color: hsl(0 85% 85%); text-decoration: line-through; border-radius: 2px; }
 .pg-fields .fld-diff-ins { background: hsl(140 45% 22%); color: hsl(140 75% 85%); border-radius: 2px; }

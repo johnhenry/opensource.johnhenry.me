@@ -603,7 +603,15 @@ await batch(async () => {
       const W = padX * 2 + (cols.length - 1) * colW + w;
       const H = padY * 2 + maxRow * rowH + h;
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      svg.style.aspectRatio = `${W} / ${H}`;
+      // Render at (approximately) 1 SVG user-unit == 1 CSS px, never smaller: with
+      // width:100% + aspect-ratio, a graph with many columns (deep dependency chains)
+      // got squeezed to fit the panel width, shrinking 12px node-label text down to
+      // ~7px in the process. Below the 620px floor, stretch up to fill the panel
+      // (small graphs still look intentional); above it, render at native size and
+      // let .sl-graph-wrap's overflow-x:auto handle the scroll instead of the font.
+      const renderW = Math.max(W, 620);
+      svg.style.width = `${renderW}px`;
+      svg.style.height = `${Math.round((H * renderW) / W)}px`;
       svg.innerHTML = `<defs><marker id="sl-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="sl-arrowhead"/></marker></defs>`;
       const edges = document.createElementNS(SVGNS, 'g');
       svg.appendChild(edges);
