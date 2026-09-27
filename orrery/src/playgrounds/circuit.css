@@ -97,6 +97,22 @@ html.dark .pg-circuit,
   justify-content: center;
   font-family: var(--f-mono);
   z-index: 2;
+  pointer-events: none;
+}
+/* A small opaque hub behind the readout text, so the needle (which starts at the exact
+   centre of the dial) doesn't visibly run through the numerals underneath it. */
+.pg-circuit .dial .dial-center::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  z-index: -1;
 }
 .pg-circuit .dial .dial-center .hv { font-size: 30px; font-weight: 700; color: var(--accent); }
 .pg-circuit .dial .dial-center .hl { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
@@ -112,7 +128,7 @@ html.dark .pg-circuit,
   transition: transform var(--t-fast);
   z-index: 3;
 }
-.pg-circuit .dial .dot:hover { transform: scale(1.35); }
+.pg-circuit .dial .dot:hover { transform: scale(1.35); z-index: 4; }
 .pg-circuit .dial .dot.here { box-shadow: 0 0 0 3px var(--bg-panel), 0 0 0 5px var(--accent); }
 .pg-circuit .dial .needle {
   position: absolute;
@@ -197,7 +213,7 @@ html.dark .pg-circuit,
 .pg-circuit .tok-swatch { height: 40px; }
 .pg-circuit .tok-meta { padding: 6px 8px; }
 .pg-circuit .tok-name { font: 700 11px var(--f-mono); color: var(--ink); display: block; }
-.pg-circuit .tok-val { font: 10.5px var(--f-mono); color: var(--ink-3); display: block; word-break: break-all; }
+.pg-circuit .tok-val { font: 10.5px var(--f-mono); color: var(--ink-3); display: block; word-break: normal; overflow-wrap: break-word; }
 .pg-circuit .tok-cell.space .tok-swatch,
 .pg-circuit .tok-cell.radius .tok-swatch { background: var(--bg-inset); display: flex; align-items: center; padding: 0 8px; }
 .pg-circuit .tok-cell.space .bar { height: 10px; background: var(--accent); border-radius: 3px; }
@@ -231,6 +247,12 @@ html.dark .pg-circuit,
 .pg-circuit .demo-card { background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px; box-shadow: var(--shadow-sm); }
 .pg-circuit .demo-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--ink); }
 .pg-circuit .demo-card p { margin: 0; font-size: 12px; color: var(--ink-2); }
+/* The real components.css ships `.c-badge.error` (badge variant, 2-class specificity) but the
+   site-wide base.css also ships a generic `.loading, .error { padding: 40px; ... }` helper for
+   error boxes — same specificity, and whichever rule lands later in the cascade wins, which was
+   turning the badge into a 119x97 blob. Re-assert the real badge padding at higher specificity
+   scoped to this room only (we can't touch the shared base.css or components.css from here). */
+.pg-circuit .c-badge.error { padding: 3px 9px; }
 /* c-header/c-side assume a full-width docs shell; give them a border and let
    them wrap so they read sensibly inside a narrow showcase card instead of
    overflowing it. */
@@ -295,7 +317,9 @@ html.dark .pg-circuit,
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
 }
-.pg-circuit .contrast-row .pair { font: 11px var(--f-mono); color: var(--ink-2); }
+/* keep-all: browsers otherwise treat the hyphens in "--ink-2 on --bg-panel" as line-break
+   opportunities, splitting token names mid-word ("--bg-\npanel") in the narrow label column. */
+.pg-circuit .contrast-row .pair { font: 11px var(--f-mono); color: var(--ink-2); word-break: keep-all; overflow-wrap: break-word; }
 .pg-circuit .contrast-row .demo {
   border-radius: 6px;
   padding: 6px 10px;

@@ -1113,7 +1113,7 @@ const TEMPLATE = `
       <div class="mq-tl-filters">
         <label><input type="checkbox" value="req" checked>req</label><label><input type="checkbox" value="res" checked>res</label><label><input type="checkbox" value="err" checked>err</label><label><input type="checkbox" value="note" checked>notif</label><label><input type="checkbox" value="gate" checked>gate</label><label><input type="checkbox" value="cache" checked>cache</label><label><input type="checkbox" value="audit" checked>audit</label>
       </div>
-      <button class="mini mq-pause">pause</button><button class="mini mq-clear">clear</button>
+      <div class="mq-tl-btns"><button class="mini mq-pause">pause</button><button class="mini mq-clear">clear</button></div>
     </header>
     <div class="mq-lanes"><div class="pillar client">client<br><small>mcp-query</small></div><div class="wire-line"></div><div class="pillar server">server<br><small id="mq-server-label">in-page</small></div></div>
     <div class="mq-tl-list"></div>

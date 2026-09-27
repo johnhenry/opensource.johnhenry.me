@@ -8,8 +8,12 @@
 .ob-banner b { color: var(--ink); }
 .ob-banner .linklike { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font: inherit; text-decoration: underline; }
 
-.ob-layout { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 980px) { .ob-layout { grid-template-columns: 1fr 1.3fr 1fr; align-items: start; } }
+.ob-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+/* The terminal's help table needs real width (~600px) to stay legible without horizontal
+   scrolling; a 3-way equal split left it clipping every command description. Give the terminal
+   about 2/3 of the row and stack Class editor + State & history in the narrower column instead. */
+@media (min-width: 980px) { .ob-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; } }
+.ob-layout-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .ob-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 
 .ob-presets { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -18,6 +22,7 @@
 
 #ob-source { min-height: 220px; }
 .ob-editor-row { display: flex; align-items: center; gap: 10px; }
+.ob-editor-row .btn { white-space: nowrap; flex: 0 0 auto; }
 #ob-parse-stat { font-family: var(--f-mono); }
 #ob-parse-stat.bad { color: var(--error); }
 .ob-reflection { min-height: 60px; max-height: 140px; font-size: 12px; }

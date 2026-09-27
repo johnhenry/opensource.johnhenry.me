@@ -21,7 +21,10 @@
 /* wire/IR panels */
 .pg-aimatey .am-wire-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .pg-aimatey .am-wire-grid pre.code { max-height: 220px; font-size: 11.5px; margin: 0; }
-.pg-aimatey .am-wire-grid .am-wire-label { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 6px; }
+/* Labels vary in length ("IR (frontend.toIR)" vs "Response (wire format, frontend.fromIR)"); the
+   longer ones wrap to 2 lines and push their <pre> box lower than its row neighbours. Reserve
+   room for 2 lines and bottom-align so every pre in the row starts at the same y. */
+.pg-aimatey .am-wire-grid .am-wire-label { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); margin-bottom: 4px; display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; min-height: 2.4em; }
 .pg-aimatey .am-cache-hit { color: var(--success); }
 
 /* middleware editor */
@@ -31,7 +34,9 @@
 .pg-aimatey .am-mw-row.fail { border-color: var(--error); box-shadow: 0 0 0 2px color-mix(in srgb, var(--error) 25%, transparent); }
 .pg-aimatey .am-mw-row .am-mw-name { font-family: var(--f-mono); font-size: 12.5px; flex: 1; }
 .pg-aimatey .am-mw-row .am-mw-desc { color: var(--ink-3); font-size: 11px; }
-.pg-aimatey .am-mw-row input[type="text"] { flex: 1; min-width: 120px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); color: inherit; font: inherit; font-size: 12px; }
+/* This input is nested inside a plain (non-flex) wrapper div, so `flex: 1` never actually
+   applies to it — it was falling back to the browser's intrinsic ~20ch width and truncating. */
+.pg-aimatey .am-mw-row input[type="text"] { flex: 1; width: 100%; min-width: 120px; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); color: inherit; font: inherit; font-size: 12px; margin-top: 4px; }
 
 /* event log */
 .pg-aimatey .am-log { font-family: var(--f-mono); font-size: 11.5px; height: 220px; overflow: auto; display: flex; flex-direction: column; gap: 3px; }
@@ -59,7 +64,10 @@
 .pg-aimatey .am-apple-toggle { margin-top: 6px; font-size: 10.5px; padding: 3px 9px; }
 
 /* flow diagram */
-.pg-aimatey .am-flow { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 14px 8px; }
+/* This row can be wider than its panel (e.g. slow-flaky -> Response), and overflow:auto alone
+   left the scrollbar as the only affordance, so the tail of the flow was easy to miss entirely.
+   Wrap instead, so the whole pipeline is always visible without scrolling. */
+.pg-aimatey .am-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 6px; overflow-x: auto; padding: 14px 8px; }
 .pg-aimatey .am-node { flex: 0 0 auto; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); font-size: 11.5px; text-align: center; transition: all .25s; white-space: nowrap; }
 .pg-aimatey .am-node.on { opacity: 1; }
 .pg-aimatey .am-node.off { opacity: .35; }
