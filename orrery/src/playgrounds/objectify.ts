@@ -1,26 +1,43 @@
 import type { Playground } from '../registry';
 import { readState, writeState, copyLink } from '../state';
+import { probeCompanion, hasDemo, companionBanner, type Companion } from '../companion';
 import './objectify.css';
 
 /**
  * ── Objectify Bench ─────────────────────────────────────────────────────────
- * objectify (github.com/johnhenry/objectify) is a single Rust binary: write a
- * class, drop it in `.objectify/classes/`, and every method on it becomes a
- * shell command — `objectify use <id> <method> --json '{...}'` — with every
- * call versioned into a SQLite-backed history. There is no npm package to
- * import here (see docs — the npm shim is unpublished), so this planet is an
- * IN-BROWSER EMULATION of that command model, not the real binary:
+ * `@johnhenry/objectify` (npm, published 2026-09-26) is a TypeScript adapter
+ * over `better-sqlite3`: `Objectify.create/use/list/inspect/destroy/gc` and
+ * `ObjectRef.get/set/log/diff/rewind/fork/call`. It talks directly to the same
+ * SQLite file the standalone `objectify` Rust CLI writes. `better-sqlite3` is
+ * a native Node module, so none of this can run in a browser tab on its own —
+ * this planet always ships the in-page emulation below as its zero-input
+ * default, and additionally talks to a REAL store through the optional Node
+ * companion (`server/demos/objectify.mjs`) when one is running.
  *
- *   - "SQLite" is `localStorage`.
- *   - A "class" is parsed from user-typed source with `new Function(...)`.
- *   - Methods are reflected off `ClassRef.prototype` (own property names,
- *     skipping `constructor`), and their parameter names are read back out
- *     of `Function.prototype.toString()` on each method — the same trick
- *     the real tool's schema extractor performs on TS/Python source.
- *   - Object state is the instance's own enumerable fields *after* a method
- *     runs (`this.foo = …`) — this stands in for the real tool's injected
- *     `this.get()` / `this.set()` — snapshotted as a new version every call,
- *     exactly like the real tool's full-snapshot event log.
+ * Two run modes, chosen automatically per session (see mount()):
+ *   - Companion live: every store operation below — create, list, inspect,
+ *     destroy, get, set, log, diff, rewind, fork — is a real HTTP call to a
+ *     real `@johnhenry/objectify` instance writing a real SQLite file on the
+ *     companion machine. No Rust CLI or `objectify init` step is needed for
+ *     this: `new Objectify({ dir })` opens-or-creates the schema itself.
+ *   - Companion absent: the same operations run against an in-page stand-in
+ *     — "SQLite" is `localStorage`, ids/diff/rewind/fork are reimplemented
+ *     locally — behaviourally the same CLI model, honestly labelled.
+ *
+ * One thing stays emulated in BOTH modes: `use <id> <method>` (calling a
+ * method on a class loaded in the editor). The real package's class-method
+ * execution (`ObjectRef.call`) spawns a Deno/Python subprocess against a
+ * `.ts`/`.py` file that must explicitly call an injected `this.get()` /
+ * `this.set()` — a protocol this room's plain-field-mutation class editor
+ * doesn't (and, for teaching purposes, shouldn't) use. So methods are always
+ * reflected off `ClassRef.prototype` and run with `new Function(...)` right
+ * here, exactly as before — but when the companion is live, a state-changing
+ * method call is *persisted* into the real store via `ObjectRef.set()`
+ * afterwards, so the object's version history, diff, rewind and fork are
+ * genuinely backed by the real package. The one honest wrinkle: `set()`
+ * always logs its event as method "set" (see the package's own
+ * `object-ref.ts`), so a real `log` shows "set" where the in-page emulation
+ * would have shown the original method name — the banner below says so.
  */
 
 // ── types ───────────────────────────────────────────────────────────────────
@@ -30,8 +47,9 @@ type JSONValue = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 interface MethodInfo { name: string; params: string[] }
 interface ClassInfo { name: string; ctor: new (...a: unknown[]) => unknown; methods: MethodInfo[] }
 
-interface VersionRec { version: number; method: string; at: number; state: JSONValue; result?: JSONValue }
-interface InstanceRec { id: string; className: string; description: string; createdAt: number; versions: VersionRec[] }
+interface LogEntry { version: number; method: string; at: string }
+interface DiffOp { op: 'add' | 'remove' | 'replace'; path: string; value?: JSONValue }
+interface InstanceSummary { id: string; className: string; description: string; versions: number; created: string }
 
 interface RoomState extends Record<string, unknown> { preset: string; instance: string }
 
@@ -189,7 +207,7 @@ function extractParamNames(paramsRaw: string): string[] {
     .filter(Boolean);
 }
 
-// ── instance execution ────────────────────────────────────────────────────
+// ── instance execution (method calls — always in-page, see file header) ─────
 
 function snapshot(inst: object): JSONValue {
   const out: Record<string, JSONValue> = {};
@@ -211,15 +229,15 @@ function callMethod(cls: ClassInfo, state: JSONValue, method: string, arg: JSONV
   const impl = proto[method];
   if (typeof impl !== 'function') throw new Error(`no such method: ${method}`);
   const inst = Object.create(cls.ctor.prototype);
-  Object.assign(inst, state);
+  Object.assign(inst, state ?? {});
   const result = impl.call(inst, arg);
   if (result && typeof (result as { then?: unknown }).then === 'function') {
-    throw new Error('async methods are not supported by this emulation — keep methods synchronous');
+    throw new Error('async methods are not supported by this room — keep methods synchronous');
   }
   return { state: snapshot(inst), result: result === undefined ? null : JSON.parse(JSON.stringify(result)) };
 }
 
-// ── ids / storage ────────────────────────────────────────────────────────
+// ── ids (local backend only — the companion backend lets the server resolve prefixes) ─
 
 function newId(): string {
   const bytes = new Uint8Array(16);
@@ -227,42 +245,7 @@ function newId(): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function shortIdFor(id: string, all: InstanceRec[]): string {
-  for (let len = 4; len <= id.length; len++) {
-    const p = id.slice(0, len);
-    if (all.filter((o) => o.id.startsWith(p)).length === 1) return p;
-  }
-  return id;
-}
-
-function resolve(prefix: string, all: InstanceRec[]): InstanceRec {
-  if (!prefix) throw new Error('missing object id');
-  const matches = all.filter((o) => o.id.startsWith(prefix));
-  if (matches.length === 0) throw new Error(`no object matching "${prefix}"`);
-  if (matches.length > 1) throw new Error(`ambiguous id "${prefix}" — ${matches.length} matches`);
-  return matches[0];
-}
-
-const STORAGE_KEY = 'orrery:objectify:instances:v1';
-
-function loadInstances(): InstanceRec[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-function saveInstances(list: InstanceRec[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {
-    /* ignore quota errors */
-  }
-}
-
-// ── tiny JSON-patch-ish diff (RFC 6902 flavoured, not fully compliant) ───────
-
-interface DiffOp { op: 'add' | 'remove' | 'replace'; path: string; value?: JSONValue }
+// ── tiny JSON-patch-ish diff (RFC 6902 flavoured, not fully compliant; used by the local backend) ──
 
 function diffValues(a: JSONValue, b: JSONValue, path = ''): DiffOp[] {
   if (a === b) return [];
@@ -349,17 +332,232 @@ function buildArg(tokens: string[]): JSONValue {
   return undefined;
 }
 
+// ── backend abstraction ──────────────────────────────────────────────────────
+// Everything the terminal needs from a store, implemented once against
+// localStorage (always available) and once against the companion's real
+// @johnhenry/objectify routes (when it's running). Class-method *execution*
+// never goes through here (see file header) — only state storage/versioning.
+
+interface Backend {
+  readonly kind: 'local' | 'companion';
+  create(description: string, className: string): Promise<string>;
+  list(): Promise<InstanceSummary[]>;
+  inspect(id: string): Promise<InstanceSummary>;
+  destroy(id: string): Promise<string>;
+  get(id: string, version?: number): Promise<JSONValue>;
+  /** Writes a new version. `method` is preserved verbatim by the local backend;
+   *  the companion backend always logs it as "set" (a real limitation of
+   *  ObjectRef.set() — see file header). */
+  persistWrite(id: string, method: string, state: JSONValue): Promise<void>;
+  log(id: string): Promise<LogEntry[]>;
+  diff(id: string, v1: number, v2: number): Promise<DiffOp[]>;
+  rewind(id: string, version: number): Promise<{ rewoundTo: number; newVersion: number }>;
+  fork(id: string, at?: number): Promise<string>;
+}
+
+interface VersionRec { version: number; method: string; at: number; state: JSONValue }
+interface InstanceRec { id: string; className: string; description: string; createdAt: number; versions: VersionRec[] }
+
+const STORAGE_KEY = 'orrery:objectify:instances:v1';
+
+function shortIdFor(id: string, all: InstanceRec[]): string {
+  for (let len = 4; len <= id.length; len++) {
+    const p = id.slice(0, len);
+    if (all.filter((o) => o.id.startsWith(p)).length === 1) return p;
+  }
+  return id;
+}
+
+function resolveRec(prefix: string, all: InstanceRec[]): InstanceRec {
+  if (!prefix) throw new Error('missing object id');
+  const matches = all.filter((o) => o.id.startsWith(prefix));
+  if (matches.length === 0) throw new Error(`no object matching "${prefix}"`);
+  if (matches.length > 1) throw new Error(`ambiguous id "${prefix}" — ${matches.length} matches`);
+  return matches[0];
+}
+
+/** In-page stand-in: "SQLite" is localStorage; ids/diff/rewind/fork reimplemented locally. */
+function createLocalBackend(): Backend {
+  let instances: InstanceRec[] = [];
+  try {
+    instances = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch {
+    instances = [];
+  }
+  const save = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(instances));
+    } catch {
+      /* ignore quota errors */
+    }
+  };
+  return {
+    kind: 'local',
+    async create(description, className) {
+      const id = newId();
+      const rec: InstanceRec = {
+        id,
+        className: className || '',
+        description,
+        createdAt: Date.now(),
+        versions: [{ version: 1, method: 'create', at: Date.now(), state: null }],
+      };
+      instances = [...instances, rec];
+      save();
+      return shortIdFor(id, instances);
+    },
+    async list() {
+      return instances.map((r) => ({
+        id: shortIdFor(r.id, instances),
+        className: r.className,
+        description: r.description,
+        versions: r.versions.length,
+        created: new Date(r.createdAt).toISOString(),
+      }));
+    },
+    async inspect(prefix) {
+      const rec = resolveRec(prefix, instances);
+      return {
+        id: shortIdFor(rec.id, instances),
+        className: rec.className,
+        description: rec.description,
+        versions: rec.versions.length,
+        created: new Date(rec.createdAt).toISOString(),
+      };
+    },
+    async destroy(prefix) {
+      const rec = resolveRec(prefix, instances);
+      const sid = shortIdFor(rec.id, instances);
+      instances = instances.filter((r) => r.id !== rec.id);
+      save();
+      return sid;
+    },
+    async get(prefix, version) {
+      const rec = resolveRec(prefix, instances);
+      if (version !== undefined) {
+        const v = rec.versions.find((x) => x.version === version);
+        if (!v) throw new Error(`version ${version} not found`);
+        return v.state;
+      }
+      return rec.versions[rec.versions.length - 1].state;
+    },
+    async persistWrite(prefix, method, state) {
+      const rec = resolveRec(prefix, instances);
+      rec.versions.push({ version: rec.versions.length + 1, method, at: Date.now(), state });
+      save();
+    },
+    async log(prefix) {
+      const rec = resolveRec(prefix, instances);
+      return rec.versions.map((v) => ({ version: v.version, method: v.method, at: new Date(v.at).toISOString() }));
+    },
+    async diff(prefix, v1, v2) {
+      const rec = resolveRec(prefix, instances);
+      const a = rec.versions.find((v) => v.version === v1);
+      const b = rec.versions.find((v) => v.version === v2);
+      if (!a || !b) throw new Error('version not found');
+      if (a.state === null || b.state === null) {
+        throw new Error('no diff available: one of these versions has no state yet (a fresh "create" starts with none)');
+      }
+      return diffValues(a.state, b.state);
+    },
+    async rewind(prefix, version) {
+      const rec = resolveRec(prefix, instances);
+      const target = rec.versions.find((v) => v.version === version);
+      if (!target) throw new Error(`version ${version} not found`);
+      const newVersion = rec.versions.length + 1;
+      rec.versions.push({ version: newVersion, method: 'rewind', at: Date.now(), state: target.state });
+      save();
+      return { rewoundTo: target.version, newVersion };
+    },
+    async fork(prefix, at) {
+      const rec = resolveRec(prefix, instances);
+      const source = at !== undefined ? rec.versions.find((v) => v.version === at) : rec.versions[rec.versions.length - 1];
+      if (!source) throw new Error('version not found');
+      const id = newId();
+      const forked: InstanceRec = {
+        id,
+        className: rec.className,
+        description: rec.description,
+        createdAt: Date.now(),
+        versions: [{ version: 1, method: 'fork', at: Date.now(), state: source.state }],
+      };
+      instances = [...instances, forked];
+      save();
+      return shortIdFor(id, instances);
+    },
+  };
+}
+
+/** Real @johnhenry/objectify over the companion's HTTP routes (server/demos/objectify.mjs). */
+function createCompanionBackend(base: string): Backend {
+  async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${base}${path}`, {
+      method,
+      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const j = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(j?.error || `companion returned ${res.status}`);
+    return j as T;
+  }
+  const summarize = (r: { shortId: string; class: string | null; description: string | null; versions: number; createdAt: string }): InstanceSummary => ({
+    id: r.shortId,
+    className: r.class || '',
+    description: r.description || '',
+    versions: r.versions,
+    created: r.createdAt,
+  });
+  return {
+    kind: 'companion',
+    async create(description, className) {
+      const { id } = await call<{ id: string }>('POST', '/objectify/objects', { description, class: className || undefined });
+      return id;
+    },
+    async list() {
+      const rows = await call<Array<{ shortId: string; class: string | null; description: string | null; versions: number; createdAt: string }>>('GET', '/objectify/objects');
+      return rows.map(summarize);
+    },
+    async inspect(id) {
+      const r = await call<{ shortId: string; class: string | null; description: string | null; versions: number; createdAt: string }>('GET', `/objectify/objects/${encodeURIComponent(id)}`);
+      return summarize(r);
+    },
+    async destroy(id) {
+      await call('DELETE', `/objectify/objects/${encodeURIComponent(id)}`);
+      return id;
+    },
+    async get(id, version) {
+      const qs = version !== undefined ? `?version=${version}` : '';
+      return call('GET', `/objectify/objects/${encodeURIComponent(id)}/state${qs}`);
+    },
+    async persistWrite(id, _method, state) {
+      await call('PUT', `/objectify/objects/${encodeURIComponent(id)}/state`, state);
+    },
+    async log(id) {
+      return call<LogEntry[]>('GET', `/objectify/objects/${encodeURIComponent(id)}/log`);
+    },
+    async diff(id, v1, v2) {
+      return call<DiffOp[]>('GET', `/objectify/objects/${encodeURIComponent(id)}/diff?v1=${v1}&v2=${v2}`);
+    },
+    async rewind(id, version) {
+      return call('POST', `/objectify/objects/${encodeURIComponent(id)}/rewind`, { version });
+    },
+    async fork(id, at) {
+      const { id: forkedId } = await call<{ id: string }>('POST', `/objectify/objects/${encodeURIComponent(id)}/fork`, at === undefined ? {} : { at });
+      return forkedId;
+    },
+  };
+}
+
 // ── command dispatch ─────────────────────────────────────────────────────
 
 interface Ctx {
   getClass: () => ClassInfo | null;
-  getInstances: () => InstanceRec[];
-  setInstances: (l: InstanceRec[]) => void;
+  backend: Backend;
 }
 
-function helpText(cls: ClassInfo | null): string {
+function helpText(cls: ClassInfo | null, backendKind: 'local' | 'companion'): string {
   const lines = [
-    'objectify — write a class, get a versioned CLI. commands:',
+    `objectify — write a class, get a versioned CLI. [${backendKind === 'companion' ? 'real store via companion' : 'in-page emulation'}] commands:`,
     '  create [description] [--class=Name]   create a new object',
     '  list                                   list objects',
     '  inspect <id>                           object metadata',
@@ -374,7 +572,7 @@ function helpText(cls: ClassInfo | null): string {
     '  fork <id> [--at=<v>]                   copy into a new independent object',
   ];
   if (cls) {
-    lines.push('', `class "${cls.name}" loaded — reflected methods:`);
+    lines.push('', `class "${cls.name}" loaded — reflected methods (always run in-page):`);
     for (const m of cls.methods) lines.push(`  use <id> ${m.name} {${m.params.join(', ')}}`);
   } else {
     lines.push('', '(no class loaded — write one on the left, or pick a preset)');
@@ -382,18 +580,19 @@ function helpText(cls: ClassInfo | null): string {
   return lines.join('\n');
 }
 
-function runCommand(raw: string, ctx: Ctx): string {
+async function runCommand(raw: string, ctx: Ctx): Promise<string> {
   let tokens = tokenize(raw.trim());
   if (tokens[0] === 'objectify') tokens = tokens.slice(1);
   if (tokens.length === 0) return '';
   const [cmd, ...rest] = tokens;
+  const backend = ctx.backend;
   switch (cmd) {
     case 'help':
-      return helpText(ctx.getClass());
+      return helpText(ctx.getClass(), backend.kind);
     case 'classes': {
       const cls = ctx.getClass();
       return JSON.stringify(
-        cls ? [{ name: cls.name, lang: 'JavaScript (emulated)', methods: cls.methods.map((m) => m.name) }] : [],
+        cls ? [{ name: cls.name, lang: 'JavaScript (in-page)', methods: cls.methods.map((m) => m.name) }] : [],
       );
     }
     case 'create': {
@@ -407,112 +606,63 @@ function runCommand(raw: string, ctx: Ctx): string {
       if (className && (!cls || cls.name !== className)) {
         throw new Error(`class "${className}" isn't loaded — the editor currently holds ${cls ? `"${cls.name}"` : 'nothing'}`);
       }
-      const id = newId();
-      const state = className && cls ? instantiate(cls) : {};
-      const rec: InstanceRec = {
-        id,
-        className: className || '',
-        description,
-        createdAt: Date.now(),
-        versions: [{ version: 1, method: 'create', at: Date.now(), state }],
-      };
-      const list = [...ctx.getInstances(), rec];
-      ctx.setInstances(list);
-      return JSON.stringify(shortIdFor(id, list));
+      const id = await backend.create(description, className || '');
+      // A fresh object always starts with no state (version 1, method "create") —
+      // that's the real package's own model. If a matching class is loaded,
+      // seed its instantiated fields as an immediate follow-up version.
+      if (className && cls) await backend.persistWrite(id, 'init', instantiate(cls));
+      return JSON.stringify(id);
     }
     case 'list': {
-      const list = ctx.getInstances();
+      const list = await backend.list();
       return JSON.stringify(
-        list.map((r) => ({
-          id: shortIdFor(r.id, list),
-          class: r.className || null,
-          description: r.description || null,
-          versions: r.versions.length,
-          created: new Date(r.createdAt).toISOString(),
-        })),
+        list.map((r) => ({ id: r.id, class: r.className || null, description: r.description || null, versions: r.versions, created: r.created })),
       );
     }
     case 'inspect': {
-      const list = ctx.getInstances();
-      const rec = resolve(rest[0], list);
-      return JSON.stringify({
-        id: rec.id,
-        shortId: shortIdFor(rec.id, list),
-        class: rec.className || null,
-        description: rec.description || null,
-        versions: rec.versions.length,
-        createdAt: new Date(rec.createdAt).toISOString(),
-      });
+      const r = await backend.inspect(rest[0]);
+      return JSON.stringify({ id: r.id, class: r.className || null, description: r.description || null, versions: r.versions, createdAt: r.created });
     }
     case 'destroy': {
-      const list = ctx.getInstances();
-      const rec = resolve(rest[0], list);
-      ctx.setInstances(list.filter((r) => r.id !== rec.id));
-      return JSON.stringify({ destroyed: shortIdFor(rec.id, list) });
+      const id = await backend.destroy(rest[0]);
+      return JSON.stringify({ destroyed: id });
     }
     case 'log': {
-      const list = ctx.getInstances();
-      const rec = resolve(rest[0], list);
-      return JSON.stringify(rec.versions.map((v) => ({ version: v.version, method: v.method, at: new Date(v.at).toISOString() })));
+      return JSON.stringify(await backend.log(rest[0]));
     }
     case 'diff': {
-      const list = ctx.getInstances();
-      const rec = resolve(rest[0], list);
-      const v1 = rec.versions.find((v) => v.version === Number(rest[1]));
-      const v2 = rec.versions.find((v) => v.version === Number(rest[2]));
-      if (!v1 || !v2) throw new Error('version not found');
-      return JSON.stringify(diffValues(v1.state, v2.state));
+      const v1 = Number(rest[1]);
+      const v2 = Number(rest[2]);
+      if (!Number.isFinite(v1) || !Number.isFinite(v2)) throw new Error('usage: diff <id> <v1> <v2>');
+      return JSON.stringify(await backend.diff(rest[0], v1, v2));
     }
     case 'rewind': {
-      const list = ctx.getInstances();
-      const rec = resolve(rest[0], list);
-      const target = rec.versions.find((v) => v.version === Number(rest[1]));
-      if (!target) throw new Error(`version ${rest[1]} not found`);
-      const newVersion = rec.versions.length + 1;
-      rec.versions.push({ version: newVersion, method: 'rewind', at: Date.now(), state: target.state, result: { rewoundTo: target.version, newVersion } });
-      ctx.setInstances(list.map((r) => (r.id === rec.id ? rec : r)));
-      return JSON.stringify({ rewoundTo: target.version, newVersion });
+      const version = Number(rest[1]);
+      if (!Number.isFinite(version)) throw new Error('usage: rewind <id> <version>');
+      return JSON.stringify(await backend.rewind(rest[0], version));
     }
     case 'fork': {
-      const list = ctx.getInstances();
-      const rec = resolve(rest[0], list);
       const atFlag = rest.find((t) => t.startsWith('--at='));
-      const source = atFlag ? rec.versions.find((v) => v.version === Number(atFlag.slice(5))) : rec.versions[rec.versions.length - 1];
-      if (!source) throw new Error('version not found');
-      const id = newId();
-      const forked: InstanceRec = {
-        id,
-        className: rec.className,
-        description: rec.description,
-        createdAt: Date.now(),
-        versions: [{ version: 1, method: 'fork', at: Date.now(), state: source.state }],
-      };
-      const next = [...list, forked];
-      ctx.setInstances(next);
-      return JSON.stringify(shortIdFor(id, next));
+      const at = atFlag ? Number(atFlag.slice(5)) : undefined;
+      const id = await backend.fork(rest[0], at);
+      return JSON.stringify(id);
     }
     case 'use': {
       const [idPrefix, method, ...argTokens] = rest;
       if (!idPrefix || !method) throw new Error('usage: use <id> <method> [input]');
-      const list = ctx.getInstances();
-      const rec = resolve(idPrefix, list);
-      const cur = rec.versions[rec.versions.length - 1].state;
       if (method === 'get') {
         const atFlag = argTokens.find((t) => t.startsWith('--at='));
-        if (atFlag) {
-          const v = rec.versions.find((x) => x.version === Number(atFlag.slice(5)));
-          return JSON.stringify(v ? v.state : null);
-        }
-        return JSON.stringify(cur);
+        const version = atFlag ? Number(atFlag.slice(5)) : undefined;
+        return JSON.stringify(await backend.get(idPrefix, version));
       }
       if (method === 'set') {
         const jsonTok = argTokens.find((t) => !t.startsWith('-'));
         if (!jsonTok) throw new Error("usage: use <id> set '<json>'");
         const next = JSON.parse(jsonTok);
-        rec.versions.push({ version: rec.versions.length + 1, method: 'set', at: Date.now(), state: next });
-        ctx.setInstances(list.map((r) => (r.id === rec.id ? rec : r)));
+        await backend.persistWrite(idPrefix, 'set', next);
         return JSON.stringify(next);
       }
+      const rec = await backend.inspect(idPrefix);
       if (method === 'help') {
         const cls = ctx.getClass();
         if (!cls || cls.name !== rec.className) throw new Error(`class "${rec.className}" isn't loaded in the editor`);
@@ -521,14 +671,14 @@ function runCommand(raw: string, ctx: Ctx): string {
       const cls = ctx.getClass();
       if (!cls) throw new Error('no class loaded — write or pick a preset on the left first');
       if (cls.name !== rec.className) throw new Error(`object's class is "${rec.className || '(none)'}", editor holds "${cls.name}"`);
+      const cur = await backend.get(idPrefix);
       const arg = buildArg(argTokens);
       const { state, result } = callMethod(cls, cur, method, arg);
       // Mirrors the real tool: a version is only written when the method actually
-      // mutated `this` (i.e. called the equivalent of this.set()) — a pure read
-      // like `pending()` returns a result without adding to the history.
-      if (JSON.stringify(state) !== JSON.stringify(cur)) {
-        rec.versions.push({ version: rec.versions.length + 1, method, at: Date.now(), state, result });
-        ctx.setInstances(list.map((r) => (r.id === rec.id ? rec : r)));
+      // mutated `this` — a pure read like `pending()` returns a result without
+      // adding to the history.
+      if (JSON.stringify(state) !== JSON.stringify(cur ?? {})) {
+        await backend.persistWrite(idPrefix, method, state);
       }
       return JSON.stringify(result);
     }
@@ -564,28 +714,25 @@ function timeAgo(ms: number): string {
 const playground: Playground = {
   id: 'objectify',
   title: 'Objectify Bench',
-  pkg: 'objectify (emulated)',
-  hue: 105,
-  blurb: 'Write a class, get a versioned, stateful CLI. An in-browser emulation of the objectify model.',
+  pkg: '@johnhenry/objectify',
+  hue: 70,
+  blurb: 'Write a class, get a versioned, stateful CLI. Real @johnhenry/objectify (SQLite) when the companion runs; an in-browser emulation otherwise.',
   docs: 'https://opensource.johnhenry.me/objectify/',
 
-  mount(host: HTMLElement) {
+  async mount(host: HTMLElement) {
     const cleanups: Array<() => void> = [];
     const on = <K extends keyof HTMLElementEventMap>(el: EventTarget, ev: K | string, fn: (e: Event) => void) => {
       el.addEventListener(ev, fn as EventListener);
       cleanups.push(() => el.removeEventListener(ev, fn as EventListener));
     };
+    let disposed = false;
 
     const state = readState<RoomState>({ preset: 'TaskList', instance: '' });
 
     const root = document.createElement('div');
     root.className = 'pg-objectify';
     root.innerHTML = `
-      <div class="ob-banner">
-        <span class="chip">emulation</span>
-        the real <b>objectify</b> is a Node/Rust binary; this planet reproduces its command model in the browser
-        — <button class="linklike" id="ob-copy">copy link</button>
-      </div>
+      <div id="ob-banner"></div>
 
       <div class="ob-layout">
         <div class="panel ob-col">
@@ -611,8 +758,11 @@ const playground: Playground = {
         </div>
 
         <div class="panel ob-col">
-          <strong>State &amp; history</strong>
-          <div class="stat">objects <b id="ob-count">0</b> · persisted in <code>localStorage</code> (emulating SQLite)</div>
+          <div class="ob-detail-head">
+            <strong>State &amp; history</strong>
+            <button class="btn small" id="ob-copy">copy link</button>
+          </div>
+          <div class="stat" id="ob-store-stat">objects <b id="ob-count">0</b></div>
           <div class="ob-instances" id="ob-instances"></div>
           <div id="ob-detail"></div>
         </div>
@@ -623,6 +773,7 @@ const playground: Playground = {
 
     // ---- element refs ----
     const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+    const bannerEl = $<HTMLDivElement>('#ob-banner');
     const sourceEl = $<HTMLTextAreaElement>('#ob-source');
     const presetsEl = $<HTMLDivElement>('#ob-presets');
     const parseStatEl = $<HTMLSpanElement>('#ob-parse-stat');
@@ -631,28 +782,42 @@ const playground: Playground = {
     const scrollbackEl = $<HTMLDivElement>('#ob-scrollback');
     const inputEl = $<HTMLInputElement>('#ob-input');
     const suggestEl = $<HTMLDivElement>('#ob-suggest');
-    const countEl = $<HTMLElement>('#ob-count');
+    const storeStatEl = $<HTMLElement>('#ob-store-stat');
     const instancesEl = $<HTMLDivElement>('#ob-instances');
     const detailEl = $<HTMLDivElement>('#ob-detail');
     const copyBtn = $<HTMLButtonElement>('#ob-copy');
 
+    // ---- backend selection ----
+    let companion: Companion | null = null;
+    let backend: Backend = createLocalBackend();
+
+    function renderBanner() {
+      bannerEl.innerHTML = '';
+      bannerEl.appendChild(
+        companionBanner(
+          companion,
+          'objectify',
+          'this room "SQLite" is localStorage and ids/diff/rewind/fork are reimplemented locally — behaviourally the same model as the real @johnhenry/objectify package.',
+        ),
+      );
+      const note = document.createElement('div');
+      note.className = 'stat';
+      note.style.marginTop = '4px';
+      note.textContent = backend.kind === 'companion'
+        ? 'class-method calls (use <id> <method>) still run in-page — see the room header comment for why — but every version they write is persisted through the real store.'
+        : '';
+      if (note.textContent) bannerEl.appendChild(note);
+    }
+
     // ---- planet state ----
     const cls: { current: ClassInfo | null } = { current: null };
-    let instances: InstanceRec[] = loadInstances();
     let selectedInstance: string = state.instance;
     let selectedVersion: number | null = null;
+    let instanceCache: InstanceSummary[] = [];
     const history: string[] = [];
     let historyIdx = -1;
 
-    const ctx: Ctx = {
-      getClass: () => cls.current,
-      getInstances: () => instances,
-      setInstances: (l) => {
-        instances = l;
-        saveInstances(instances);
-        renderInstances();
-      },
-    };
+    const ctx: Ctx = { getClass: () => cls.current, backend };
 
     function persistUiState() {
       writeState({ preset: state.preset, instance: selectedInstance }, { preset: 'TaskList', instance: '' });
@@ -678,66 +843,110 @@ const playground: Playground = {
         parseStatEl.classList.add('bad');
         reflectionEl.textContent = '';
       }
-      helpEl.textContent = helpText(cls.current);
+      helpEl.textContent = helpText(cls.current, backend.kind);
     }
 
-    function renderInstances() {
-      countEl.textContent = String(instances.length);
-      if (instances.length === 0) {
+    async function refreshInstances() {
+      try {
+        instanceCache = await backend.list();
+      } catch (e) {
+        instanceCache = [];
+        print(JSON.stringify({ error: `could not list objects: ${(e as Error).message}` }), 'err');
+      }
+      storeStatEl.innerHTML = `objects <b>${instanceCache.length}</b>${backend.kind === 'companion' ? ' · persisted by the real store (companion)' : ' · persisted in <code>localStorage</code> (emulating SQLite)'}`;
+      if (instanceCache.length === 0) {
         instancesEl.innerHTML = '<div class="ob-empty">no objects yet — try: <code>create "sprint tasks" --class=TaskList</code></div>';
       } else {
-        instancesEl.innerHTML = instances
+        instancesEl.innerHTML = instanceCache
           .map((r) => {
-            const sid = shortIdFor(r.id, instances);
             const sel = r.id === selectedInstance ? ' sel' : '';
             return `<div class="ob-inst-row${sel}" data-id="${r.id}">
-              <span class="chip">${sid}</span>
+              <span class="chip">${esc(r.id)}</span>
               <span class="ob-inst-class">${esc(r.className || '(untyped)')}</span>
               <span class="ob-inst-desc">${esc(r.description || '')}</span>
-              <span class="stat">v${r.versions.length}</span>
+              <span class="stat">v${r.versions}</span>
             </div>`;
           })
           .join('');
       }
-      renderDetail();
+      if (selectedInstance && !instanceCache.some((r) => r.id === selectedInstance)) selectedInstance = '';
+      await renderDetail();
     }
 
-    function renderDetail() {
-      const rec = instances.find((r) => r.id === selectedInstance);
-      if (!rec) {
+    async function renderDetail() {
+      if (!selectedInstance) {
         detailEl.innerHTML = '';
         return;
       }
-      const cur = rec.versions[rec.versions.length - 1];
-      const vSel = selectedVersion ?? cur.version;
-      const chosen = rec.versions.find((v) => v.version === vSel) ?? cur;
-      const prev = rec.versions.find((v) => v.version === chosen.version - 1);
-      const ops = prev ? diffValues(prev.state, chosen.state) : [{ op: 'add' as const, path: '/', value: chosen.state }];
+      const summary = instanceCache.find((r) => r.id === selectedInstance);
+      if (!summary) {
+        detailEl.innerHTML = '';
+        return;
+      }
+      let log: LogEntry[];
+      try {
+        log = await backend.log(selectedInstance);
+      } catch (e) {
+        detailEl.innerHTML = `<pre class="code">${esc(JSON.stringify({ error: (e as Error).message }))}</pre>`;
+        return;
+      }
+      if (log.length === 0) {
+        detailEl.innerHTML = '';
+        return;
+      }
+      const latest = log[log.length - 1];
+      const vSel = selectedVersion ?? latest.version;
+      const chosenEntry = log.find((v) => v.version === vSel) ?? latest;
+
+      let chosenState: JSONValue = null;
+      let stateError: string | null = null;
+      try {
+        chosenState = await backend.get(selectedInstance, chosenEntry.version);
+      } catch (e) {
+        stateError = (e as Error).message;
+      }
+
+      let ops: DiffOp[] | null = null;
+      let diffError: string | null = null;
+      if (chosenEntry.version > 1) {
+        try {
+          ops = await backend.diff(selectedInstance, chosenEntry.version - 1, chosenEntry.version);
+        } catch (e) {
+          diffError = (e as Error).message;
+        }
+      }
+
       detailEl.innerHTML = `
         <div class="ob-detail-head">
-          <span class="chip">${shortIdFor(rec.id, instances)}</span>
-          <span>${esc(rec.className || '(untyped)')}</span>
-          <button class="btn small" data-act="fork">fork v${chosen.version}</button>
-          ${chosen.version !== cur.version ? `<button class="btn small" data-act="rewind">rewind to v${chosen.version}</button>` : ''}
+          <span class="chip">${esc(selectedInstance)}</span>
+          <span>${esc(summary.className || '(untyped)')}</span>
+          <button class="btn small" data-act="fork">fork v${chosenEntry.version}</button>
+          ${chosenEntry.version !== latest.version ? `<button class="btn small" data-act="rewind">rewind to v${chosenEntry.version}</button>` : ''}
         </div>
-        <pre class="code ob-state">${esc(JSON.stringify(chosen.state, null, 2))}</pre>
+        <pre class="code ob-state">${stateError ? esc(stateError) : esc(JSON.stringify(chosenState, null, 2))}</pre>
         <strong class="ob-vh-label">version history</strong>
         <div class="ob-versions">
-          ${rec.versions
+          ${log
             .slice()
             .reverse()
             .map(
-              (v) => `<div class="ob-version-row${v.version === chosen.version ? ' sel' : ''}" data-v="${v.version}">
+              (v) => `<div class="ob-version-row${v.version === chosenEntry.version ? ' sel' : ''}" data-v="${v.version}">
                 <span class="chip">v${v.version}</span>
                 <span class="ob-v-method">${esc(v.method)}</span>
-                <span class="stat">${timeAgo(v.at)}</span>
+                <span class="stat">${esc(v.at)}</span>
               </div>`,
             )
             .join('')}
         </div>
-        <strong class="ob-vh-label">diff from v${chosen.version - 1 < 1 ? '∅' : chosen.version - 1}</strong>
+        <strong class="ob-vh-label">diff from v${chosenEntry.version - 1 < 1 ? '∅' : chosenEntry.version - 1}</strong>
         <div class="ob-diff">
-          ${ops.length === 0 ? '<span class="stat">(no change)</span>' : ops.map((o) => `<div class="ob-diff-row ob-op-${o.op}">${o.op} <code>${esc(o.path)}</code>${'value' in o ? ' → ' + esc(JSON.stringify(o.value)) : ''}</div>`).join('')}
+          ${diffError
+            ? `<span class="stat">${esc(diffError)}</span>`
+            : !ops
+              ? '<span class="stat">(object created here — no prior version)</span>'
+              : ops.length === 0
+                ? '<span class="stat">(no change)</span>'
+                : ops.map((o) => `<div class="ob-diff-row ob-op-${o.op}">${o.op} <code>${esc(o.path)}</code>${'value' in o ? ' → ' + esc(JSON.stringify(o.value)) : ''}</div>`).join('')}
         </div>
       `;
     }
@@ -754,18 +963,16 @@ const playground: Playground = {
       scrollbackEl.scrollTop = scrollbackEl.scrollHeight;
     }
 
-    function execute(line: string) {
+    async function execute(line: string) {
       if (!line.trim()) return;
       print(line, 'cmd');
       history.push(line);
       historyIdx = history.length;
       try {
-        const out = runCommand(line, ctx);
+        const out = await runCommand(line, ctx);
         if (out) print(out, 'out');
-        // keep selection sane after list-mutating commands
-        if (selectedInstance && !instances.some((r) => r.id === selectedInstance)) selectedInstance = '';
         selectedVersion = null;
-        renderInstances();
+        await refreshInstances();
         persistUiState();
       } catch (e) {
         print(JSON.stringify({ error: (e as Error).message }), 'err');
@@ -782,7 +989,7 @@ const playground: Playground = {
       }
       if (tokens[0] === 'use' && tokens.length === 2) {
         const partial = tokens[1] || '';
-        return instances.map((r) => shortIdFor(r.id, instances)).filter((sid) => sid.startsWith(partial));
+        return instanceCache.map((r) => r.id).filter((sid) => sid.startsWith(partial));
       }
       if (tokens[0] === 'use' && tokens.length === 3 && cls.current) {
         const partial = tokens[2] || '';
@@ -805,7 +1012,7 @@ const playground: Playground = {
     renderPresets();
     sourceEl.value = PRESETS[state.preset] ?? PRESETS.TaskList;
     tryParse(sourceEl.value);
-    renderInstances();
+    renderBanner();
 
     on(presetsEl, 'click', (e) => {
       const btn = (e.target as HTMLElement).closest<HTMLElement>('.preset-btn');
@@ -830,9 +1037,10 @@ const playground: Playground = {
     on(inputEl, 'keydown', (e) => {
       const ke = e as KeyboardEvent;
       if (ke.key === 'Enter') {
-        execute(inputEl.value);
+        const line = inputEl.value;
         inputEl.value = '';
         renderSuggestions();
+        void execute(line);
       } else if (ke.key === 'ArrowUp') {
         if (historyIdx > 0) {
           historyIdx--;
@@ -873,8 +1081,7 @@ const playground: Playground = {
       if (!row) return;
       selectedInstance = row.dataset.id!;
       selectedVersion = null;
-      renderInstances();
-      persistUiState();
+      void refreshInstances().then(persistUiState);
     });
 
     on(detailEl, 'click', (e) => {
@@ -882,17 +1089,15 @@ const playground: Playground = {
       const vrow = t.closest<HTMLElement>('.ob-version-row');
       if (vrow) {
         selectedVersion = Number(vrow.dataset.v);
-        renderDetail();
+        void renderDetail();
         return;
       }
       const actBtn = t.closest<HTMLElement>('[data-act]');
       if (actBtn && selectedInstance) {
-        const rec = instances.find((r) => r.id === selectedInstance);
-        if (!rec) return;
-        const v = selectedVersion ?? rec.versions[rec.versions.length - 1].version;
-        const sid = shortIdFor(rec.id, instances);
-        if (actBtn.dataset.act === 'fork') execute(`fork ${sid} --at=${v}`);
-        else if (actBtn.dataset.act === 'rewind') execute(`rewind ${sid} ${v}`);
+        const v = selectedVersion;
+        const sid = selectedInstance;
+        if (actBtn.dataset.act === 'fork') void execute(v ? `fork ${sid} --at=${v}` : `fork ${sid}`);
+        else if (actBtn.dataset.act === 'rewind' && v) void execute(`rewind ${sid} ${v}`);
       }
     });
 
@@ -903,26 +1108,33 @@ const playground: Playground = {
       });
     });
 
-    // ---- deep-linked instance selection ----
-    if (selectedInstance && !instances.some((r) => r.id === selectedInstance)) selectedInstance = '';
-    renderInstances();
+    // ---- probe the companion, then decide the backend, then seed a default state ----
+    companion = await probeCompanion();
+    if (disposed) return;
+    if (hasDemo(companion, 'objectify')) {
+      backend = createCompanionBackend(companion!.base);
+      ctx.backend = backend;
+      helpEl.textContent = helpText(cls.current, backend.kind);
+    }
+    renderBanner();
 
-    // ---- seed a default state so the planet is impressive with zero input ----
-    const seedClass = cls.current;
-    if (instances.length === 0 && seedClass) {
-      execute(`create "sprint tasks" --class=${seedClass.name}`);
-      const sid = instances.length ? shortIdFor(instances[0].id, instances) : '';
+    // ---- deep-linked instance selection + seed a default state so the planet is impressive with zero input ----
+    await refreshInstances();
+    if (disposed) return;
+    if (instanceCache.length === 0 && cls.current) {
+      const seedClass = cls.current;
+      await execute(`create "sprint tasks" --class=${seedClass.name}`);
+      const sid = instanceCache[0]?.id;
       if (sid) {
-        execute(`use ${sid} add -p:title "write the demo" -p:priority 1`);
-        execute(`use ${sid} add -p:title "ship it"`);
-        selectedInstance = instances[0].id;
-        renderInstances();
+        await execute(`use ${sid} add -p:title "write the demo" -p:priority 1`);
+        await execute(`use ${sid} add -p:title "ship it"`);
+        selectedInstance = sid;
+        await refreshInstances();
       }
-    } else if (selectedInstance) {
-      renderInstances();
     }
 
     return () => {
+      disposed = true;
       for (const fn of cleanups) fn();
       root.remove();
     };
