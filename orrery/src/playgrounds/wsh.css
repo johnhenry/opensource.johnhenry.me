@@ -1,4 +1,11 @@
-.pg-wsh { display: grid; gap: 16px; --seg-a: #f5a524; --seg-b: #4cc9f0; --seg-c: #b388ff; --seg-d: #7ee787; --seg-e: #ff7b9c; }
+/* grid-template-columns is explicit (rather than the implicit single "auto"
+   column display:grid defaults to) because an auto column's width can grow
+   past the viewport to fit its widest descendant's max-content size (e.g. an
+   unbroken SSH key or a long QMux wire-log line) instead of clamping to the
+   available width -- confirmed live: this alone took the whole room from a
+   390px viewport to a 901px-wide page on a phone. minmax(0, 1fr) forces the
+   column (and everything laid out against it) to actually shrink to fit. */
+.pg-wsh { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; --seg-a: #f5a524; --seg-b: #4cc9f0; --seg-c: #b388ff; --seg-d: #7ee787; --seg-e: #ff7b9c; }
 /* Pattern B: the shared .companion-banner is display:flex with flex-wrap,
    which breaks its sentence at item edges (chip/link) instead of at word
    boundaries — worst here, where the sentence breaks right before the
@@ -152,7 +159,11 @@
 .pg-wsh .files td.n { color: var(--seg-d); word-break: break-all; }
 .pg-wsh .files td.s, .pg-wsh .files td.m { color: var(--ink-3); white-space: nowrap; }
 .pg-wsh .files td.a { text-align: right; white-space: nowrap; }
-.pg-wsh .files button { font: inherit; font-size: 11px; background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 5px; padding: 2px 6px; cursor: pointer; margin-left: 4px; }
+/* was padding: 2px 6px -- ~27x23px for "rm" (a destructive action). Grow the
+   tap area mostly vertically (the table can spare row height; growing
+   horizontally too far risks squeezing the nowrap action cell on narrow
+   viewports next to the break-all filename column). */
+.pg-wsh .files button { font: inherit; font-size: 11px; background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 5px; padding: 7px 7px; cursor: pointer; margin-left: 4px; }
 .pg-wsh .files button:hover { border-color: var(--accent); color: var(--ink); }
 .pg-wsh .drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 12px; text-align: center; color: var(--ink-3); font-size: 12px; margin-top: 10px; cursor: pointer; }
 .pg-wsh .drop.over { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }

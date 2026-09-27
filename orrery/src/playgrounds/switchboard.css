@@ -1,4 +1,7 @@
-.pg-switchboard { display: grid; gap: 16px; }
+/* grid-template-columns explicit (see .sb-pending below for the same fix and
+   why): without it the implicit auto column can grow past the viewport to
+   fit a descendant's max-content width instead of clamping to it. */
+.pg-switchboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .pg-switchboard h3 { margin: 0 0 8px; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; gap: 8px; }
 .pg-switchboard .muted { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
 .pg-switchboard .spacer { flex: 1; }
@@ -41,7 +44,13 @@
 .sb-inbox-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .sb-policy-field { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; }
 .sb-policy-field select { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: inherit; font: inherit; max-width: 60vw; }
-.sb-pending { display: grid; gap: 8px; }
+/* .ppayload below is white-space: nowrap (for its ellipsis truncation), so
+   its max-content width is the full unwrapped JSON string. Without an
+   explicit column, .sb-pending's implicit auto column grows to fit that
+   instead of clamping to the available width -- confirmed live: a pending
+   approval card with a long payload pushed the room to 700+px on a 390px
+   viewport. */
+.sb-pending { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .sb-pend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-soft); }
 .sb-pend .ptype { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); }
 .sb-pend .ppayload { font-size: 12px; max-width: 50ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

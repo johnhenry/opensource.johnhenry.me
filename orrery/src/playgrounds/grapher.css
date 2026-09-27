@@ -34,6 +34,13 @@
 @media (max-width: 900px) {
   .pg-grapher .gc-main, .pg-grapher .gc-bottom { grid-template-columns: minmax(0, 1fr); }
   .pg-grapher .gc-side { position: static; }
+}
+/* The 480px svg floor was meant to keep the dependency graph legible once it
+   drops to a single column around tablet width, but it also applied at true
+   phone widths (~375-430px), forcing this column past the viewport and
+   busting horizontal scroll for the whole room (confirmed live at 390px).
+   Only force the floor in the range where there's room for it. */
+@media (max-width: 900px) and (min-width: 640px) {
   .pg-grapher .gc-graph svg { min-width: 480px; }
 }
 
@@ -54,9 +61,18 @@
 .pg-grapher .gc-cell-h .chip { font-size: 10px; padding: 0 7px; }
 .pg-grapher .gc-cell.k-input .gc-kind { background: color-mix(in srgb, var(--gc-set) 15%, transparent); border-color: color-mix(in srgb, var(--gc-set) 45%, transparent); }
 .pg-grapher .gc-rc { color: var(--accent); }
-.pg-grapher .gc-ib { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 0 4px; font-size: 12px; opacity: 0; transition: opacity .15s; }
+/* .gc-ib buttons used to be opacity:0 until :hover/:focus-within — on touch
+   there's no hover, so the reorder/delete controls were invisible AND
+   undiscoverable (you'd have to already know they exist to tap them). Also
+   their hit area (padding: 0 4px at font-size 12px) was ~15x18px, well under
+   the ~40px touch target minimum. Keep the desktop hover-declutter behavior,
+   but always show them on touch/no-hover devices, and pad the hit area. */
+.pg-grapher .gc-ib { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 9px 8px; margin: -9px -2px; font-size: 12px; line-height: 1; opacity: 0; transition: opacity .15s; }
 .pg-grapher .gc-cell:hover .gc-ib, .pg-grapher .gc-cell:focus-within .gc-ib { opacity: 1; }
 .pg-grapher .gc-ib:hover { color: var(--ink); }
+@media (hover: none) {
+  .pg-grapher .gc-ib { opacity: 1; }
+}
 .pg-grapher .gc-src { display: block; width: 100%; resize: none; overflow: hidden; border: 0; outline: none; background: transparent; color: var(--ink); font-family: var(--f-mono); font-size: 13.5px; line-height: 1.5; padding: 4px 0; }
 .pg-grapher .gc-src:focus { background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 6px; }
 .pg-grapher .gc-out:empty { display: none; }
