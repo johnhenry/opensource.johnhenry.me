@@ -12,7 +12,7 @@ export function renderSettings(app: HTMLElement): () => void {
     <div class="room-head"><h1>Settings</h1><p>Where ORRERY looks for the optional Node companion. Every planet works without it; these planets get a real server when it answers.</p></div>
     <div class="panel">
       <strong>Companion server</strong>
-      <p class="hint">Start it with <code>npm run node</code> in the repo (default <code>${DEFAULT_COMPANION_URL}</code>), or point this at one running elsewhere, e.g. a machine on your LAN or an SSH tunnel. The origin only; no path.</p>
+      <p class="hint">Start it with <code>npm run node</code> in the repo (default <code>${DEFAULT_COMPANION_URL}</code>), or point this at one running elsewhere (an SSH tunnel, or a machine started with <code>ORRERY_HOST=0.0.0.0</code> and <code>ORRERY_ALLOWED_ORIGINS=&lt;this site's origin&gt;</code>). The origin only; no path.</p>
       <form id="cform" class="settings-form">
         <label class="field">Companion URL
           <input id="curl" type="url" placeholder="${DEFAULT_COMPANION_URL}" value="${esc(getCompanionUrl())}" spellcheck="false" />

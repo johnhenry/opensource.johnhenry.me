@@ -68,7 +68,7 @@ export function mount(app) {
         headers: { ...CORS, 'content-type': 'text/plain' },
       });
     }
-  }, { port: PORT });
+  }, { port: PORT, hostname: process.env.ORRERY_HOST || '127.0.0.1' });
 
   app.route('POST', '/leserve/handler', async (request) => {
     let src = '';

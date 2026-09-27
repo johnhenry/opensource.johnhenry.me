@@ -47,3 +47,7 @@ useful "API surface stand-in": it shows the wrapper's real option surface
 (`temperature`, `maximumResponseTokens`, `sampling`, `Instructions`), the
 exact JSON request it would send, and a canned response shaped like a real
 one — clearly labelled as a stand-in, never pretending to be the model.
+
+## Security
+
+The companion listens on `127.0.0.1` by default and emits CORS headers only for allow-listed browser origins (any `localhost`/`127.0.0.1` port, `https://opensource.johnhenry.me`, plus `ORRERY_ALLOWED_ORIGINS`, comma-separated, `*` wildcards allowed). Requests and WebSocket upgrades from other origins get 403. This matters because the leserve and servant demos evaluate handler source posted to `/leserve/handler` and `/servant/script` — hot-swapping is the point of a local dev companion, so never expose it beyond your machine without setting `ORRERY_HOST` and an origin allowlist on purpose.
