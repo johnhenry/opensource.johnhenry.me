@@ -47,7 +47,7 @@ import { signal, effect, type Signal } from '@johnhenry/signalle';
 import { bindAttribute } from '@johnhenry/signalle/dom';
 import { createCommandPalette } from '@erisera-code/circuit/palette.js';
 import '@erisera-code/circuit/palette.css';
-import { initThemeToggle } from '@erisera-code/circuit/theme-toggle.js';
+import { getThemeChoice, setThemeChoice } from './theme';
 import { playgrounds, type PlaygroundEntry } from './registry';
 import { copyLink } from './state';
 import { togglePlanetsSidebar } from './planets-sidebar';
@@ -60,10 +60,9 @@ const TOPBAR_HTML = `<header class="topbar c-header">
   <span class="spacer"></span>
   <nav>
     <button type="button" class="tb-btn" data-el="palette-btn" title="Jump to a planet (⌘K)">⌘K</button>
-    <button type="button" class="tb-btn" data-el="planets-btn" title="All planets">&#9776; planets</button>
+    <button type="button" class="tb-btn" data-el="planets-btn" title="All planets">&#9776;</button>
     <button type="button" class="tb-btn" data-el="source-btn" title="View this planet's source">&lt;/&gt; source</button>
-    <a class="tb-btn" href="#/settings" title="Settings: companion server">&#9881; settings</a>
-    <button type="button" class="tb-btn" data-el="theme-btn" title="Theme"></button>
+    <a class="tb-btn" href="#/settings" title="Settings: theme, companion server">&#9881;</a>
     <a class="docs" data-el="docs-link" href="https://opensource.johnhenry.me/" target="_blank" rel="noopener">docs &#8599;</a>
     <a class="docs" href="https://github.com/johnhenry" target="_blank" rel="noopener">github &#8599;</a>
   </nav>
@@ -116,7 +115,6 @@ export function initChrome(opts: {
   const sourceBtn = $<HTMLButtonElement>(topbarEl, 'source-btn');
   const paletteBtn = $<HTMLButtonElement>(topbarEl, 'palette-btn');
   const planetsBtn = $<HTMLButtonElement>(topbarEl, 'planets-btn');
-  const themeBtn = $<HTMLButtonElement>(topbarEl, 'theme-btn');
 
   const drawerAside = drawerEl.querySelector('.source-drawer')!;
   const sdTitleEl = $(drawerEl, 'sd-title');
@@ -143,9 +141,7 @@ export function initChrome(opts: {
   bindAttribute(sourceBtn, 'hidden', sourceHiddenSig);
   bindAttribute(drawerAside, 'hidden', drawerHiddenSig);
 
-  // ---- theme (wired once now instead of once per route) ------------------
-  const theme = initThemeToggle({ root: document.documentElement, button: themeBtn });
-  if (!localStorage.getItem('circuit-theme')) theme.set('dark');
+  // ---- theme: no header control -- see src/theme.ts and the Settings page ----
   const THEME_NEXT: Record<string, string> = { system: 'dark', dark: 'light', light: 'system' };
 
   // ---- transient toast, for the companion-probe action's async result ----
@@ -172,7 +168,7 @@ export function initChrome(opts: {
       {
         title: 'Toggle theme (system → dark → light)',
         icon: '◐',
-        run: () => theme.set(THEME_NEXT[theme.get()]),
+        run: () => setThemeChoice(THEME_NEXT[getThemeChoice()] as 'dark' | 'light' | 'system'),
         feedback: 'theme changed',
       },
       {

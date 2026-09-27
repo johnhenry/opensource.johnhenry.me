@@ -3,6 +3,10 @@ import './styles/home.css';
 import { playgrounds } from './registry';
 import { renderHome } from './home';
 import { renderSettings } from './settings';
+// Site theme, bridged into the root docs site's own `starlight-theme`
+// mechanism (see src/theme.ts) -- applied first, before anything paints.
+import { initSiteTheme } from './theme';
+initSiteTheme();
 // Site-wide HAR recorder (ROADMAP 4.3): patches fetch at import time, then mounts its drawer UI.
 import { installHarRecorder } from './har-recorder';
 installHarRecorder();
