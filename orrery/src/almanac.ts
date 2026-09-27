@@ -184,6 +184,10 @@ export function mountAlmanac(): void {
         </div>
         <div class="al-section">
           <div class="al-label">Scheduled Tester run (cronToRule)</div>
+          <label class="al-cron-enable">
+            <input type="checkbox" data-el="al-cron-enabled" />
+            Enabled — while on, this really navigates this tab to <code>#/tester</code> on schedule, even away from whatever room you're using
+          </label>
           <div class="al-cron-row">
             <input type="text" data-el="al-cron" value="${DEFAULT_CRON}" spellcheck="false" autocomplete="off" />
             <button class="btn" type="button" data-el="al-cron-apply">apply</button>
@@ -250,6 +254,13 @@ export function mountAlmanac(): void {
   });
 
   // ---- cronToRule-scheduled Tester run --------------------------------------
+  // Off by default: this is a REAL location.hash navigation away from
+  // whatever room the tab is currently showing, not just a notification.
+  // Arming it unconditionally at mount time (the original ROADMAP 4.7
+  // behavior) surprised a user mid-session on an unrelated planet — it now
+  // requires the "Enabled" checkbox below before scheduleNext() actually
+  // arms a real timer.
+  const cronEnabledEl = $<HTMLInputElement>('al-cron-enabled');
   const cronInput = $<HTMLInputElement>('al-cron');
   const cronDescEl = $('al-cron-desc');
   const nextEl = $('al-next');
@@ -284,6 +295,11 @@ export function mountAlmanac(): void {
       nextFire = null;
       return;
     }
+    if (!cronEnabledEl.checked) {
+      nextEl.innerHTML = '<span class="stat">scheduling is off — check "Enabled" above to arm it</span>';
+      nextFire = null;
+      return;
+    }
     const anchor = Temporal.Now.zonedDateTimeISO();
     const timeZone = anchor.timeZoneId;
     const rule = cronToRule(expr, anchor);
@@ -313,6 +329,7 @@ export function mountAlmanac(): void {
     nextEl.innerHTML = `next run <b>${fmtDur(secs)}</b>${usedFallback ? ' <span class="stat">(cron() fallback — cronToRule() returned null for this expression)</span>' : ''}`;
   }
   $<HTMLButtonElement>('al-cron-apply').addEventListener('click', scheduleNext);
+  cronEnabledEl.addEventListener('change', scheduleNext);
   $<HTMLButtonElement>('al-run-now').addEventListener('click', () => triggerTesterRun('manual "run Tester now"'));
   scheduleNext();
   tickTimer = window.setInterval(paintCountdown, 1000);
