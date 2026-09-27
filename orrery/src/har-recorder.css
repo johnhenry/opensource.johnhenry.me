@@ -48,6 +48,13 @@
   max-height: min(60vh, 640px);
   display: flex;
   flex-direction: column;
+}
+/* .har-rec-drawer's own `display: flex` above has the same specificity as
+   the UA stylesheet's `[hidden] { display: none }` and loads after it, so
+   without this override the `hidden` attribute closeDrawer() sets is
+   silently beaten and the drawer never actually disappears. */
+.har-rec-drawer[hidden] {
+  display: none;
   background: var(--bg-panel);
   border: 1px solid var(--line);
   border-radius: 14px;
