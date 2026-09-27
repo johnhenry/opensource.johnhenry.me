@@ -325,7 +325,7 @@ const playground: Playground = {
               <input id="lp-path" placeholder="/notes/1" />
               <button class="btn primary" id="lp-send">Send →</button>
             </div>
-            <label class="field">headers (one per line, <code>Name: value</code>)
+            <label class="field"><span>headers (one per line, <code>Name: value</code>)</span>
               <textarea class="code" id="lp-headers" rows="3" placeholder="Authorization: Bearer letme-in"></textarea>
             </label>
             <label class="field">body

@@ -48,7 +48,7 @@
   white-space: pre; overflow: auto; box-sizing: border-box; width: 100%; height: 100%;
 }
 .pg-studio .st-hl { color: var(--code-ink); pointer-events: none; overflow: hidden; background: transparent; }
-.pg-studio .st-ta { background: transparent; color: transparent; caret-color: var(--ink); resize: none; outline: none; }
+.pg-studio .st-ta { background: transparent; color: transparent; caret-color: var(--code-ink); resize: none; outline: none; }
 .pg-studio .st-ta::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: transparent; }
 .pg-studio .st-editor:focus-within { border-color: var(--accent-border); }
 .pg-studio .sx-cm { color: var(--sx-cm); font-style: italic; }
@@ -66,9 +66,19 @@
 /* ---- fileable output ---- */
 .pg-studio .st-tablewrap { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
 .pg-studio .st-tablewrap.short { max-height: 230px; }
+/* Hints that a row is cut off at rest, instead of just looking broken. */
+.pg-studio .st-tablewrap::after {
+  content: ''; display: block; position: sticky; left: 0; bottom: 0; height: 18px; margin-top: -18px;
+  background: linear-gradient(to bottom, transparent, var(--bg-panel)); pointer-events: none;
+}
 .pg-studio table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 12px; }
 .pg-studio th { position: sticky; top: 0; background: var(--bg-inset); text-align: left; font-weight: 600; color: var(--ink-2); padding: 6px 8px; z-index: 1; }
 .pg-studio td { padding: 4px 8px; border-top: 1px solid var(--line); white-space: nowrap; }
+.pg-studio .st-files { table-layout: fixed; }
+.pg-studio .st-files th:nth-child(1), .pg-studio .st-files td.nm { width: auto; overflow: hidden; text-overflow: ellipsis; }
+.pg-studio .st-files th:nth-child(2), .pg-studio .st-files td.sz { width: 64px; }
+.pg-studio .st-files th:nth-child(3), .pg-studio .st-files td.hs { width: 100px; }
+.pg-studio .st-files th:nth-child(4), .pg-studio .st-files td.stt { width: 74px; }
 .pg-studio .st-files tr.fr { cursor: pointer; }
 .pg-studio .st-files tr.fr:hover td { background: var(--bg-inset); }
 .pg-studio .st-files tr.sel td { background: var(--accent-soft); }
@@ -95,7 +105,7 @@
 .pg-studio .st-viewer pre.code, .pg-studio .st-body { max-height: 260px; white-space: pre-wrap; word-break: break-word; }
 .pg-studio iframe { width: 100%; height: 260px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .pg-studio .btn.st-prev, .pg-studio .btn.st-follow { padding: 3px 10px; font-size: 12px; }
-.pg-studio .st-actions { margin-top: 12px; display: flex; justify-content: flex-end; }
+.pg-studio .st-actions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .pg-studio .st-actions .arrow { color: var(--accent); }
 
 /* ---- composer ---- */
@@ -131,10 +141,10 @@
 .pg-studio .st-routes td.m-PUT, .pg-studio .st-routes td.m-PATCH { color: var(--sx-tag); }
 .pg-studio .st-routes td.m-DELETE { color: var(--sx-bool); }
 .pg-studio .st-routes td.m-ANY, .pg-studio .st-routes td.m-\* { color: var(--sx-num); }
-.pg-studio .st-routes td.p { white-space: normal; word-break: break-all; }
+.pg-studio .st-routes td.p { white-space: normal; word-break: normal; overflow-wrap: break-word; }
 .pg-studio .st-routes td.k { color: var(--ink-3); text-align: right; width: 80px; }
 .pg-studio .st-lanes { display: grid; grid-template-columns: 116px 56px minmax(0, 1fr); align-items: start; }
-.pg-studio .st-reqcard { position: sticky; top: 70px; margin-top: 10px; display: grid; gap: 2px; padding: 10px; border: 1px solid var(--accent-border); border-radius: 10px; background: var(--accent-soft); font-family: var(--f-mono); font-size: 12px; word-break: break-all; }
+.pg-studio .st-reqcard { position: sticky; top: 70px; margin-top: 10px; display: grid; gap: 2px; padding: 10px; border: 1px solid var(--accent-border); border-radius: 10px; background: var(--accent-soft); font-family: var(--f-mono); font-size: 12px; word-break: normal; overflow-wrap: break-word; }
 .pg-studio .st-wires { width: 100%; height: 100%; overflow: visible; }
 .pg-studio .st-wires path { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .pg-studio .st-wires path.hit { stroke: var(--accent); stroke-width: 2.2; stroke-dasharray: 5 4; animation: st-dash 0.8s linear infinite; }

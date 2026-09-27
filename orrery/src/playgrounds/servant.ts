@@ -349,7 +349,7 @@ const playground: Playground = {
             <button class="btn" id="sv-add-header" style="margin-bottom:8px;">+ header</button>
             <textarea class="code" id="sv-body" placeholder="request body (POST/PUT/PATCH)" spellcheck="false"></textarea>
             <div class="response-viewer">
-              <div class="resp-status" id="sv-resp-status">—</div>
+              <div class="resp-status" id="sv-resp-status"></div>
               <pre class="code" id="sv-resp-body">Send a request to see the response.</pre>
             </div>
           </div>

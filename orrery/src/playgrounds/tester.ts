@@ -985,7 +985,8 @@ async function typeLine(term: HTMLElement, raw: string, state: RunState): Promis
   }
   lineEl.textContent = text;
   cursor.remove();
-  term.appendChild(document.createElement('br'));
+  // NOTE: no trailing <br> here -- .tap-line is already display:block, so each line
+  // is its own box. Appending a <br> too used to double every line's vertical gap.
   term.scrollTop = term.scrollHeight;
 }
 
@@ -1128,7 +1129,7 @@ const playground: Playground = {
             <div class="custom-actions">
               <span class="stat" id="tester-custom-status"></span>
             </div>
-            <div class="term" id="tester-custom-term" role="log" aria-live="polite" style="height: 220px; margin-top: 10px;"></div>
+            <div class="term" id="tester-custom-term" role="log" aria-live="polite" style="height: 220px; margin-top: 10px;"><span class="tap-line tap-diag">press Run to execute this test &rarr;</span></div>
           </div>
         </div>
 

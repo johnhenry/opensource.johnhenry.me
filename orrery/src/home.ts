@@ -1,6 +1,7 @@
 import { createSignals, pointer, scroll, date } from '@johnhenry/css-signals';
 import { getRoomTests, type RoomTests } from './bus';
 import { probeCompanion, hasDemo } from './companion';
+import { subscribeLiveCounts } from './signal-bus';
 import type { PlaygroundEntry } from './registry';
 
 const esc = (s: string) =>
@@ -95,6 +96,16 @@ export async function applyBuildTimeFallback(
   }
 }
 
+/**
+ * "live in N tabs" chip (ROADMAP 4.6/4.11's Signal Bus): a placeholder,
+ * hidden until subscribeLiveCounts() reports a nonzero count for this
+ * planet id from wireRoomCardInteractions() below. Cross-tab presence is
+ * tracked in src/signal-bus.ts, not here.
+ */
+export function liveFor(id: string): string {
+  return `<span class="live-chip" data-live-room="${esc(id)}" hidden><span class="dot"></span><span class="n"></span></span>`;
+}
+
 /** Plug icon for planets that can use the optional Node companion. Coloured once the probe answers. */
 export function plugFor(e: PlaygroundEntry, compact: boolean): string {
   if (!e.companion) return '';
@@ -110,7 +121,7 @@ export function plugFor(e: PlaygroundEntry, compact: boolean): string {
  * same badgeFor()/plugFor() this file already owns.
  */
 export function roomCardHtml(e: PlaygroundEntry, roomTests: Record<string, RoomTests>): string {
-  return `<a class="room-card" href="#/${e.id}" style="--h:${e.hue}"><h3>${esc(e.title)}</h3><p>${esc(e.blurb)}</p><span class="pkg">${esc(e.pkg)}</span>${plugFor(e, false)}${badgeFor(e.id, roomTests, false)}</a>`;
+  return `<a class="room-card" href="#/${e.id}" style="--h:${e.hue}"><h3>${esc(e.title)}</h3><p>${esc(e.blurb)}</p><span class="pkg">${esc(e.pkg)}</span>${plugFor(e, false)}${badgeFor(e.id, roomTests, false)}${liveFor(e.id)}</a>`;
 }
 
 /**
@@ -153,6 +164,22 @@ export function wireRoomCardInteractions(container: HTMLElement, signal: AbortSi
       else { el.classList.add('bad'); el.title = 'Companion is up but this demo failed to mount · click for settings'; }
     });
   });
+
+  // "live in N tabs" (ROADMAP 4.11, Signal Bus): cross-tab presence, kept
+  // live for as long as this card list stays mounted.
+  const offLive = subscribeLiveCounts((counts) => {
+    if (signal.aborted) return;
+    container.querySelectorAll<HTMLElement>('[data-live-room]').forEach((el) => {
+      const id = el.dataset.liveRoom || '';
+      const n = counts[id] ?? 0;
+      el.hidden = n <= 0;
+      if (n > 0) {
+        el.querySelector('.n')!.textContent = `${n} live`;
+        el.title = `${n} tab${n === 1 ? '' : 's'} currently have this planet open`;
+      }
+    });
+  });
+  signal.addEventListener('abort', () => offLive());
 }
 
 /** Deterministic PRNG so the starfield and orbital phases are stable across visits. */
@@ -197,14 +224,19 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
         <div class="arm">
           <a class="planet" href="#/${e.id}" data-i="${i}" style="--size:${size}px" aria-label="${esc(e.title)}: ${esc(e.pkg)}">
             <span class="body" aria-hidden="true"></span>
-            <span class="label">${esc(e.title)}${plugFor(e, true)}${badgeFor(e.id, roomTests, true)}</span>
+            <span class="label">${esc(e.title)}${plugFor(e, true)}${badgeFor(e.id, roomTests, true)}${liveFor(e.id)}</span>
           </a>
         </div>
       </div>`;
   }).join('');
 
   const main = document.createElement('main');
-  main.className = 'home';
+  // The orrery is a fixed dark starfield (see .home's hardcoded #03050d
+  // background in home.css) regardless of the site-wide theme toggle. Circuit's
+  // `.dark` class opts this subtree's tokens (--ink, --bg-panel, --line, ...)
+  // out of the light theme so panel text stays readable in light mode instead
+  // of resolving to light-theme's dark ink on this always-dark background.
+  main.className = 'home dark';
   main.innerHTML = `
     <div class="sky" aria-hidden="true">
       <div class="nebula"></div>
@@ -253,6 +285,49 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
 
   // Side panel: the only JS in the interaction loop is swapping text on hover/focus.
   const ac = new AbortController();
+
+  // Orbiting labels cluster and overlap near the sun, and can spill past the
+  // stage's right edge (issue #18, home P2 — orbit labels collide). Orbits
+  // move slowly (30-90s periods), so a cheap poll is enough: no need for a
+  // per-frame rAF loop. Overlapping labels get nudged apart vertically
+  // (--label-dy, composed with the CSS `translate` centering); any label
+  // whose right edge would exit .stage gets pulled back in with `transform`.
+  const stageEl = main.querySelector('.stage') as HTMLElement;
+  function resolveLabelLayout() {
+    const labels = Array.from(main.querySelectorAll<HTMLElement>('.planet .label'));
+    if (!labels.length) return;
+    const stageBox = stageEl.getBoundingClientRect();
+    // One DOM read per label (already reflects last tick's --label-dy), then
+    // several rounds of pure-number relaxation — no DOM in the loop — so a
+    // dense cluster near the sun fully untangles within a single tick
+    // instead of creeping apart 2px/tick over several seconds.
+    const rects = labels.map((l) => l.getBoundingClientRect());
+    const dy = new Array(labels.length).fill(0);
+    for (let iter = 0; iter < 16; iter++) {
+      let moved = false;
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) {
+          const a = rects[i], b = rects[j];
+          const aTop = a.top + dy[i], aBottom = a.bottom + dy[i];
+          const bTop = b.top + dy[j], bBottom = b.bottom + dy[j];
+          const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+          const overlapY = Math.min(aBottom, bBottom) - Math.max(aTop, bTop);
+          if (overlapX <= 0 || overlapY <= 0) continue;
+          const push = overlapY / 2 + 1.5;
+          if (aTop <= bTop) { dy[i] -= push; dy[j] += push; } else { dy[i] += push; dy[j] -= push; }
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    labels.forEach((l, i) => {
+      l.style.setProperty('--label-dy', `${Math.max(-90, Math.min(90, dy[i]))}px`);
+      const overshoot = rects[i].right - stageBox.right;
+      l.style.transform = overshoot > 0 ? `translateX(${-(overshoot + 4)}px)` : '';
+    });
+  }
+  resolveLabelLayout();
+  const labelLayoutId = window.setInterval(resolveLabelLayout, 400);
 
   // Build-time test badges (roadmap 4.5): for any planet with no live
   // (localStorage) result yet, fetch dist/tests.json once and patch its
@@ -305,6 +380,7 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
 
   return () => {
     ac.abort();
+    window.clearInterval(labelLayoutId);
     signals.dispose();
     main.remove();
   };

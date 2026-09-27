@@ -2,9 +2,12 @@
 .pg-packfile .pv-h { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .02em; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .pg-packfile code { font-family: var(--f-mono); font-size: .92em; color: var(--accent); }
 
-.pv-cols { display: grid; gap: 16px; grid-template-columns: 1.15fr 1fr 1.15fr; align-items: start; }
-@media (max-width: 1000px) { .pv-cols { grid-template-columns: 1fr; } }
-.pv-col { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.pv-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
+@media (max-width: 1000px) { .pv-cols { grid-template-columns: minmax(0, 1fr); } }
+/* pattern A: without an explicit track for its own children, a `display:grid` column with no
+   grid-template-columns grows its single implicit column to the widest child's max-content width
+   (the unpack pre/iframe/etag), spilling out of the panel and over the neighbouring column. */
+.pv-col { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); align-content: start; min-width: 0; }
 
 /* ---- left: tree ---- */
 .pv-presets { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -47,7 +50,7 @@
 .pv-secbar { height: 8px; border-radius: 4px; background: var(--bg-inset); overflow: hidden; margin-top: 4px; }
 .pv-secbar i { display: block; height: 100%; background: var(--accent); }
 
-.pv-hexwrap .pv-hex { font-size: 11px; line-height: 1.5; max-height: 200px; white-space: pre; }
+.pv-hexwrap .pv-hex { font-size: 11px; line-height: 1.5; max-height: 200px; overflow: auto; white-space: pre; }
 .pv-dl { width: 100%; justify-content: center; }
 
 /* ---- right: unpack & serve ---- */
@@ -63,6 +66,9 @@
 .pv-headtable { width: 100%; font-family: var(--f-mono); font-size: 11.5px; border-collapse: collapse; margin: 4px 0 8px; }
 .pv-headtable td { padding: 2px 6px; border-bottom: 1px solid var(--line); }
 .pv-headtable td:first-child { color: var(--ink-2); white-space: nowrap; }
+/* the etag value is a long unbroken hash; let it wrap instead of forcing the table wider than
+   the panel (the header name column stays nowrap since header names are always short words). */
+.pv-headtable td:last-child { overflow-wrap: anywhere; }
 .pv-body pre.code { max-height: 160px; }
 .pv-respimg { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
 

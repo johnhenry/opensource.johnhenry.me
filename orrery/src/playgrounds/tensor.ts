@@ -419,7 +419,7 @@ function mountGrad(root: HTMLElement, st: State, save: () => void): () => void {
       if (n.kind === 'op' || n.kind === 'loss') {
         svg += `<g class="node ${n.kind}"><rect x="${p.x - (n.kind === 'loss' ? 40 : 30)}" y="${p.y - 17}" width="${n.kind === 'loss' ? 80 : 60}" height="34" rx="17"/><text x="${p.x}" y="${p.y + 4}">${esc(n.name)}</text>`;
         svg += `<text x="${p.x}" y="${p.y + 32}" class="glabel">${gtxt}</text>`;
-        if (n.hidden) svg += `<text x="${p.x}" y="${p.y - 24}" class="hlabel">${n.hidden} tape nodes inside</text>`;
+        if (n.hidden) svg += `<text x="${p.x}" y="${p.y - 28}" class="hlabel">${n.hidden} tape nodes inside</text>`;
         svg += `</g>`;
       } else {
         svg += `<g class="node ${n.kind}"><rect x="${p.x - 26}" y="${p.y - 12}" width="52" height="24" rx="5"/><text x="${p.x}" y="${p.y + 4}">${esc(n.name)}</text>`;
@@ -627,7 +627,16 @@ function mountFFT(root: HTMLElement, st: State, save: () => void): () => void {
     const maxM = Math.max(...r.Xmag, 1e-9);
     const yOf = (m: number) => SH - 20 - Math.sqrt(m / maxM) * (SH - 40);
     sctx.font = '16px ui-monospace, monospace'; sctx.fillStyle = 'rgba(160,170,200,.7)';
-    for (let f = 0; f <= 256; f += 32) { const gx = (f / B) * S; sctx.fillText(`${f}`, Math.min(gx + 2, S - 22), SH - 4); sctx.fillStyle = 'rgba(128,140,170,.12)'; sctx.fillRect(gx, 0, 1, SH - 18); sctx.fillStyle = 'rgba(160,170,200,.7)'; }
+    for (let f = 0; f <= 256; f += 32) {
+      const gx = (f / B) * S;
+      const label = `${f}`;
+      const tw = sctx.measureText(label).width;
+      // clamp fully inside the canvas — the fixed "S - 22" budget was too
+      // tight for the 3-digit "256" tick, which got clipped to "25".
+      const tx = Math.min(Math.max(gx + 2, 2), S - tw - 2);
+      sctx.fillText(label, tx, SH - 4);
+      sctx.fillStyle = 'rgba(128,140,170,.12)'; sctx.fillRect(gx, 0, 1, SH - 18); sctx.fillStyle = 'rgba(160,170,200,.7)';
+    }
     const bw = S / (B + 1);
     for (let k = 0; k <= B; k++) {
       const gx = (k / B) * S;
@@ -641,7 +650,15 @@ function mountFFT(root: HTMLElement, st: State, save: () => void): () => void {
       sctx.setLineDash([6, 4]); sctx.strokeStyle = '#ffb454'; sctx.lineWidth = 1.8; sctx.stroke(); sctx.setLineDash([]);
     }
     sctx.fillStyle = 'rgba(230,236,250,.9)';
-    for (const i of r.peaks.indices.slice(0, 12)) { const gx = (i / B) * S; sctx.fillText(`${i} Hz`, Math.min(gx + 5, S - 64), yOf(r.Xmag[i]) - 6); }
+    for (const i of r.peaks.indices.slice(0, 12)) {
+      const gx = (i / B) * S;
+      // clamp both axes: a low-frequency peak (e.g. "5 Hz") near the tall
+      // left edge of the chart otherwise sits flush against — and clips
+      // into — the canvas's top-left corner.
+      const lx = Math.min(Math.max(gx + 5, 2), S - 64);
+      const ly = Math.max(12, yOf(r.Xmag[i]) - 6);
+      sctx.fillText(`${i} Hz`, lx, ly);
+    }
     stats.innerHTML = `<span class="stat">rfft <b>${ms(r.t.rfft)}</b></span><span class="stat">filter <b>${ms(r.t.filter)}</b></span><span class="stat">energy kept <b>${(r.energy * 100).toFixed(1)}%</b></span><span class="stat">peaks <b>${r.peaks.indices.slice(0, 6).join(', ') || '—'}</b> Hz</span>${r.sos ? `<span class="stat">SOS sections <b>${r.sos.length}</b></span>` : ''}`;
     paintCode(r.sos);
   }

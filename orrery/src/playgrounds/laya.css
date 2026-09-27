@@ -56,8 +56,10 @@
 .pg-laya .qs { display: grid; gap: 10px; margin-top: 12px; }
 .pg-laya .q { border: 1px solid var(--line); border-radius: 10px; background: var(--bg-inset); padding: 10px; display: grid; gap: 8px; transition: border-color .2s; }
 .pg-laya .q.pending { border-color: var(--accent-border); }
-.pg-laya .q-edit { display: grid; gap: 6px; grid-template-columns: 9.5em 6.5em minmax(0, 1fr) auto; }
-.pg-laya .q-edit input, .pg-laya .q-edit select { min-width: 0; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); font-size: 13px; }
+/* id/type only ever hold short slugs ("department", "choice") — give the instructions field
+   (which routinely holds a full sentence) more of the row instead of padding these two. */
+.pg-laya .q-edit { display: grid; gap: 6px; grid-template-columns: minmax(5.5em, 7.5em) minmax(4.5em, 5.5em) minmax(0, 1fr) auto; }
+.pg-laya .q-edit input, .pg-laya .q-edit select { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); font-size: 13px; }
 .pg-laya .q-id { font-family: var(--f-mono); color: var(--accent); }
 .pg-laya .q-crit { grid-column: 1 / -1; font-family: var(--f-mono); font-size: 12px !important; color: var(--ink-2); }
 .pg-laya .q-del { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 0 6px; }
@@ -71,14 +73,20 @@
 .pg-laya .ans-head .big.yes { color: #3ddc97; }
 .pg-laya .ans-head .big.no { color: #ff8b8b; }
 .pg-laya .bars, .pg-laya .dir-bars { display: grid; gap: 3px; }
-.pg-laya .pb { display: grid; grid-template-columns: minmax(5em, 10em) minmax(0, 1fr) 4.2em; align-items: center; gap: 8px; font-size: 12px; }
+/* fixed (not minmax) label column so .score-axis below can reliably line its dashed track up
+   under the bar track, instead of approximating a responsive width with calc(min(...)). */
+.pg-laya .pb { display: grid; grid-template-columns: 8em minmax(0, 1fr) 4.2em; align-items: center; gap: 8px; font-size: 12px; }
 .pg-laya .pb .pl { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--f-mono); }
 .pg-laya .pb .pt { height: 10px; background: color-mix(in srgb, var(--ink) 6%, transparent); border-radius: 3px; overflow: hidden; }
 .pg-laya .pb .pt i { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 3px; transition: width .25s ease; }
 .pg-laya .pb.top .pl { color: var(--ink); font-weight: 600; }
 .pg-laya .pb.top .pt i { background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent); }
 .pg-laya .pb .pv { font-family: var(--f-mono); color: var(--ink-3); text-align: right; }
-.pg-laya .score-axis { position: relative; height: 8px; margin: 4px 4.2em 0 calc(min(10em, 30%) + 8px); border-top: 1px dashed var(--line); }
+/* margin-left matches .pb's fixed 8em label column + its 8px gap exactly, so this track sits
+   directly under the bar track instead of drifting out of alignment with a responsive estimate.
+   The line itself used to be nearly invisible (1px var(--line) on a dark panel), which made the
+   marker below it look like a stray, disconnected triangle. */
+.pg-laya .score-axis { position: relative; height: 8px; margin: 2px 4.2em 0 calc(8em + 8px); border-top: 1px dashed var(--ink-3); }
 .pg-laya .score-axis em { position: absolute; top: -1px; width: 0; height: 0; border: 5px solid transparent; border-top-color: var(--accent); transform: translateX(-5px); transition: left .25s; }
 .pg-laya .noul { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 4em; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-3); font-family: var(--f-mono); }
 .pg-laya .nbar { position: relative; height: 12px; border-radius: 6px; background: linear-gradient(90deg, color-mix(in srgb, #ff6b6b 25%, transparent), color-mix(in srgb, #3ddc97 25%, transparent)); }
@@ -99,6 +107,9 @@
 .pg-laya .snake-stats div { background: var(--bg-inset); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; display: grid; }
 .pg-laya .snake-stats span { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
 .pg-laya .snake-stats b { font-family: var(--f-mono); font-size: 14px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the decision tile packs more text than the others ("0.30 ms (avg 0.35 ms)"), so ellipsis was
+   truncating it to "0.30 ms (…"; let just this tile wrap onto a second line instead of clipping. */
+.pg-laya .snake-stats .s-ms { white-space: normal; overflow: visible; text-overflow: clip; font-size: 12px; line-height: 1.3; }
 .pg-laya .dir-bars .pb { grid-template-columns: 4.5em minmax(0, 1fr) 4.2em; }
 .pg-laya .shadow-note { margin-top: 4px; }
 .pg-laya .snake-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; font-size: 13px; }

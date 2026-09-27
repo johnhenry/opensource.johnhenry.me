@@ -6,6 +6,9 @@
 .pg-iteration label.field { min-width: 110px; }
 .pg-iteration label.field.wide { min-width: 220px; flex: 1; }
 .pg-iteration label.field.checkbox { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+/* label.field's own muted color (var(--ink-2)) cascades into its input/select, which
+   makes live values read as washed-out/disabled. Fields should read as active text. */
+.pg-iteration label.field input, .pg-iteration label.field select { color: var(--ink); }
 
 /* ---- pipe row ---- */
 .pipe-scroll { overflow-x: auto; padding: 4px 2px 14px; }
@@ -47,7 +50,8 @@
   border: 4px solid transparent; border-left-color: var(--line);
 }
 .pipe-dot {
-  position: absolute; top: -4px; left: 0; width: 10px; height: 10px; border-radius: 50%;
+  position: absolute; top: 50%; left: 0; width: 10px; height: 10px; border-radius: 50%;
+  translate: 0 -50%;
   background: var(--accent); box-shadow: 0 0 8px var(--accent);
   transition-property: left; transition-timing-function: linear;
 }
@@ -116,7 +120,7 @@
 .pg-iteration .bp-meter-label b { color: var(--accent); }
 .pg-iteration .bp-meter-track { flex: 1 1 200px; min-width: 140px; height: 10px; border-radius: 99px; background: var(--bg-inset); border: 1px solid var(--line); overflow: hidden; }
 .pg-iteration .bp-meter-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #ff6b6b)); transition: width .15s ease; }
-.pg-iteration .bp-blocked { font-family: var(--f-mono); font-size: 11.5px; color: #ff8a8a; white-space: nowrap; }
+.pg-iteration .bp-blocked { font-family: var(--f-mono); font-size: 11.5px; color: var(--error); white-space: nowrap; }
 .pg-iteration .bp-blocked[hidden] { display: none; }
 
 .pg-iteration .bp-lanes { margin-bottom: 12px; }

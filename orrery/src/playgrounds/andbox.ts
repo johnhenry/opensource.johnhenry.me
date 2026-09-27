@@ -230,7 +230,7 @@ const playground: Playground = {
       <div class="panel ab-bar">
         <div class="ab-presets">${PRESETS.map(p => `<button class="ab-preset" data-id="${p.id}" aria-pressed="false">${p.label}</button>`).join('')}</div>
         <div class="ab-controls">
-          <button class="btn primary" data-act="run">▶ Run <span class="stat">⌘↵</span></button>
+          <button class="btn primary" data-act="run">▶ Run <span class="stat ab-run-hint">⌘↵</span></button>
           <button class="btn kill" data-act="kill" disabled>■ Kill</button>
           <label class="field">timeout ms<input type="number" min="100" step="100" data-f="timeout"></label>
           <label class="field">max calls / run<input type="number" min="0" step="50" data-f="max"></label>
@@ -240,7 +240,7 @@ const playground: Playground = {
         <span class="ab-status" data-state="booting">booting</span>
       </div>
       <div class="ab-main">
-        <div class="panel">
+        <div class="panel ab-code-panel">
           <h3 class="ab-h">sandboxed code <span class="stat">runs in a blob: Worker</span></h3>
           <textarea class="code" spellcheck="false" aria-label="sandbox code"></textarea>
         </div>
@@ -270,7 +270,7 @@ const playground: Playground = {
           <h3 class="ab-h">event log <span class="stat">consecutive identical calls coalesce ×n</span></h3>
           <div class="ab-log" role="log"></div>
         </div>
-        <div class="panel">
+        <div class="panel ab-result-panel">
           <h3 class="ab-h">result</h3>
           <pre class="code ab-result">–</pre>
         </div>

@@ -717,7 +717,7 @@ const playground: Playground = {
               </label>
             </div>
 
-            <div class="ctl-row">
+            <div class="ctl-row ctl-row-bound">
               <span class="ctl-label">Bound by</span>
               <label class="radio"><input type="radio" name="c-bound" value="count" /> count</label>
               <input id="c-count" type="number" min="1" max="200" value="12" />
@@ -725,7 +725,7 @@ const playground: Playground = {
               <input id="c-until" type="date" />
             </div>
 
-            <div class="ctl-row">
+            <div class="ctl-row ctl-row-interval">
               <label class="radio"><input id="c-interval-mode" type="checkbox" /> interval mode ({start,end} spans)</label>
               <label class="field mini"><span>span length (min)</span>
                 <input id="c-duration" type="number" min="1" max="1440" value="60" />

@@ -390,7 +390,11 @@ function drawPlot(cv: HTMLCanvasElement, series: Series[], opts: { equal?: boole
   let y0 = ys[Math.floor(ys.length * 0.005)], y1 = ys[Math.ceil(ys.length * 0.995) - 1];
   if (x1 - x0 < 1e-9) { x0 -= 1; x1 += 1; }
   if (y1 - y0 < 1e-9) { y0 -= 1; y1 += 1; }
-  const pad = 0.08 * (y1 - y0); y0 -= pad; y1 += pad;
+  // The line's glow (shadowBlur below) extends past the stroked path itself,
+  // and the 99.5th-percentile trim above can leave true peak samples just
+  // outside [y0, y1] — either way the curve was landing flush against (and
+  // getting hard-clipped by) the clip rect's top edge. Pad generously.
+  const pad = 0.16 * (y1 - y0); y0 -= pad; y1 += pad;
   const L = 44, Rm = 12, T = 10, B = 22;
   const pw = W - L - Rm, ph = H - T - B;
   let sx = pw / (x1 - x0), sy = ph / (y1 - y0);
@@ -448,8 +452,10 @@ const playground: Playground = {
       <div class="gc-top">
         <div class="gc-presets"></div>
         <span class="spacer"></span>
-        <button class="btn gc-demo" title="Replay a scripted sequence of MCP tool calls">▶ agent demo</button>
-        <button class="btn gc-copy">copy link</button>
+        <div class="gc-top-actions">
+          <button class="btn gc-demo" title="Replay a scripted sequence of MCP tool calls">▶ agent demo</button>
+          <button class="btn gc-copy">copy link</button>
+        </div>
       </div>
       <div class="gc-main">
         <div class="gc-col">
@@ -1086,11 +1092,16 @@ const SID = "${sessionId}";`);
         const pos = new Map<string, [number, number]>();
         for (const [d, ns] of cols) ns.forEach((n, i) => pos.set(n, [16 + d * CW, 18 + i * RH + ((maxRows - ns.length) * RH) / 2]));
         const edges: string[] = [];
-        for (const [n, ds] of deps) for (const d of ds) {
+        for (const [n, ds] of deps) ds.forEach((d, i) => {
           const a = pos.get(d)!, b = pos.get(n)!;
-          const x1 = a[0] + NW, y1 = a[1] + NH / 2, x2 = b[0], y2 = b[1] + NH / 2, mx = (x1 + x2) / 2;
+          // Multiple deps landing on the same target used to all aim at its
+          // dead-center port, so their arrowheads piled up in one stack.
+          // Spread each incoming edge to its own port along the target's
+          // left edge instead.
+          const port = ds.length > 1 ? (NH * (i + 1)) / (ds.length + 1) : NH / 2;
+          const x1 = a[0] + NW, y1 = a[1] + NH / 2, x2 = b[0], y2 = b[1] + port, mx = (x1 + x2) / 2;
           edges.push(`<path class="gc-edge" data-from="${esc(d)}" data-to="${esc(n)}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 4},${y2}" marker-end="url(#gc-arrow)"/>`);
-        }
+        });
         for (const [from, to] of loops) {
           const a = pos.get(from), b = pos.get(to);
           if (!a || !b) continue;

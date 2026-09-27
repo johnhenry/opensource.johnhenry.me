@@ -35,7 +35,14 @@
   box-sizing: border-box;
 }
 .pg-spintax .hl-layer { color: transparent; background: transparent; pointer-events: none; }
-.pg-spintax .hl-layer .grp { border-radius: 3px; }
+.pg-spintax .hl-layer .grp {
+  border-radius: 3px;
+  /* groups that wrap mid-line get their own background/border per fragment,
+     instead of one box that visibly ends in trailing whitespace before the
+     wrap (issue #18, Spintax Forge P3). */
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .pg-spintax .hl-layer .grp-err { background: color-mix(in srgb, var(--error) 45%, transparent); text-decoration: underline wavy var(--error); }
 .pg-spintax .editor-input { background: transparent; color: var(--code-ink, var(--ink)); resize: vertical; caret-color: var(--accent); }
 .pg-spintax .editor-input:focus { outline: none; }
@@ -72,7 +79,14 @@
 
 /* stream --------------------------------------------------------------- */
 .pg-spintax .stream-controls { display: flex; gap: 8px; margin-bottom: 10px; }
-.pg-spintax .stream-stats { margin-bottom: 8px; }
+.pg-spintax .stream-stats {
+  margin-bottom: 8px;
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .pg-spintax .stream-list {
   height: 220px;
   overflow-y: auto;

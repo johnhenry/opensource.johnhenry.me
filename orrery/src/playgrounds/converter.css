@@ -1,7 +1,8 @@
 .pg-converter { display: flex; flex-direction: column; gap: 16px; }
 
-.pg-converter .cv-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.pg-converter .cv-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pg-converter .cv-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; }
+.pg-converter .cv-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.pg-converter .cv-bar > [data-copy-link] { flex: 0 0 auto; white-space: nowrap; }
 
 .pg-converter .cv-h {
   display: flex;
@@ -30,7 +31,10 @@
 .pg-converter .cv-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 700px) {
+  .pg-converter .cv-grid { grid-template-columns: 1fr; }
 }
 
 .pg-converter .cv-pane .cv-h { justify-content: space-between; }
@@ -38,6 +42,8 @@
 
 .pg-converter pre.code { min-height: 120px; white-space: pre-wrap; word-break: break-word; }
 .pg-converter pre.code.error { border-color: var(--error); color: var(--error); }
+/* pattern D: code panes get horizontal scroll instead of mid-token wraps */
+.pg-converter .cv-pane pre.code { white-space: pre; overflow-x: auto; word-break: normal; overflow-wrap: normal; }
 
 .pg-converter .cv-send-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 8px; }
 .pg-converter .cv-send-row label.field { display: grid; }

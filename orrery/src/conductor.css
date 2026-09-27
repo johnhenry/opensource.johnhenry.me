@@ -1,0 +1,44 @@
+/**
+ * jth Conductor dock (ROADMAP §4.8). Stacked above the Almanac on the LEFT
+ * edge (bottom: 66px), mirroring the HAR recorder / telemetry dock pairing
+ * on the right, so none of the four site-wide docks overlap.
+ */
+.conductor-dock {
+  position: fixed; left: 14px; bottom: 66px; z-index: 501;
+  width: min(460px, calc(100vw - 28px));
+  font: 12.5px var(--f-mono);
+  background: var(--bg-panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / .4);
+  max-height: min(78vh, 700px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.conductor-dock.collapsed .cd-body { display: none; }
+.cd-handle {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; font: 700 12px var(--f-mono); color: var(--ink);
+}
+.cd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); flex-shrink: 0; }
+.cd-spacer { flex: 1; }
+.cd-caret { color: var(--ink-3); transition: transform .15s; }
+.conductor-dock.collapsed .cd-caret { transform: rotate(-90deg); }
+.cd-body { padding: 0 12px 12px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.cd-section { border-top: 1px solid var(--line); padding-top: 8px; }
+.cd-section:first-child { border-top: 0; padding-top: 0; }
+.cd-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+.cd-presets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+.cd-row { display: flex; gap: 6px; align-items: center; }
+.cd-row select { padding: 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font: inherit; }
+.cd-input-row { display: flex; gap: 6px; }
+.cd-input-row input { flex: 1; padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font: inherit; }
+.cd-log { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.cd-log li { border-radius: 6px; padding: 4px 6px; background: var(--bg-inset); }
+.cd-log .src { color: var(--accent); }
+.cd-log .out { color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.cd-log .err { color: var(--error); white-space: pre-wrap; }
+.cd-stack { background: var(--code-bg); color: var(--code-ink); border-radius: 6px; padding: 6px 8px; max-height: 100px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+.cd-selftest { display: flex; flex-direction: column; gap: 3px; }
+.cd-selftest .ok { color: var(--success, #3ddc97); }
+.cd-selftest .bad { color: var(--error); }
+.cd-worker-status { color: var(--ink-3); }

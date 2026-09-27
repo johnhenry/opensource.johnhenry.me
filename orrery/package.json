@@ -85,11 +85,13 @@
     "buffer": "^6.0.3",
     "isomorphic-git": "^1.42.2",
     "path-browserify": "^1.0.1",
+    "prismjs": "^1.30.0",
     "temporal-polyfill": "^0.3.0",
     "three": "0.185.1",
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@types/prismjs": "^1.26.6",
     "@types/three": "^0.186.0",
     "playwright": "^1.63.0",
     "typescript": "^5.6.0",

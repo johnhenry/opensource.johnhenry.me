@@ -469,7 +469,7 @@ const playground: Playground = {
     cxPanel.innerHTML = `<h3>Connect <span class="sub">WshClient.connectWithTransport()</span><span class="spacer"></span><span class="status" data-r="status">idle</span></h3>
       <div class="row"><div class="seg" data-r="mode"><button data-m="auto">auto</button><button data-m="page">in-page host</button><button data-m="live">companion</button></div><span class="spacer"></span><button class="btn sm" data-a="link">copy link</button></div>
       <div class="fields"><label class="field">username<input data-r="user" spellcheck="false" autocomplete="off" maxlength="32"></label><label class="field">server URL<input data-r="url" spellcheck="false"></label></div>
-      <div class="fields three"><label class="field">our receive window<select data-r="win"><option value="1m">1 MiB / stream (default)</option><option value="64k">64 KiB / stream</option><option value="8k">8 KiB / stream (tight)</option></select></label>
+      <div class="fields three"><label class="field">our receive window<select data-r="win" title="Receive window per QMux stream"><option value="1m">1 MiB (default)</option><option value="64k">64 KiB</option><option value="8k">8 KiB (tight)</option></select></label>
         <label class="field">slow consumer<select data-r="rate">${Object.entries(RATES).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
         <label class="field">key on host allowlist<span class="row" style="min-height:34px"><label class="check"><input type="checkbox" data-r="reg"> register it first</label></span></label></div>
       <div class="row"><button class="btn primary" data-a="connect">Connect</button><button class="btn" data-a="disconnect" disabled>Disconnect</button><button class="btn" data-a="pty" disabled>new PTY</button><span class="spacer"></span><span class="muted" data-r="where"></span></div>
@@ -621,6 +621,21 @@ const playground: Playground = {
     const pterm = new Terminal({ cols: 80, rows: 14, fontFamily, fontSize: 11, theme: XTHEME, disableStdin: true, cursorBlink: false, scrollback: 500 });
     pterm.open(ptermEl);
     disposers.push(() => pterm.dispose());
+    // The player used to resize purely to the recording's own declared width
+    // (meta.width), ignoring how many columns actually fit in the panel —
+    // wider recordings rendered past .term-wrap's right edge and were
+    // silently hard-clipped by its overflow:hidden. Cap to whichever is smaller.
+    const charWidth11 = (() => {
+      const c = document.createElement('canvas').getContext('2d')!;
+      c.font = `11px ${fontFamily}`;
+      return c.measureText('WWWWWWWWWW').width / 10 || 6.6;
+    })();
+    const fitPtermCols = () => Math.max(20, Math.floor((ptermEl.clientWidth - 22) / charWidth11));
+    let lastRecordedWidth = 80;
+    const resizePterm = () => pterm.resize(Math.max(20, Math.min(200, lastRecordedWidth, fitPtermCols())), 14);
+    const roP = new ResizeObserver(() => resizePterm());
+    roP.observe(ptermEl);
+    disposers.push(() => roP.disconnect());
 
     /* ---------- known hosts (TOFU) ---------- */
     trustPanel.innerHTML = `<h3>Known hosts <span class="sub">WshKnownHosts · trust-on-first-use</span></h3>
@@ -907,11 +922,11 @@ const playground: Playground = {
       kpisEl.innerHTML = [
         k('wire out', fmtB(wire.bytesOut)), k('wire in', fmtB(wire.bytesIn)),
         k('records ↑/↓', `${wire.recOut}/${wire.recIn}`),
-        k('conn credit (host)', fmtB(Math.max(0, wire.peerMaxData - wire.dataOut))),
-        k('conn credit (ours)', fmtB(Math.max(0, wire.ourMaxData - wire.dataIn))),
-        k('MAX_*DATA sent', String(wire.maxDataSent + wire.maxStreamDataSent)),
+        k('host credit', fmtB(Math.max(0, wire.peerMaxData - wire.dataOut))),
+        k('our credit', fmtB(Math.max(0, wire.ourMaxData - wire.dataIn))),
+        k('MAX_DATA sent', String(wire.maxDataSent + wire.maxStreamDataSent)),
         k('host blocked', String(blockedTotal), blockedTotal > 0),
-        k('consumer backlog', fmtB(wire.backlog), wire.backlog > 0),
+        k('backlog', fmtB(wire.backlog), wire.backlog > 0),
       ].join('');
       streamsEl.innerHTML = [...wire.streams.values()].sort((a, b) => a.id - b.id).map((s) => {
         const done = (s.finIn && s.finOut) || s.reset;
@@ -1047,7 +1062,8 @@ const playground: Playground = {
       player = new W.SessionPlayer(json);
       const meta = player.metadata;
       duration = meta.duration;
-      pterm.resize(Math.max(20, Math.min(200, meta.width || 80)), 14);
+      lastRecordedWidth = meta.width || 80;
+      resizePterm();
       playing = false; btnPlay.textContent = '▶ play';
       newCtl(true, 0);
       pmeta.textContent = `${meta.eventCount} events · ${meta.width}×${meta.height} · ${fmtT(duration)}`;

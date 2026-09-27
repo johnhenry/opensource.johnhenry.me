@@ -646,7 +646,7 @@ const playground: Playground = {
         </section>
         <section class="col js">
           <header><span>compiled JavaScript</span><span class="badge" hidden>stale</span></header>
-          <pre class="code out-js"></pre>
+          <div class="js-wrap"><pre class="code out-js"></pre></div>
         </section>
         <section class="col run">
           <header><span>program output</span><span class="hint" data-s="runms"></span></header>

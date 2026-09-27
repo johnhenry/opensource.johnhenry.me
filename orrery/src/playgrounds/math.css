@@ -3,13 +3,19 @@
 .pg-math .mo-tabs .btn[aria-selected="true"] { background: var(--accent); color: #fff; border-color: transparent; }
 .pg-math .mo-stage { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
 @media (max-width: 880px) { .pg-math .mo-stage { grid-template-columns: minmax(0, 1fr); } }
-.pg-math .mo-view { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
+/* keep the canvas in view instead of leaving a void once the taller side
+   panel scrolls past it (issue #18, Math Observatory P2, pattern C) */
+.pg-math .mo-view { position: sticky; top: 16px; align-self: start; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
 .pg-math .mo-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .pg-math .mo-view canvas.mo-main { cursor: crosshair; }
 .pg-math .mo-view canvas.mo-overlay { pointer-events: none; }
-.pg-math .mo-hud { position: absolute; left: 10px; top: 10px; pointer-events: none; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; color: var(--ink); background: color-mix(in srgb, #04050c 72%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; backdrop-filter: blur(4px); max-width: calc(100% - 20px); }
+/* .mo-hud/.mo-hint overlay the canvas, which is always rendered dark (#04050c)
+   regardless of site theme — use --code-ink (always light), not --ink/--ink-3
+   (which flip to dark in light theme and go near-invisible here), issue #18
+   dark/light spot-check. */
+.pg-math .mo-hud { position: absolute; left: 10px; top: 10px; pointer-events: none; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; color: var(--code-ink, var(--ink)); background: color-mix(in srgb, #04050c 72%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; backdrop-filter: blur(4px); max-width: calc(100% - 20px); }
 .pg-math .mo-hud b { color: var(--accent); font-weight: 600; }
-.pg-math .mo-hint { position: absolute; right: 8px; bottom: 8px; background: color-mix(in srgb, #04050c 70%, transparent); padding: 2px 8px; border-radius: 6px; pointer-events: none; font-size: 11px; color: var(--ink-3); font-family: var(--f-mono); }
+.pg-math .mo-hint { position: absolute; right: 8px; bottom: 8px; background: color-mix(in srgb, #04050c 70%, transparent); padding: 2px 8px; border-radius: 6px; pointer-events: none; font-size: 11px; color: color-mix(in srgb, var(--code-ink, var(--ink)) 70%, transparent); font-family: var(--f-mono); }
 .pg-math .mo-progress { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); transition: width .08s linear, opacity .4s; }
 .pg-math .mo-side { display: grid; gap: 12px; }
 .pg-math .mo-side .panel { display: grid; gap: 10px; padding: 14px; }
@@ -19,9 +25,15 @@
 .pg-math .mo-row .btn.on { background: var(--accent); color: #fff; border-color: transparent; }
 .pg-math input[type="range"] { width: 100%; accent-color: var(--accent); }
 .pg-math .mo-kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-family: var(--f-mono); font-size: 12px; }
-.pg-math .mo-kv span:nth-child(odd) { color: var(--ink-3); }
+.pg-math .mo-kv span:nth-child(odd) { color: var(--ink-3); white-space: nowrap; }
 .pg-math .mo-kv span:nth-child(even) { color: var(--ink); overflow-wrap: anywhere; }
-.pg-math .mo-formula { font-family: var(--f-mono); font-size: 15px; color: var(--ink); padding: 8px 10px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); overflow-wrap: anywhere; }
+/* LaTeX source breaks mid-command when wrapped; scroll it as one line instead
+   (issue #18, Math Observatory P3) */
+.pg-math .mo-kv .mo-latex { display: block; overflow-x: auto; white-space: pre; overflow-wrap: normal; }
+/* background is --code-bg (always dark by design); pair it with --code-ink
+   (always light) instead of --ink, which resolves to a dark, near-invisible
+   color in light theme (issue #18 dark/light spot-check). */
+.pg-math .mo-formula { font-family: var(--f-mono); font-size: 15px; color: var(--code-ink, var(--ink)); padding: 8px 10px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); overflow-wrap: anywhere; }
 .pg-math .mo-formula b { color: var(--accent); }
 .pg-math .mo-picker { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); aspect-ratio: 3 / 2; background: #04050c; cursor: grab; }
 .pg-math .mo-picker canvas { position: absolute; inset: 0; width: 100%; height: 100%; }

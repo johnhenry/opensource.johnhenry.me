@@ -246,7 +246,7 @@ const playground: Playground = {
       <div class="rj-bar panel">
         <label class="field rj-n">validators <b data-o="n"></b><input type="range" min="4" max="7" step="1" data-i="n"></label>
         <label class="field rj-lat">hop latency <b data-o="lat"></b><input type="range" min="0" max="400" step="10" data-i="lat"></label>
-        <label class="field">block time
+        <label class="field">block time <b class="rj-bt-ghost">&nbsp;</b>
           <select data-i="bt"><option value="400">0.4 s</option><option value="800">0.8 s</option><option value="2000">2 s (library default)</option></select>
         </label>
         <label class="field rj-vt" title="ValidatorNodeConfig.viewTimeout: how long a node waits for the leader before broadcasting VIEW-CHANGE (library default 10 s)">view timeout <b data-o="vt"></b><input type="range" min="1" max="10" step="0.5" data-i="vt"></label>
@@ -1217,7 +1217,9 @@ const playground: Playground = {
         g.appendChild(svgEl('rect', { x: x - 4, y: y - 4, width: 8, height: 8, transform: `rotate(45 ${x} ${y})` }));
         if (!this.labeled.has(h.toString())) {
           this.labeled.add(h.toString());
-          const tx = svgEl('text', { x: x + 6, y: y - 6 });
+          // Lane 0 has no row above it to spill into: label below the marker there
+          // instead of above, so it never rides the diagram's own top edge.
+          const tx = svgEl('text', { x: x + 6, y: lane === 0 ? y + 14 : y - 6 });
           tx.textContent = `#${h}`;
           g.appendChild(tx);
           if (this.labeled.size > 500) this.labeled.clear();

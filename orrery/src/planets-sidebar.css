@@ -51,7 +51,10 @@
   text-decoration: none;
   color: inherit;
   position: relative;
-  background: linear-gradient(170deg, hsl(var(--h) 60% 50% / .08), hsl(228 40% 9% / .55) 55%);
+  /* Dark/light audit (issue #18): the second gradient stop was a hardcoded
+     dark navy that didn't respond to the theme, so cards stayed a murky gray
+     with low-contrast text in light mode. --bg-inset already tracks light/dark. */
+  background: linear-gradient(170deg, hsl(var(--h) 60% 50% / .08), var(--bg-inset) 55%);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 14px;

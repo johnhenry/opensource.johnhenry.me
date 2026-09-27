@@ -5,7 +5,7 @@ import { readState, writeState, copyLink } from '../state';
 // it has no color-generation or contrast helpers. We use the real export for a
 // genuine "jump to a theme / section" command palette, and compute contrast
 // ratios ourselves below (WCAG formula) since the library doesn't ship one.
-// @ts-expect-error -- palette.js ships no .d.ts
+// (Typed via src/types.d.ts's ambient declaration — see ROADMAP 4.6's chrome.ts, which needed the same import.)
 import { createCommandPalette } from '@erisera-code/circuit/palette.js';
 import '@erisera-code/circuit/palette.css';
 import './circuit.css';
@@ -282,19 +282,22 @@ const playground: Playground = {
           <div class="tok-grid">
             ${g.vars.map((v) => {
               const raw = cs.getPropertyValue(v).trim();
+              // These are CSS custom-property NAMES (e.g. "--success"), not values — they must be
+              // wrapped in var(...) to resolve. Emitting `style="background:${v}"` literally sets
+              // `background: --success`, which is invalid CSS and paints nothing (P1 from the audit).
               if (g.kind === 'color') {
-                return `<div class="tok-cell"><div class="tok-swatch" style="background:${v}"></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
+                return `<div class="tok-cell"><div class="tok-swatch" style="background:var(${v})"></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
               }
               if (g.kind === 'space') {
-                return `<div class="tok-cell space"><div class="tok-swatch"><div class="bar" style="width:${v}"></div></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
+                return `<div class="tok-cell space"><div class="tok-swatch"><div class="bar" style="width:var(${v})"></div></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
               }
               if (g.kind === 'radius') {
-                return `<div class="tok-cell radius"><div class="tok-swatch"><div class="box" style="border-radius:${v}"></div></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
+                return `<div class="tok-cell radius"><div class="tok-swatch"><div class="box" style="border-radius:var(${v})"></div></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
               }
               if (g.kind === 'shadow') {
-                return `<div class="tok-cell shadow"><div class="tok-swatch"><div class="box" style="box-shadow:${v}"></div></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
+                return `<div class="tok-cell shadow"><div class="tok-swatch"><div class="box" style="box-shadow:var(${v})"></div></div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
               }
-              return `<div class="tok-cell font"><div class="tok-swatch" style="font-family:${v}">Aa 123</div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
+              return `<div class="tok-cell font"><div class="tok-swatch" style="font-family:var(${v})">Aa 123</div><div class="tok-meta"><span class="tok-name">${v}</span><span class="tok-val">${esc(raw)}</span></div></div>`;
             }).join('')}
           </div>
         </div>
