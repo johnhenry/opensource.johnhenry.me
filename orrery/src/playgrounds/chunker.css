@@ -75,3 +75,12 @@
 .pg-chunker .ck-shift.hit { fill: var(--accent); }
 .pg-chunker .ck-shift.miss { fill: none; stroke: var(--ink-2); stroke-width: 1.2; }
 .pg-chunker .ck-dl[hidden] { display: none; }
+
+/* ---- ollama embedder ---- */
+.pg-chunker .ck-ollama-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pg-chunker .ck-ollama-url { flex: 1 1 240px; min-width: 180px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 12.5px; }
+.pg-chunker .ck-ollama-url:focus { outline: 1px solid var(--accent); }
+
+/* ---- fixed-size baseline ---- */
+.pg-chunker .ck-doc-baseline { max-height: 320px; }
+.pg-chunker .ck-chunk-flat { border: 1px dashed var(--line); background: var(--bg-inset); opacity: .92; }
