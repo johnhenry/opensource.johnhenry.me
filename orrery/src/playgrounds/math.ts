@@ -1010,7 +1010,7 @@ Symbolic.toLatex(ast);</pre>
       <span>∫<sub>${lo}</sub><sup>${hi}</sup></span><span>${typeof num.area === 'number' ? `<b style="color:var(--accent)">${fmt(num.area, 6)}</b>` : esc(num.area)}</span>
       <span>roots</span><span>${esc(num.rootsStr)}</span>
       <span>T<sub>${orderIn.value}</sub>@${fmt(center, 2)}</span><span>${esc(num.taylorStr)}</span>
-      <span>LaTeX</span><span>${esc(comp.latex)}</span>`;
+      <span>LaTeX</span><span class="mo-latex">${esc(comp.latex)}</span>`;
     $(el, '[data-av]').textContent = (+aIn.value).toFixed(2);
     $(el, '[data-ov]').textContent = orderIn.value;
   }

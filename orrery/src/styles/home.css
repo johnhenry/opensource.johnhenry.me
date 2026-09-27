@@ -107,6 +107,11 @@
   position: absolute; inset: 0; margin: auto;
   width: calc(var(--S) * var(--r)); height: calc(var(--S) * var(--r));
   transform-style: preserve-3d; pointer-events: none;
+  /* explicit z-index (vs. the sun's, below) opts every orbit — and its
+     planet + label — out of .plane's 3D depth-sorted paint order, so labels
+     never end up hidden under the sun regardless of where the orbit's
+     rotation currently places it in Z (issue #18, home P2). */
+  z-index: 2;
 }
 .home .ring {
   position: absolute; inset: 0; border-radius: 50%;
@@ -144,7 +149,10 @@
   transition: scale .35s cubic-bezier(.3, 1.6, .5, 1), box-shadow .35s;
 }
 .home .planet .label {
-  position: absolute; left: calc(100% + 8px); top: 50%; translate: 0 -50%;
+  position: absolute; left: calc(100% + 8px); top: 50%;
+  /* base centering + a JS-driven collision nudge (--label-dy) that keeps
+     clustered labels near the sun from overlapping (issue #18, home P2) */
+  translate: 0 calc(-50% + var(--label-dy, 0px));
   white-space: nowrap; font-family: var(--f-mono); font-size: 11px; letter-spacing: .04em;
   color: hsl(var(--h) 60% 86%); opacity: .72;
   padding: 2px 7px; border-radius: 6px;
@@ -152,6 +160,9 @@
   transition: opacity .3s, scale .3s, border-color .3s;
   transform-origin: left center;
   display: inline-flex; align-items: center; gap: 5px;
+  /* labels must paint above the sun (and each other) regardless of the 3D
+     depth sort inside .plane's preserve-3d context (issue #18, home P2) */
+  z-index: 3;
 }
 
 /* ---------- test badges (Tester Console writes, home reads getRoomTests()) ---------- */
@@ -195,6 +206,9 @@
   width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
   transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) translateY(calc(var(--d) * -.18));
   display: grid; place-items: center;
+  /* below every .orbit (z-index:2) so the sun never paints over planet
+     labels just because it's closer to the viewer in Z (issue #18, home P2) */
+  z-index: 1;
 }
 .home .sun .core {
   position: absolute; inset: 0; border-radius: 50%;
