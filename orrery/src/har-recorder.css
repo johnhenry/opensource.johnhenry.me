@@ -70,8 +70,13 @@
   border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
-.har-rec-head b { font-family: var(--f-display); }
-.har-rec-spacer { flex: 1; }
+.har-rec-head b { font-family: var(--f-display); flex: none; }
+/* Pattern A fix (issue #18): the request-count stat is a bare flex item with
+   no min-width, so at the drawer's own width (min(460px, 100vw-36px)) it
+   doesn't shrink -- it and the title/buttons wrap onto separate lines and
+   paint over each other. Let it shrink and ellipsize instead of wrapping. */
+.har-rec-head .stat { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.har-rec-spacer { flex: none; }
 
 .har-rec-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 .har-rec-empty { padding: 20px 10px; text-align: center; }

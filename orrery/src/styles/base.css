@@ -102,12 +102,17 @@ html:not(.dark):not(.light) { color-scheme: light dark; }
 .test-badge.bad { border-color: var(--error); color: var(--error); }
 
 /* ---- optional Node companion ---- */
-.companion-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-inset); font-size: 14px; }
-.companion-banner .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); flex: none; }
+/* Pattern B fix (issue #18): the dot, title, running text, code chips and the
+   settings link used to be separate flex items in a wrapping flex row, so the
+   sentence broke into ragged 2-4 line fragments with orphan punctuation. Flow
+   them as one inline paragraph instead — only the dot is pulled out of the
+   text flow (as an inline-block glyph), everything else wraps like a sentence. */
+.companion-banner { display: block; padding: 10px 14px; margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-inset); font-size: 14px; line-height: 1.6; }
+.companion-banner .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); margin-right: 8px; vertical-align: middle; }
 .companion-banner.live { border-color: var(--success); background: var(--success-soft); }
 .companion-banner.live .dot { background: var(--success); box-shadow: 0 0 10px var(--success); }
 .companion-banner code { font-size: 12px; background: var(--code-bg); color: var(--code-ink); padding: 1px 6px; border-radius: 4px; }
-.companion-banner .err { flex-basis: 100%; color: var(--error); font-family: var(--f-mono); font-size: 12px; }
+.companion-banner .err { display: block; margin-top: 6px; color: var(--error); font-family: var(--f-mono); font-size: 12px; }
 
 /* ---- top bar on narrow screens: never cause horizontal page scroll ---- */
 html, body { max-width: 100%; overflow-x: hidden; }
