@@ -4,9 +4,14 @@ import { playgrounds, type PlaygroundEntry } from './registry';
 import { renderHome } from './home';
 import { renderSettings } from './settings';
 import { initThemeToggle } from '@erisera-code/circuit/theme-toggle.js';
+// ROADMAP 4.2: one global, site-wide Tensor Telemetry dock (fixed position, outside #app so it
+// survives route changes) — owns the single math-plus-telemetry sink slot for the whole page.
+import { mountTelemetryDock } from './telemetry-dock';
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
+
+mountTelemetryDock();
 
 /** Raw source of every playground module, for the "view source" drawer. */
 const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
