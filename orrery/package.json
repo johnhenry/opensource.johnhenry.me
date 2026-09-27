@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "ORRERY \u2014 an interactive, browser-native tour of the @johnhenry open-source ecosystem. Every library runs live in the page.",
+  "description": "ORRERY — an interactive, browser-native tour of the @johnhenry open-source ecosystem. Every library runs live in the page.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -55,6 +55,7 @@
     "@johnhenry/oat-qr-fountain": "^0.1.1",
     "@johnhenry/oat-receiver": "^0.1.1",
     "@johnhenry/oat-sender": "^0.1.1",
+    "@johnhenry/objectify": "^0.0.0",
     "@johnhenry/packfile": "^0.0.1",
     "@johnhenry/raijin-consensus": "^0.0.5",
     "@johnhenry/raijin-core": "^0.0.1",

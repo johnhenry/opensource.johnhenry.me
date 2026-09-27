@@ -20,7 +20,7 @@ Goal: implement every proposal from the review — ten new rooms, ten cross-libr
 | laya | Laya Playground | @johnhenry/laya | typed questions over a state, WebGPU/CPU; embed the Snake demo if it ships |
 | circuit | Circuit Gallery | @erisera-code/circuit | every token, live hue slider rotating through all rooms, the three rules |
 | aimatey | Aimatey Router | @johnhenry/aimatey, aimatey-core | chat routed through middleware to mocked providers (no keys) |
-| objectify | Objectify Workbench | (not on npm — in-browser emulation) | class → CLI commands, JSON args, versioned SQLite-like state; clearly labelled emulation |
+| objectify | Objectify Workbench | @johnhenry/objectify (published 2026-09-26, npm) | class → CLI commands, JSON args, versioned SQLite-like state; in-page emulation by default, real store via the Phase 4 companion (see below) |
 
 ## Phase 2 — cross-library enhancements (agents own disjoint existing rooms)
 - A: **Math ↔ Ecmanim** — owns math.ts, ecmanim.ts. "Export as animation" sends rotor/Julia parameters to the Ecmanim Stage which builds a Scene from them.
@@ -61,3 +61,4 @@ the companion loads them all and never crashes if one throws (it reports the err
 | dialback | Dialback Tunnel | @johnhenry/dialback | optional: companion Server; the BROWSER is the Agent; fallback second-tab server via BroadcastChannel |
 | wsh | Web Shell | @johnhenry/wsh (+xterm) | optional: companion wsh server with restricted commands; fallback in-page fake host speaking the same framing |
 | afm | Apple On-Device | @johnhenry/apple-foundation-models | optional (macOS 26 + Apple Silicon only); fallback shows the API surface and says so |
+| objectify | Objectify Bench | @johnhenry/objectify | optional: companion runs a real `Objectify` store (SQLite via better-sqlite3; no Rust CLI/`objectify init` needed — `openDb()` creates the schema itself) for create/list/inspect/destroy/get/set/log/diff/rewind/fork; class-method execution (`use <id> <method>`) always stays the in-page JS-reflection stand-in — the real `ObjectRef.call()` needs a Deno/Python subprocess and a class file that explicitly calls an injected `this.get()`/`this.set()`, which doesn't match this room's plain-field-mutation class editor — but a state-changing method call still persists into the real store via `ObjectRef.set()` when the companion is live (logged there as method "set", a real limitation of that call) |
