@@ -185,3 +185,30 @@
 .pg-raijin .rj-msg.early { stroke-dasharray: 3 2; }
 .pg-raijin .rj-mp.held { box-shadow: inset 2px 0 0 var(--rj-vc); }
 .pg-raijin .rj-mp.held .rj-dim { color: var(--rj-vc); }
+
+/* cross-tab validators */
+.pg-raijin .rj-ct-setup { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
+.pg-raijin .rj-ct-setup label.field { min-width: 110px; }
+.pg-raijin .rj-ct-setup .rj-dim { flex-basis: 260px; flex-grow: 1; font-size: 11.5px; }
+.pg-raijin .rj-ct-body { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+.pg-raijin .rj-ct-lobby p { margin: 0 0 8px; font-size: 13px; }
+.pg-raijin .rj-ct-roster { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; font-family: var(--f-mono); font-size: 11.5px; }
+.pg-raijin .rj-ct-roster li { padding: 3px 8px; border-radius: 999px; background: var(--bg-inset); border: 1px solid var(--line); }
+.pg-raijin .rj-ct-roster li b { color: var(--accent); }
+.pg-raijin .rj-ct-status { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 10px; }
+.pg-raijin .rj-ct-compose { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-bottom: 10px; }
+.pg-raijin .rj-ct-compose label.field { min-width: 110px; }
+.pg-raijin .warn { color: var(--rj-lag); }
+
+/* DA panel */
+.pg-raijin .rj-da-note { margin: 0 0 10px; }
+.pg-raijin .rj-da-src { margin: 0 0 8px; }
+.pg-raijin .rj-da-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.pg-raijin .rj-da-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg-inset); }
+.pg-raijin .rj-da-card.ok { border-color: var(--rj-ok); }
+.pg-raijin .rj-da-card.bad { border-color: var(--rj-bad); }
+.pg-raijin .rj-da-name { font-family: var(--f-display); font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .03em; font-size: 12.5px; }
+.pg-raijin .rj-da-card.ok .rj-da-name { color: var(--rj-ok); }
+.pg-raijin .rj-da-card.bad .rj-da-name { color: var(--rj-bad); }
+.pg-raijin .rj-da-row { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); margin: 3px 0; }
+.pg-raijin .rj-da-row.rj-da-err pre { white-space: pre-wrap; margin: 4px 0 0; font-size: 11px; max-height: 220px; overflow: auto; }
