@@ -432,7 +432,7 @@ export default playground;
 
 function mountRoom(root: HTMLElement, disposers: (() => void)[], isAlive: () => boolean, kill: () => void): () => void {
   const st = readState(DEFAULTS);
-  const incoming = receive<unknown>();
+  const incoming = receive<unknown>('laya');
   let preset = PRESETS.find(p => p.id === st.preset) ?? PRESETS[0];
   let stateText = st.state || preset.state;
   let rows: QRow[] = preset.questions.map(q => ({ ...q }));
