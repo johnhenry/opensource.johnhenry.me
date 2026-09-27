@@ -17,7 +17,16 @@
    site-drawer.css's `.site-drawer-overlay`, avoids this same problem a different way --
    it starts below the topbar's real height instead of overlapping it -- since it has
    its OWN close button in that same top-right corner that needs to stay reachable too.) */
-orrery-topbar .topbar.c-header { padding: 8px 20px; height: auto; border-top: 0; gap: 12px; position: sticky; top: 0; z-index: 95; }
+/* `transform: translateZ(0)` forces this sticky element onto its own GPU
+   compositing layer -- a standard, well-documented workaround for a real
+   iOS/WebKit Safari bug where a `position: sticky` element can be painted
+   BELOW a sibling that uses 3D transforms (home.ts's orbit/sun visuals use
+   `transform-style: preserve-3d` + `rotateX`/`rotateZ`) during the
+   rubber-band overscroll bounce -- i.e. scroll down then back up and the
+   sticky header is briefly covered by content that should be behind it.
+   Desktop/Chrome/Firefox aren't affected; this is purely a mobile Safari
+   compositor quirk. */
+orrery-topbar .topbar.c-header { padding: 8px 20px; height: auto; border-top: 0; gap: 12px; position: sticky; top: 0; z-index: 95; transform: translateZ(0); }
 orrery-topbar .topbar nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 orrery-topbar .c-logo { font-size: inherit; gap: 0; }
 
