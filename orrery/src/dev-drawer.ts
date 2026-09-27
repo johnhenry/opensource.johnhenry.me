@@ -65,13 +65,13 @@ function ensureShell(): void {
       <span class="dw-caret">&#9662;</span>
     </button>
     <div class="dw-body">
+      <div class="dw-content" data-el="dw-content"></div>
+      <div class="dw-dots" data-el="dw-dots"></div>
       <div class="dw-pager">
         <button class="dw-pager-btn dw-prev" type="button" title="Previous tool" aria-label="Previous tool">&#8249;</button>
         <span class="dw-current"><span class="dw-current-icon" data-el="dw-icon"></span><span class="dw-current-label" data-el="dw-label"></span></span>
         <button class="dw-pager-btn dw-next" type="button" title="Next tool" aria-label="Next tool">&#8250;</button>
       </div>
-      <div class="dw-dots" data-el="dw-dots"></div>
-      <div class="dw-content" data-el="dw-content"></div>
     </div>`;
   document.body.appendChild(root);
 
