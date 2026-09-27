@@ -1,4 +1,9 @@
-.pg-iteration { display: grid; gap: 16px; }
+/* `minmax(0, 1fr)`, not an implicit auto column: without it the implicit
+   track sizes to the widest descendant's min-content (here the nested
+   `.grid-2`/`.rx-bar` rows), ballooning the whole room to ~850px in a 358px
+   room at a 390px viewport — real horizontal page overflow on mobile
+   (issue found in mobile touch audit; same pattern as jth.css/math.css). */
+.pg-iteration { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .pg-iteration h3 { margin: 0 0 12px; font-family: var(--f-display); font-size: 16px; letter-spacing: -.01em; }
 .pg-iteration .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .pg-iteration .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -28,12 +33,18 @@
 .pg-iteration .node.source { border-color: var(--accent-border); }
 .pg-iteration .node.sink { flex: 0 0 130px; align-items: center; justify-content: center; text-align: center; }
 .pg-iteration .node.pulse { box-shadow: 0 0 0 2px var(--accent), 0 0 18px var(--accent); border-color: var(--accent); }
-.pg-iteration .node .stage-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.pg-iteration .node .stage-head select { font-size: 12px; padding: 4px 6px; }
-.pg-iteration .node .stage-btns { display: flex; gap: 2px; }
+/* the move/remove buttons used to share one row with the kind <select>, which
+   only left ~21x17px per button in this 176px-wide card — well under the
+   mobile touch-target minimum, with only 2px between the three of them
+   inviting mis-taps (e.g. hitting "remove" while aiming for "move"). Wrapping
+   them onto their own full-width row gives each one real room to grow
+   (issue found in mobile touch audit). */
+.pg-iteration .node .stage-head { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.pg-iteration .node .stage-head select { font-size: 12px; padding: 4px 6px; flex: 1 1 auto; min-width: 0; }
+.pg-iteration .node .stage-btns { display: flex; gap: 8px; flex: 1 0 100%; justify-content: flex-end; }
 .pg-iteration .node .stage-btns button {
-  background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 5px;
-  cursor: pointer; font-size: 11px; padding: 2px 5px; line-height: 1;
+  background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 6px;
+  cursor: pointer; font-size: 13px; padding: 9px 12px; line-height: 1;
 }
 .pg-iteration .node .stage-btns button:hover { border-color: var(--accent); color: var(--ink); }
 .pg-iteration .node label.field { font-size: 11px; gap: 2px; }

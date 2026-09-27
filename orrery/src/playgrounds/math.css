@@ -5,9 +5,18 @@
 @media (max-width: 880px) { .pg-math .mo-stage { grid-template-columns: minmax(0, 1fr); } }
 /* keep the canvas in view instead of leaving a void once the taller side
    panel scrolls past it (issue #18, Math Observatory P2, pattern C) */
-.pg-math .mo-view { position: sticky; top: 16px; align-self: start; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
+/* explicit width: 100% works around a real layout bug: a sticky element with
+   both `aspect-ratio` and `min-height` set resolves its own block width wider
+   than its single-column grid track once the .mo-stage media query collapses
+   it below 880px — measured 448px inside a 358px-wide container at a 390px
+   viewport, pushing the room into horizontal page overflow/scroll on mobile
+   (found in mobile touch audit, confirmed via bounding-box measurement). */
+.pg-math .mo-view { position: sticky; top: 16px; align-self: start; width: 100%; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
 .pg-math .mo-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.pg-math .mo-view canvas.mo-main { cursor: crosshair; }
+/* these canvases all handle their own drag-to-pan/rotate and tap-to-zoom via
+   Pointer Events; without this the browser's own touch-scroll/pinch-zoom
+   fights the gesture on mobile (same pattern already used in mesh.css/tensor.css). */
+.pg-math .mo-view canvas.mo-main { cursor: crosshair; touch-action: none; }
 .pg-math .mo-view canvas.mo-overlay { pointer-events: none; }
 /* .mo-hud/.mo-hint overlay the canvas, which is always rendered dark (#04050c)
    regardless of site theme — use --code-ink (always light), not --ink/--ink-3

@@ -463,7 +463,14 @@ for (let n = 0; n &lt; max; n++) {
   canvas.addEventListener('click', onClick);
   canvas.addEventListener('contextmenu', onContext);
   canvas.addEventListener('wheel', onWheel, { passive: false });
-  canvas.addEventListener('mousemove', onHover);
+  // pointer events, not mousemove/mouseleave, so a touch-drag also traces the
+  // orbit before the tap's `click` zooms — mousemove never fires on touch, so
+  // this "hover to trace an orbit" affordance was previously mouse-only
+  // (found in mobile touch audit; verified via Playwright touch emulation).
+  canvas.addEventListener('pointerdown', onHover);
+  canvas.addEventListener('pointermove', onHover);
+  canvas.addEventListener('pointerup', onLeave);
+  canvas.addEventListener('pointercancel', onLeave);
   canvas.addEventListener('mouseleave', onLeave);
 
   /* ---- controls ---- */
@@ -523,7 +530,10 @@ for (let n = 0; n &lt; max; n++) {
       canvas.removeEventListener('click', onClick);
       canvas.removeEventListener('contextmenu', onContext);
       canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('mousemove', onHover);
+      canvas.removeEventListener('pointerdown', onHover);
+      canvas.removeEventListener('pointermove', onHover);
+      canvas.removeEventListener('pointerup', onLeave);
+      canvas.removeEventListener('pointercancel', onLeave);
       canvas.removeEventListener('mouseleave', onLeave);
       pickerCanvas.removeEventListener('pointerdown', onPickDown);
       pickerCanvas.removeEventListener('pointermove', onPickMove);
@@ -1347,7 +1357,7 @@ VectorCalculus.curl3D(field3, [x, y, 0])[2];    // 2D curl = ẑ-component</pre>
     $(el, '[data-vf-formula]').textContent = VF_PRESETS[state.vfIdx].label;
   }
 
-  function toField(e: MouseEvent): [number, number] {
+  function toField(e: PointerEvent): [number, number] {
     const r = canvas.getBoundingClientRect();
     const aspect = r.height / r.width;
     const xr = DOMAIN, yr = DOMAIN * aspect;
@@ -1411,8 +1421,13 @@ VectorCalculus.curl3D(field3, [x, y, 0])[2];    // 2D curl = ẑ-component</pre>
   }
   function schedule() { if (active && !raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); }
 
-  const onMove = (e: MouseEvent) => { state.probe = toField(e); schedule(); syncUrl(); };
-  canvas.addEventListener('mousemove', onMove);
+  // pointer events (not mousemove) so the probe can be moved by touch-drag too,
+  // not just mouse hover — plain mousemove never fires on touch devices, which
+  // left this probe permanently stuck at its initial position on mobile
+  // (found in mobile touch audit, confirmed via Playwright touch emulation).
+  const onMove = (e: PointerEvent) => { state.probe = toField(e); schedule(); syncUrl(); };
+  canvas.addEventListener('pointerdown', onMove);
+  canvas.addEventListener('pointermove', onMove);
 
   /* ---- forward-mode AD vs symbolic ---- */
   const adRow = $(el, '[data-ad-presets]');
@@ -1472,7 +1487,8 @@ VectorCalculus.curl3D(field3, [x, y, 0])[2];    // 2D curl = ẑ-component</pre>
       active = false;
       cancelAnimationFrame(raf);
       ro.disconnect();
-      canvas.removeEventListener('mousemove', onMove);
+      canvas.removeEventListener('pointerdown', onMove);
+      canvas.removeEventListener('pointermove', onMove);
     },
   };
 }

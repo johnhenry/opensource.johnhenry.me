@@ -1,4 +1,10 @@
-.pg-jth { display: grid; gap: 16px; }
+/* `minmax(0, 1fr)`, not an implicit auto column, is required here: without it
+   an implicit grid track sizes to the widest child's min-content (a long
+   unwrapped line inside the source/JS panels), which was blowing the whole
+   room out to ~447px in a 358px-wide room at a 390px viewport — real
+   horizontal page overflow on mobile (issue found in mobile touch audit; the
+   sibling `.mo-stage` rule in math.css already uses this same pattern). */
+.pg-jth { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .pg-jth code { font-family: var(--f-mono); font-size: .92em; color: var(--accent); }
 
 .pg-jth .bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; }
@@ -113,7 +119,10 @@
 .pg-jth .sec-h h2 { margin: 0; font-family: var(--f-display); font-size: 17px; display: inline-flex; gap: 8px; align-items: baseline; }
 
 /* sandbox policy row */
-.pg-jth .sandboxbar .field { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; }
+/* flex-wrap: wrap — without it this row (label text + the "off — full stdlib
+   access" <select>) never breaks onto a second line, forcing the whole room
+   ~90px wider than the viewport on mobile (issue found in mobile touch audit). */
+.pg-jth .sandboxbar .field { display: inline-flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pg-jth .sandboxbar select { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-size: 12.5px; }
 .pg-jth .sandboxbar .sandbox-custom { padding: 5px 10px; font-size: 12px; min-width: 220px; }
 .pg-jth .sandbox-report { font-size: 12px; }
@@ -123,8 +132,12 @@
 /* operator explorer */
 .pg-jth .op-controls { display: grid; gap: 10px; margin-bottom: 12px; }
 .pg-jth .op-filter { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 13px; }
-.pg-jth .op-cats { display: flex; flex-wrap: wrap; gap: 6px; }
-.pg-jth .op-cat { cursor: pointer; opacity: .7; }
+.pg-jth .op-cats { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the base .chip component (padding: 2px 8px) is only ~24px tall — fine for a
+   read-only tag, but this is a 17-button category filter, a real primary
+   interaction, sitting well under the mobile touch-target minimum with only
+   6px between adjacent chips (issue found in mobile touch audit). */
+.pg-jth .op-cat { cursor: pointer; opacity: .7; padding: 9px 14px; min-height: 40px; display: inline-flex; align-items: center; box-sizing: border-box; }
 .pg-jth .op-cat:hover { opacity: 1; }
 .pg-jth .op-cat.on { background: var(--accent); color: #fff; border-color: transparent; opacity: 1; }
 .pg-jth .op-grid { display: grid; gap: 14px; max-height: 420px; overflow: auto; padding-right: 4px; }
