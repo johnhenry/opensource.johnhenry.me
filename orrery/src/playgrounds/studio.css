@@ -169,6 +169,35 @@
 /* ---- explain ---- */
 .pg-studio .st-explain summary { cursor: pointer; font-family: var(--f-display); font-weight: 700; }
 .pg-studio .st-explain p { margin: 10px 0 0; color: var(--ink-2); max-width: 95ch; font-size: 14px; }
+
+/* ---- tab 04: deploy ---- */
+.pg-studio .st-deploy { display: grid; gap: 14px; }
+.pg-studio .dp-section { display: grid; gap: 10px; }
+.pg-studio .dp-note { margin: 0; color: var(--ink-2); font-size: 13px; max-width: 90ch; }
+.pg-studio .dp-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-studio .dp-tchip { cursor: pointer; }
+.pg-studio .dp-tchip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.pg-studio .dp-srcwrap { position: relative; }
+.pg-studio .dp-src { max-height: 340px; }
+.pg-studio .dp-copy { position: absolute; top: 8px; right: 8px; padding: 3px 10px; font-size: 12px; }
+.pg-studio .dp-swrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pg-studio .dp-swpath {
+  flex: 1 1 220px; font-family: var(--f-mono); font-size: 12.5px; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); min-width: 0;
+}
+.pg-studio .dp-swpath:focus { outline: none; border-color: var(--accent-border); }
+.pg-studio .dp-swresult { display: grid; gap: 8px; }
+.pg-studio .dp-swresult pre.code { max-height: 220px; }
+.pg-studio .dp-ok { color: var(--success); }
+.pg-studio .dp-bad { color: var(--error); }
+.pg-studio .dp-pipe-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 30px; font-family: var(--f-mono); font-size: 12px; }
+.pg-studio .dp-pipe-out { display: grid; gap: 8px; }
+.pg-studio .dp-stage { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-panel); }
+.pg-studio .dp-stage-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-family: var(--f-display); font-size: 13px; }
+.pg-studio .dp-stage p { margin: 4px 0 0; color: var(--ink-2); font-size: 12.5px; }
+.pg-studio .dp-hash { display: inline-block; margin-top: 4px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); word-break: break-all; }
+.pg-studio .dp-pipe-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pg-studio .dp-pipe-actions { display: flex; justify-content: flex-end; }
 @media (max-width: 600px) {
   .pg-studio .st-tab { padding: 6px 10px 6px 8px; }
   .pg-studio .st-tab .sub { display: none; }
