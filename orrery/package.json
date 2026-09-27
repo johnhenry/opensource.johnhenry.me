@@ -55,7 +55,6 @@
     "@johnhenry/oat-qr-fountain": "^0.1.1",
     "@johnhenry/oat-receiver": "^0.1.1",
     "@johnhenry/oat-sender": "^0.1.1",
-    "@johnhenry/objectify": "^0.0.0",
     "@johnhenry/packfile": "^0.0.1",
     "@johnhenry/raijin-consensus": "^0.0.5",
     "@johnhenry/raijin-core": "^0.0.1",
@@ -87,7 +86,8 @@
     "@johnhenry/apple-foundation-models@0.0.0": true
   },
   "optionalDependencies": {
-    "@johnhenry/apple-foundation-models": "^0.0.0"
+    "@johnhenry/apple-foundation-models": "^0.0.0",
+    "@johnhenry/objectify": "^0.0.0"
   },
   "engines": {
     "node": ">=22.12"
