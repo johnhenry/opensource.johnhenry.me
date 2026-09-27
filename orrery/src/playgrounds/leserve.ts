@@ -1,8 +1,47 @@
 import type { Playground } from '../registry';
 import { string as httpString } from '@johnhenry/http-converter';
+// leserve/compose, /auth, /body and /test-harness are plain, dependency-free
+// .mjs subpaths with no shipped .d.ts, and (per AGENTS.md) this room can't add
+// a repo-wide ambient-types file just for these four imports — a declare
+// module block here would try to "augment" an already-untyped module, which
+// TS rejects (TS2665), so each import is individually ignored and the
+// helpers are used through the typed wrappers below instead of bare `any`.
+// @ts-expect-error — no .d.ts shipped for this subpath; see comment above.
+import { compose } from '@johnhenry/leserve/compose';
+// @ts-expect-error — no .d.ts shipped for this subpath; see comment above.
+import { basicAuth, bearerAuth, apiKeyAuth } from '@johnhenry/leserve/auth';
+// @ts-expect-error — no .d.ts shipped for this subpath; see comment above.
+import { json as leJson, text as leText, form as leForm, buffer as leBuffer, respond as leRespond, redirect as leRedirect, error as leError } from '@johnhenry/leserve/body';
+// @ts-expect-error — no .d.ts shipped for this subpath; see comment above.
+import { testHandler } from '@johnhenry/leserve/test-harness';
 import { probeCompanion, hasDemo, companionBanner, type Companion } from '../companion';
+import { handoffButton } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './leserve.css';
+
+type LeHandler = (request: Request, context?: unknown) => unknown;
+type LeMiddleware = (next: LeHandler) => LeHandler;
+const composeTyped = compose as (...fns: [...LeMiddleware[], LeHandler]) => LeHandler;
+const basicAuthTyped = basicAuth as (validate: (username: string, password: string, request: Request) => boolean | Promise<boolean>) => LeMiddleware;
+const bearerAuthTyped = bearerAuth as (validate: (token: string, request: Request) => boolean | Promise<boolean>) => LeMiddleware;
+const apiKeyAuthTyped = apiKeyAuth as (validate: (key: string, request: Request) => boolean | Promise<boolean>, options?: { header?: string }) => LeMiddleware;
+const leJsonTyped = leJson as (request: Request, options?: { limit?: number }) => Promise<unknown>;
+const leTextTyped = leText as (request: Request, options?: { limit?: number }) => Promise<string>;
+const leFormTyped = leForm as (request: Request) => Promise<FormData>;
+const leBufferTyped = leBuffer as (request: Request) => Promise<ArrayBuffer>;
+const leRespondTyped = leRespond as (data: unknown, options?: { status?: number; headers?: Record<string, string> }) => Response;
+const leRedirectTyped = leRedirect as (url: string, status?: number) => Response;
+const leErrorTyped = leError as (message: string, status?: number) => Response;
+interface LeTestClient {
+  (path: string, options?: RequestInit): Promise<unknown>;
+  get(path: string, headers?: HeadersInit): Promise<unknown>;
+  head(path: string, headers?: HeadersInit): Promise<unknown>;
+  post(path: string, body?: unknown, headers?: HeadersInit): Promise<unknown>;
+  put(path: string, body?: unknown, headers?: HeadersInit): Promise<unknown>;
+  patch(path: string, body?: unknown, headers?: HeadersInit): Promise<unknown>;
+  delete(path: string, headers?: HeadersInit): Promise<unknown>;
+}
+const testHandlerTyped = testHandler as (handler: LeHandler, options?: { base?: string; context?: unknown }) => LeTestClient;
 
 /**
  * Leserve Wire — an editor for a `(request) => Response` handler, the one
@@ -34,6 +73,11 @@ interface Preset {
   body: string;
   src: string;
   note: string;
+  /** Always runs through the in-page evaluator, even when the companion is live — see the
+   *  "Composed middleware" preset below, whose source calls leserve/compose+auth+body helpers
+   *  that only this planet's compiler (compileHandler) injects; the companion's own hot-swap
+   *  compiler (server/demos/leserve.mjs) only injects Request/Response/Headers/URL. */
+  alwaysInPage?: boolean;
 }
 
 const PRESETS: Preset[] = [
@@ -145,6 +189,37 @@ const PRESETS: Preset[] = [
   throw new Error("Handler exploded on purpose — this is what an unhandled throw looks like.");
 }`,
   },
+  {
+    id: 'composed',
+    name: 'Composed middleware (compose + auth + body)',
+    method: 'POST',
+    path: '/',
+    headers: 'authorization: Bearer orrery-secret',
+    body: '{"hello":"secure world"}',
+    note: 'compose(), bearerAuth() and json()/respond() are real, dependency-free imports from @johnhenry/leserve/compose, /auth and /body — nothing here is reimplemented. This preset always runs in the in-page evaluator (even with the companion live): the companion\'s handler hot-swap endpoint only compiles a plain (request, context) => Response expression, not one that references extra injected helpers. Remove the Authorization header above to see bearerAuth()\'s real 401.',
+    alwaysInPage: true,
+    src: `(() => {
+  const SECRET = "orrery-secret";
+  const requireAuth = bearerAuth(async (token) => token === SECRET);
+  const withLogging = (next) => async (request, context) => {
+    console.log(\`[leserve] \${request.method} \${new URL(request.url).pathname}\`);
+    return next(request, context);
+  };
+  return compose(
+    withLogging,
+    requireAuth,
+    async (request) => {
+      let payload = null;
+      try { payload = await json(request); } catch { /* no/invalid JSON body */ }
+      return respond({
+        ok: true,
+        echoed: payload,
+        note: "compose() + bearerAuth() + json() + respond(), straight from @johnhenry/leserve.",
+      });
+    },
+  );
+})()`,
+  },
 ];
 
 interface RoomState {
@@ -173,14 +248,75 @@ function parseHeaderLines(text: string): Record<string, string> {
   return out;
 }
 
-/** Compile handler source (an arrow/function expression) with `new Function`.
- *  A local dev tool by design — see AGENTS.md / PLAN.md Phase 4. */
+/** Compile handler source (an arrow/function expression, or an IIFE for the
+ *  "Composed middleware" preset) with `new Function`. Real, dependency-free
+ *  @johnhenry/leserve helpers (compose/basicAuth/bearerAuth/apiKeyAuth from
+ *  /compose and /auth, json/text/form/buffer/respond/redirect/error from
+ *  /body) are injected alongside the usual Request/Response/Headers/URL so
+ *  presets can call them as bare identifiers, exactly as a real leserve app
+ *  would after `import { compose } from "leserve/compose"`. A local dev
+ *  tool by design — see AGENTS.md / PLAN.md Phase 4. */
 function compileHandler(src: string): (request: Request, context: unknown) => unknown {
   // eslint-disable-next-line no-new-func
-  const factory = new Function('Request', 'Response', 'Headers', 'URL', `"use strict"; return (\n${src}\n);`);
-  const fn = factory(Request, Response, Headers, URL);
+  const factory = new Function(
+    'Request', 'Response', 'Headers', 'URL',
+    'compose', 'basicAuth', 'bearerAuth', 'apiKeyAuth',
+    'json', 'text', 'form', 'buffer', 'respond', 'redirect', 'error',
+    `"use strict"; return (\n${src}\n);`,
+  );
+  const fn = factory(
+    Request, Response, Headers, URL,
+    compose, basicAuth, bearerAuth, apiKeyAuth,
+    leJson, leText, leForm, leBuffer, leRespond, leRedirect, leError,
+  );
   if (typeof fn !== 'function') throw new Error('Handler source must evaluate to a function: (request, context) => Response');
   return fn as (request: Request, context: unknown) => unknown;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+interface TestResult { name: string; pass: boolean; detail: string }
+
+/** Runs a tiny suite through @johnhenry/leserve/test-harness's testHandler()
+ *  against the in-page compiled handler — no server, no socket, the real
+ *  test client. A handler that throws synchronously (the "Throwing handler"
+ *  preset) rejects here, because test-harness calls the handler directly
+ *  with none of serve()'s try/catch — that's an expected, documented
+ *  difference, not a bug, so it's reported as a pass with an explanation
+ *  rather than a scary failure. */
+async function runTestSuite(
+  handler: (request: Request, context: unknown) => unknown,
+  activePresetId: string,
+  composerRequest: { method: string; path: string; headers: Record<string, string>; body?: string },
+): Promise<TestResult[]> {
+  const app = testHandlerTyped(handler);
+  const results: TestResult[] = [];
+
+  const check = async (name: string, run: () => Promise<unknown>) => {
+    try {
+      const res = await run();
+      const ok = res instanceof Response;
+      const status = ok ? `${(res as Response).status} ${(res as Response).statusText || ''}`.trim() : '';
+      results.push({ name, pass: ok, detail: ok ? `→ ${status}` : 'did not resolve to a Response' });
+    } catch (err) {
+      const expected = activePresetId === 'throws';
+      results.push({
+        name,
+        pass: expected,
+        detail: expected
+          ? `threw as expected — test-harness invokes the handler directly, without serve()'s try/catch (which would turn this into a 500): ${(err as Error)?.message ?? err}`
+          : `threw unexpectedly: ${(err as Error)?.message ?? err}`,
+      });
+    }
+  };
+
+  await check('GET / responds', () => app.get('/'));
+  await check(`${composerRequest.method} ${composerRequest.path} (current composer request)`, () =>
+    app(composerRequest.path, { method: composerRequest.method, headers: composerRequest.headers, body: composerRequest.body }));
+
+  return results;
 }
 
 const playground: Playground = {
@@ -235,6 +371,7 @@ const playground: Playground = {
           <div class="lsv-status" id="status-line"></div>
           <pre class="code" id="resp-headers"></pre>
           <pre class="code" id="resp-body">(no request sent yet)</pre>
+          <div id="resp-handoff"></div>
         </div>
       </div>
       <div class="panel lsv-wire">
@@ -243,6 +380,14 @@ const playground: Playground = {
           <div><div class="stat">Request</div><pre class="code" id="wire-req"></pre></div>
           <div><div class="stat">Response</div><pre class="code" id="wire-res"></pre></div>
         </div>
+      </div>
+      <div class="panel lsv-tests">
+        <h3>In-room tests <span class="chip">leserve/test-harness</span></h3>
+        <p class="lsv-note">Runs <code>testHandler(handler)</code> from <code>@johnhenry/leserve/test-harness</code> directly
+        against the in-page compiled handler above — no server, no socket, the real test client leserve ships for
+        testing handlers.</p>
+        <button class="btn" id="tests-run" type="button">▶ Run tests</button>
+        <div class="lsv-test-results" id="tests-results"></div>
       </div>
     `;
 
@@ -263,8 +408,20 @@ const playground: Playground = {
     const statusLine = q<HTMLDivElement>('#status-line');
     const respHeaders = q<HTMLPreElement>('#resp-headers');
     const respBody = q<HTMLPreElement>('#resp-body');
+    const respHandoff = q<HTMLDivElement>('#resp-handoff');
     const wireReq = q<HTMLPreElement>('#wire-req');
     const wireRes = q<HTMLPreElement>('#wire-res');
+    const testsRunBtn = q<HTMLButtonElement>('#tests-run');
+    const testsResultsEl = q<HTMLDivElement>('#tests-results');
+
+    let lastResponseHeaders: Array<{ name: string; value: string }> = [];
+    respHandoff.appendChild(handoffButton({
+      from: 'leserve',
+      to: 'fields',
+      kind: 'har-headers',
+      label: 'Send response headers to Header Fields',
+      getPayload: () => lastResponseHeaders,
+    }));
 
     function fill(s: RoomState) {
       presetSel.value = s.preset;
@@ -333,8 +490,14 @@ const playground: Playground = {
         const headerObj = parseHeaderLines(headersInput.value);
         const body = ['GET', 'HEAD'].includes(method) ? undefined : bodyInput.value || undefined;
         const src = srcInput.value;
+        const useLive = live && !preset.alwaysInPage;
+        targetStat.textContent = useLive
+          ? `→ real leserve on :${LESERVE_PORT}`
+          : preset.alwaysInPage
+            ? '→ in-page evaluator (uses leserve/compose+auth+body directly; the companion hot-swap only compiles a plain handler expression)'
+            : '→ in-page evaluator';
 
-        const url = live
+        const url = useLive
           ? `http://localhost:${LESERVE_PORT}${path}`
           : `https://leserve.playground.local${path}`;
         const req = new Request(url, { method, headers: headerObj, body });
@@ -342,7 +505,7 @@ const playground: Playground = {
         const t0 = performance.now();
         let res: Response;
 
-        if (live) {
+        if (useLive) {
           const swap = await fetch(`${companion!.base}/leserve/handler`, {
             method: 'POST',
             body: src,
@@ -367,7 +530,8 @@ const playground: Playground = {
         statusLine.innerHTML = `<span class="lsv-code s${Math.floor(res.status / 100) || 0}">${res.status}</span><span>${res.statusText || ''}</span>`;
 
         const hlines: string[] = [];
-        res.headers.forEach((v, k) => hlines.push(`${k}: ${v}`));
+        lastResponseHeaders = [];
+        res.headers.forEach((v, k) => { hlines.push(`${k}: ${v}`); lastResponseHeaders.push({ name: k, value: v }); });
         respHeaders.textContent = hlines.length ? hlines.join('\n') : '(no headers)';
 
         // Kick off the wire-text renders (both clone before any body is
@@ -435,6 +599,30 @@ const playground: Playground = {
     for (const inputEl of [methodInput, pathInput, headersInput, bodyInput, srcInput]) {
       inputEl.addEventListener('input', persist);
     }
+
+    async function runTests() {
+      testsRunBtn.disabled = true;
+      testsResultsEl.innerHTML = '<p class="stat">running…</p>';
+      try {
+        const handler = compileHandler(srcInput.value);
+        const method = methodInput.value;
+        const path = pathInput.value.trim() || '/';
+        const headerObj = parseHeaderLines(headersInput.value);
+        const body = ['GET', 'HEAD'].includes(method) ? undefined : bodyInput.value || undefined;
+        const results = await runTestSuite(handler, preset.id, { method, path, headers: headerObj, body });
+        testsResultsEl.innerHTML = results.map((r) => `
+          <div class="lsv-test-row ${r.pass ? 'pass' : 'fail'}">
+            <span class="lsv-test-dot"></span>
+            <span class="lsv-test-name">${escapeHtml(r.name)}</span>
+            <span class="lsv-test-detail">${escapeHtml(r.detail)}</span>
+          </div>`).join('');
+      } catch (err) {
+        testsResultsEl.innerHTML = `<div class="lsv-test-row fail"><span class="lsv-test-dot"></span><span class="lsv-test-name">compile handler</span><span class="lsv-test-detail">${escapeHtml((err as Error)?.message ?? String(err))}</span></div>`;
+      } finally {
+        testsRunBtn.disabled = false;
+      }
+    }
+    testsRunBtn.addEventListener('click', () => { void runTests(); });
 
     await refreshCompanion();
     if (disposed) return;

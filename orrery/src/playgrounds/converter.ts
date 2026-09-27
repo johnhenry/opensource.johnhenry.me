@@ -1,6 +1,6 @@
 import type { Playground } from '../registry';
 import * as http from '@johnhenry/http-converter';
-import type { HttpRequest, HarEntry } from '@johnhenry/http-converter';
+import type { HttpRequest, HttpResponse, HarEntry } from '@johnhenry/http-converter';
 import { attemptParse, bareType, formatBareValue, TYPE_LABEL, type FType, type AnyItem } from './fields';
 import { handoffButton, receive, handoffBanner } from '../bus';
 import { readState, writeState, copyLink } from '../state';
@@ -9,7 +9,7 @@ import './converter.css';
 // Issue #4 (subpath exports untyped, `allFormats()` undeclared) is fixed as
 // of 0.0.1: `allFormats()` is now declared on the typed root export, so this
 // planet calls it directly instead of reimplementing it over the subpaths.
-const { string: httpString, har, curl, fetch: fetchMod, detectType, allFormats } = http;
+const { string: httpString, har, curl, fetch: fetchMod, detectType, allFormats, body: bodyMod, random } = http;
 
 // ---------------------------------------------------------------------------
 // Format detection
@@ -239,6 +239,82 @@ Content-Type: application/json
 const DEFAULT_PRESET = 'structuredHeaders';
 
 // ---------------------------------------------------------------------------
+// Response side: string.parseResponse, har.fromResponse/toResponse,
+// fetch.fromResponse, fetch.createMockResponse, body.parseBody.
+// ---------------------------------------------------------------------------
+
+const RESPONSE_PRESETS: Record<string, { label: string; text: string }> = {
+  jsonOk: {
+    label: 'JSON 200',
+    text: `HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Status: ExampleCache; hit; ttl=120\r\n\r\n{"status":"ok","items":["alpha","beta","gamma"]}`,
+  },
+  redirect: {
+    label: '301 redirect',
+    text: `HTTP/1.1 301 Moved Permanently\r\nLocation: https://example.com/new-path\r\nContent-Length: 0\r\n\r\n`,
+  },
+  notFound: {
+    label: '404 error',
+    text: `HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n{"error":"not found","path":"/missing"}`,
+  },
+  harEntry: {
+    label: 'HAR entry (from request preset)',
+    text: PRESETS.harEntry.text,
+  },
+};
+const DEFAULT_RESPONSE_PRESET = 'jsonOk';
+
+type ResponseKind = 'http' | 'har' | 'unknown';
+interface ResponseDetection { kind: ResponseKind; reason: string }
+
+function detectResponse(raw: string): ResponseDetection {
+  const text = raw.trim();
+  if (!text) return { kind: 'unknown', reason: 'Empty input.' };
+  if (text[0] === '{') {
+    let obj: unknown;
+    try {
+      obj = JSON.parse(text);
+    } catch (err) {
+      return { kind: 'unknown', reason: `Looks like JSON but JSON.parse failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+    const entry = obj && typeof obj === 'object' && 'log' in (obj as Record<string, unknown>)
+      ? ((obj as { log: { entries: HarEntry[] } }).log.entries?.[0])
+      : (obj as HarEntry);
+    if (entry && typeof entry === 'object' && 'response' in entry) {
+      return { kind: 'har', reason: 'Parsed JSON has a HAR entry with a "response" object — converted with har.toResponse().' };
+    }
+    return { kind: 'unknown', reason: 'Valid JSON, but no HAR "response" object found in it.' };
+  }
+  if (/^HTTP\/\d/.test(text)) {
+    return { kind: 'http', reason: 'Starts with an "HTTP/x.y <code>" status line — parsed with string.parseResponse().' };
+  }
+  return { kind: 'unknown', reason: 'Not recognized: paste a raw "HTTP/1.1 200 OK ..." response or a HAR entry with a response.' };
+}
+
+async function parseResponseByKind(kind: ResponseKind, text: string): Promise<HttpResponse> {
+  if (kind === 'http') return httpString.parseResponse(text);
+  if (kind === 'har') {
+    const parsed = JSON.parse(text) as HarEntry | { log: { entries: HarEntry[] } };
+    const entry: HarEntry = 'log' in parsed ? parsed.log.entries[0] : parsed;
+    if (!entry?.response) throw new Error('HAR entry has no response.');
+    return har.toResponse(entry);
+  }
+  throw new Error('Unrecognized format — see the detection panel below.');
+}
+
+function headerValue(headers: Record<string, string | string[]> | undefined, name: string): string {
+  if (!headers) return '';
+  const v = headers[name] ?? headers[name.toLowerCase()];
+  return Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
+}
+
+const RESPONSE_OUTPUT_PANES: Array<{ key: 'httpString' | 'har' | 'fetchLike' | 'mock'; label: string }> = [
+  { key: 'httpString', label: 'Raw HTTP' },
+  { key: 'har', label: 'HAR entry' },
+  { key: 'fetchLike', label: 'fetch.fromResponse()' },
+  { key: 'mock', label: 'createMockResponse() — real Response' },
+];
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -394,6 +470,7 @@ const playground: Playground = {
           ${Object.entries(PRESETS)
             .map(([id, p]) => `<button class="btn" data-preset="${id}">${escapeHtml(p.label)}</button>`)
             .join('')}
+          <button class="btn" data-random type="button" title="Fill with random.randomRequest()">🎲 Random</button>
         </div>
         <button class="btn" data-copy-link type="button" title="Copy a link to this input">Copy link</button>
       </div>
@@ -410,6 +487,24 @@ const playground: Playground = {
       </div>
 
       <div class="cv-grid" data-outputs></div>
+
+      <div class="panel cv-body-inspect">
+        <h3 class="cv-h">body inspector <span class="stat">body.parseBody()</span></h3>
+        <div class="cv-body-grid" data-body-inspect></div>
+      </div>
+
+      <div class="panel cv-response">
+        <div class="cv-presets">
+          <span class="stat">response presets</span>
+          ${Object.entries(RESPONSE_PRESETS)
+            .map(([id, p]) => `<button class="btn" data-res-preset="${id}">${escapeHtml(p.label)}</button>`)
+            .join('')}
+        </div>
+        <h3 class="cv-h">response input <span class="chip" data-res-badge>?</span></h3>
+        <textarea class="code" spellcheck="false" data-res-input></textarea>
+        <div class="cv-detect" data-res-detect></div>
+        <div class="cv-grid" data-res-outputs></div>
+      </div>
 
       <div class="panel cv-send">
         <h3 class="cv-h">send it</h3>
@@ -446,6 +541,12 @@ const playground: Playground = {
     const detectEl = $<HTMLElement>('[data-detect]');
     const structuredEl = $<HTMLElement>('[data-structured]');
     const outputsEl = $<HTMLElement>('[data-outputs]');
+    const bodyInspectEl = $<HTMLElement>('[data-body-inspect]');
+    const resTa = $<HTMLTextAreaElement>('[data-res-input]');
+    const resBadge = $<HTMLElement>('[data-res-badge]');
+    const resDetectEl = $<HTMLElement>('[data-res-detect]');
+    const resOutputsEl = $<HTMLElement>('[data-res-outputs]');
+    const randomBtn = $<HTMLButtonElement>('[data-random]');
     const endpointSel = $<HTMLSelectElement>('[data-endpoint]');
     const sendBtn = $<HTMLButtonElement>('[data-send]');
     const sendStatus = $<HTMLElement>('[data-send-status]');
@@ -460,13 +561,53 @@ const playground: Playground = {
       </div>`,
     ).join('');
 
-    let lastRequest: HttpRequest | null = null;
-    let timer: number | undefined;
-    let version = 0;
-    let currentPresetId: string | null = DEFAULT_PRESET;
+    resOutputsEl.innerHTML = RESPONSE_OUTPUT_PANES.map(
+      (p) => `
+      <div class="panel cv-pane">
+        <h3 class="cv-h">${p.label} <button class="btn cv-copy" data-res-copy="${p.key}">Copy</button></h3>
+        <pre class="code" data-res-out="${p.key}"></pre>
+      </div>`,
+    ).join('');
 
-    // Deep-linkable state: #/converter?preset=...&text=...
-    const linkDefaults = { preset: DEFAULT_PRESET, text: PRESETS[DEFAULT_PRESET].text };
+    let lastRequest: HttpRequest | null = null;
+    let lastResponse: HttpResponse | null = null;
+    let timer: number | undefined;
+    let resTimer: number | undefined;
+    let version = 0;
+    let resVersion = 0;
+    let currentPresetId: string | null = DEFAULT_PRESET;
+    let currentResPresetId: string | null = DEFAULT_RESPONSE_PRESET;
+
+    // Deep-linkable state: #/converter?preset=...&text=...&resPreset=...&resText=...
+    const linkDefaults = {
+      preset: DEFAULT_PRESET,
+      text: PRESETS[DEFAULT_PRESET].text,
+      resPreset: DEFAULT_RESPONSE_PRESET,
+      resText: RESPONSE_PRESETS[DEFAULT_RESPONSE_PRESET].text,
+    };
+
+    function persistLinkState() {
+      writeState({
+        preset: currentPresetId ?? 'custom',
+        text: ta.value,
+        resPreset: currentResPresetId ?? 'custom',
+        resText: resTa.value,
+      }, linkDefaults);
+    }
+
+    function renderBodyInspect() {
+      const reqParsed = lastRequest?.body ? bodyMod.parseBody(lastRequest.body, headerValue(lastRequest.headers, 'content-type')) : null;
+      const resParsed = lastResponse?.body ? bodyMod.parseBody(lastResponse.body, headerValue(lastResponse.headers, 'content-type')) : null;
+      bodyInspectEl.innerHTML = `
+        <div class="cv-body-col">
+          <div class="stat">request body${reqParsed ? ` · ${escapeHtml(reqParsed.type)}` : ''}</div>
+          <pre class="code">${reqParsed ? escapeHtml(reqParsed.formatted || '(empty)') : '(no request body parsed yet)'}</pre>
+        </div>
+        <div class="cv-body-col">
+          <div class="stat">response body${resParsed ? ` · ${escapeHtml(resParsed.type)}` : ''}</div>
+          <pre class="code">${resParsed ? escapeHtml(resParsed.formatted || '(empty)') : '(no response body parsed yet)'}</pre>
+        </div>`;
+    }
 
     function schedule(delay = 220) {
       if (timer !== undefined) window.clearTimeout(timer);
@@ -535,6 +676,7 @@ const playground: Playground = {
         el.textContent = message;
       }
       renderStructuredHeaders(null);
+      renderBodyInspect();
     }
 
     async function run() {
@@ -545,7 +687,7 @@ const playground: Playground = {
       badge.textContent = KIND_LABEL[d.kind];
       badge.dataset.kind = d.kind;
       detectEl.innerHTML = `<p class="stat">${escapeHtml(d.reason)}</p>`;
-      writeState({ preset: currentPresetId ?? 'custom', text }, linkDefaults);
+      persistLinkState();
 
       if (d.kind === 'unknown') {
         showError(text.trim() ? 'Could not detect a supported format — see the detection panel above.' : 'Nothing to convert yet — paste or pick a preset above.');
@@ -566,6 +708,7 @@ const playground: Playground = {
           el.textContent = pretty[p.key];
         }
         renderStructuredHeaders(request.headers);
+        renderBodyInspect();
       } catch (err) {
         if (myVersion !== version) return;
         showError(err instanceof Error ? `${err.name}: ${err.message}` : String(err));
@@ -580,11 +723,98 @@ const playground: Playground = {
       schedule(0);
     }
 
+    function showResError(message: string) {
+      lastResponse = null;
+      for (const p of RESPONSE_OUTPUT_PANES) {
+        const el = $<HTMLElement>(`[data-res-out="${p.key}"]`);
+        el.className = 'code error';
+        el.textContent = message;
+      }
+      renderBodyInspect();
+    }
+
+    function scheduleRes(delay = 220) {
+      if (resTimer !== undefined) window.clearTimeout(resTimer);
+      resTimer = window.setTimeout(runRes, delay);
+    }
+
+    async function runRes() {
+      const myVersion = ++resVersion;
+      const text = resTa.value;
+      const d = detectResponse(text);
+
+      resBadge.textContent = d.kind === 'unknown' ? '?' : d.kind.toUpperCase();
+      resBadge.dataset.kind = d.kind;
+      resDetectEl.innerHTML = `<p class="stat">${escapeHtml(d.reason)}</p>`;
+      persistLinkState();
+
+      if (d.kind === 'unknown') {
+        showResError(text.trim() ? 'Could not detect a supported response format — see the detection panel above.' : 'Nothing to convert yet — paste or pick a preset above.');
+        return;
+      }
+
+      try {
+        const response = await parseResponseByKind(d.kind, text);
+        if (myVersion !== resVersion) return;
+        lastResponse = response;
+
+        const rawHttp = await httpString.stringifyResponse(response);
+        const harEntry = await har.fromResponse(response, lastRequest ?? null);
+
+        const fetchLike = fetchMod.fromResponse(response) as { ok: boolean; status: number; statusText: string; url: string; redirected: boolean; type: string; headers: Headers };
+        const fetchHeaders: Record<string, string> = {};
+        fetchLike.headers.forEach((v, k) => { fetchHeaders[k] = v; });
+        const fetchLikeText = JSON.stringify(
+          { ok: fetchLike.ok, status: fetchLike.status, statusText: fetchLike.statusText, url: fetchLike.url, redirected: fetchLike.redirected, type: fetchLike.type, headers: fetchHeaders },
+          null,
+          2,
+        );
+
+        const mock = fetchMod.createMockResponse(response);
+        const mockBody = await mock.clone().text();
+        const mockHeaderLines: string[] = [];
+        mock.headers.forEach((v, k) => mockHeaderLines.push(`${k}: ${v}`));
+        const mockText = `instanceof Response: ${mock instanceof Response}\n${mock.status} ${mock.statusText}\n${mockHeaderLines.join('\n')}\n\n${mockBody || '(empty body)'}`;
+
+        if (myVersion !== resVersion) return;
+        const texts: Record<string, string> = { httpString: rawHttp, har: JSON.stringify(harEntry, null, 2), fetchLike: fetchLikeText, mock: mockText };
+        for (const p of RESPONSE_OUTPUT_PANES) {
+          const el = $<HTMLElement>(`[data-res-out="${p.key}"]`);
+          el.className = 'code';
+          el.textContent = texts[p.key];
+        }
+        renderBodyInspect();
+      } catch (err) {
+        if (myVersion !== resVersion) return;
+        showResError(err instanceof Error ? `${err.name}: ${err.message}` : String(err));
+      }
+    }
+
+    function loadResPreset(id: string) {
+      const preset = RESPONSE_PRESETS[id];
+      if (!preset) return;
+      currentResPresetId = id;
+      resTa.value = preset.text;
+      scheduleRes(0);
+    }
+
     const onPresetClick = (e: Event) => {
-      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-preset]');
-      if (btn) loadPreset(btn.dataset.preset!);
+      const target = e.target as HTMLElement;
+      const reqBtn = target.closest<HTMLElement>('[data-preset]');
+      if (reqBtn) { loadPreset(reqBtn.dataset.preset!); return; }
+      const resBtn = target.closest<HTMLElement>('[data-res-preset]');
+      if (resBtn) loadResPreset(resBtn.dataset.resPreset!);
     };
     const onInput = () => { currentPresetId = null; schedule(); };
+    const onResInput = () => { currentResPresetId = null; scheduleRes(); };
+
+    const onRandom = async () => {
+      const req = random.randomRequest() as HttpRequest;
+      const text = await httpString.stringifyRequest(req);
+      currentPresetId = null;
+      ta.value = text;
+      schedule(0);
+    };
 
     const onCopyLink = async () => {
       await copyLink();
@@ -598,6 +828,22 @@ const playground: Playground = {
       if (!btn) return;
       const key = btn.dataset.copy!;
       const el = $<HTMLElement>(`[data-out="${key}"]`);
+      try {
+        await navigator.clipboard.writeText(el.textContent ?? '');
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        window.setTimeout(() => { btn.textContent = original; }, 1200);
+      } catch {
+        btn.textContent = 'Copy failed';
+        window.setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
+      }
+    };
+
+    const onResCopyClick = async (e: Event) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-res-copy]');
+      if (!btn) return;
+      const key = btn.dataset.resCopy!;
+      const el = $<HTMLElement>(`[data-res-out="${key}"]`);
       try {
         await navigator.clipboard.writeText(el.textContent ?? '');
         const original = btn.textContent;
@@ -645,33 +891,49 @@ const playground: Playground = {
 
     root.addEventListener('click', onPresetClick);
     ta.addEventListener('input', onInput);
+    resTa.addEventListener('input', onResInput);
     outputsEl.addEventListener('click', onCopyClick);
+    resOutputsEl.addEventListener('click', onResCopyClick);
+    randomBtn.addEventListener('click', onRandom);
     sendBtn.addEventListener('click', onSend);
     copyLinkBtn.addEventListener('click', onCopyLink);
 
     // Incoming handoff (e.g. a captured entry from the site-wide HAR
     // recorder's "open in Converter" button) wins over a shareable deep
-    // link, which wins over the default preset.
+    // link, which wins over the default preset. A HAR entry carries both a
+    // request and a response, so it loads BOTH panels at once.
     const harHandoff = receive<HarEntry>('converter');
     if (harHandoff && harHandoff.kind === 'har-entry') {
       currentPresetId = null;
-      ta.value = JSON.stringify(harHandoff.payload, null, 2);
+      currentResPresetId = null;
+      const entryText = JSON.stringify(harHandoff.payload, null, 2);
+      ta.value = entryText;
+      resTa.value = entryText;
       root.prepend(handoffBanner(harHandoff, `loaded a captured HAR entry: ${harHandoff.payload.request.method} ${harHandoff.payload.request.url}`));
       schedule(0);
+      scheduleRes(0);
     } else if (location.hash.includes('?')) {
       const s = readState(linkDefaults);
       currentPresetId = PRESETS[s.preset]?.text === s.text ? s.preset : null;
       ta.value = s.text;
+      currentResPresetId = RESPONSE_PRESETS[s.resPreset]?.text === s.resText ? s.resPreset : null;
+      resTa.value = s.resText;
       schedule(0);
+      scheduleRes(0);
     } else {
       loadPreset(DEFAULT_PRESET);
+      loadResPreset(DEFAULT_RESPONSE_PRESET);
     }
 
     return () => {
       if (timer !== undefined) window.clearTimeout(timer);
+      if (resTimer !== undefined) window.clearTimeout(resTimer);
       root.removeEventListener('click', onPresetClick);
       ta.removeEventListener('input', onInput);
+      resTa.removeEventListener('input', onResInput);
       outputsEl.removeEventListener('click', onCopyClick);
+      resOutputsEl.removeEventListener('click', onResCopyClick);
+      randomBtn.removeEventListener('click', onRandom);
       sendBtn.removeEventListener('click', onSend);
       copyLinkBtn.removeEventListener('click', onCopyLink);
     };

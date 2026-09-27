@@ -82,3 +82,8 @@
 .pg-servant .trace-outcome { margin-top: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
 .pg-servant .trace-empty { color: var(--ink-3); font-style: italic; font-size: 12.5px; }
 .pg-servant .trace-clear { margin-top: 8px; }
+.pg-servant .trace-har-open { margin-top: 8px; padding: 4px 10px; font-size: 11px; }
+
+/* event bus */
+.pg-servant .event-bus-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.pg-servant #sv-emit-log { height: 100px; }
