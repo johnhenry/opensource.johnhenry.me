@@ -1,6 +1,7 @@
 ---
 title: "jth"
 description: "A stack-based programming language that compiles to JavaScript — CLI, compiler, runtime, stdlib, REPL, and embedding packages under @johnhenry/jth-*."
+planet: jth
 ---
 
 **`@johnhenry/jth`** is the CLI for jth, a stack-based programming language

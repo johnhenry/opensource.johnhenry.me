@@ -1,6 +1,7 @@
 ---
 title: "raijin"
 description: "Browser-native mesh rollup framework — PBFT consensus, state machine, mempool, and data availability as six composable TypeScript packages."
+planet: raijin
 ---
 
 **`@johnhenry/raijin-*`** is a browser-native mesh rollup framework: six small TypeScript packages that compose into an L2 where the users visiting your web app *are* the validators. A deterministic state machine, a simplified PBFT consensus engine with leader rotation, a fee-ordered mempool, a pluggable data-availability layer, a validator composition root, and a client SDK — all transport-agnostic, storage-agnostic, and identity-agnostic (you inject signing, storage, and networking; the framework never touches WebRTC or IndexedDB itself). Zero runtime dependencies; runs in browsers and Node.

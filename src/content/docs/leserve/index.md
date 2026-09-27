@@ -1,6 +1,7 @@
 ---
 title: "leserve"
 description: "A simple HTTP/HTTPS server for Node.js built around one API, serve() — a plain (Request) => Response handler, no routing/middleware/event framework attached."
+planet: leserve
 ---
 
 **`@johnhenry/leserve`** ships one API: `serve()` — a plain

@@ -1,6 +1,7 @@
 ---
 title: "objectify"
 description: "Turn TypeScript or Python classes into stateful, versioned CLI tools backed by SQLite — create, use, log, diff, rewind, fork, gc."
+planet: objectify
 ---
 
 Write a class. Drop it in a folder. Every method becomes a shell command. Every call takes JSON arguments. Every write is versioned. State is persistent, optional, and backed by SQLite. The whole thing is a single binary — no server, no SDK, no configuration.

@@ -1,0 +1,35 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { LinkCard } from '@astrojs/starlight/components';
+
+// orrery/ROADMAP.md P0.8: docs pages linked to /orrery/ generically instead
+// of the matching planet. Any page whose frontmatter sets `planet: <id>`
+// (see the `planet` field added to the docs schema in src/content.config.ts)
+// gets a deep link straight into that planet, rendered right under the page
+// title so it's the first thing a reader sees. The hash route itself is
+// orrery/src/state.ts's `#/<planet>?k=v` convention; orrery/vite.config.ts
+// notes the docs site builds the playground with `--base=/orrery/`, so a
+// root-relative href resolves to the deployed
+// https://opensource.johnhenry.me/orrery/#/<planet> URL.
+const { planet } = Astro.locals.starlightRoute.entry.data;
+---
+
+<Default><slot /></Default>
+{
+  planet && (
+    <LinkCard
+      title="Try it live in ORRERY →"
+      href={`/orrery/#/${planet}`}
+      description="Run the real npm package for this library in your browser, no install required."
+    />
+  )
+}
+
+<style>
+  @layer starlight.components {
+    :global(.sl-link-card) {
+      margin-top: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+  }
+</style>

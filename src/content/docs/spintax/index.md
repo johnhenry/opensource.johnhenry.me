@@ -1,6 +1,7 @@
 ---
 title: "spintax"
 description: "Combinatorial string generation from {a|b} choice and {1,10} range templates — lazy iterators, back references, count-before-you-expand."
+planet: spintax
 ---
 
 **`@johnhenry/spintax`** expands template strings with `{...}` patterns into

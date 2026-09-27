@@ -1,6 +1,7 @@
 ---
 title: "ecmanim"
 description: "A TypeScript port of manim — the Mathematical Animation Engine — that renders the same Scene code to video in Node via ffmpeg and live in the browser via Canvas-2D or WebGL, with near-complete manim API parity."
+planet: ecmanim
 ---
 
 <img alt="ecmanim" class="only-light" width="450"

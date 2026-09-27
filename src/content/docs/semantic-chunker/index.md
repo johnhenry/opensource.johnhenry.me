@@ -1,6 +1,7 @@
 ---
 title: "semantic-chunker"
 description: "Split text into semantically meaningful chunks by detecting similarity dropoffs between embedded segments — bring your own embedding function."
+planet: chunker
 ---
 
 **`@johnhenry/semantic-chunker`** splits text into chunks that follow topic

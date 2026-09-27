@@ -1,6 +1,7 @@
 ---
 title: 'math-plus: data'
 description: Arrow-backed dataframes, Parquet with real pushdown, async dataset pipelines, and the scalar-type bridge — plus the bigint, null, and laziness traps.
+planet: tensor
 ---
 
 Four packages in two disjoint halves that share no import edge: the Arrow dataframe pair (`frame-arrow` + `frame-parquet`) and the ML-pipeline pair (`data` + `scalar-types`). Their only common downstream is [`tensor-core`](/math/math-plus-tensor/).

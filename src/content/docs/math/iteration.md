@@ -1,6 +1,7 @@
 ---
 title: '@johnhenry/iteration'
 description: Sync and async iterator algebra for TypeScript — transducers, Python-itertools parity, bounded concurrency, cancellation, and backpressure-aware channels.
+planet: iteration
 ---
 
 ```bash

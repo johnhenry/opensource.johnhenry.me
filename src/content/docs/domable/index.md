@@ -1,6 +1,7 @@
 ---
 title: "domable"
 description: "Convert between HTML text, real DOM nodes, and React-element-shaped objects; build DOM directly with a createElement()-style hyperscript API; turn HTML strings (or DOM nodes) into Custom Element classes."
+planet: domable
 ---
 
 **`@johnhenry/domable`** converts between three representations of markup —

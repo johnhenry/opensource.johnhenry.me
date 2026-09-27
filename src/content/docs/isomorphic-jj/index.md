@@ -1,6 +1,7 @@
 ---
 title: "isomorphic-jj"
 description: "Jujutsu (jj) version control semantics in pure JavaScript — stable change IDs, fearless undo, first-class conflicts — in Node.js and browsers."
+planet: jj
 ---
 
 **`@johnhenry/isomorphic-jj`** is a pure-JavaScript reimplementation of

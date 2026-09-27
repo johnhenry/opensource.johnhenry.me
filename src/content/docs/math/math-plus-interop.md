@@ -1,6 +1,7 @@
 ---
 title: 'math-plus: interop & telemetry'
 description: The MCP server for agents, the Python-side bridge on PyPI, and the shared telemetry stream — three packages on three different release channels.
+planet: tensor
 ---
 
 Three packages, three release channels: `mcp` and `telemetry` ship to npm/JSR like the rest of the family; `interop-python` ships to **PyPI** and has no `package.json` at all.

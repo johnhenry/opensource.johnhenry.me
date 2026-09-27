@@ -1,6 +1,7 @@
 ---
 title: 'math-plus: signal & media'
 description: The fft, signal, and image packages — SciPy's useful slice in pure JS, with the convention deviations you need to know before porting NumPy/SciPy code.
+planet: tensor
 ---
 
 Three packages, all pure JS (no WASM, no GPU — "reference now, native later"), all `Tensor`-in/`Tensor`-out on [`tensor-core`](/math/math-plus-tensor/), all differential-tested against real NumPy/SciPy oracles.

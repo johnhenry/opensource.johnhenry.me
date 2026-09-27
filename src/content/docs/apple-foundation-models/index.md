@@ -1,6 +1,7 @@
 ---
 title: "apple-foundation-models"
 description: "A 1-to-1 TypeScript wrapper for Apple's on-device FoundationModels framework: text generation, streaming, and automatic tool calling, no network, no API key."
+planet: afm
 ---
 
 > Previously published as `apple-foundation-models@0.0.1`. Now publishes as
