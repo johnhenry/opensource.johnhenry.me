@@ -45,6 +45,10 @@ import { mountAlmanac } from './almanac';
 // spin/recur/dedupe/goto custom operators bridging spintax/temporals/hashish/bus.
 import { mountConductor } from './conductor';
 
+// Site-wide syntax highlighting (JS/TS/JSX/TSX/HTML/CSS/JSON/YAML) for every
+// pre.code block and the source drawer. See src/code-highlight.ts.
+import { installCodeHighlighter } from './code-highlight';
+
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
 
@@ -54,6 +58,7 @@ mountSignalBus();
 mountLayaJudge();
 mountAlmanac();
 mountConductor();
+installCodeHighlighter();
 
 /** Raw source of every playground module, for the "view source" drawer. */
 const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;

@@ -1,0 +1,56 @@
+/*
+ * Syntax-highlighting colors for Prism's `.token.*` classes.
+ *
+ * Colors come from Circuit's own `--sx-*` syntax-highlighting variables
+ * (src/palette + tokens.css), which already ship separate light/dark values
+ * and are explicitly documented there as "never rotate with --hue" — i.e.
+ * these are the family's designated code-coloring tokens, not one-off hex
+ * values, so this file needs no light/dark media queries of its own and no
+ * canned Prism theme is imported anywhere in this repo.
+ */
+.token.keyword,
+.token.atrule,
+.token.important,
+.token.rule { color: var(--sx-kw); }
+
+.token.string,
+.token.char,
+.token.attr-value,
+.token.url,
+.token.regex { color: var(--sx-str); }
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata { color: var(--sx-cm); font-style: italic; }
+
+.token.number { color: var(--sx-num); }
+
+.token.boolean,
+.token.constant { color: var(--sx-bool); }
+
+.token.function { color: var(--sx-fn); }
+
+.token.tag,
+.token.selector { color: var(--sx-tag); }
+
+.token.attr-name,
+.token.property,
+.token.property-access { color: var(--sx-attr); }
+
+.token.class-name,
+.token.builtin,
+.token.maybe-class-name { color: var(--sx-type); }
+
+.token.punctuation,
+.token.operator { color: var(--sx-punct); }
+
+.token.entity,
+.token.namespace,
+.token.variable { color: var(--sx-attr); opacity: 0.9; }
+
+.token.deleted { color: var(--error); }
+.token.inserted { color: var(--success); }
+
+.token.bold { font-weight: 700; }
+.token.italic { font-style: italic; }
