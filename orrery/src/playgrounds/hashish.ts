@@ -196,20 +196,20 @@ export default {
           <strong>Index parameters</strong>
           <div class="sliders" style="margin-top:10px">
             <label class="field">
-              MinHash functions (signature length) — <span class="field-val" id="hf-val">120</span>
+              <span class="field-row"><span>MinHash functions (signature length)</span><span class="field-val" id="hf-val">120</span></span>
               <input type="range" id="hf-slider" min="10" max="150" step="5" value="50">
             </label>
             <label class="field">
-              Rows per band (bucketSize) — <span class="field-val" id="bw-val">3</span>
+              <span class="field-row"><span>Rows per band (bucketSize)</span><span class="field-val" id="bw-val">3</span></span>
               <input type="range" id="bw-slider" min="1" max="10" step="1" value="3">
               <span style="color:var(--ink-3);font-size:11px">smaller = looser matching, more (and weaker) candidates</span>
             </label>
             <label class="field">
-              Indexing concurrency (mapConcurrentAsync) — <span class="field-val" id="conc-val">4</span>
+              <span class="field-row"><span>Indexing concurrency (mapConcurrentAsync)</span><span class="field-val" id="conc-val">4</span></span>
               <input type="range" id="conc-slider" min="1" max="16" step="1" value="4">
             </label>
             <label class="field">
-              Simulated storage latency per doc — <span class="field-val" id="lat-val">20</span> ms
+              <span class="field-row"><span>Simulated storage latency per doc</span><span class="field-val" id="lat-val">20</span> ms</span>
               <input type="range" id="lat-slider" min="0" max="120" step="5" value="20">
               <span style="color:var(--ink-3);font-size:11px">stand-in for a network <code>StorageAdapter</code> (e.g. <code>RedisStorage</code>) so concurrency is visible; 0 = pure in-memory</span>
             </label>
@@ -1010,6 +1010,17 @@ export default {
         svg.setAttribute('width', String(gridBox.width));
         svg.setAttribute('height', String(gridBox.height));
         svg.setAttribute('viewBox', `0 0 ${gridBox.width} ${gridBox.height}`);
+
+        // Match each band-label's width to its real band-group width (issue #18,
+        // Hashish Lab P1): the header row only ever renders a "bN" text label, so
+        // left auto-sized it's narrower than the data columns (which are sized by
+        // their sig-cell count) and drifts out of alignment as bands progress.
+        for (let b = 0; b < bands; b++) {
+          const dataCell = queryRow.querySelector<HTMLElement>(`.band-group[data-band="${b}"]`);
+          const labelCell = bandLabelsRow.querySelector<HTMLElement>(`.band-group[data-band="${b}"]`);
+          if (dataCell && labelCell) labelCell.style.width = `${dataCell.getBoundingClientRect().width}px`;
+        }
+
         const bandCenterX = (b: number): number | undefined => {
           const cell = queryRow.querySelector<HTMLElement>(`.band-group[data-band="${b}"]`);
           if (!cell) return undefined;

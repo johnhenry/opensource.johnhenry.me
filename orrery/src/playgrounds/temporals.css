@@ -33,7 +33,18 @@
 .pg-temporals label.field.mini { min-width: 0; }
 .pg-temporals label.field input[type="number"] { width: 80px; }
 .pg-temporals label.radio { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
-.pg-temporals #c-count, .pg-temporals #c-until { width: 130px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: inherit; }
+.pg-temporals #c-count, .pg-temporals #c-until {
+  width: 130px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg-inset); color: inherit;
+  font-family: var(--f-mono); font-size: 13px; /* was inheriting the 16px UA default, unlike every other field */
+}
+/* "Bound by": label + radios + both inputs on one aligned row (issue #18, Temporal Loom P2) */
+.pg-temporals .ctl-row-bound { align-items: center; }
+.pg-temporals #c-until { min-width: 9.5em; }
+/* interval-mode checkbox and the span-length field used mismatched wrappers
+   (one single-line, one two-line), so they sat at different heights; center
+   them against each other instead (issue #18, Temporal Loom P2). */
+.pg-temporals .ctl-row-interval { align-items: center; }
 
 .pg-temporals .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .pg-temporals .chip.toggle {
@@ -67,7 +78,7 @@
 /* ---- occurrence list ---- */
 .pg-temporals .occ-list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .pg-temporals .occ-row { display: flex; gap: 10px; font-family: var(--f-mono); font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--bg-inset); }
-.pg-temporals .occ-idx { color: var(--ink-3); min-width: 2ch; text-align: right; }
+.pg-temporals .occ-idx { color: var(--ink-3); min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
 .pg-temporals .occ-date { color: var(--ink); }
 .pg-temporals .empty-note { color: var(--ink-3); font-size: 13px; padding: 12px; }
 
@@ -83,9 +94,10 @@
 
 /* ---- live "now" strip: css-signals clock + countdown ---- */
 .pg-temporals .loom-now { display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center; }
-.pg-temporals .loom-clock { display: flex; align-items: center; gap: 12px; }
+.pg-temporals .loom-clock { display: flex; align-items: baseline; gap: 12px; }
 .pg-temporals .clk-ring {
   width: 44px; height: 44px; border-radius: 50%; flex: none;
+  align-self: center;
   background:
     radial-gradient(circle, var(--bg-panel) 58%, transparent 60%),
     conic-gradient(var(--accent) calc(var(--loom-date-rule-second, 0) * 6deg), var(--bg-inset) 0);
@@ -96,7 +108,9 @@
   content: counter(h, decimal-leading-zero) ":" counter(m, decimal-leading-zero) ":" counter(s, decimal-leading-zero);
   font-family: var(--f-mono); font-size: 26px; color: var(--ink); letter-spacing: .02em;
 }
-.pg-temporals .clk-zone { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); align-self: flex-end; padding-bottom: 6px; }
+/* baseline-align with the big clock instead of an approximated flex-end + padding hack
+   (issue #18, Temporal Loom P3) */
+.pg-temporals .clk-zone { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); align-self: baseline; }
 .pg-temporals .loom-next { min-width: 0; }
 .pg-temporals .next-label { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
 .pg-temporals .next-count { font-family: var(--f-display); font-size: 30px; color: var(--accent); text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent); font-variant-numeric: tabular-nums; line-height: 1.15; }
@@ -105,7 +119,7 @@
 .pg-temporals .loom-tools { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .pg-temporals .loom-tools .btn.small { padding: 4px 10px; font-size: 12px; }
 .pg-temporals .loom-tools .btn[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.pg-temporals .loom-tools .stat { font-size: 11px; text-align: right; max-width: 260px; }
+.pg-temporals .loom-tools .stat { display: block; font-size: 11px; text-align: right; max-width: 260px; text-wrap: pretty; }
 .pg-temporals .loom-tools .stat code { font-size: 10px; }
 @media (max-width: 760px) {
   .pg-temporals .loom-now { grid-template-columns: 1fr; }

@@ -14,6 +14,25 @@
 .pg-ecmanim .em-speed input { width: 110px; accent-color: var(--accent); }
 .pg-ecmanim .em-speed .chip { min-width: 44px; text-align: center; }
 
+/* Scene chips, the speed pill and the Play/Stop/Download/copy-link buttons
+   all had different padding/font-size and so sat at different heights, off
+   a common baseline (issue #18, Ecmanim Stage P2). Normalise the whole
+   control row to one 28px-tall, vertically centered line. */
+.pg-ecmanim .em-bar { align-items: center; }
+.pg-ecmanim .em-picker { align-items: center; }
+.pg-ecmanim .em-bar .em-tab,
+.pg-ecmanim .em-bar .em-controls .btn,
+.pg-ecmanim .em-bar .em-speed .chip {
+  box-sizing: border-box;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.pg-ecmanim .em-bar .em-tab { padding: 0 12px; }
+.pg-ecmanim .em-bar .em-controls .btn { padding: 0 14px; }
+.pg-ecmanim .em-bar .em-speed .chip { padding: 0 10px; }
+
 .pg-ecmanim .em-main { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .pg-ecmanim .em-main { grid-template-columns: 1fr; } }
 
@@ -21,7 +40,10 @@
 .pg-ecmanim .em-canvas-wrap {
   position: relative; border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
   background: #0b0f1c; aspect-ratio: 16 / 9;
-  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 20px 50px -30px var(--accent);
+  /* smaller blur/spread + a bottom margin so the glow doesn't bleed onto the
+     "playing · t = …" status row underneath (issue #18, Ecmanim Stage P3) */
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 12px 30px -22px var(--accent);
+  margin-bottom: 10px;
 }
 .pg-ecmanim canvas { display: block; width: 100%; height: 100%; }
 .pg-ecmanim[data-state="playing"] .em-canvas-wrap { border-color: var(--accent-border); }

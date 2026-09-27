@@ -204,7 +204,12 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
   }).join('');
 
   const main = document.createElement('main');
-  main.className = 'home';
+  // The orrery is a fixed dark starfield (see .home's hardcoded #03050d
+  // background in home.css) regardless of the site-wide theme toggle. Circuit's
+  // `.dark` class opts this subtree's tokens (--ink, --bg-panel, --line, ...)
+  // out of the light theme so panel text stays readable in light mode instead
+  // of resolving to light-theme's dark ink on this always-dark background.
+  main.className = 'home dark';
   main.innerHTML = `
     <div class="sky" aria-hidden="true">
       <div class="nebula"></div>
@@ -253,6 +258,49 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
 
   // Side panel: the only JS in the interaction loop is swapping text on hover/focus.
   const ac = new AbortController();
+
+  // Orbiting labels cluster and overlap near the sun, and can spill past the
+  // stage's right edge (issue #18, home P2 — orbit labels collide). Orbits
+  // move slowly (30-90s periods), so a cheap poll is enough: no need for a
+  // per-frame rAF loop. Overlapping labels get nudged apart vertically
+  // (--label-dy, composed with the CSS `translate` centering); any label
+  // whose right edge would exit .stage gets pulled back in with `transform`.
+  const stageEl = main.querySelector('.stage') as HTMLElement;
+  function resolveLabelLayout() {
+    const labels = Array.from(main.querySelectorAll<HTMLElement>('.planet .label'));
+    if (!labels.length) return;
+    const stageBox = stageEl.getBoundingClientRect();
+    // One DOM read per label (already reflects last tick's --label-dy), then
+    // several rounds of pure-number relaxation — no DOM in the loop — so a
+    // dense cluster near the sun fully untangles within a single tick
+    // instead of creeping apart 2px/tick over several seconds.
+    const rects = labels.map((l) => l.getBoundingClientRect());
+    const dy = new Array(labels.length).fill(0);
+    for (let iter = 0; iter < 16; iter++) {
+      let moved = false;
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) {
+          const a = rects[i], b = rects[j];
+          const aTop = a.top + dy[i], aBottom = a.bottom + dy[i];
+          const bTop = b.top + dy[j], bBottom = b.bottom + dy[j];
+          const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+          const overlapY = Math.min(aBottom, bBottom) - Math.max(aTop, bTop);
+          if (overlapX <= 0 || overlapY <= 0) continue;
+          const push = overlapY / 2 + 1.5;
+          if (aTop <= bTop) { dy[i] -= push; dy[j] += push; } else { dy[i] += push; dy[j] -= push; }
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    labels.forEach((l, i) => {
+      l.style.setProperty('--label-dy', `${Math.max(-90, Math.min(90, dy[i]))}px`);
+      const overshoot = rects[i].right - stageBox.right;
+      l.style.transform = overshoot > 0 ? `translateX(${-(overshoot + 4)}px)` : '';
+    });
+  }
+  resolveLabelLayout();
+  const labelLayoutId = window.setInterval(resolveLabelLayout, 400);
 
   // Build-time test badges (roadmap 4.5): for any planet with no live
   // (localStorage) result yet, fetch dist/tests.json once and patch its
@@ -305,6 +353,7 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
 
   return () => {
     ac.abort();
+    window.clearInterval(labelLayoutId);
     signals.dispose();
     main.remove();
   };
