@@ -4,6 +4,11 @@ import { playgrounds, type PlaygroundEntry } from './registry';
 import { renderHome } from './home';
 import { renderSettings } from './settings';
 import { initThemeToggle } from '@erisera-code/circuit/theme-toggle.js';
+import { registerEdgeServiceWorker } from './edge-client';
+
+// ROADMAP.md §4.1: one Service Worker relays real /__edge/<planet>/... requests
+// to whichever tab has that planet's room open. See src/edge-client.ts.
+void registerEdgeServiceWorker();
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | void;
