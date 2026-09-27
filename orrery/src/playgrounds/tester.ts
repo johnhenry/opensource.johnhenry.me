@@ -1,6 +1,13 @@
 import type { Playground } from '../registry';
 import { setRoomTests } from '../bus';
+import { readState } from '../state';
 import './tester.css';
+
+// Type-only (erased at build time, no runtime import): lets the aimatey
+// suite below annotate a plain mock BackendAdapter object literal against
+// aimatey-core's real Router interface, the same package/pattern the
+// "Aimatey Router" planet (src/playgrounds/aimatey.ts) already imports live.
+import type { BackendAdapter, AdapterMetadata, IRChatRequest, IRChatResponse } from '@johnhenry/aimatey-types';
 
 // 0.0.1: @johnhenry/tester now ships real declaration files for the barrel
 // and every typed subpath used here (index.d.mts, TAPRunner.d.mts,
@@ -525,6 +532,354 @@ async function* suiteToolcode(): AsyncGenerator<Assertion> {
   }
 }
 
+// @johnhenry/objectify@0.0.0 (P0.6) is a real, published npm package now,
+// but its only export chain (index.js -> objectify.js/object-ref.js -> db.js
+// -> id.js) is a TypeScript adapter over better-sqlite3's native binding.
+// Its package.json exports map has exactly one entry ("." -> ./dist/index.js)
+// and no "browser" condition anywhere -- verified two ways: `npm view
+// @johnhenry/objectify exports` returns only that one path, and actually
+// bundling it here (before writing this honest version of the suite) made
+// Rollup fail outright on id.js's `node:crypto` import ("randomBytes is not
+// exported by __vite-browser-external"), which would break `vite build` for
+// every OTHER suite too, not just this one's runtime. There is nothing left
+// to try/catch around: the failure is at bundle time, not call time. So
+// this reports that real finding instead of faking an import.
+async function* suiteObjectify(): AsyncGenerator<Assertion> {
+  yield pass(
+    'objectify ships no browser-safe entry point: its sole "." export ' +
+    'unconditionally pulls in better-sqlite3 (a native binding); importing ' +
+    'it breaks the bundle, not just the call # SKIP Node-only, no browser export condition',
+  );
+}
+
+// @johnhenry/servant's package.json exports map ("."/"./controls" ->
+// controls.mjs, "./event" -> event.mjs) has no "browser" condition either,
+// and controls.mjs unconditionally imports node:http, node:https, node:stream
+// and the `ws` package at module scope. Verified the same way as objectify
+// above: bundling it here fails Rollup on controls.mjs's `pipeline` import
+// ("pipeline is not exported by __vite-browser-external"). Nothing here is
+// reachable from a browser, at any subpath.
+async function* suiteServant(): AsyncGenerator<Assertion> {
+  yield pass(
+    'servant ships no browser-safe entry point: its sole "." export ' +
+    'unconditionally imports node:http/https/stream and ws; importing it ' +
+    'breaks the bundle, not just the call # SKIP Node-only, no browser export condition',
+  );
+}
+
+// @johnhenry/apple-foundation-models' dist/index.mjs imports child_process,
+// fs, net, path, url, crypto and readline at module scope to spawn and talk
+// to a native Swift binary (AppleFoundationModelsWrapper) -- macOS-only by
+// design, not just Node-only. Verified the same way: bundling it here fails
+// Rollup on the externalized child_process import. No subpath avoids it.
+async function* suiteAfm(): AsyncGenerator<Assertion> {
+  yield pass(
+    'apple-foundation-models ships no browser-safe entry point: its sole ' +
+    '"." export spawns a native Swift binary via child_process/fs/net; ' +
+    'importing it breaks the bundle, not just the call # SKIP Node-only, macOS-only, no browser export condition',
+  );
+}
+
+// The literal "@johnhenry/aimatey" umbrella package (the registry's `pkg`
+// for this planet) only exports a VERSION string by design -- its own
+// readme says so, and the live "Aimatey Router" planet (aimatey.ts) already
+// imports the real functionality from aimatey-core/-frontend/-middleware/
+// -types instead. So this suite tests the actual package that planet runs:
+// aimatey-core's Router, registering one BackendAdapter (the same interface
+// aimatey.ts's three mock backends implement) and dispatching a real IR
+// chat request through it end to end.
+async function* suiteAimatey(): AsyncGenerator<Assertion> {
+  try {
+    const { createRouter } = await import('@johnhenry/aimatey-core');
+    const metadata: AdapterMetadata = {
+      name: 'tester-mock',
+      version: '0.1.0',
+      provider: 'tester',
+      capabilities: {
+        streaming: false,
+        multiModal: false,
+        tools: false,
+        systemMessageStrategy: 'in-messages',
+        supportsMultipleSystemMessages: true,
+        supportsTemperature: true,
+      },
+    };
+    const backend: BackendAdapter<IRChatRequest, IRChatResponse> = {
+      metadata,
+      fromIR: (request) => request,
+      toIR: (response) => response,
+      async execute(request) {
+        return {
+          message: { role: 'assistant', content: 'pong' },
+          finishReason: 'stop',
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          metadata: { requestId: request.metadata.requestId, timestamp: Date.now(), provenance: { backend: 'tester-mock' } },
+        };
+      },
+      async *executeStream(request) {
+        yield {
+          type: 'done', sequence: 0, finishReason: 'stop',
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          message: { role: 'assistant', content: 'pong' },
+        };
+      },
+    };
+    const router = createRouter();
+    router.register('tester-mock', backend);
+    const request: IRChatRequest = {
+      messages: [{ role: 'user', content: 'ping' }],
+      metadata: { requestId: 'tester-req-1', timestamp: Date.now() },
+    };
+    const response = await router.execute(request);
+    yield equal(response.message.content, 'pong', "Router.execute() dispatches to the sole registered backend and returns its IRChatResponse");
+    const stats = router.getBackendStats('tester-mock');
+    yield equal(stats?.totalRequests, 1, "the router's per-backend stats count the dispatched request");
+    router.unregister('tester-mock');
+    yield notok(router.has('tester-mock'), 'unregister() removes the backend from the router');
+  } catch (err) {
+    yield fail(`aimatey-core suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+// leserve ships zero .d.ts files anywhere in the published package (its
+// types are JSDoc-only) -- every subpath below is real, working ESM, just
+// untyped, so each dynamic import needs its own suppression. Exercises the
+// three dependency-free, browser-safe entry points the roadmap calls out
+// (/compose, /auth, /body) composed into one real handler, then dispatched
+// through /test-harness's testHandler() without starting a server.
+async function* suiteLeserve(): AsyncGenerator<Assertion> {
+  try {
+    // @ts-expect-error leserve ships no declaration file for "./compose"
+    const { compose } = await import('@johnhenry/leserve/compose');
+    // @ts-expect-error leserve ships no declaration file for "./auth"
+    const { bearerAuth } = await import('@johnhenry/leserve/auth');
+    // @ts-expect-error leserve ships no declaration file for "./body"
+    const { respond } = await import('@johnhenry/leserve/body');
+    // @ts-expect-error leserve ships no declaration file for "./test-harness"
+    const { testHandler } = await import('@johnhenry/leserve/test-harness');
+    const requireAuth = bearerAuth(async (token: string) => token === 'tester-secret');
+    const handler = compose(requireAuth, async () => respond({ ok: true }));
+    const app = testHandler(handler);
+    const denied = await app.get('/ping');
+    yield equal(denied.status, 401, 'bearerAuth() middleware rejects a request with no Authorization header');
+    const allowed = await app.get('/ping', { Authorization: 'Bearer tester-secret' });
+    yield equal(allowed.status, 200, 'the same route, composed with a valid Bearer token, reaches the handler');
+    const body = await allowed.json();
+    yield deepequal(body, { ok: true }, "body's respond() serializes the handler's data as the JSON response");
+  } catch (err) {
+    yield fail(`leserve suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+// A minimal in-memory duplex byte-stream pair shaped like a
+// `@johnhenry/browsermesh-netway` `StreamSocket` (`write(bytes)`/`read()`/
+// `close()`) -- just enough for dialback's real, exported
+// `createBrowsermeshTransport`/`acceptBrowsermeshConnections` to run their
+// real identity handshake end to end below without installing
+// browsermesh-netway itself (an optional peer dependency this project
+// doesn't otherwise need).
+interface FakeStreamSocket {
+  write(bytes: Uint8Array): Promise<void>;
+  read(): Promise<Uint8Array | null>;
+  close(): Promise<void>;
+}
+class InMemoryByteQueue {
+  private buf: Uint8Array[] = [];
+  private waiter: ((v: Uint8Array | null) => void) | null = null;
+  private closed = false;
+  push(chunk: Uint8Array): void {
+    if (this.closed) return;
+    if (this.waiter) {
+      const w = this.waiter;
+      this.waiter = null;
+      w(chunk);
+    } else {
+      this.buf.push(chunk);
+    }
+  }
+  close(): void {
+    this.closed = true;
+    if (this.waiter) {
+      const w = this.waiter;
+      this.waiter = null;
+      w(null);
+    }
+  }
+  read(): Promise<Uint8Array | null> {
+    if (this.buf.length) return Promise.resolve(this.buf.shift()!);
+    if (this.closed) return Promise.resolve(null);
+    return new Promise((resolve) => { this.waiter = resolve; });
+  }
+}
+function makeInMemorySocketPair(): [FakeStreamSocket, FakeStreamSocket] {
+  const aToB = new InMemoryByteQueue();
+  const bToA = new InMemoryByteQueue();
+  const socketA: FakeStreamSocket = {
+    write: async (bytes) => aToB.push(bytes),
+    read: () => bToA.read(),
+    close: async () => aToB.close(),
+  };
+  const socketB: FakeStreamSocket = {
+    write: async (bytes) => bToA.push(bytes),
+    read: () => aToB.read(),
+    close: async () => bToA.close(),
+  };
+  return [socketA, socketB];
+}
+
+// dialback's "./browsermesh" subpath (transports/browsermesh.mjs) carries
+// no "types" entry in its exports map (verified) -- only "." is typed.
+// `createBrowsermeshTransport`/`acceptBrowsermeshConnections` are its real,
+// publicly exported functions (the identity-handshake internals in
+// handshake.mjs are not exported and not reachable through the package's
+// own exports map). Both are duck-typed against a netway `VirtualNetwork`/
+// `Listener` shape, so the in-memory socket pair above stands in for
+// browsermesh-netway without needing it installed, while the Ed25519
+// challenge/response handshake itself runs for real.
+async function* suiteDialback(): AsyncGenerator<Assertion> {
+  try {
+    const prim = await import('@johnhenry/browsermesh-primitives');
+    const { PodIdentity } = prim;
+    const probeEd25519Support = (prim as unknown as { probeEd25519Support(): Promise<boolean> }).probeEd25519Support;
+    if (!(await probeEd25519Support())) {
+      yield pass('WebCrypto Ed25519 is unavailable in this browser; the identity handshake is skipped # SKIP no Ed25519 support');
+      return;
+    }
+    // @ts-expect-error dialback's "./browsermesh" export condition carries no "types" entry
+    const { createBrowsermeshTransport, acceptBrowsermeshConnections } = await import('@johnhenry/dialback/browsermesh');
+
+    const [listenerSocket, agentSocket] = makeInMemorySocketPair();
+    const listenerIdentity = await PodIdentity.generate();
+    const agentIdentity = await PodIdentity.generate();
+
+    let acceptCalls = 0;
+    const fakeListener = { accept: async () => (acceptCalls++ === 0 ? listenerSocket : null) };
+    const fakeServer = { addConnection: async () => {} };
+    let onAccepted!: (v: { podId: string }) => void;
+    const accepted = new Promise<{ podId: string }>((resolve) => { onAccepted = resolve; });
+    const acceptLoop = acceptBrowsermeshConnections(fakeListener, fakeServer, listenerIdentity, {
+      timeoutMs: 2000,
+      onConnection: (_connection: unknown, podId: string) => onAccepted({ podId }),
+    });
+
+    const transport = createBrowsermeshTransport({ connect: async () => agentSocket }, agentIdentity, { timeoutMs: 2000 });
+    const [connection, verifiedPeer] = await Promise.all([transport('mem://tester-agent'), accepted]);
+
+    yield equal(
+      verifiedPeer.podId,
+      agentIdentity.podId,
+      "acceptBrowsermeshConnections() runs the real Ed25519 challenge/response handshake and reports the connecting agent's true podId",
+    );
+    yield ok(
+      !!connection && typeof connection.send === 'function',
+      'createBrowsermeshTransport() resolves with a Connection once the agent has proven its identity to the listener',
+    );
+
+    connection.close();
+    await acceptLoop;
+  } catch (err) {
+    yield fail(`dialback suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+// wsh's main entry ("Browser-native remote command execution over
+// WebTransport/WebSocket with Ed25519 authentication") is fully typed and
+// fully browser-safe end to end -- unlike servant/afm above, nothing here
+// needs a Node-only fallback. Exercises the pure protocol-message
+// constructors (hello/msgName/isValidMessage) and, when WebCrypto Ed25519 is
+// available, the real challenge/response auth transcript (auth.mjs), the
+// same primitives wsh's own client/server handshake is built from.
+async function* suiteWsh(): AsyncGenerator<Assertion> {
+  try {
+    const {
+      hello, msgName, isValidMessage, MSG,
+      isEd25519Supported, generateKeyPair, signChallenge, verifyChallenge, generateNonce, fingerprint,
+    } = await import('@johnhenry/wsh');
+    const helloMsg = hello({ username: 'ada', authMethod: 'pubkey' });
+    yield equal(helloMsg.type, MSG.HELLO, 'hello() builds a message tagged with MSG.HELLO');
+    yield ok(isValidMessage(helloMsg), 'isValidMessage() recognizes a real constructed message');
+    yield equal(msgName(MSG.HELLO), 'HELLO', 'msgName() reverse-maps the type number back to its constant name');
+    if (!(await isEd25519Supported())) {
+      yield pass('WebCrypto Ed25519 is unavailable in this browser; the auth-transcript round trip is skipped # SKIP no Ed25519 support');
+      return;
+    }
+    const keyPair = await generateKeyPair();
+    const sessionId = 'tester-session';
+    const nonce = generateNonce();
+    const { signature, publicKeyRaw } = await signChallenge(keyPair.privateKey, keyPair.publicKey, sessionId, nonce, { username: 'ada' });
+    const verified = await verifyChallenge(keyPair.publicKey, signature, sessionId, nonce, { username: 'ada' });
+    yield ok(verified, 'verifyChallenge() accepts the signature signChallenge() produced over the same transcript');
+    const rejected = await verifyChallenge(keyPair.publicKey, signature, sessionId, generateNonce(), { username: 'ada' });
+    yield notok(rejected, 'the same signature is rejected once the challenge transcript changes (a different nonce)');
+    const fp = await fingerprint(publicKeyRaw);
+    yield ok(typeof fp === 'string' && fp.length === 64, 'fingerprint() derives a 64-char hex SHA-256 digest of the raw public key');
+  } catch (err) {
+    yield fail(`wsh suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+// hostable's package entry, as published (no node: imports left -- see
+// studio.ts's own module doc comment for the same finding). compile() lowers
+// <Gateway>/<Host>/<Upstream> into a real servable dispatcher; <Host> is a
+// real servable primitive matching on the *request's URL hostname* (a page
+// can't set a Host header, so this is how hostname scoping works from
+// fetch() -- also documented in studio.ts). No JSX/roomId: hostable isn't
+// its own orrery planet, it's one of the three pipelines the "studio" planet
+// runs (alongside fileable and servable).
+async function* suiteHostable(): AsyncGenerator<Assertion> {
+  try {
+    const { compile, Gateway, Host, Route } = await import('@johnhenry/hostable');
+    const tree = Gateway({
+      children: Host({
+        pattern: 'api.tester.invalid',
+        children: Route({ path: '/ping', method: 'GET', handler: () => new globalThis.Response('pong') }),
+      }),
+    });
+    const { fetch: dispatch, warnings } = await compile(tree);
+    yield deepequal(warnings, [], 'compiling a one-Host, one-Route gateway produces no warnings');
+    const matched = await dispatch(new Request('https://api.tester.invalid/ping'));
+    yield equal(matched.status, 200, "a request whose URL hostname matches the <Host> pattern reaches its nested Route");
+    const body = await matched.text();
+    yield equal(body, 'pong', "the matched Route's handler body is returned verbatim");
+    const missed = await dispatch(new Request('https://other.invalid/ping'));
+    yield equal(missed.status, 404, 'the same path against a non-matching hostname falls through to the default 404 (the Host never claims it)');
+  } catch (err) {
+    yield fail(`hostable suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+// fileable's own "/browser" entry (issue #6): a verified browser-safe subset
+// covering Build -> Resolve -> Layout -> Hash, stopping before the Node-only
+// Write stage -- exactly the fallback shape the room brief points at
+// (ecmanim/isomorphic-jj's "/browser"), except this one has a real,
+// documented, non-JSX API (`File(props)`/`Dir(props)` build descriptors
+// directly, no JSX runtime needed -- see components.js's own doc comment).
+// No roomId: fileable isn't its own orrery planet either, see suiteHostable.
+async function* suiteFileable(): AsyncGenerator<Assertion> {
+  try {
+    const { plan, File, Dir, toLockFileShape } = await import('@johnhenry/fileable/browser');
+    const tree = Dir({
+      name: 'site',
+      children: [
+        File({ name: 'index.html', children: '<h1>hi</h1>' }),
+        File({ name: 'about.html', children: '<p>about</p>' }),
+      ],
+    });
+    const first = await plan(tree);
+    // plan()'s artifacts include the <Dir> itself (kind "dir") alongside its
+    // two <File> children (kind "file") -- 3 artifacts total, confirmed by
+    // inspecting a real plan() call's output before asserting on it.
+    yield equal(first.artifacts.length, 3, 'plan() resolves the tree to 3 artifacts: the <Dir> itself plus its 2 <File> children (Build -> Resolve -> Layout -> Hash, no disk write)');
+    yield equal(first.artifacts.filter((a) => a.kind === 'file').length, 2, 'exactly 2 of those artifacts are real files');
+    yield ok(first.artifacts.every((a) => a.status === 'new'), 'with no previousLock, every artifact is classified "new"');
+    const lock = toLockFileShape(first.artifacts);
+    const second = await plan(tree, undefined, lock);
+    yield ok(second.artifacts.every((a) => a.status === 'cached'), 're-planning the same tree against its own lock reclassifies every artifact as "cached" (unchanged content hash)');
+  } catch (err) {
+    yield fail(`fileable suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
 // Demo suite for TAP's SKIP/TODO directives (encoded here as a "# TODO ..."
 // / "# SKIP ..." suffix on the assertion message — the same trick
 // TAPResultPass/Fail use to print "ok N - message # DIRECTIVE"). All-green by
@@ -565,6 +920,15 @@ const SUITES: Suite[] = [
   { id: 'tensor', name: 'math-plus-tensor-core · elementwise add', pkgName: '@johnhenry/math-plus-tensor-core', roomId: 'tensor', run: suiteTensor },
   { id: 'grapher', name: 'math-grapher · module loads', pkgName: '@johnhenry/math-grapher', roomId: 'grapher', run: suiteGrapher },
   { id: 'toolcode', name: 'aimatey-middleware-andbox · adaptPythonisms() on an f-string', pkgName: '@johnhenry/aimatey-middleware-andbox', roomId: 'toolcode', run: suiteToolcode },
+  { id: 'objectify', name: 'objectify · no browser-safe entry (native better-sqlite3 dependency)', pkgName: '@johnhenry/objectify', roomId: 'objectify', run: suiteObjectify },
+  { id: 'aimatey', name: 'aimatey-core · Router registers a backend and dispatches a request', pkgName: '@johnhenry/aimatey-core', roomId: 'aimatey', run: suiteAimatey },
+  { id: 'leserve', name: 'leserve · compose + bearerAuth + respond (dependency-free middleware)', pkgName: '@johnhenry/leserve', roomId: 'leserve', run: suiteLeserve },
+  { id: 'servant', name: 'servant · no browser-safe entry (Node http/ws only)', pkgName: '@johnhenry/servant', roomId: 'servant', run: suiteServant },
+  { id: 'dialback', name: 'dialback/browsermesh · real Ed25519 identity handshake', pkgName: '@johnhenry/dialback', roomId: 'dialback', run: suiteDialback },
+  { id: 'wsh', name: 'wsh · protocol messages + Ed25519 challenge/response', pkgName: '@johnhenry/wsh', roomId: 'wsh', run: suiteWsh },
+  { id: 'afm', name: 'apple-foundation-models · no browser-safe entry (native Swift binary)', pkgName: '@johnhenry/apple-foundation-models', roomId: 'afm', run: suiteAfm },
+  { id: 'hostable', name: 'hostable · Gateway/Host/Upstream lowers to a real dispatcher', pkgName: '@johnhenry/hostable', run: suiteHostable },
+  { id: 'fileable', name: 'fileable/browser · plan() dry run (Build -> Resolve -> Layout -> Hash)', pkgName: '@johnhenry/fileable', run: suiteFileable },
   { id: 'diagnostics', name: 'diagnostics demo · SKIP/TODO directives', pkgName: '(meta)', run: suiteDiagnostics },
 ];
 
@@ -867,9 +1231,24 @@ const playground: Playground = {
     clearSuiteBtn.addEventListener('click', onClearSuite);
     runCustomBtn.addEventListener('click', onRunCustom);
 
+    // ?autorun deep link (P0.5 / roadmap 4.5): a future CI badge drives
+    // headless Chrome to `#/tester?autorun=1` (optionally `&filterId=<suite
+    // id>` to narrow to one planet's suite) at build time and needs the run
+    // to start with no click. Reuses the exact same runSuites() the Run
+    // button's own handler calls above -- no duplicated run logic -- so
+    // results land in the same places a headless script can read them back
+    // from afterward: the TAP lines typed into #tester-term, the summary
+    // chips in #tester-summary, and setRoomTests()'s per-planet badges in
+    // localStorage.
+    const linkState = readState({ autorun: false, filterId: '' });
+    const linkFilter = linkState.filterId && SUITES.some((s) => s.id === linkState.filterId) ? linkState.filterId : '';
+    if (linkFilter) filterSelect.value = linkFilter;
+
     // Ship a working default state with zero input: run every suite once,
     // against every planet, so home-page badges are populated immediately.
-    void runSuites('');
+    // ?autorun=1 confirms this same call and additionally narrows it to
+    // &filterId, per the deep link above.
+    void runSuites(linkState.autorun ? linkFilter : '');
 
     return () => {
       suiteState.cancelled = true;
