@@ -8,7 +8,7 @@ import type {
   SplitMode,
 } from '@johnhenry/semantic-chunker';
 import { mapConcurrentAsync } from '@johnhenry/iteration';
-import { receive, handoffBanner } from '../bus';
+import { receive, handoffBanner, handoffButton } from '../bus';
 import { readState, writeState, copyLink } from '../state';
 import './chunker.css';
 
@@ -563,6 +563,18 @@ const playground: Playground = {
     const spintaxBtn = $<HTMLButtonElement>('[data-preset=spintax]');
     const copyBtn = $<HTMLButtonElement>('[data-copy]');
 
+    // ---- send chunks to Laya ----
+    const toLaya = handoffButton({
+      from: 'chunker',
+      to: 'laya',
+      kind: 'chunker-chunks',
+      label: 'Send chunks to Laya',
+      getPayload: () => ({ chunks: lastChunks.map((c) => c.text) }),
+    });
+    toLaya.title = 'Runs the moderationQuestions() preset in Laya Playground against every current chunk';
+    toLaya.disabled = true;
+    root.querySelector('.ck-presets')!.appendChild(toLaya);
+
     // ---- embedders + cache ----
     type EmbedderId = 'toy' | 'minilm';
     let embedderId: EmbedderId = 'toy';
@@ -571,6 +583,7 @@ const playground: Playground = {
     const cacheKey = (id: EmbedderId, t: string) => `${id}\u0000${t}`;
     let destroyed = false;
     let runAbort: AbortController | null = null;
+    let lastChunks: { text: string }[] = [];
 
     // ---- spintax handoff ----
     let spintaxDoc: SpintaxDocument | null = null;
@@ -755,6 +768,8 @@ const playground: Playground = {
         }
 
         const chunks = groupChunks(corpus, boundaries, overlap);
+        lastChunks = chunks;
+        toLaya.disabled = !chunks.length;
 
         // --- render document ---
         docEl.innerHTML = chunks.length
