@@ -1,85 +1,119 @@
-/* Dev Drawer: one header-toggleable drawer replacing six separate
-   self-mounting floating docks (telemetry / HAR / almanac / conductor /
-   identity / signal bus). Scoped under .dd-overlay; do not rely on any
-   room's CSS. Mirrors planets-sidebar.css's overlay+slide-in-panel shape. */
+/* Dev tools floating widget: one collapsed handle in the bottom-right
+   corner, matching the shape every individual dock (telemetry/HAR/etc.)
+   used before they were consolidated here -- except now there's only ever
+   ONE floating widget, since all tools live behind the </> pager instead
+   of each owning its own corner slot. Collapsed = a 44px circle; expanded =
+   a panel with a prev/current/next pager and the active tool's content. */
 
-.dd-overlay {
+.dev-widget {
   position: fixed;
-  inset: 0;
-  z-index: 610;
-  background: hsl(230 45% 4% / .55);
-  backdrop-filter: blur(2px);
-  display: flex;
-  justify-content: flex-end;
-  animation: dd-fade .15s ease;
-}
-@keyframes dd-fade { from { opacity: 0; } to { opacity: 1; } }
-
-/* Same specificity trap the HAR recorder drawer hit (issue fixed in an
-   earlier session): a `display: flex` rule at (0,1,0) specificity loads
-   after the UA stylesheet's `[hidden] { display: none }` (also (0,1,0)) and
-   wins on source order alone, so the drawer never actually disappears
-   without an explicit `[hidden]` override here. */
-.dd-overlay[hidden] {
-  display: none;
-}
-
-.dd-panel {
-  width: min(560px, 94vw);
-  height: 100%;
+  right: 14px;
+  bottom: 14px;
+  z-index: 500;
+  width: 420px;
+  max-width: calc(100vw - 28px);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--ink);
   background: var(--bg-panel);
-  border-left: 1px solid var(--line);
-  box-shadow: -20px 0 60px -20px rgba(0, 0, 0, .5);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+  overflow: hidden;
+  transition: width .15s ease, height .15s ease, border-radius .15s ease;
+}
+.dev-widget.collapsed { width: 44px; height: 44px; border-radius: 50%; }
+
+.dw-handle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.dw-handle:hover { background: var(--bg-inset); }
+.dev-widget.collapsed .dw-handle { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
+.dev-widget.collapsed .dw-title,
+.dev-widget.collapsed .dw-spacer,
+.dev-widget.collapsed .dw-caret { display: none; }
+.dev-widget.collapsed .dw-dot { width: 12px; height: 12px; }
+
+.dw-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex: none; }
+.dw-title { font-weight: 600; letter-spacing: .01em; }
+.dw-spacer { flex: 1; }
+.dw-caret { color: var(--ink-2); transition: transform .15s; }
+.dev-widget.collapsed .dw-caret { transform: rotate(-90deg); }
+
+.dw-body {
+  border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  animation: dd-slide .18s ease;
+  max-height: min(70vh, 680px);
 }
-@keyframes dd-slide { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.dev-widget.collapsed .dw-body { display: none; }
 
-.dd-head {
+.dw-pager {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  font-family: var(--f-display);
-  font-size: 15px;
-  flex: none;
-}
-
-.dd-tabs {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   flex: none;
 }
-.dd-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
+.dw-pager-btn {
+  flex: none;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px;
   border: 1px solid var(--line);
-  background: none;
-  color: var(--ink-2);
-  font: 12px var(--f-mono);
+  background: var(--bg-inset);
+  color: var(--ink);
+  font-size: 14px;
   cursor: pointer;
 }
-.dd-tab:hover { color: var(--ink); border-color: var(--accent-border); }
-.dd-tab.active { color: var(--ink); background: var(--accent-soft); border-color: var(--accent-border); }
-.dd-tab-icon { line-height: 1; }
+.dw-pager-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+.dw-current {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 600;
+  min-width: 0;
+}
+.dw-current-icon { line-height: 1; }
+.dw-current-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-dots {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  flex: none;
+  justify-content: center;
+  border-bottom: 1px solid var(--line);
+}
+.dw-dot-btn {
+  width: 6px; height: 6px; border-radius: 50%;
+  border: none; padding: 0;
+  background: var(--line);
+  cursor: pointer;
+}
+.dw-dot-btn.active { background: var(--accent); }
 
-.dd-content {
+.dw-content {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 16px;
+  padding: 12px;
 }
 
 /* Each registered tool's pane. Content-specific styling stays in each
    module's own CSS file (telemetry-dock.css, har-recorder.css, …); this
-   drawer only owns the shell + tab-switching visibility. */
+   widget only owns the shell + pager. */
 .dev-tool-pane {
   font-family: var(--f-mono);
   font-size: 12px;
@@ -87,6 +121,6 @@
 }
 .dev-tool-pane[hidden] { display: none; }
 
-@media (max-width: 560px) {
-  .dd-panel { width: 100vw; }
+@media (max-width: 460px) {
+  .dev-widget { width: calc(100vw - 28px); }
 }
