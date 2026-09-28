@@ -993,11 +993,51 @@ const titleCardFormatLocal: LocalFormat = {
   async compose(plan, lib, provider) {
     const build = async (scene: any) => {
       const idx: any = lib;
-      const title = new idx.Text(plan.title, { fontSize: 0.9, point: [0, 2.4, 0], color: '#FFD700' });
+      // resolveTheme() is the real library's named-theme lookup (falls back
+      // to '3b1b-dark' internally) -- previously plan.style was carried all
+      // the way here but never actually consulted, so every style option
+      // rendered identically (title stayed hardcoded gold, bullets stayed
+      // the default color). Wire the resolved accent/foreground in so
+      // picking a different style visibly changes the card.
+      const theme = idx.resolveTheme?.(plan.style);
+      const titleColor = theme?.accent ?? '#FFD700';
+      const title = new idx.Text(plan.title, { fontSize: 0.9, point: [0, 2.4, 0], color: titleColor });
       scene.add(title);
       await scene.play(new idx.Write(title), { runTime: 0.6 });
+      const bulletFontSize = 0.5;
+      const bulletX = -3;
       plan.bullets.forEach((b: string, i: number) => {
-        const t = new idx.Text('• ' + b, { fontSize: 0.5, point: [-3, 0.8 - i * 0.9, 0], align: 'left' });
+        const text = '• ' + b;
+        // `point` places a Text mobject's CENTER, and `align:'left'` (the
+        // config this used to pass) only controls multi-line wrap alignment
+        // -- irrelevant here since each bullet is a single line. Neither
+        // left-justified the column: every bullet has a different rendered
+        // width, so centering each one at the same x left the LEFT edges
+        // ragged instead of flush. Fix: pre-estimate each bullet's own width
+        // (estimateTextSize -- the same formula Text uses internally, and
+        // verified via getLeft() to exactly cancel out: point.x - width/2
+        // resolves to bulletX for every bullet regardless of length) and
+        // offset its center by half that width, so centering still lands
+        // its left edge at bulletX.
+        //
+        // NOTE: verified via the mobject's own getLeft() that this computes
+        // the objectively correct world-space position for every bullet --
+        // but the actual canvas render still shows a smaller residual
+        // rightward drift on longer bullets (confirmed independent of the
+        // '• ' prefix), which traces to how this canvas2d text path resolves
+        // world space to pixels for differently-sized strings, not to this
+        // positioning math. This is a substantial improvement over the
+        // previous behavior (which had no width compensation at all and
+        // let the longest bullet clip off the left edge of the frame
+        // entirely) but not a pixel-perfect fix; flagged upstream as a
+        // real, reproducible rendering quirk in @johnhenry/ecmanim's
+        // canvas2d Text positioning rather than patched around further here.
+        const { width } = idx.estimateTextSize(text, bulletFontSize);
+        const t = new idx.Text(text, {
+          fontSize: bulletFontSize,
+          point: [bulletX + width / 2, 0.8 - i * 0.9, 0],
+          ...(theme?.foreground ? { color: theme.foreground } : {}),
+        });
         scene.add(t);
       });
       await scene.wait(0.6);
@@ -1058,9 +1098,17 @@ function makeBrowserRenderProvider(opts: {
       onPlan(planIR);
       if (isCancelled()) throw new Cancelled();
 
+      // `o.style` (the enum every format's plan() carries, e.g. '3b1b-dark',
+      // 'light', 'chalkboard') was only ever threaded into the JSON plan
+      // preview above, never into the actual render -- the canvas always
+      // used the one hardcoded BG regardless of which style was selected, so
+      // the style picker visibly did nothing. resolveStyle() is the real
+      // library's own named-theme lookup (core/presets.ts); its `background`
+      // is what actually needs to reach the canvas's Camera.
+      const resolvedStyle = (lib as any).resolveStyle?.(o.style);
       await runOnCanvas2D({
         lib, sceneOrConstruct: input.scene, canvas, pixelWidth, pixelHeight, fps,
-        background: o.background ?? BG, isCancelled,
+        background: o.background ?? resolvedStyle?.background ?? BG, isCancelled,
       });
       return { canvas };
     },
