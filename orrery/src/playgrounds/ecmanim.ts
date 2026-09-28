@@ -1008,36 +1008,31 @@ const titleCardFormatLocal: LocalFormat = {
       const bulletX = -3;
       plan.bullets.forEach((b: string, i: number) => {
         const text = '• ' + b;
-        // `point` places a Text mobject's CENTER, and `align:'left'` (the
-        // config this used to pass) only controls multi-line wrap alignment
-        // -- irrelevant here since each bullet is a single line. Neither
-        // left-justified the column: every bullet has a different rendered
-        // width, so centering each one at the same x left the LEFT edges
-        // ragged instead of flush. Fix: pre-estimate each bullet's own width
-        // (estimateTextSize -- the same formula Text uses internally, and
-        // verified via getLeft() to exactly cancel out: point.x - width/2
-        // resolves to bulletX for every bullet regardless of length) and
-        // offset its center by half that width, so centering still lands
-        // its left edge at bulletX.
+        // Every bullet must render with the same left edge regardless of
+        // its length. `point` places a Text mobject's CENTER, so centering
+        // every bullet at the same x (the original bug) leaves the LEFT
+        // edges ragged since each bullet has a different width. The
+        // previous fix tried to compensate by pre-estimating each bullet's
+        // width and offsetting its center -- but that only cancels out if
+        // the estimate matches the real render exactly, and it doesn't (the
+        // browser has no vector font loaded, so Text falls back to a raster
+        // box sized by a rough per-character estimate), leaving a residual
+        // drift proportional to the estimation error.
         //
-        // NOTE: verified via the mobject's own getLeft() that this computes
-        // the objectively correct world-space position for every bullet --
-        // but the actual canvas render still shows a smaller residual
-        // rightward drift on longer bullets (confirmed independent of the
-        // '• ' prefix), which traces to how this canvas2d text path resolves
-        // world space to pixels for differently-sized strings, not to this
-        // positioning math. This is a substantial improvement over the
-        // previous behavior (which had no width compensation at all and
-        // let the longest bullet clip off the left edge of the frame
-        // entirely) but not a pixel-perfect fix; flagged upstream as a
-        // real, reproducible rendering quirk in @johnhenry/ecmanim's
-        // canvas2d Text positioning rather than patched around further here.
-        const { width } = idx.estimateTextSize(text, bulletFontSize);
+        // The real fix needs no width estimate at all: with `align: 'left'`,
+        // the canvas renderer anchors the text at the box's LEFT edge and
+        // draws left-to-right from there, so `alignTo([bulletX,0,0], LEFT)`
+        // -- which sets that edge directly, as a rigid shift of whatever box
+        // the mobject already has -- pins the real rendered left edge to
+        // bulletX exactly, independent of whether the box's width is
+        // accurate.
         const t = new idx.Text(text, {
           fontSize: bulletFontSize,
-          point: [bulletX + width / 2, 0.8 - i * 0.9, 0],
+          align: 'left',
+          point: [bulletX, 0.8 - i * 0.9, 0],
           ...(theme?.foreground ? { color: theme.foreground } : {}),
         });
+        t.alignTo([bulletX, 0, 0], idx.LEFT);
         scene.add(t);
       });
       await scene.wait(0.6);
