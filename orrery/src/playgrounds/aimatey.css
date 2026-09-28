@@ -4,6 +4,13 @@
 .pg-aimatey .am-sub { margin: 0 0 12px; color: var(--ink-2); font-size: 13px; }
 .pg-aimatey .am-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .pg-aimatey .am-controls label.field { min-width: 150px; flex: 1; }
+@media (max-width: 480px) {
+  /* 3 fields at flex:1/min-width:150px fit 2-per-row at phone width
+     (~158px each), too narrow for the longer model option ("flaky-test →
+     slow-flaky") which the native <select> then truncated (issue #42 P3).
+     One per row gives each select the full panel width. */
+  .pg-aimatey .am-controls label.field { flex-basis: 100%; }
+}
 /* label.field is display:grid (base.css) with an implicit single column
    that has no minmax(0, …) — its <select>'s own min-content width (driven
    by the longest option, e.g. "haiku-mini → haiku-bot") pushed the label
@@ -55,6 +62,15 @@
 /* routing panel */
 .pg-aimatey .am-backend-chips { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
 .pg-aimatey .am-bchip { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--bg-inset); font-size: 11.5px; min-width: 150px; transition: border-color .3s, box-shadow .3s, background .3s; }
+@media (max-width: 480px) {
+  /* 3 backend chips at 150px each fit 2-per-row at phone width, leaving
+     the 3rd stranded alone below them (with the wider Apple chip full-width
+     underneath that) -- issue #42 P3. One per row reads as a clean list
+     instead of a lopsided 2+1 grid, and also gives the "ON-DEVICE ·
+     UNAVAILABLE" badge on the Apple chip room to sit inline instead of
+     wrapping into what looked like a stray indent. */
+  .pg-aimatey .am-bchip { flex-basis: 100%; min-width: 0; }
+}
 .pg-aimatey .am-bchip .n { font-family: var(--f-mono); font-weight: 600; display: flex; justify-content: space-between; }
 .pg-aimatey .am-bchip .s { color: var(--ink-2); margin-top: 3px; }
 .pg-aimatey .am-bchip.hit-ok { border-color: var(--success); box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 25%, transparent); }
@@ -72,7 +88,13 @@
 /* This row can be wider than its panel (e.g. slow-flaky -> Response), and overflow:auto alone
    left the scrollbar as the only affordance, so the tail of the flow was easy to miss entirely.
    Wrap instead, so the whole pipeline is always visible without scrolling. */
-.pg-aimatey .am-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 6px; overflow-x: auto; padding: 14px 8px; }
+/* padding: 14px 8px added an extra 8px of horizontal inset on top of the
+   panel's own 16px padding, so the flow sat noticeably indented relative to
+   the heading/note text above and below it in the same panel (issue #42
+   P3). Keep the vertical breathing room (nodes get a hover/pulse
+   scale(1.06) transform that needs headroom) but match the panel's edges
+   horizontally. */
+.pg-aimatey .am-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 6px; overflow-x: auto; padding: 14px 0; }
 .pg-aimatey .am-node { flex: 0 0 auto; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-family: var(--f-mono); font-size: 11.5px; text-align: center; transition: all .25s; white-space: nowrap; }
 .pg-aimatey .am-node.on { opacity: 1; }
 .pg-aimatey .am-node.off { opacity: .35; }
@@ -80,6 +102,9 @@
 .pg-aimatey .am-node.ok { border-color: var(--success); background: color-mix(in srgb, var(--success) 15%, var(--bg-inset)); }
 .pg-aimatey .am-node.bad { border-color: var(--error); background: color-mix(in srgb, var(--error) 15%, var(--bg-inset)); }
 .pg-aimatey .am-arrow { color: var(--ink-3); flex: 0 0 auto; }
+/* Glues an arrow to the node it points at (see renderFlow() in aimatey.ts)
+   so flex-wrap can't strand a bare arrow at the end of a row. */
+.pg-aimatey .am-step { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .pg-aimatey .am-flow-note { font-size: 11px; color: var(--ink-3); margin-top: 6px; min-height: 14px; }
 
 .pg-aimatey .am-note { font-size: 12px; color: var(--ink-3); margin-top: 8px; }

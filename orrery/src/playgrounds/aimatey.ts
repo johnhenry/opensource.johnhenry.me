@@ -730,9 +730,15 @@ async function mountRoom(host: HTMLElement): Promise<() => void> {
   }
   function renderFlow(): void {
     const nodes = flowNodeList();
-    el.flow.innerHTML = nodes.map((n, i) =>
-      (i > 0 ? '<span class="am-arrow">→</span>' : '') + `<div class="am-node ${n.on ? 'on' : 'off'}" data-node="${esc(n.key)}">${esc(n.label)}</div>`,
-    ).join('');
+    // The arrow used to be its own flex item ahead of each node, so wrapping
+    // the row could strand one alone at the end of a line (issue #42 P3,
+    // same pattern as studio's pipeline chips). Glue "arrow + the node it
+    // points to" into one flex item (.am-step) so a wrap can only happen
+    // between whole steps.
+    el.flow.innerHTML = nodes.map((n, i) => {
+      const node = `<div class="am-node ${n.on ? 'on' : 'off'}" data-node="${esc(n.key)}">${esc(n.label)}</div>`;
+      return i > 0 ? `<span class="am-step"><span class="am-arrow">→</span>${node}</span>` : node;
+    }).join('');
   }
   function flowEl(key: string): HTMLElement | null { return el.flow.querySelector(`[data-node="${key}"]`); }
   async function pulse(key: string, cls: 'pulse' | 'ok' | 'bad', hold = 260): Promise<void> {
