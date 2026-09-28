@@ -1,5 +1,10 @@
 .pg-grapher { --gc-set: hsl(40 95% 60%); --gc-rc: var(--accent); --gc-loop: hsl(190 90% 60%); display: grid; gap: 16px; }
-.pg-grapher code { font-family: var(--f-mono); font-size: .92em; color: var(--ink); background: var(--bg-inset); padding: 0 5px; border-radius: 4px; }
+/* M9b: a long <code> phrase (e.g. "plot w over a in [0, 5]" in the "try …"
+   hint) wraps like any inline text, but its background/padding/radius reset
+   at the line break by default, splitting the chip into a cropped fragment
+   above and below ("plot w ove|r in [0, 5]", confirmed live). clone keeps
+   each wrapped piece a complete, independently-rounded pill. */
+.pg-grapher code { font-family: var(--f-mono); font-size: .92em; color: var(--ink); background: var(--bg-inset); padding: 1px 5px; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .pg-grapher .spacer { flex: 1; }
 .pg-grapher .gc-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .pg-grapher .gc-h b { font-family: var(--f-display); font-size: 15px; letter-spacing: .02em; }
@@ -58,7 +63,9 @@
 .pg-grapher .gc-cell.ping { animation: gc-cell-rc 1.2s ease-out; }
 @keyframes gc-cell-rc { 0% { box-shadow: 0 0 0 2px var(--accent), 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .pg-grapher .gc-cell-h { display: flex; align-items: center; gap: 8px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
-.pg-grapher .gc-cell-h .chip { font-size: 10px; padding: 0 7px; }
+/* M13: 10px is under the site's 11px text-size floor; nudge it up (and the
+   padding to match) without changing the compact cell-header row height. */
+.pg-grapher .gc-cell-h .chip { font-size: 11px; padding: 1px 7px; }
 .pg-grapher .gc-cell.k-input .gc-kind { background: color-mix(in srgb, var(--gc-set) 15%, transparent); border-color: color-mix(in srgb, var(--gc-set) 45%, transparent); }
 .pg-grapher .gc-rc { color: var(--accent); }
 /* .gc-ib buttons used to be opacity:0 until :hover/:focus-within — on touch
@@ -92,7 +99,7 @@
 .pg-grapher .gc-loop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .pg-grapher .gc-loop .btn { padding: 5px 12px; font-size: 13px; }
 .pg-grapher .gc-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
-.pg-grapher .gc-hint { font-size: 12px; color: var(--ink-3); }
+.pg-grapher .gc-hint { font-size: 12px; color: var(--ink-3); line-height: 1.8; }
 
 /* tables */
 .pg-grapher .gc-tbl { border-collapse: collapse; font-family: var(--f-mono); font-size: 12px; }
@@ -154,7 +161,9 @@
 .pg-grapher .gc-explain p.live { color: var(--ink); border-left: 2px solid var(--accent); padding-left: 10px; }
 
 /* console */
-.pg-grapher .gc-con-out { height: 320px; overflow: auto; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px 8px 0 0; padding: 10px 12px; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; }
+/* M12: a fixed 320px box is a full screen of empty space before the agent
+   has said anything; grow with content instead, up to the same 320px cap. */
+.pg-grapher .gc-con-out { min-height: 110px; max-height: 320px; overflow: auto; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px 8px 0 0; padding: 10px 12px; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; }
 .pg-grapher .gc-cl { white-space: pre-wrap; word-break: break-word; margin-bottom: 4px; color: var(--code-ink, var(--ink)); }
 .pg-grapher .gc-cl.cmd { color: var(--ink); margin-top: 6px; }
 .pg-grapher .gc-cl.res { color: var(--ink-2); }

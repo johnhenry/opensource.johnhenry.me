@@ -92,9 +92,17 @@ const PRESETS: Record<string, PresetDef> = {
   <script src="app.js"></script>
 </body>
 </html>`),
-      textFile('style.css', `body { font: 16px/1.5 system-ui, sans-serif; background: #0e1420; color: #e7ecf5; padding: 3rem; }
-h1 { display: flex; align-items: center; gap: .5rem; }
-.mark { width: 1.2em; height: 1.2em; }
+      // P2: the live preview iframe renders this at whatever the actual
+      // .pv-iframe box width is (a ~330px mobile panel column, not a full
+      // desktop viewport) — a flat 3rem (48px) padding left only ~230px for
+      // content there, and a fixed-height iframe with no responsive scaling
+      // meant anything past that just got cut off at the bottom (issue's
+      // packfile P2). clamp() keeps generous desktop padding but shrinks it
+      // on a narrow iframe; flex-wrap keeps the icon+heading from forcing
+      // width past the viewport.
+      textFile('style.css', `body { font: 16px/1.5 system-ui, sans-serif; background: #0e1420; color: #e7ecf5; padding: clamp(14px, 6vw, 48px); }
+h1 { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: clamp(20px, 6vw, 28px); }
+.mark { width: 1.2em; height: 1.2em; flex: none; }
 #out { color: #7ad1ff; }`),
       textFile('app.js', `document.getElementById('out').textContent =
   'served from ' + location.href + ' at ' + new Date().toLocaleTimeString();`),
@@ -107,8 +115,8 @@ h1 { display: flex; align-items: center; gap: .5rem; }
     make: () => [
       textFile('docs/index.html', `<!doctype html>
 <html><head><meta charset="utf-8"><title>Docs</title></head>
-<body style="font:15px/1.6 system-ui;background:#0e1420;color:#e7ecf5;padding:2.5rem;max-width:60ch">
-  <h1>Packfile Docs</h1>
+<body style="font:15px/1.6 system-ui;background:#0e1420;color:#e7ecf5;padding:clamp(14px, 6vw, 40px);max-width:60ch">
+  <h1 style="font-size:clamp(20px, 6vw, 26px)">Packfile Docs</h1>
   <ul>
     <li><a href="guide.md">guide.md</a></li>
     <li><a href="api.md">api.md</a></li>
@@ -133,8 +141,8 @@ h1 { display: flex; align-items: center; gap: .5rem; }
     make: () => [
       textFile('assets/index.html', `<!doctype html>
 <html><head><meta charset="utf-8"><title>Assets</title></head>
-<body style="font:15px/1.6 system-ui;background:#0e1420;color:#e7ecf5;padding:2.5rem">
-  <h1>A generated PNG, packed and re-served</h1>
+<body style="font:15px/1.6 system-ui;background:#0e1420;color:#e7ecf5;padding:clamp(14px, 6vw, 40px)">
+  <h1 style="font-size:clamp(18px, 5.5vw, 24px)">A generated PNG, packed and re-served</h1>
   <img src="logo.png" width="128" height="128" style="border-radius:12px">
 </body></html>`),
       textFile('assets/manifest.json', JSON.stringify({ generated: true, files: ['logo.png'] }, null, 2)),
@@ -458,6 +466,19 @@ const playground: Playground = {
       try {
         const rootPath = lastFiles.has(state.alias) ? state.alias : [...lastFiles.keys()][0];
         preview = await createBlobPreview(lastFiles, { rootPath });
+        // P2: the iframe was a flat 260px regardless of what the preset
+        // actually rendered, so taller pages (or the same page once the
+        // preset CSS above got more breathing room on narrow widths) just
+        // got cut off at the bottom with no scroll affordance. Blob URLs
+        // are same-origin, so the real content height is readable once it
+        // loads; resize to fit, clamped to a sane range.
+        iframe.style.height = '260px';
+        iframe.addEventListener('load', () => {
+          try {
+            const h = iframe.contentDocument?.documentElement?.scrollHeight;
+            if (h) iframe.style.height = `${Math.min(480, Math.max(160, h + 8))}px`;
+          } catch { /* cross-origin or already disposed -- keep the default height */ }
+        }, { once: true });
         iframe.src = preview.entryUrl;
       } catch (e) {
         iframe.removeAttribute('src');

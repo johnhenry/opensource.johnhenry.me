@@ -1,7 +1,17 @@
 .pg-temporals { display: flex; flex-direction: column; gap: 16px; }
 
 /* ---- tabs (cron/RRULE, meeting finder, paste-RRULE) ---- */
-.pg-temporals .loom-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+/* Wrapping put the active tab's boxed border on row 1 while the underline
+   (border-bottom on the whole strip) only ran under row 2, and the active
+   tab visually overlapped row 2 by a few px (issue #42, Temporal Loom P1,
+   pattern M4). Make it one horizontal-scroll strip instead of wrapping. */
+.pg-temporals .loom-tabs {
+  display: flex; flex-wrap: nowrap; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+  mask-image: linear-gradient(90deg, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+}
+.pg-temporals .tab-btn { flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start; }
 .pg-temporals .tab-btn {
   font-family: var(--f-mono); font-size: 12px; padding: 7px 14px; border-radius: 8px 8px 0 0;
   border: 1px solid transparent; background: transparent; color: var(--ink-2); cursor: pointer;
@@ -12,6 +22,12 @@
 .pg-temporals .tab-copy { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin: 0 0 12px; }
 .pg-temporals .tab-copy code { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--accent-soft); color: var(--ink); }
 .pg-temporals .tab-panel .panel + .panel { margin-top: 16px; }
+/* Below the `.grid-2` breakpoint (single column), "the exact library call",
+   "three-month calendar" and "next occurrences" are stacked siblings inside a
+   plain `.tab-panel` div with no gap of its own, so they touched with a 0px
+   seam (issue #42, Temporal Loom P2, pattern M14). Give every top-level block
+   in a tab a consistent gap regardless of what it is. */
+.pg-temporals .tab-panel > * + * { margin-top: 16px; }
 .pg-temporals .tab-panel input[type="text"].code { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: inherit; font-family: var(--f-mono); font-size: 13px; }
 .pg-temporals .occ-fromnow { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
 
@@ -82,10 +98,12 @@
 }
 
 /* ---- occurrence list ---- */
-.pg-temporals .occ-list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-.pg-temporals .occ-row { display: flex; gap: 10px; font-family: var(--f-mono); font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--bg-inset); }
+/* bottom padding so the last row isn't cut mid-line by the scroller
+   (issue #42, Temporal Loom P3) */
+.pg-temporals .occ-list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
+.pg-temporals .occ-row { display: flex; gap: 10px; font-family: var(--f-mono); font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--bg-inset); flex-wrap: wrap; }
 .pg-temporals .occ-idx { color: var(--ink-3); min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
-.pg-temporals .occ-date { color: var(--ink); }
+.pg-temporals .occ-date { color: var(--ink); flex: 1 1 auto; min-width: 0; }
 .pg-temporals .empty-note { color: var(--ink-3); font-size: 13px; padding: 12px; }
 
 /* ---- timeline ---- */
@@ -131,6 +149,11 @@
   .pg-temporals .loom-now { grid-template-columns: 1fr; }
   .pg-temporals .loom-tools { align-items: flex-start; }
   .pg-temporals .loom-tools .stat { text-align: left; }
+  /* the 3 action buttons ("reactivity inspector" / "export .ics" / "copy
+     link") have different text lengths, so stacked at their intrinsic width
+     they read as 3 mismatched widths (issue #42, Temporal Loom P3) */
+  .pg-temporals .loom-tools { align-items: stretch; width: 100%; }
+  .pg-temporals .loom-tools .btn.small { width: 100%; box-sizing: border-box; justify-content: center; }
 }
 
 /* today / next on the calendar and in the list */

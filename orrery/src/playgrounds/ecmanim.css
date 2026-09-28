@@ -67,8 +67,13 @@
 .pg-ecmanim .em-explain code { font-size: 12px; color: var(--accent); }
 
 .pg-ecmanim .em-code-col { display: grid; gap: 8px; min-width: 0; }
-.pg-ecmanim .em-code-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.pg-ecmanim .em-code-hint { font-size: 12px; color: var(--ink-2); font-style: italic; }
+/* the file-name pill, the "compiled live from this text" hint and the 2-line
+   "✎ Edit source" button crowded one unwrapped row (issue #42, Ecmanim Stage
+   P3, pattern M5) */
+.pg-ecmanim .em-code-head { display: flex; flex-wrap: wrap; row-gap: 6px; justify-content: space-between; align-items: center; gap: 8px; }
+.pg-ecmanim .em-code-hint { font-size: 12px; color: var(--ink-2); font-style: italic; flex: 1 1 auto; min-width: 0; }
+.pg-ecmanim .em-code-head .chip { white-space: nowrap; }
+.pg-ecmanim .em-code-head .em-edit-toggle { white-space: nowrap; }
 .pg-ecmanim pre.em-code { max-height: 560px; font-size: 12.5px; white-space: pre; }
 .pg-ecmanim pre.em-err { color: #ff8b8b; white-space: pre-wrap; border-color: rgba(255, 100, 100, .4); }
 .pg-ecmanim .tk-k { color: #c792ea; }
@@ -80,7 +85,15 @@
 .pg-ecmanim .em-tab-math::before { content: '↳ '; color: var(--accent); }
 
 /* ---- top-level tabs: Stage / Authoring / Physics / WebGL ---- */
-.pg-ecmanim .em-tabbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: -4px; }
+/* wrapping stranded "WebGL" alone on its own row (issue #42, Ecmanim Stage
+   P2, pattern M4) -- make it one horizontal-scroll strip instead. */
+.pg-ecmanim .em-tabbar {
+  display: flex; flex-wrap: nowrap; gap: 6px; margin-bottom: -4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+  mask-image: linear-gradient(90deg, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+}
+.pg-ecmanim .em-toptab { flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start; }
 .pg-ecmanim .em-toptab {
   font-family: var(--f-display, var(--f-mono)); font-size: 14px; font-weight: 600; padding: 9px 16px;
   border-radius: 10px 10px 0 0; border: 1px solid var(--line); border-bottom: none;

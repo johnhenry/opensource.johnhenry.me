@@ -220,7 +220,15 @@
   transform: rotateZ(calc(var(--spin) * -1)) rotateX(calc(var(--tilt) * -1)) translateY(calc(var(--d) * -.18));
   display: grid; place-items: center;
   /* below every .orbit (z-index:2) so the sun never paints over planet
-     labels just because it's closer to the viewer in Z (issue #18, home P2) */
+     labels just because it's closer to the viewer in Z (issue #18, home P2).
+     NOTE: because .orbit is its own stacking context, a planet's BODY and its
+     LABEL always paint together as one unit relative to .sun -- there's no
+     z-index-only way to put the sun above bodies but still below labels, so
+     issue #42's home P3 (innermost planets visually overlapping the
+     "@johnhenry" wordmark on narrow viewports) is fixed geometrically instead,
+     by giving the smallest orbits a larger minimum radius on mobile so they
+     don't swing through the sun's footprint at all (see the min-width:0
+     mobile block below, `--r-min`). */
   z-index: 1;
 }
 .home .sun .core {
@@ -273,8 +281,17 @@
 }
 .home .info .enter a:hover { background: hsl(var(--h) 85% 50% / .55); }
 
-/* ---------- planet grid (fallback list, mobile, a11y) ---------- */
-.home .rooms-wrap { max-width: 1100px; margin: 12px auto 72px; padding: 0 16px; position: relative; }
+/* ---------- planet grid (mobile navigation + a11y fallback) ----------
+   Issue #42 (mobile audit) P1: the orbit + "Choose a world" card is the
+   phone's ONLY navigation, and the orbiting planets are 11-25px tap targets
+   clustered around the sun -- effectively no usable way to reach a planet
+   on a phone without hunting for a tiny dot. This grid (same room-card
+   markup/behaviour as the site drawer's Planets tab, via roomCardHtml() /
+   wireRoomCardInteractions() in home.ts) is real, full-size tap targets
+   below the orbit. Hidden above the 600px breakpoint, where the orbit
+   itself plus the side info panel plus the header's drawer button are
+   already comfortably usable with a pointer. */
+.home .rooms-wrap { display: none; max-width: 1100px; margin: 12px auto 88px; padding: 0 16px; position: relative; }
 .home .rooms-title { font-family: var(--f-mono); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 14px; }
 .home .rooms { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .home .room-card {
@@ -302,8 +319,20 @@
   .home .orrery-wrap { padding: 0 8px; }
   .home .stage { --S: calc(100vw - 16px); height: calc(var(--S) * .62); }
   .home .info { width: calc(100% - 16px); }
+  /* issue #42 P3: the innermost orbits (`--r` as low as .25, set in home.ts)
+     overlapped the sun -- specifically its "@johnhenry" wordmark text --
+     because the fixed 11-25px planet size (home.ts) stays constant while the
+     stage shrinks to ~100vw on phones, so a small planet is a much bigger
+     fraction of the sun-to-orbit distance here than at desktop widths.
+     Confirmed live: 3 of 36 planet bodies overlapped `.sun .wordmark`'s
+     bounding box at 393px before this. `max()` only raises orbits whose
+     `--r` is actually below the floor, so mid/outer orbits are untouched. */
+  .home .orbit { width: calc(var(--S) * max(var(--r), 0.37)); height: calc(var(--S) * max(var(--r), 0.37)); }
   .home .planet .label { font-size: 9.5px; padding: 1px 5px; left: calc(100% + 4px); }
   .home .planet:not(.active):not(:focus-visible) .label { opacity: 0; }
+  /* issue #42 P1: real navigation below the orbit on phones (see the
+     .rooms-wrap comment above the base rule) */
+  .home .rooms-wrap { display: block; }
 }
 
 /* ---------- reduced motion: freeze orbits at their phase, no pointer tilt ---------- */

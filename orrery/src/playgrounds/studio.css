@@ -5,6 +5,12 @@
 /* ---- tabs + tools ---- */
 .pg-studio .st-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; }
 .pg-studio .st-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 480px) {
+  /* 4 tabs at their natural width fit 3-per-row, leaving "04 Deploy" alone
+     on its own row (issue #42 P3, M4). A 2x2 grid instead of free-flowing
+     flex-wrap means the 4th tab always has a row-mate. */
+  .pg-studio .st-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .pg-studio .st-tab {
   display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 8px; text-align: left;
   padding: 8px 14px 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-panel); cursor: pointer;
@@ -79,6 +85,14 @@
 .pg-studio .st-files th:nth-child(2), .pg-studio .st-files td.sz { width: 64px; }
 .pg-studio .st-files th:nth-child(3), .pg-studio .st-files td.hs { width: 100px; }
 .pg-studio .st-files th:nth-child(4), .pg-studio .st-files td.stt { width: 74px; }
+@media (max-width: 480px) {
+  /* table-layout:fixed splits width evenly across the 4 fixed-width
+     columns first, leaving the name column (the only "auto" one) whatever
+     is left -- at phone width that's only a few characters even though
+     the sha256 column doesn't need full precision here (issue #42 P2,
+     M3). Drop it so filenames get the room. */
+  .pg-studio .st-files th:nth-child(3), .pg-studio .st-files td.hs { display: none; }
+}
 .pg-studio .st-files tr.fr { cursor: pointer; }
 .pg-studio .st-files tr.fr:hover td { background: var(--bg-inset); }
 .pg-studio .st-files tr.sel td { background: var(--accent-soft); }
@@ -107,6 +121,14 @@
 .pg-studio .btn.st-prev, .pg-studio .btn.st-follow { padding: 3px 10px; font-size: 12px; }
 .pg-studio .st-actions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .pg-studio .st-actions .arrow { color: var(--accent); }
+@media (max-width: 480px) {
+  /* justify-content:flex-end right-aligns each button at its own
+     (different) content width when they wrap to separate rows, so their
+     left edges land at different x positions (issue #42 P3). Stretch both
+     to the full row width instead so the stack reads as one aligned group. */
+  .pg-studio .st-actions { flex-direction: column; align-items: stretch; }
+  .pg-studio .st-actions .btn { width: 100%; justify-content: center; }
+}
 
 /* ---- composer ---- */
 .pg-studio .st-composer { display: grid; gap: 8px; }

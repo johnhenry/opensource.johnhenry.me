@@ -1,5 +1,8 @@
 .pg-packfile { display: grid; gap: 16px; }
-.pg-packfile .pv-h { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .02em; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+/* M5: no flex-wrap, so a long right-aligned meta ("fromArchive ->
+   createRouter") had nowhere to go but squeeze/collide with the title on
+   narrow viewports. Let it wrap to its own line. */
+.pg-packfile .pv-h { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .02em; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 8px; }
 .pg-packfile code { font-family: var(--f-mono); font-size: .92em; color: var(--accent); }
 
 .pv-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
@@ -40,6 +43,15 @@
 /* ---- middle: pack ---- */
 .pv-pack { width: 100%; justify-content: center; }
 .pv-statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* P3: 5 tiles in a fixed 3-column grid leaves an orphan row of 2 with a
+   dead gap on the right (confirmed live). 2 columns reads better for 5
+   items (2+2+1), and spanning the lone 5th tile across the full width of
+   its own row reads as an intentional summary rather than a half-empty
+   row. */
+@media (max-width: 480px) {
+  .pv-statgrid { grid-template-columns: repeat(2, 1fr); }
+  .pv-statgrid div:last-child { grid-column: 1 / -1; }
+}
 .pv-statgrid div { background: var(--bg-inset); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; text-align: center; }
 .pv-statgrid b { display: block; font-family: var(--f-display); font-size: 17px; color: var(--accent); }
 .pv-statgrid span { font-size: 11px; color: var(--ink-2); }

@@ -21,16 +21,32 @@
 .preset-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
 #ob-source { min-height: 220px; }
-.ob-editor-row { display: flex; align-items: center; gap: 10px; }
+.ob-editor-row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .ob-editor-row .btn { white-space: nowrap; flex: 0 0 auto; }
-#ob-parse-stat { font-family: var(--f-mono); }
+#ob-parse-stat { font-family: var(--f-mono); min-width: 0; overflow-wrap: anywhere; }
 #ob-parse-stat.bad { color: var(--error); }
 .ob-reflection { min-height: 60px; max-height: 140px; font-size: 12px; }
 
+/* copy link (#ob-copy) uses .btn.small, but no room scoped that modifier here,
+   so it fell back to the base .btn size (padding: 8px 14px) — visibly oversized
+   next to the "State & history" title (issue's per-room P3). Match the size
+   other rooms use for their .btn.small. */
+.pg-objectify .btn.small { padding: 4px 10px; font-size: 12px; }
+
 .ob-term-col { min-height: 0; }
-.ob-help { max-height: 160px; font-size: 11.5px; color: var(--ink-2); }
+/* M12: the help pre had no white-space rule, so it inherited <pre>'s default
+   (white-space: pre) — combined with pre.code's overflow:auto that made the
+   whole right-hand description column of every command scroll off-screen at
+   phone width, leaving only the left command column visible (issue's P1).
+   helpText() now emits two lines per command (command, then indented
+   description) specifically so pre-wrap never needs to break mid-command;
+   this line still lets long single lines (e.g. a loaded class's reflected
+   method signature) wrap instead of scrolling. */
+.ob-help { max-height: 160px; font-size: 11.5px; color: var(--ink-2); white-space: pre-wrap; word-break: break-word; }
+/* M12: a 220px empty box is a full screen of nothing before any command has
+   run; shrink the floor and let it grow with real scrollback content. */
 .ob-scrollback {
-  flex: 1; min-height: 220px; max-height: 360px; overflow: auto;
+  flex: 1; min-height: 96px; max-height: 360px; overflow: auto;
   background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
   padding: 10px 12px; font-family: var(--f-mono); font-size: 12.5px;
 }

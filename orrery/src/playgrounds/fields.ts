@@ -478,9 +478,11 @@ const playground: Playground = {
               <option value="dictionary">Dictionary</option>
             </select>
           </label>
-          <span class="chip fld-detected">type: —</span>
-          <button class="btn fld-use-uach" type="button" title="Build Sec-CH-UA from navigator.userAgentData.brands in this browser">Use my Sec-CH-UA</button>
-          <button class="btn fld-copy-link" type="button" title="Copy a link to this header state">Copy link</button>
+          <div class="fld-actions">
+            <span class="chip fld-detected">type: —</span>
+            <button class="btn fld-use-uach" type="button" title="Build Sec-CH-UA from navigator.userAgentData.brands in this browser">Use my Sec-CH-UA</button>
+            <button class="btn fld-copy-link" type="button" title="Copy a link to this header state">Copy link</button>
+          </div>
         </div>
         <label class="field">
           <span><b class="fld-name-echo mono">header</b>: </span>

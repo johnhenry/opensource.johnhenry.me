@@ -196,6 +196,13 @@ html.dark .pg-circuit,
 .pg-circuit .proof-row .label.moves { color: var(--accent); }
 .pg-circuit .proof-row .label.still { color: var(--success); }
 .pg-circuit .swatch-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 480px) {
+  /* The fixed 110px label column left the syntax row's 8 swatches only
+     ~183px, just short of fitting all 8 in one line (26px each with gap),
+     so the 8th wrapped alone onto its own row (issue #42 P3). Stack label
+     above strip so the strip gets the panel's full width instead. */
+  .pg-circuit .proof-row { grid-template-columns: 1fr; row-gap: 6px; }
+}
 .pg-circuit .swatch {
   width: 30px; height: 30px;
   border-radius: 6px;
@@ -286,6 +293,13 @@ html.dark .pg-circuit,
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 10px;
 }
+@media (max-width: 480px) {
+  /* 2 * 160px + the 10px gap (330px) is just over a typical ~327px panel
+     width, so auto-fill collapsed to a single column and every card ran
+     full width (issue #42 P3). A lower floor fits 2-up comfortably and
+     halves the gallery's height. */
+  .pg-circuit .theme-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
 .pg-circuit .theme-card {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
@@ -347,9 +361,34 @@ html.dark .pg-circuit,
 }
 .pg-circuit .contrast-row .ratio { font: 700 12px var(--f-mono); text-align: right; }
 .pg-circuit .contrast-row .grade { font: 10.5px var(--f-mono); text-align: center; padding: 2px 6px; border-radius: 999px; }
+@media (max-width: 480px) {
+  /* 130px (pair) + 90px (ratio) + 60px (grade) + gaps leaves the "Aa Bb Cc"
+     demo swatch only ~20px on a phone -- it stacked one character per line,
+     and the same class on the hue-registry audit rows squeezed its longer
+     "themes.css: N° · registry.ts: N°" text into one word per line at
+     ~130px tall (issue #42 P2, M3). Rearrange as a 2-row card: the label
+     (and, for audit rows, the grade/status) on top, the demo/ratio value on
+     its own full-width row underneath. */
+  .pg-circuit .contrast-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "pair grade" "demo demo" "ratio ratio";
+    row-gap: 6px;
+  }
+  .pg-circuit .contrast-row .pair { grid-area: pair; }
+  .pg-circuit .contrast-row .grade { grid-area: grade; }
+  .pg-circuit .contrast-row .demo { grid-area: demo; text-align: left; }
+  .pg-circuit .contrast-row .ratio { grid-area: ratio; text-align: left; }
+}
 .pg-circuit .grade.aaa { background: var(--success-soft); color: var(--success); }
 .pg-circuit .grade.aa { background: var(--info-soft); color: var(--info); }
 .pg-circuit .grade.fail { background: var(--error-soft); color: var(--error); }
 
 .pg-circuit .foot-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+/* The button still works on tap (it calls the palette open function
+   directly), but the "⌘K" keyboard-shortcut prefix is meaningless on a
+   device with no keyboard (issue #42 P3). Hide just that prefix when
+   there's no hover capability, a reasonable touch-device proxy. */
+@media (hover: none) {
+  .pg-circuit .kbd-hint { display: none; }
+}
 .pg-circuit .copied { color: var(--success); font-size: 12px; font-family: var(--f-mono); }

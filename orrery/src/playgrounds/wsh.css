@@ -36,7 +36,10 @@
 .pg-wsh .art i { border-radius: 3px; display: block; }
 .pg-wsh .fp { font-family: var(--f-mono); font-size: 12px; word-break: break-all; line-height: 1.5; color: var(--ink-2); }
 .pg-wsh .fp b { color: var(--accent); font-weight: 600; }
-.pg-wsh .sshkey { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); word-break: break-all; margin-top: 8px; padding: 6px 8px; background: var(--code-bg); border-radius: 6px; border: 1px solid var(--line); max-height: 54px; overflow: auto; }
+/* was max-height: 54px -- the wrapped 2-line key needs ~62px (confirmed
+   live: scrollHeight 62 vs a 52px content box), so the last line was
+   permanently clipped with no visible scrollbar to hint there was more. */
+.pg-wsh .sshkey { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); word-break: break-all; margin-top: 8px; padding: 6px 8px; background: var(--code-bg); border-radius: 6px; border: 1px solid var(--line); max-height: 76px; overflow: auto; }
 
 /* connect */
 .pg-wsh .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -72,7 +75,11 @@
 .pg-wsh .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pg-wsh .chips .chip { cursor: pointer; }
 .pg-wsh .chips .chip:hover { border-color: var(--accent); }
-.pg-wsh .exec-out { max-height: 220px; overflow: auto; font-size: 12px; white-space: pre; margin-top: 8px; }
+/* white-space:pre keeps exec output formatting intact (columns, indentation)
+   but a long line just scrolls off with no visible affordance ("exec output
+   line is clipped horizontally"); the same right-edge fade used for the
+   editor textarea and the QMux stream table hints there's more off-screen. */
+.pg-wsh .exec-out { max-height: 220px; overflow: auto; font-size: 12px; white-space: pre; margin-top: 8px; mask-image: linear-gradient(to right, black calc(100% - 18px), transparent); }
 .pg-wsh .exec-meta { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); margin-top: 6px; }
 .pg-wsh .exec-row { display: flex; gap: 8px; margin-top: 10px; }
 .pg-wsh .exec-row input { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 13px; }
@@ -122,6 +129,11 @@
 
 /* qmux inspector */
 .pg-wsh .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin-bottom: 12px; }
+/* Known hosts' 3-tile kpi row: auto-fit's 118px minimum only fits 2 columns
+   at phone width, leaving the 3rd tile alone on an orphan row. All three
+   values here are short ("known", "1", a short host label) -- force 3 equal
+   columns instead so the row fills evenly. */
+.pg-wsh .kpis[data-r="trustkpi"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pg-wsh .kpi { background: var(--bg-inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .pg-wsh .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
 .pg-wsh .kpi .v { font-family: var(--f-mono); font-size: 16px; color: var(--ink); margin-top: 2px; }
@@ -140,7 +152,12 @@
    the intended "always legible" effect. A solid white label with a strong
    dark halo reads clearly over any fill colour instead. */
 .pg-wsh .win > span { position: absolute; inset: 0; font-size: 9px; line-height: 12px; text-align: center; color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 0 1px 1px #000; }
-.pg-wsh .tscroll { overflow-x: auto; }
+/* M2: the QMux stream table (8 columns, incl. two credit-window bars) is
+   wider than the phone panel and scrolls internally via overflow-x -- but
+   with no visible affordance the header just looked hard-clipped ("SEND
+   (HOST" cut off, confirmed live: scrollWidth 639 vs 327 available). An
+   edge fade hints there's more to the right without changing the layout. */
+.pg-wsh .tscroll { overflow-x: auto; mask-image: linear-gradient(to right, black calc(100% - 18px), transparent); }
 .pg-wsh .insp-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
 @media (max-width: 860px) { .pg-wsh .insp-grid { grid-template-columns: minmax(0, 1fr); } }
 .pg-wsh canvas.spark { width: 100%; height: 72px; display: block; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; }
@@ -159,6 +176,23 @@
 .pg-wsh .files td.n { color: var(--seg-d); word-break: break-all; }
 .pg-wsh .files td.s, .pg-wsh .files td.m { color: var(--ink-3); white-space: nowrap; }
 .pg-wsh .files td.a { text-align: right; white-space: nowrap; }
+/* M3: three nowrap columns (size/modified/actions) claimed their natural
+   width first, leaving the filename column only a sliver -- combined with
+   word-break:break-all, that shattered names every 2-3 characters
+   ("hai/ku./txt", confirmed live at 393px). Below 560px, reflow each row
+   into a stacked card: filename gets its own full-width line (wrapping
+   normally, only at real word/slash boundaries), size+time share a second
+   line, actions get a third. */
+@media (max-width: 560px) {
+  .pg-wsh .files, .pg-wsh .files tbody, .pg-wsh .files tr { display: block; width: 100%; }
+  .pg-wsh .files tr { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+  .pg-wsh .files td { display: block; padding: 0; border-bottom: 0; }
+  .pg-wsh .files td.n { grid-column: 1 / -1; word-break: normal; overflow-wrap: anywhere; font-size: 13px; margin-bottom: 3px; }
+  .pg-wsh .files td.s { grid-column: 1; }
+  .pg-wsh .files td.m { grid-column: 2; text-align: right; }
+  .pg-wsh .files td.a { grid-column: 1 / -1; text-align: left; margin-top: 4px; }
+  .pg-wsh .files td.a button { margin-left: 0; margin-right: 6px; }
+}
 /* was padding: 2px 6px -- ~27x23px for "rm" (a destructive action). Grow the
    tap area mostly vertically (the table can spare row height; growing
    horizontally too far risks squeezing the nowrap action cell on narrow
@@ -178,5 +212,13 @@
 
 .pg-wsh .explain { font-size: 14px; color: var(--ink-2); line-height: 1.6; }
 .pg-wsh .explain ol { margin: 6px 0 0; padding-left: 20px; }
-.pg-wsh .explain code { font-size: 12px; background: var(--code-bg); color: var(--code-ink); padding: 1px 5px; border-radius: 4px; }
-.pg-wsh .hostlog { max-height: 120px; overflow: auto; font-size: 11px; margin-top: 8px; }
+/* M9b: vertical margin on a plain `display:inline` element has no effect on
+   line-box spacing, so the run of command chips (ls/cat/put/…) in the
+   "Restricted by construction" line wrapped with under-2px gaps between rows
+   -- confirmed live (measured row gaps ~2.2px, under the 4px minimum).
+   inline-block lets the margin actually apply. */
+.pg-wsh .explain code { display: inline-block; font-size: 12px; background: var(--code-bg); color: var(--code-ink); padding: 1px 5px; margin: 2px 0; border-radius: 4px; }
+/* The command-list paragraph had no gap from the <ol> above it (0px, per
+   M14's "panels stacked with a 0px gap" pattern applied to prose blocks). */
+.pg-wsh .explain .muted { margin-top: 10px; }
+.pg-wsh .hostlog { max-height: 120px; overflow: auto; font-size: 11px; margin-top: 8px; mask-image: linear-gradient(to right, black calc(100% - 18px), transparent); }

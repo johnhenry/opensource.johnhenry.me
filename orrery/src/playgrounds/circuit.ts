@@ -227,7 +227,7 @@ const playground: Playground = {
           <p class="hint"><code>palette.js</code> exports a command palette, not a contrast helper — so these ratios are computed here with the standard WCAG relative-luminance formula, against the <em>live</em> resolved colors (they update as you spin the dial).</p>
           <div class="contrast-table" id="contrast-table"></div>
           <div class="foot-row" style="margin-top:12px">
-            <button class="btn" id="open-palette">⌘K open Circuit's own command palette</button>
+            <button class="btn" id="open-palette"><span class="kbd-hint">⌘K </span>open Circuit's own command palette</button>
             <span class="stat">real <code>createCommandPalette()</code> from <code>palette.js</code></span>
           </div>
         </section>
@@ -410,13 +410,22 @@ const playground: Playground = {
       ['--error on --error-soft', 'var(--error)', 'var(--error-soft)'],
       ['--sx-cm on --code-bg', 'var(--sx-cm)', 'var(--code-bg)'],
     ];
+    // CSS custom-property names ("--bg-panel") have real hyphens that the
+    // line-breaking algorithm treats as break opportunities regardless of
+    // word-break (keep-all only affects CJK text breaking, not Latin
+    // hyphens) — in the ~20px-wide label column at phone width that split
+    // names mid-token ("--bg-\npanel", issue #42 P2, M3). Swap the hyphens
+    // *inside* each `--token-name` for U+2011 (non-breaking hyphen) so the
+    // name can only wrap as a whole, while " on " between two names can
+    // still break normally.
+    const noBreakTokens = (s: string) => s.replace(/--[\w-]+/g, (m) => m.replace(/-/g, '‑'));
     function renderContrast() {
       const table = host.querySelector<HTMLElement>('#contrast-table')!;
       table.innerHTML = CONTRAST_PAIRS.map(([label, fg, bg]) => {
         const ratio = contrastRatio(fg, bg);
         const g = grade(ratio);
         return `<div class="contrast-row">
-          <span class="pair">${esc(label)}</span>
+          <span class="pair">${noBreakTokens(esc(label))}</span>
           <span class="demo" style="color:${fg};background:${bg}">Aa Bb Cc</span>
           <span class="ratio">${ratio.toFixed(2)}:1</span>
           <span class="grade ${g.cls}">${g.label}</span>

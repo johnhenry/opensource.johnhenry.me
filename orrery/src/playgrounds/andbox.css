@@ -16,6 +16,11 @@
 .pg-andbox .ab-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .pg-andbox .ab-controls label.field input { width: 110px; font-family: var(--f-mono); }
 .pg-andbox .ab-run-hint { margin-left: 8px; opacity: .85; }
+/* ⌘↵ is a desktop-keyboard affordance; on a touch device there's no keyboard
+   shortcut to advertise (issue #42, Andbox Cell P3) */
+@media (hover: none), (pointer: coarse) {
+  .pg-andbox .ab-run-hint { display: none; }
+}
 .pg-andbox .btn.kill { border-color: color-mix(in srgb, #ff4060 60%, transparent); background: color-mix(in srgb, #ff4060 14%, transparent); }
 .pg-andbox .btn.kill:hover { border-color: #ff4060; }
 .pg-andbox .btn:disabled { opacity: .45; cursor: not-allowed; }
@@ -40,8 +45,14 @@
    own height and overhung the panel's bottom padding. Flex column + flex:1 instead. */
 .pg-andbox .ab-code-panel { display: flex; flex-direction: column; }
 .pg-andbox .ab-code-panel textarea.code { flex: 1 1 auto; height: auto; }
-.pg-andbox .ab-h { margin: 0 0 8px; font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
-.pg-andbox .ab-h .stat { margin-left: auto; text-transform: none; letter-spacing: 0; }
+/* "event log" + its "consecutive identical calls coalesce ×n" meta had no
+   wrap, so on a narrow panel the two crowded onto one row (issue #42,
+   Andbox Cell P2, pattern M5) */
+.pg-andbox .ab-h { margin: 0 0 8px; font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); display: flex; flex-wrap: wrap; row-gap: 4px; align-items: center; gap: 8px; }
+.pg-andbox .ab-h .stat { margin-left: auto; text-transform: none; letter-spacing: 0; flex: 0 1 auto; }
+@media (max-width: 480px) {
+  .pg-andbox .ab-h .stat { flex-basis: 100%; margin-left: 0; }
+}
 .pg-andbox .ab-right { display: grid; gap: 16px; align-content: start; }
 .pg-andbox canvas.ab-flow { display: block; width: 100%; height: 190px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); }
 .pg-andbox .ab-paint { display: flex; gap: 14px; align-items: start; flex-wrap: wrap; }
@@ -66,6 +77,13 @@ html.light .pg-andbox .ab-nums b.con { color: #8b3fe0; }
 .pg-andbox .ab-result-panel { display: flex; flex-direction: column; }
 .pg-andbox .ab-result-panel pre.code.ab-result { flex: 1 1 auto; height: auto; }
 .pg-andbox .ab-log .row { display: grid; grid-template-columns: 74px 64px 1fr; gap: 8px; padding: 1px 10px; border-left: 3px solid transparent; }
+/* the fixed 74px/64px timestamp+kind columns left only ~half the narrow
+   panel for the message, which then wrapped to 3 lines per entry
+   (issue #42, Andbox Cell P2) -- shrink the fixed columns on mobile so the
+   message gets more of the available width. */
+@media (max-width: 480px) {
+  .pg-andbox .ab-log .row { grid-template-columns: 52px 46px 1fr; gap: 6px; padding: 1px 6px; }
+}
 .pg-andbox .ab-log .row .t { color: var(--ink-3); text-align: right; }
 .pg-andbox .ab-log .row .k { color: var(--ink-3); }
 .pg-andbox .ab-log .row .m { color: var(--ink-2); overflow-wrap: anywhere; }
@@ -86,7 +104,9 @@ html.light .pg-andbox .ab-nums b.con { color: #8b3fe0; }
 .pg-andbox .ab-explain { color: var(--ink-2); font-size: 14px; }
 .pg-andbox .ab-explain p { margin: 0 0 10px; max-width: 90ch; }
 .pg-andbox .ab-explain code { color: var(--ink); font-size: 12.5px; }
-.pg-andbox .ab-explain pre.code { font-size: 12px; }
+/* pre.code has margin:0 and the following <p> also has margin-top:0, so they
+   touched with no gap between them (issue #42, Andbox Cell P3) */
+.pg-andbox .ab-explain pre.code { font-size: 12px; margin-bottom: 10px; }
 
 .pg-andbox .ab-engines-p { color: var(--ink-2); font-size: 13px; max-width: 90ch; margin: 0 0 10px; }
 .pg-andbox .ab-engines-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

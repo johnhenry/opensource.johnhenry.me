@@ -4,6 +4,17 @@
 .pg-oat .oat-grid { align-items: start; }
 .pg-oat section.panel { display: grid; gap: 12px; min-width: 0; }
 .pg-oat .oat-h { display: flex; align-items: center; gap: 10px; font-family: var(--f-mono); font-size: 13px; }
+@media (max-width: 480px) {
+  /* oat-h has no flex-wrap, so at phone width the row (chip + <optical-…>
+     title + spacer + segmented control/select) had to shrink to fit --
+     the title text itself wrapped mid-tag ("<optical-\nsend>"), and the
+     receiver's loopback/camera toggle got squeezed until `.seg`'s
+     overflow:hidden clipped it to "cam" (issue #42 P2, M5). Let the header
+     wrap, with the spacer forcing the trailing control onto its own full
+     row where it has the whole panel width. */
+  .pg-oat .oat-h { flex-wrap: wrap; row-gap: 6px; }
+  .pg-oat .oat-h .sp { flex-basis: 100%; height: 0; }
+}
 .pg-oat .sp { flex: 1; }
 .pg-oat .oat-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
 .pg-oat .grow { flex: 1; min-width: 140px; }
@@ -68,7 +79,12 @@
 .pg-oat .chip.bad { background: color-mix(in srgb, var(--error) 14%, transparent); border-color: color-mix(in srgb, var(--error) 45%, transparent); }
 .pg-oat .reasons, .pg-oat .tofu { margin-top: 6px; font-size: 13px; }
 .pg-oat .tofu { padding: 10px; border: 1px solid var(--warning); border-radius: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.pg-oat .r-policy { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+/* align-items:flex-end lines up the *boxes'* bottom edges, not the text
+   inside them -- a padded .btn's text sits well above its own bottom
+   edge while an unpadded .chk label's text sits almost flush with it, so
+   "require signature" and "tamper test" read as off-baseline next to each
+   other (issue #42 P3). baseline lines up the actual text instead. */
+.pg-oat .r-policy { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .pg-oat .dec { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 13px; line-height: 1.8; margin-bottom: 8px; }
 .pg-oat .dec .caps { margin-top: 6px; }
 .pg-oat .dec b { font-family: var(--f-mono); text-transform: uppercase; letter-spacing: .05em; }
@@ -89,7 +105,16 @@
 .pg-oat .removed { font-size: 12px; color: var(--ink-3); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .pg-oat .payload pre.code { max-height: 220px; font-size: 12px; }
 .pg-oat .pv-img { max-width: 100%; max-height: 220px; border-radius: 8px; }
-.pg-oat .oat-foot { display: flex; gap: 10px; align-items: center; }
+.pg-oat .oat-foot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pg-oat .oat-foot .f-link { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 480px) {
+  /* With no wrap, "copy link" (a plain .btn with no white-space:nowrap of
+     its own) got squeezed by the long caption sharing its row until the
+     two-word label itself wrapped to "copy / link" (issue #42 P2, M6).
+     Let the caption drop to its own line instead of the button's label. */
+  .pg-oat .oat-foot .f-linkmsg { order: 1; }
+  .pg-oat .oat-foot > .stat:last-child { flex-basis: 100%; order: 2; }
+}
 @media (max-width: 560px) { .pg-oat .stage { grid-template-columns: 1fr; } .pg-oat .r-loop { grid-template-columns: 1fr; } }
 .pg-oat optical-send::part(controls) { display: none; }
 .pg-oat .btn.primary { color: #14120a; font-weight: 600; }

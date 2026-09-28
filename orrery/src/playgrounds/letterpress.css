@@ -1,7 +1,15 @@
 .pg-letterpress { display: flex; flex-direction: column; gap: 16px; }
 
 .pg-letterpress .lp-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-.pg-letterpress .lp-toolbar select { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 12.5px; }
+/* M7: the select sits inside a `<label class="field">` wrapper (the actual
+   flex item in .lp-toolbar); that label is display:grid (its own inline
+   `flex-direction:row` style is a no-op there -- flex-direction only
+   applies to flex containers), so "preset" and the select stack in a
+   single implicit column sized to the select's own selected-option content
+   (~260px) rather than the label's row width. Give the label itself real
+   room to grow, and the select (a grid item) stretches to fill it. */
+.pg-letterpress .lp-toolbar > label.field { flex: 1 1 220px; }
+.pg-letterpress .lp-toolbar select { width: 100%; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink); font-family: var(--f-mono); font-size: 12.5px; }
 .pg-letterpress .lp-toolbar .stat { margin-left: auto; }
 .pg-letterpress .lp-toolbar .stat.err { color: var(--error, #f66); }
 /* the preset <select> and the "reset to preset" .btn had different intrinsic heights (different
@@ -69,4 +77,8 @@
 .pg-letterpress .lp-route-table .h { color: var(--ink-3); }
 
 .pg-letterpress .lp-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pg-letterpress .lp-what { color: var(--ink-2); font-size: 13.5px; max-width: 70ch; }
+/* <p> keeps its UA-stylesheet default margin (~1em top/bottom) even as a
+   flex item -- that margin doesn't collapse away in flex layout, so on top
+   of .panel's own 16px padding it added another ~13.5px above the text,
+   reading as "extra top padding" on this panel versus every other one. */
+.pg-letterpress .lp-what { margin: 0; color: var(--ink-2); font-size: 13.5px; max-width: 70ch; }

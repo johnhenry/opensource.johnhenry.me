@@ -45,6 +45,14 @@
 
 /* validator cards */
 .pg-raijin .rj-vals { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+@media (max-width: 480px) {
+  /* 4 validators at a 140px floor auto-fit to 2 columns (~155px each) at
+     phone width, too narrow for "view N · seq N · pre-prepared" on one
+     nowrap+ellipsis line (truncated) or for the status pill, which sits
+     flush right via margin-left:auto and got clipped at the card edge
+     (issue #42 P2). One column gives each card the full panel width. */
+  .pg-raijin .rj-vals { grid-template-columns: 1fr; }
+}
 .pg-raijin .rj-val {
   position: relative; padding: 10px 11px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--bg-panel); font-size: 12px; display: grid; gap: 3px; transition: border-color .2s, box-shadow .2s, opacity .2s;
@@ -143,7 +151,14 @@
   animation: rj-in .4s ease-out;
 }
 .pg-raijin .rj-bh { color: var(--accent); font-weight: 700; min-width: 34px; }
-.pg-raijin .rj-da { color: var(--rj-nv); flex-basis: 100%; font-size: 10.5px; opacity: .85; padding-left: 46px; }
+/* Renamed from .rj-da to .rj-blkda: it shared a class name with the
+   unrelated "Data availability" *panel* (`<div class="panel rj-da">`), so
+   this per-block status line's padding-left:46px, font-size:10.5px,
+   opacity:.85 and color were all leaking onto the whole panel -- the
+   panel's explanatory paragraph inherited its font-size (issue #42's
+   "~11px" reading, M13) and the panel itself picked up a stray 46px left
+   inset that looked like nested-panel padding (M16) but wasn't. */
+.pg-raijin .rj-blkda { color: var(--rj-nv); flex-basis: 100%; font-size: 10.5px; opacity: .85; padding-left: 46px; }
 .pg-raijin .rj-dots { display: inline-flex; gap: 3px; margin-left: auto; }
 .pg-raijin .rj-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--rj-ok); }
 .pg-raijin .rj-dots i.miss { background: var(--line); }
@@ -202,7 +217,7 @@
 .pg-raijin .warn { color: var(--rj-lag); }
 
 /* DA panel */
-.pg-raijin .rj-da-note { margin: 0 0 10px; }
+.pg-raijin .rj-da-note { margin: 0 0 10px; font-size: 13px; }
 .pg-raijin .rj-da-src { margin: 0 0 8px; }
 .pg-raijin .rj-da-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .pg-raijin .rj-da-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg-inset); }

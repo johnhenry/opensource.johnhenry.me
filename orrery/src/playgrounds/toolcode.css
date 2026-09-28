@@ -45,7 +45,16 @@
 @media (max-width: 1000px) { .pg-toolcode .tc-main, .pg-toolcode .tc-intro { grid-template-columns: 1fr; } }
 
 /* chat */
-.pg-toolcode .tc-chat { display: grid; gap: 10px; position: sticky; top: 12px; }
+/* M1: position:sticky here was unconditional, but .tc-main collapses to a
+   single column below 1000px (see the media query above) — with .tc-chat
+   first in source order and .tc-trace-panel stacked right underneath it,
+   the "sticky" chat panel (bubbles, input, host-tools list) stayed pinned
+   over the viewport and rendered on top of the entire Pipeline trace as the
+   page scrolled (confirmed live: stage 1 "Raw LLM reply" content is drawn
+   right under the still-visible chat card). Sticky only makes sense once
+   there's a second column for it to float beside. */
+.pg-toolcode .tc-chat { display: grid; gap: 10px; }
+@media (min-width: 1000px) { .pg-toolcode .tc-chat { position: sticky; top: 12px; } }
 .pg-toolcode .tc-chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .pg-toolcode .tc-chat-head h3 { margin: 0; }
 .pg-toolcode .tc-model { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); font-weight: 400; margin-left: 6px; }
@@ -98,7 +107,10 @@
 .pg-toolcode .tc-trace-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .pg-toolcode .tc-trace-head h3 { margin: 0; }
 .pg-toolcode .tc-rail { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-family: var(--f-mono); font-size: 11px; }
-.pg-toolcode .tc-rail-step { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 3px; border-radius: 99px; border: 1px solid var(--line); color: var(--ink-3); transition: all .25s; }
+/* was padding: 3px 8px 3px 3px -- an asymmetric 3px left inset (the M3-style
+   "under 4px side padding" issue, applied to a pill instead of a table cell)
+   that crowded the step number circle against the pill's own border. */
+.pg-toolcode .tc-rail-step { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--ink-3); transition: all .25s; }
 .pg-toolcode .tc-rail-step b { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: var(--bg-inset); font-size: 10px; }
 .pg-toolcode .tc-rail-step.done { color: var(--ink); border-color: var(--accent-border); }
 .pg-toolcode .tc-rail-step.done b { background: var(--accent); color: #fff; }
@@ -114,7 +126,12 @@
 .pg-toolcode .tc-stage::before { content: ''; position: absolute; left: 12px; top: 26px; bottom: 0; width: 2px; background: var(--line); }
 .pg-toolcode .tc-stage:last-child::before { display: none; }
 .pg-toolcode .tc-stage.done::before { background: linear-gradient(var(--accent), var(--accent-border)); }
-.pg-toolcode .tc-stage header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; min-height: 26px; }
+/* M5: title + right-aligned meta (e.g. "Adapted JavaScript" / "original vs
+   adapted, token diff") had no wrap, so on narrow viewports they collided —
+   confirmed live at 393px. flex-wrap lets meta drop to its own line, still
+   right-aligned via margin-left:auto, once it can't fit beside the title. */
+.pg-toolcode .tc-stage header { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 8px; min-height: 26px; }
+.pg-toolcode .tc-stage header h4 { min-width: 0; }
 .pg-toolcode .tc-num { position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-mono); font-size: 12px; font-weight: 700; background: var(--bg-inset); border: 1px solid var(--line); color: var(--ink-3); }
 .pg-toolcode .tc-stage.done .tc-num { background: var(--accent); border-color: var(--accent); color: #fff; }
 .pg-toolcode .tc-stage.live .tc-num { border-color: var(--accent); color: var(--accent); animation: tc-pulse 1s infinite; }
@@ -169,6 +186,24 @@
 .pg-toolcode .tc-tags { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-self: end; }
 .pg-toolcode .tc-tag { font-family: var(--f-mono); font-size: 10px; padding: 0 6px; border-radius: 99px; background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--ink); white-space: nowrap; }
 .pg-toolcode .tc-tag.warn { background: color-mix(in oklch, var(--tc-warn) 16%, transparent); border-color: color-mix(in oklch, var(--tc-warn) 55%, transparent); color: var(--tc-warn); }
+/* Below ~640px the 3rd `.tc-dl` column (max-content, for tags) has no room
+   left beside the code column, so 2-3 pink chips per "+" line wrapped onto
+   their own stacked block under the code — confirmed live, it made the whole
+   diff unreadable (issue's toolcode P2). Collapse the chips by default and
+   let the toolcode.ts click handler reveal them per-row on tap; give a small
+   "⋯ notes" affordance so they're discoverable. */
+@media (max-width: 640px) {
+  .pg-toolcode .tc-dl.plus { position: relative; }
+  .pg-toolcode .tc-dl.plus .tc-tags { display: none; }
+  .pg-toolcode .tc-dl.plus:has(.tc-tags:not(:empty)) { cursor: pointer; padding-right: 46px; }
+  .pg-toolcode .tc-dl.plus:has(.tc-tags:not(:empty))::after {
+    content: '⋯'; position: absolute; right: 4px; top: 2px; font-size: 11px; color: var(--accent);
+    border: 1px solid var(--accent-border); border-radius: 99px; padding: 0 6px; line-height: 16px;
+  }
+  .pg-toolcode .tc-dl.plus.tags-open { grid-template-columns: 22px minmax(0, 1fr); padding-right: 4px; }
+  .pg-toolcode .tc-dl.plus.tags-open::after { content: none; }
+  .pg-toolcode .tc-dl.plus.tags-open .tc-tags { display: flex; grid-column: 1 / -1; justify-self: start; margin: 2px 0 4px 22px; }
+}
 
 /* sandbox runs */
 .pg-toolcode .tc-gate { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

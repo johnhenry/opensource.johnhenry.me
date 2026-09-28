@@ -60,7 +60,7 @@ const TOPBAR_HTML = `<header class="topbar c-header">
   <span class="spacer"></span>
   <nav>
     <button type="button" class="tb-btn" data-el="palette-btn" title="Jump to a planet (⌘K)">⌘K</button>
-    <button type="button" class="tb-btn" data-el="drawer-btn" title="Planets &amp; settings">&#9776;</button>
+    <button type="button" class="tb-btn" data-el="drawer-btn" title="Planets &amp; settings" aria-label="Planets and settings">&#9776;</button>
     <button type="button" class="tb-btn" data-el="source-btn" title="View this planet's source">&lt;/&gt; source</button>
     <a class="docs" data-el="docs-link" href="https://opensource.johnhenry.me/" target="_blank" rel="noopener">docs &#8599;</a>
     <a class="docs" href="https://github.com/johnhenry" target="_blank" rel="noopener">github &#8599;</a>

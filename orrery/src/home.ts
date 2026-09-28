@@ -270,6 +270,13 @@ export function renderHome(app: HTMLElement, entries: PlaygroundEntry[]): () => 
         <p class="pkg">@johnhenry/*</p>
         <p class="enter" hidden><a href="#/">enter planet &rarr;</a></p>
       </aside>
+    </section>
+
+    <section class="rooms-wrap" aria-label="All planets">
+      <p class="rooms-title">All planets</p>
+      <div class="rooms">
+        ${entries.map(e => roomCardHtml(e, roomTests)).join('')}
+      </div>
     </section>`;
 
   // Starfield: three depths, parallaxed by the pointer purely in CSS.

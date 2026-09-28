@@ -1002,8 +1002,8 @@ const playground: Playground = {
           return `<i class="${cls}" title="#${v.idx}: ${!r ? 'did not execute' : r === 'sync' ? 'state imported by sync' : r === b.root ? 'same root' : 'DIFFERENT root ' + short(r)}"></i>`;
         }).join('');
         const da = b.da
-          ? `<span class="rj-da" title="LocalDA.submit(encode(block)) → commitment; verify() re-hashes what the layer serves; decode() round-trips the block">DA commitment ${short(b.da.hash, 12)} · ${b.da.magic === 'RJC' ? 'RJC deflate' : 'RJR raw'} ${b.da.bytes} B · verify ${b.da.verified ? '✓' : '✗'} · decode ${b.da.roundTrip ? '✓' : '✗'}</span>`
-          : '<span class="rj-da rj-dim">posting to DA…</span>';
+          ? `<span class="rj-blkda" title="LocalDA.submit(encode(block)) → commitment; verify() re-hashes what the layer serves; decode() round-trips the block">DA commitment ${short(b.da.hash, 12)} · ${b.da.magic === 'RJC' ? 'RJC deflate' : 'RJR raw'} ${b.da.bytes} B · verify ${b.da.verified ? '✓' : '✗'} · decode ${b.da.roundTrip ? '✓' : '✗'}</span>`
+          : '<span class="rj-blkda rj-dim">posting to DA…</span>';
         return `<div class="rj-blk">
           <span class="rj-bh">#${b.h}</span>
           <span>${b.block.transactions.length} tx <span class="rj-dim">(${b.ok}✓${b.rev ? ` <span class="rj-rev">${b.rev}✗</span>` : ''})</span></span>

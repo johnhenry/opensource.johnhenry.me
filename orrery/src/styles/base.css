@@ -66,7 +66,13 @@ a.chip { text-decoration: none; color: var(--ink); transition: border-color .15s
 a.chip:hover, a.chip:focus-visible { border-color: var(--accent); background: var(--accent); color: #fff; }
 
 .loading, .error { padding: 40px; text-align: center; color: var(--ink-2); }
-.error { color: var(--error); white-space: pre-wrap; font-family: var(--f-mono); font-size: 13px; }
+/* issue #42 M15: a stale-chunk failure's error text includes a long asset
+   URL/stack trace with no natural break points -- `white-space: pre-wrap`
+   alone still let that one long "word" push the page ~92px wider than the
+   viewport (confirmed: main.ts's isStaleChunkError()/recoverFromStaleChunk()
+   already auto-reloads past the failure itself, so this only matters for the
+   brief instant before that reload, or if recovery is ever skipped). */
+.error { color: var(--error); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--f-mono); font-size: 13px; }
 
 /* ---- light theme (Circuit .light / system) ---- */
 html.light { color-scheme: light; }
@@ -157,6 +163,25 @@ html { max-width: 100%; overflow-x: hidden; }
   .topbar { padding: 8px 12px; gap: 8px; }
   .topbar .pkg { display: none; }
   .topbar a.docs:last-child { display: none; }
+  /* issue #42 M11: the fixed .dev-widget orb (src/dev-drawer.css) is 44px,
+     offset 14px from the right/bottom edges -- so it occupies the bottom
+     58px of the viewport at all times on mobile. .room's own 80px bottom
+     padding (unchanged since this room shell's first commit) only leaves
+     ~22px of clearance beneath the widget's top edge once a room's content
+     actually reaches the bottom (measured live on the Circuit room at 393px:
+     the last panel's bottom edge sat 22px above the widget), which several
+     rooms' own trailing buttons/text (letterpress's copy link, packfile's
+     stats, most rooms' final paragraph) close up on their own. Bumped so the
+     shared floor gives every room real clearance regardless of what its own
+     last element happens to be. */
+  .room { padding-bottom: 104px; }
+  /* issue #42 M10: the package chips in every room header (`.room-head
+     .chips .chip`, an `a.chip` linking to that library's docs) measured
+     ~24px tall -- under the ~44px comfortable touch target. Scoped to just
+     the room-head instance (not the bare `.chip` class, which individual
+     rooms also use for their own small badges/tiles) to avoid changing
+     tap-target sizing in places this audit didn't measure. */
+  .room-head .chips .chip { display: inline-flex; align-items: center; min-height: 34px; padding: 8px 12px; box-sizing: border-box; }
 }
 
 /* ---- companion plug icon (home planets, cards, settings) ---- */

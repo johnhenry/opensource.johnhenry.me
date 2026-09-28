@@ -3,10 +3,24 @@
 .pg-converter .cv-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; }
 .pg-converter .cv-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
 .pg-converter .cv-bar > [data-copy-link] { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 480px) {
+  /* cv-bar's align-items:center + flex-wrap:nowrap meant "Copy link" never
+     wrapped itself, so once the preset chips (with the "presets" label and
+     "Random" button) wrapped into several rows inside their own flex-wrap
+     child, Copy link just floated vertically centred beside that whole
+     block instead of sitting next to anything in particular (issue #42
+     M6). Stack them: presets get the full row, Copy link becomes its own
+     right-aligned row underneath. */
+  .pg-converter .cv-bar { flex-wrap: wrap; align-items: flex-start; }
+  .pg-converter .cv-presets { flex-basis: 100%; }
+  .pg-converter .cv-bar > [data-copy-link] { margin-left: auto; }
+}
 
 .pg-converter .cv-h {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
   gap: 8px;
   margin: 0 0 8px;
   font-family: var(--f-mono);
@@ -44,6 +58,15 @@
 .pg-converter .cv-pane .cv-h { justify-content: space-between; }
 .pg-converter .cv-copy { padding: 4px 10px; font-size: 11px; }
 
+/* The response section's four output panes (`.cv-pane`, each a `.panel`)
+   render inside `.cv-response`, itself a `.panel` -- two stacked 16px
+   paddings that squeeze the code/labels inside (issue #42 P3, M16). Flatten
+   the inner cards on mobile the same way the general pattern recommends. */
+@media (max-width: 480px) {
+  .pg-converter .panel .panel { padding: 12px 0; border-left: 0; border-right: 0; border-radius: 0; }
+  .pg-converter .panel .panel + .panel { border-top: 0; }
+}
+
 .pg-converter pre.code { min-height: 120px; white-space: pre-wrap; word-break: break-word; }
 .pg-converter pre.code.error { border-color: var(--error); color: var(--error); }
 /* pattern D: code panes get horizontal scroll instead of mid-token wraps */
@@ -55,7 +78,7 @@
 .pg-converter .cv-send p { margin: 8px 0 0; }
 .pg-converter [data-send-result] { margin-top: 10px; }
 
-.pg-converter .cv-explain p { margin: 0 0 10px; line-height: 1.55; color: var(--ink-2); }
+.pg-converter .cv-explain p { margin: 0 0 10px; line-height: 1.55; color: var(--ink-2); font-size: 14px; }
 .pg-converter .cv-explain p:last-child { margin-bottom: 0; }
 .pg-converter .cv-explain code { font-family: var(--f-mono); color: var(--ink); }
 

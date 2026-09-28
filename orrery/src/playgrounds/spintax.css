@@ -27,7 +27,10 @@
   padding: 12px;
   font-family: var(--f-mono);
   font-size: 13px;
-  line-height: 1.6;
+  /* 1.6 left only ~2px between two wrapped highlight boxes (each padded top
+     and bottom), so consecutive wrapped lines of the same group touched or
+     overlapped (issue #42, Spintax Forge P2). 1.8 gives the boxes room. */
+  line-height: 1.8;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow: auto;
@@ -37,6 +40,10 @@
 .pg-spintax .hl-layer { color: transparent; background: transparent; pointer-events: none; }
 .pg-spintax .hl-layer .grp {
   border-radius: 3px;
+  /* side padding so a highlight isn't flush against the group beside it
+     (issue #42, Spintax Forge P2) */
+  padding: 1px 2px;
+  margin: 0 -2px;
   /* groups that wrap mid-line get their own background/border per fragment,
      instead of one box that visibly ends in trailing whitespace before the
      wrap (issue #18, Spintax Forge P3). */
@@ -87,8 +94,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* a fixed 220px box was empty until the stream started (issue #42, Spintax
+   Forge P3, pattern M12) -- grow with content instead, up to the same cap. */
 .pg-spintax .stream-list {
-  height: 220px;
+  height: auto;
+  min-height: 96px;
+  max-height: 220px;
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -103,6 +114,11 @@
 .pg-spintax pre.code.error { margin-top: 10px; }
 
 /* handoffs + copy link ---------------------------------------------------- */
-.pg-spintax .handoff-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+/* the 4 "Send … →" buttons stack (each nearly as wide as the panel) and
+   copy-link's own `margin-left:auto` then landed it half-beside, half-below
+   the last one instead of in a clearly separate spot (issue #42, Spintax
+   Forge P3, pattern M6). Give copy-link its own row, always. */
+.pg-spintax .handoff-row { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.pg-spintax .handoff-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .pg-spintax .handoff-row .btn { padding: 6px 12px; font-size: 12.5px; }
-.pg-spintax .handoff-row .copy-link { margin-left: auto; }
+.pg-spintax .handoff-row .copy-link { align-self: flex-end; margin-left: 0; }

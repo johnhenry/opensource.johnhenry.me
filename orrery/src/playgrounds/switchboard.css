@@ -2,7 +2,11 @@
    why): without it the implicit auto column can grow past the viewport to
    fit a descendant's max-content width instead of clamping to it. */
 .pg-switchboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.pg-switchboard h3 { margin: 0 0 8px; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+/* M5: no flex-wrap meant a long meta pill (e.g. "one InteractionBroker")
+   had to shrink to share the row with the title, wrapping its own text
+   inside the pill instead of dropping to its own line. */
+.pg-switchboard h3 { margin: 0 0 8px; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.pg-switchboard h3 .chip { white-space: nowrap; }
 .pg-switchboard .muted { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
 .pg-switchboard .spacer { flex: 1; }
 .pg-switchboard code { font-family: var(--f-mono); }
@@ -14,7 +18,13 @@
 .sb-row input { flex: 1; min-width: 120px; }
 .sb-tool-arg[hidden] { display: none; }
 
-.sb-mcp-out, .sb-card-out { min-height: 90px; margin: 0; }
+/* these often hold a plain English sentence (e.g. "companion not running.
+   Start it with `npm run node`…"), not just JSON -- pre.code's default
+   white-space:pre never wraps a sentence with no embedded newlines, so it
+   just ran off the right edge of the box (confirmed live: "companion probe
+   output is clipped horizontally"). pre-wrap still preserves real JSON
+   formatting when that's what's shown, but also wraps plain prose. */
+.sb-mcp-out, .sb-card-out { min-height: 90px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .sb-mcp-out.busy, .sb-card-out.busy { opacity: .6; }
 .sb-mcp-out.ok { border-color: var(--success); }
 .sb-mcp-out.err, .sb-card-out.err { border-color: var(--error); color: var(--error); }
@@ -43,7 +53,12 @@
 
 .sb-inbox-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .sb-policy-field { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; }
-.sb-policy-field select { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: inherit; font: inherit; max-width: 60vw; }
+/* M7: max-width:60vw (235px at 393px viewport) truncated the long policy
+   option text ("Ask a human (destructive MCP calls + every task input) —
+   default") well before the panel's actual available width; once this
+   field is on its own row (below, via .sb-inbox-head's flex-wrap) it can
+   just use the full row like every other field. */
+.sb-policy-field select { flex: 1; min-width: 0; width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-inset); color: inherit; font: inherit; }
 /* .ppayload below is white-space: nowrap (for its ellipsis truncation), so
    its max-content width is the full unwrapped JSON string. Without an
    explicit column, .sb-pending's implicit auto column grows to fit that
@@ -63,10 +78,20 @@
 .chip.peer-a2a-local, .chip.peer-a2a-companion { background: color-mix(in srgb, hsl(calc(var(--hue) - 40) 70% 50%) 24%, var(--bg-inset)); color: var(--ink); border-color: color-mix(in srgb, hsl(calc(var(--hue) - 40) 70% 50%) 55%, transparent); }
 
 .sb-log-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.sb-log { display: flex; flex-direction: column-reverse; gap: 2px; max-height: 260px; overflow-y: auto; font-family: var(--f-mono); font-size: 12px; }
+/* column-reverse means the newest row renders flush against the container's
+   own top edge with no breathing room from the panel content above it --
+   confirmed live (the topmost row's top ~2px of text sat right at the
+   scroll boundary, reading as cut off). A little padding-top gives it the
+   same clearance every other row gets from `gap`. */
+.sb-log { display: flex; flex-direction: column-reverse; gap: 2px; padding-top: 6px; max-height: 260px; overflow-y: auto; font-family: var(--f-mono); font-size: 12px; }
 .sb-log-row { display: grid; grid-template-columns: 84px 92px 1fr; gap: 8px; padding: 2px 4px; border-radius: 4px; }
 .sb-log-row:nth-child(odd) { background: color-mix(in srgb, var(--bg-inset) 60%, transparent); }
-.sb-log-row .ts { color: var(--ink-3); }
+/* was missing white-space:nowrap -- "5:33:45 PM" wrapped inside the 64px
+   mobile column ("4:07:04" / "PM" on two lines), stretching the row to fit
+   the wrapped height while leaving the rest of that same 64px column empty
+   beside the short wrapped fragment (confirmed live: a 64x66px box for text
+   that should be one line). */
+.sb-log-row .ts { color: var(--ink-3); white-space: nowrap; }
 .sb-log-row .src { text-transform: uppercase; letter-spacing: .03em; font-size: 10px; align-self: center; color: var(--ink-2); }
 /* Same dark/light issue as the peer chips above: a fixed 65%-lightness hue
    reads fine on the dark theme's near-black background but washes out to
@@ -80,5 +105,11 @@
 .sb-log-row .txt { color: var(--ink); overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
-  .sb-log-row { grid-template-columns: 64px 70px 1fr; font-size: 11px; }
+  /* 64px was too narrow for a nowrap "12:34:56 PM" timestamp at this
+     font-size; widened just enough to fit without wrapping. */
+  .sb-log-row { grid-template-columns: 78px 70px 1fr; font-size: 11px; }
+  /* Give the policy field the full row once it wraps below the title, so
+     its select (below) has real width to work with instead of whatever's
+     left over on a shared row. */
+  .sb-policy-field { flex: 1 1 100%; }
 }
