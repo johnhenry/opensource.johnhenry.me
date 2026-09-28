@@ -65,7 +65,32 @@
 .mq-cache .bar.over i { background: var(--ink-3); }
 .mq-cache .age { font-size: 11px; color: var(--ink-2); }
 .mq-cache-empty { padding: 12px; font-size: 12px; }
-.mq-cache-detail { margin-top: 10px !important; max-height: 220px !important; font-size: 11.5px !important; }
+@media (max-width: 480px) {
+  /* 5 columns (key, status, age/staleTime with a 170px floor, subs, 4
+     action buttons) can't fit a phone width -- the age/staleTime header
+     and the watch/invalidate/refetch/evict buttons ran off-screen with
+     mq-cache-wrap's own horizontal scroll the only way to reach them
+     (issue #42 P2, M2/M3). Turn each row into a stacked card instead:
+     labels stay self-evident (a coloured status badge, an age bar +
+     text, a bold subscriber count, named action buttons), and the
+     actions land in their own row under the key, as suggested. */
+  .mq-cache table, .mq-cache tbody, .mq-cache tr, .mq-cache td { display: block; width: 100%; }
+  .mq-cache thead { display: none; }
+  .mq-cache tbody tr { margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .mq-cache tbody tr.sel { border-color: var(--accent-border); }
+  .mq-cache td { padding: 3px 0; border-bottom: 0; }
+  .mq-cache .c-key { max-width: none; }
+  .mq-cache .c-age { min-width: 0; padding-top: 3px; }
+  .mq-cache .c-act { text-align: left; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .mq-cache .c-act button { margin-left: 0; }
+}
+/* pre.code's default white-space:pre (no wrap) relied on horizontal scroll
+   (overflow:auto) to reach the rest of a long line, so the placeholder hint
+   ("Click a row to inspect its cached data, tags and flags.") read as
+   clipped after "tags a" in a phone-width panel with no visible scrollbar
+   (issue #42 P3). Wrap like prose -- this also helps once real JSON with a
+   long value is shown, since it no longer needs sideways scrolling either. */
+.mq-cache-detail { margin-top: 10px !important; max-height: 220px !important; font-size: 11.5px !important; white-space: pre-wrap !important; word-break: normal; overflow-wrap: break-word; }
 .badge { display: inline-block; min-width: 70px; text-align: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--line); }
 .badge.b-fresh { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
 .badge.b-stale { color: var(--ink-2); border-style: dashed; }
@@ -156,7 +181,16 @@
 /* flex: 1 1 0 + min-width: 0 lets this row shrink to whatever space is left between the title
    and the pause/clear buttons, scrolling its own contents horizontally instead of forcing the
    whole header to wrap (which used to strand "clear" alone on a second line). */
-.mq-tl-filters { display: flex; gap: 8px; flex: 1 1 0; min-width: 40px; flex-wrap: nowrap; overflow-x: auto; font-size: 11px; font-family: var(--f-mono); color: var(--ink-2); margin-left: 6px; scrollbar-width: thin; }
+.mq-tl-filters {
+  display: flex; gap: 8px; flex: 1 1 0; min-width: 40px; flex-wrap: nowrap; overflow-x: auto; font-size: 11px; font-family: var(--f-mono); color: var(--ink-2); margin-left: 6px; scrollbar-width: thin;
+  /* This row is deliberately its own horizontal scroller (see the note
+     below) rather than wrapping the header, but with 7 checkboxes and no
+     hint it just looked like "notif" was clipped to "r" at the visible
+     edge (issue #42 P2, M2). Fade the trailing edge like the other
+     scrollers on the site. */
+  -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 88%, transparent 100%);
+}
 .mq-tl-filters label { display: flex; gap: 3px; align-items: center; cursor: pointer; flex: 0 0 auto; }
 .mq-tl-filters input { accent-color: var(--accent); margin: 0; }
 .mq-tl-btns { display: flex; gap: 8px; flex: 0 0 auto; margin-left: auto; }
@@ -165,6 +199,13 @@
 .mq-lanes .pillar small { color: var(--ink-3); font-size: 10px; }
 .mq-lanes .pillar.client { left: 8px; }
 .mq-lanes .pillar.server { right: 8px; }
+@media (max-width: 480px) {
+  /* width:13% of a ~330px-wide phone panel is ~42px -- too narrow for
+     "mcp-query" (9 characters), which wrapped mid-word to "mcp-" / "query"
+     (issue #42 P2). The pillar is already anchored by left/right (not
+     centred), so it can size to its content instead of a fixed percentage. */
+  .mq-lanes .pillar { width: auto; min-width: 30%; padding: 0 6px; font-size: 10.5px; }
+}
 .mq-lanes .wire-line { position: absolute; left: 14%; right: 14%; top: 50%; border-top: 1px dashed var(--line); }
 .mq-packet { position: absolute; transform: translateX(-50%); display: flex; align-items: center; gap: 5px; pointer-events: none; white-space: nowrap; z-index: 2; }
 .mq-packet i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px currentColor; color: var(--accent); }
