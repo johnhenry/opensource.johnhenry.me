@@ -926,8 +926,13 @@ const byteLen = (c: unknown) => (typeof c === 'string' ? new TextEncoder().encod
 interface Stage { name: string; ms?: number; state: 'ok' | 'skip' | 'err' | 'idle'; note?: string }
 /** Shared by the tabs 1–3 pipeline strip (`.st-pipeline`) and tab 04's own local strips. */
 function stageStripHtml(stages: Stage[]): string {
+  // The arrow used to be its own flex item between chips, so a flex-wrap
+  // line break could land right after an arrow and leave it dangling alone
+  // at the end of a row (issue #42 P2, M2/M4-ish). Nesting it *inside* the
+  // preceding chip makes "chip + its trailing arrow" one flex item, so a
+  // wrap can only happen between whole chips, never after a bare arrow.
   return stages
-    .map((s, k) => `${k ? '<span class="arr">→</span>' : ''}<span class="stg ${s.state}" title="${esc(s.note ?? '')}"><b>${esc(s.name)}</b>${s.ms !== undefined ? `<i>${s.ms < 1 ? s.ms.toFixed(2) : s.ms.toFixed(1)} ms</i>` : s.note ? `<i>${esc(s.note)}</i>` : ''}</span>`)
+    .map((s, k, arr) => `<span class="stg ${s.state}" title="${esc(s.note ?? '')}"><b>${esc(s.name)}</b>${s.ms !== undefined ? `<i>${s.ms < 1 ? s.ms.toFixed(2) : s.ms.toFixed(1)} ms</i>` : s.note ? `<i>${esc(s.note)}</i>` : ''}${k < arr.length - 1 ? '<span class="arr">→</span>' : ''}</span>`)
     .join('');
 }
 async function sha256Hex(data: BufferSource): Promise<string> {

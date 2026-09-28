@@ -1,8 +1,8 @@
 .pg-signalle { display: grid; gap: 16px; }
 .pg-signalle h2 { font-family: var(--f-display); font-size: 20px; margin: 0 0 6px; }
 .pg-signalle code { font-family: var(--f-mono); font-size: .92em; color: var(--accent); white-space: nowrap; }
-.pg-signalle .sl-muted { color: var(--ink-2); margin: 0 0 12px; max-width: 80ch; }
-.pg-signalle .sl-intro p { margin: 0; color: var(--ink-2); max-width: 90ch; }
+.pg-signalle .sl-muted { color: var(--ink-2); margin: 0 0 12px; max-width: 80ch; font-size: 14px; }
+.pg-signalle .sl-intro p { margin: 0; color: var(--ink-2); max-width: 90ch; font-size: 14px; }
 
 /* ---------- loom toolbar ---------- */
 .pg-signalle .sl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -18,10 +18,21 @@
 .pg-signalle .sl-graph-wrap {
   background: radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%), var(--code-bg);
   border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto;
+  /* When the graph still needs to scroll (tablet/desktop widths, native-size
+     render -- see layout() in signalle.ts), fade the trailing edge so a
+     partially-visible graph reads as "more to the right" instead of looking
+     complete (issue #42 M2). Harmless no-op when content fits: the fade sits
+     over empty background past the content edge. */
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 92%, transparent 100%);
 }
-/* width/height are set inline by renderGraph() (native px, not a shrink-to-fit
-   percentage) so node-label text never scales below its declared 12px. */
-.pg-signalle .sl-graph { min-width: 620px; display: block; }
+/* width/height are set inline by layout() in signalle.ts: native px above the
+   ~600px container-width floor (so node-label text never scales below its
+   declared 12px), or width:100%;height:auto below it (issue #42 P1 -- see
+   the comment in layout() for why). A min-width here would fight the
+   100% case and force the scrolled-native size back on phones, so sizing is
+   left entirely to the inline styles. */
+.pg-signalle .sl-graph { display: block; }
 .pg-signalle .sl-legend { display: flex; gap: 14px; flex-wrap: wrap; font: 11px var(--f-mono); color: var(--ink-3); padding: 6px 4px 0; }
 .pg-signalle .sl-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid; }
 .pg-signalle .sl-legend .k-source::before { border-radius: 50%; border-color: #7dd3fc; }
@@ -111,7 +122,15 @@
    phones this table itself needs to scroll horizontally instead of the
    whole page doing it. */
 .pg-signalle .sl-table { width: 100%; min-width: 480px; border-collapse: collapse; font: 12px var(--f-mono); }
-.pg-signalle .sl-table-wrap { max-width: 100%; overflow-x: auto; }
+.pg-signalle .sl-table-wrap {
+  max-width: 100%; overflow-x: auto;
+  /* The 5-column header text can't fit any phone-sized panel (see the
+     min-width note above), so this table always gets its own horizontal
+     scroll -- but with no hint the 4th/5th columns just looked cut off
+     (issue #42 P2). Fade the trailing edge the same way the graph does. */
+  -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 90%, transparent 100%);
+}
 .pg-signalle .sl-table th { text-align: left; color: var(--ink-3); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .pg-signalle .sl-table td { padding: 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .pg-signalle .sl-table td b { color: var(--accent); }
@@ -170,4 +189,18 @@ html.light .pg-signalle .sl-card .d-pct { color: hsl(var(--card-hue) 55% 28%); }
 .pg-signalle .sl-log .done { color: #86efac; }
 .pg-signalle .sl-log .err { color: var(--error, #fca5a5); }
 
-.pg-signalle .sl-explain p { color: var(--ink-2); margin: 0; max-width: 95ch; line-height: 1.65; }
+.pg-signalle .sl-explain p { color: var(--ink-2); margin: 0; max-width: 95ch; line-height: 1.65; font-size: 14px; }
+
+/* ---------- mobile: controls row (issue #42 P3) ---------- */
+/* Below 480px, "autoplay" + "reset counters" + "copy link" no longer fit
+   the .sl-bar row together and copy link wraps to a lone third line that
+   looks accidental. Make that its own deliberate row instead (M6): full
+   width, right-aligned, with a hairline separating it from the controls
+   above so it reads as "the room's link", not a stray leftover button. */
+@media (max-width: 480px) {
+  .pg-signalle .sl-bar .sl-copy-link {
+    flex: 1 1 100%; margin-top: 6px; padding-top: 8px;
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: center;
+  }
+}

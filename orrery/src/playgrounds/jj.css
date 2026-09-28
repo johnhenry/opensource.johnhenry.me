@@ -52,6 +52,15 @@
 .pg-jj .jj-bar { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin-bottom: 8px; padding-bottom: 2px; }
 .pg-jj .jj-bar .btn { flex: 0 0 auto; white-space: nowrap; }
 .pg-jj .jj-bar .jj-spacer { flex: 1 0 8px; }
+@media (max-width: 480px) {
+  /* nowrap + overflow-x:auto with no scroll hint left "rebase"/"abandon"/
+     "undo"/"redo" half-cut at the edge (issue #42 P2, M2). Wrap into a
+     multi-row grid instead: new/describe/edit/squash/rebase/abandon wrap
+     onto as many rows as needed, then the spacer forces undo/redo onto
+     their own trailing row. */
+  .pg-jj .jj-bar { flex-wrap: wrap; overflow-x: visible; }
+  .pg-jj .jj-bar .jj-spacer { flex-basis: 100%; height: 0; }
+}
 .pg-jj .jj-describe, .pg-jj .jj-pick { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; font-size: 13px; }
 .pg-jj .jj-describe[hidden], .pg-jj .jj-pick[hidden] { display: none; }
 .pg-jj .jj-describe input { flex: 1; min-width: 0; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--bg-inset); font: 13px var(--f-mono); }
@@ -122,6 +131,13 @@
 
 .pg-jj .jj-legend { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 12px; margin-top: 8px; font-size: 11px; }
 .pg-jj .jj-legend span { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 480px) {
+  /* The 4 legend entries (~514px total) don't fit a phone-width panel, and
+     nowrap+overflow-x:auto with no hint clipped "@ working copy" at the
+     right edge (issue #42 P3, M2). These are short plain-text labels, not
+     tap targets, so just let them wrap instead of scrolling. */
+  .pg-jj .jj-legend { flex-wrap: wrap; overflow-x: visible; row-gap: 4px; }
+}
 .pg-jj .jj-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 .pg-jj .jj-legend .k-id::before { background: var(--accent); }
 .pg-jj .jj-legend .k-cid::before { background: var(--ink-3); }

@@ -600,21 +600,58 @@ await batch(async () => {
           col.forEach(n => { n.row = Math.max(Math.round((n as any)._bc), last + 1); last = n.row; });
         }
       }
-      const colW = 150, rowH = 62, w = 118, h = 46, padX = 12, padY = 14;
-      let maxRow = 0;
-      nodes.forEach(n => { n.x = padX + n.col * colW; n.y = padY + n.row * rowH; maxRow = Math.max(maxRow, n.row); });
-      const W = padX * 2 + (cols.length - 1) * colW + w;
-      const H = padY * 2 + maxRow * rowH + h;
+      const w = 118, h = 46, padX = 12, padY = 14;
+      // A grid keyed by dependency depth (col) is genuinely 2-dimensional: the
+      // "cart" preset alone has 6 parallel source signals (a wide row 0) feeding
+      // a 7-deep derive chain (many columns), so neither axis fits a ~325px
+      // mobile panel at native size -- swapping which axis is "column" just
+      // trades a too-wide row for a too-wide column. That combination rendered
+      // at ~1040px wide, and scrolling it inside a 325px wrap showed only the
+      // first ~30% with no hint that more existed (issue #42, signalle P1).
+      // Below the ~600px container-width floor, abandon the column/row grid
+      // and instead flow nodes in dependency order (sources first, effects
+      // last) like wrapped text: each node keeps its native size, and the
+      // layout simply wraps to a new line whenever the next node would run
+      // past the container's width. Total width can never exceed the
+      // container, so the graph never needs to shrink or scroll -- it just
+      // grows downward, which the page already handles.
+      const wrapEl = svg.closest<HTMLElement>('.sl-graph-wrap');
+      const availW = (wrapEl?.clientWidth ?? window.innerWidth) - 20;
+      const vertical = availW > 0 && availW < 600;
+      let W: number, H: number;
+      if (vertical) {
+        const gapX = 14, gapY = 16;
+        const order = [...nodes].sort((a, b) => a.col - b.col || a.row - b.row);
+        let x = padX, y = padY, lineMaxY = padY, maxX = padX;
+        for (const n of order) {
+          if (x + w > availW && x > padX) { x = padX; y = lineMaxY + gapY; }
+          n.x = x; n.y = y;
+          x += w + gapX;
+          lineMaxY = Math.max(lineMaxY, y + h);
+          maxX = Math.max(maxX, x - gapX);
+        }
+        W = maxX + padX;
+        H = lineMaxY + padY;
+      } else {
+        const colW = 150, rowH = 62;
+        let maxRow = 0;
+        nodes.forEach(n => { n.x = padX + n.col * colW; n.y = padY + n.row * rowH; maxRow = Math.max(maxRow, n.row); });
+        W = padX * 2 + (cols.length - 1) * colW + w;
+        H = padY * 2 + maxRow * rowH + h;
+      }
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      // Render at (approximately) 1 SVG user-unit == 1 CSS px, never smaller: with
-      // width:100% + aspect-ratio, a graph with many columns (deep dependency chains)
-      // got squeezed to fit the panel width, shrinking 12px node-label text down to
-      // ~7px in the process. Below the 620px floor, stretch up to fill the panel
-      // (small graphs still look intentional); above it, render at native size and
-      // let .sl-graph-wrap's overflow-x:auto handle the scroll instead of the font.
-      const renderW = Math.max(W, 620);
-      svg.style.width = `${renderW}px`;
-      svg.style.height = `${Math.round((H * renderW) / W)}px`;
+      if (vertical) {
+        // The flow above already fits the container width by construction.
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+      } else {
+        // Render at (approximately) 1 SVG user-unit == 1 CSS px, never smaller,
+        // and let .sl-graph-wrap's horizontal scroll (with its edge fade hint)
+        // handle anything wider than the panel, so labels never shrink.
+        const renderW = Math.max(W, 620);
+        svg.style.width = `${renderW}px`;
+        svg.style.height = `${Math.round((H * renderW) / W)}px`;
+      }
       svg.innerHTML = `<defs><marker id="sl-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="sl-arrowhead"/></marker></defs>`;
       const edges = document.createElementNS(SVGNS, 'g');
       svg.appendChild(edges);
@@ -800,6 +837,15 @@ await batch(async () => {
         else { autoBox.checked = autoplayWanted; if (autoplayWanted) scheduleAuto(); }
       }, 60);
     }
+
+    // Re-run layout when the viewport crosses the mobile-scale breakpoint
+    // (resize/orientation change), so the graph doesn't get stuck native-size
+    // and hidden after e.g. rotating a phone.
+    let resizeTimer = 0;
+    on(window, 'resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = later(() => { if (loom) layout(loom); }, 150);
+    });
 
     PRESETS.forEach(p => {
       const b = document.createElement('button');
