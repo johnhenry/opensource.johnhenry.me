@@ -373,7 +373,7 @@ const playground: Playground = {
           <div class="panel">
             <div class="row-between">
               <h3>Dispatch trace</h3>
-              <div>
+              <div class="trace-actions">
                 <button class="btn" id="sv-trace-har" title="Download every dispatch that has a HAR entry as a .har file">⬇ .har</button>
                 <button class="btn trace-clear" id="sv-trace-clear">clear</button>
               </div>

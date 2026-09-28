@@ -1,5 +1,10 @@
 .pg-servant { display: grid; gap: 16px; }
 .pg-servant h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+/* text-transform inherits into any badge placed inside a heading (e.g. "Event
+   bus <span class="chip">emit() / addEventListener()</span>"), so that one
+   code-styled chip rendered as "EMIT() / ADDEVENTLISTENER()" -- every other
+   chip/badge in this room is normal-case. */
+.pg-servant h3 .chip { text-transform: none; letter-spacing: normal; }
 .pg-servant .hint { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
 .pg-servant .hint code { color: var(--accent); }
 .pg-servant .row-between { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -46,7 +51,10 @@
 /* Pattern F: wrapping this flex row lands each "chip →" pair on its own line,
    with the arrow orphaned at the end. Keep it one flowing row and let it
    scroll horizontally instead. */
-.pg-servant .chips { display: flex; flex-wrap: nowrap; overflow-x: auto; align-items: center; gap: 8px; padding-bottom: 2px; }
+/* M2: with enough middleware in the chain (e.g. "rate limit" added on top
+   of the default set) this row overflows (636px content in a 327px panel,
+   per the issue) with no visible affordance that it scrolls. */
+.pg-servant .chips { display: flex; flex-wrap: nowrap; overflow-x: auto; align-items: center; gap: 8px; padding-bottom: 2px; mask-image: linear-gradient(to right, black calc(100% - 20px), transparent); }
 .pg-servant .chip-mw, .pg-servant .chip-arrow, .pg-servant .chip-end { flex: none; }
 .pg-servant .chip-mw {
   display: flex; align-items: center; gap: 6px;
@@ -55,8 +63,15 @@
   font-family: var(--f-mono); font-size: 12px;
 }
 /* was padding: 0 2px -- an ~11x12px hit area for the reorder buttons, far
-   under a usable touch target. Pad the tap zone without growing the glyph. */
-.pg-servant .chip-mw button { background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 10px 9px; margin: -10px -5px; font-size: 12px; line-height: 1; }
+   under a usable touch target. Pad the tap zone without growing the glyph.
+   Horizontal padding/margin is tighter than the vertical (6px/-3px instead
+   of matching the 9px/-5px used elsewhere) because these two buttons (up,
+   down) sit right next to each other with only a 6px flex gap between them
+   -- the original 9px/-5px pairing gave each button 4px of horizontal
+   overreach, so their invisible tap zones overlapped by 4px (confirmed
+   live: button 1 right edge at 120.6, button 2 left edge at 116.6). 6px/-3px
+   leaves a small real gap instead. */
+.pg-servant .chip-mw button { background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 10px 6px; margin: -10px -2px; font-size: 12px; line-height: 1; }
 .pg-servant .chip-mw button:hover { color: var(--accent); }
 .pg-servant .chip-mw button:disabled { opacity: .3; cursor: default; }
 .pg-servant .chip-arrow { color: var(--ink-3); }
@@ -105,6 +120,11 @@
 .pg-servant .trace-arrow { color: var(--ink-3); }
 .pg-servant .trace-outcome { margin-top: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
 .pg-servant .trace-empty { color: var(--ink-3); font-style: italic; font-size: 12.5px; }
+/* The .har/clear buttons sat in a plain <div> with no gap declared, so the
+   only space between them was a single collapsed whitespace character
+   (~4px) -- inconsistent with every other button group in this room, which
+   all use an explicit 8px flex gap. */
+.pg-servant .trace-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .pg-servant .trace-clear { margin-top: 8px; }
 .pg-servant .trace-har-open { margin-top: 8px; padding: 4px 10px; font-size: 11px; }
 
