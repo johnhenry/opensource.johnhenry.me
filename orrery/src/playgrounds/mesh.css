@@ -13,7 +13,18 @@
 /* identity card */
 .pg-mesh .me-card { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center;
   background: radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 55%), var(--bg-panel); }
-@media (max-width: 760px) { .pg-mesh .me-card { grid-template-columns: auto 1fr; } .pg-mesh .me-actions { grid-column: 1 / -1; } }
+@media (max-width: 760px) {
+  .pg-mesh .me-card { grid-template-columns: auto 1fr; }
+  .pg-mesh .me-actions { grid-column: 1 / -1; }
+  /* align-items:center on the row vertically centers the fixed-size avatar
+     against the whole info column -- fine at desktop where that column is
+     one short line, but here it wraps to name + fingerprint + meta + a row
+     of phase pills, so the avatar visibly floats next to the middle of a
+     tall block instead of sitting beside the name (issue #42 P3). Align it
+     to the top of the row instead. */
+  .pg-mesh .me-card { align-items: start; }
+  .pg-mesh .me-avatar { margin-top: 2px; }
+}
 .pg-mesh .me-avatar { width: 76px; height: 76px; display: grid; place-items: center; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 35%, transparent)); }
 .pg-mesh .me-avatar .spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: pgmesh-spin 0.8s linear infinite; }
 @keyframes pgmesh-spin { to { transform: rotate(360deg); } }
@@ -43,6 +54,17 @@
 .pg-mesh svg .n.stale { opacity: .35; }
 .pg-mesh svg .nl { fill: var(--ink-2); font-family: var(--f-mono); font-size: 10px; text-anchor: middle; }
 .pg-mesh svg .ni { fill: var(--ink); font-family: var(--f-display); font-weight: 700; font-size: 12px; text-anchor: middle; }
+@media (max-width: 480px) {
+  /* The graph's viewBox is a fixed 440x300 and the <svg> is width:100%, so
+     its text scales down with whatever width the panel gets. On a phone
+     the panel is ~325px wide, a ~0.74x scale that shrinks these 10px/12px
+     labels to ~7px on screen (issue #42 P3, M13). Bump the *specified*
+     size so the scaled-down result still clears a readable floor; this
+     only applies below the breakpoint where the panel is that narrow, so
+     desktop (wider panel, less/no scale-down) is unaffected. */
+  .pg-mesh svg .nl { font-size: 15px; }
+  .pg-mesh svg .ni { font-size: 18px; }
+}
 .pg-mesh .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
 .pg-mesh .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .pg-mesh .lg { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--accent); }
@@ -90,7 +112,10 @@
 .pg-mesh .cev .dim { color: var(--ink-2); }
 
 /* chat */
-.pg-mesh .chat-log { height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+/* A fixed height meant the empty state ("No messages yet…") sat in a ~230px
+   dead box on load (issue #42 P3, M12) -- let it grow with content instead,
+   capped so a long conversation still scrolls. */
+.pg-mesh .chat-log { min-height: 96px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
 .pg-mesh .msg { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; }
 .pg-mesh .msg .identicon { margin-top: 2px; }
 .pg-mesh .mhead { display: flex; gap: 8px; align-items: baseline; font-size: 12px; flex-wrap: wrap; }
