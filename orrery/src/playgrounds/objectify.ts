@@ -555,22 +555,34 @@ interface Ctx {
   backend: Backend;
 }
 
+// Two lines per command (command on its own line, description indented
+// underneath) rather than one padded line with the description in a fixed
+// right-hand column — a single wide `pre` line put the whole description
+// column off-screen at phone width, leaving only the command visible
+// (issue's objectify P1: "terminal help descriptions are completely
+// off-screen"). Two short lines wrap/read fine at any viewport width.
+const COMMANDS: Array<[string, string]> = [
+  ['create [description] [--class=Name]', 'create a new object'],
+  ['list', 'list objects'],
+  ['inspect <id>', 'object metadata'],
+  ['destroy <id>', 'delete an object + history'],
+  ['use <id> get [--at=<v>]', 'read current (or pinned) state'],
+  ["use <id> set '<json>'", 'replace state entirely'],
+  ['use <id> help', 'list methods on the class'],
+  ["use <id> <method> '<json>'", 'call a method (or -p:key val ...)'],
+  ['log <id>', 'version history'],
+  ['diff <id> <v1> <v2>', 'JSON patch between two versions'],
+  ['rewind <id> <version>', 'restore a previous version'],
+  ['fork <id> [--at=<v>]', 'copy into a new independent object'],
+];
+
 function helpText(cls: ClassInfo | null, backendKind: 'local' | 'companion'): string {
   const lines = [
     `objectify — write a class, get a versioned CLI. [${backendKind === 'companion' ? 'real store via companion' : 'in-page emulation'}] commands:`,
-    '  create [description] [--class=Name]   create a new object',
-    '  list                                   list objects',
-    '  inspect <id>                           object metadata',
-    '  destroy <id>                           delete an object + history',
-    '  use <id> get [--at=<v>]                read current (or pinned) state',
-    "  use <id> set '<json>'                  replace state entirely",
-    '  use <id> help                          list methods on the class',
-    "  use <id> <method> '<json>'             call a method (or -p:key val ...)",
-    '  log <id>                               version history',
-    '  diff <id> <v1> <v2>                    JSON patch between two versions',
-    '  rewind <id> <version>                  restore a previous version',
-    '  fork <id> [--at=<v>]                   copy into a new independent object',
   ];
+  for (const [cmd, desc] of COMMANDS) {
+    lines.push(`  ${cmd}`, `      ${desc}`);
+  }
   if (cls) {
     lines.push('', `class "${cls.name}" loaded — reflected methods (always run in-page):`);
     for (const m of cls.methods) lines.push(`  use <id> ${m.name} {${m.params.join(', ')}}`);

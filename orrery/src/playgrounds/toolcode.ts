@@ -1146,6 +1146,16 @@ function mountRoom(host: HTMLElement): () => void {
     selected = turns[Number(m.dataset.turn)]?.trace ?? selected;
     refresh();
   });
+  // Adapted-JS diff annotation chips (M9/mobile): below 640px they're hidden
+  // by default (see toolcode.css) because 2-3 chips per "+" line wrapped
+  // onto their own multi-line block under the code, making the diff
+  // unreadable (issue's toolcode P2). Tapping a "+" row that has notes
+  // reveals its chips instead.
+  on(el.trace, 'click', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.tc-dl.plus');
+    if (!row || !row.querySelector('.tc-tags')?.childElementCount) return;
+    row.classList.toggle('tags-open');
+  });
 
   renderTranscript();
   renderTrace();
