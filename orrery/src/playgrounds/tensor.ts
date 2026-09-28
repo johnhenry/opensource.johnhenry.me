@@ -44,6 +44,20 @@ const fmt = (x: number, d = 3) => {
 };
 const ms = (x: number) => (x < 1 ? x.toFixed(2) : x < 10 ? x.toFixed(1) : Math.round(x).toString()) + ' ms';
 const cssVar = (el: Element, name: string, fallback: string) => getComputedStyle(el).getPropertyValue(name).trim() || fallback;
+// M13: these charts draw at a fixed internal resolution (e.g. 1000×240 for
+// the FFT spectrum) that's then scaled down by CSS to the actual panel width
+// (canvas { width:100%; height:auto }). A literal "16px" canvas font looks
+// fine at the internal resolution but shrinks with everything else once
+// displayed — confirmed live: the spectrum canvas renders at 327/1000 = .33x
+// on a phone, so its 16px axis labels come out ~5px on screen; the loss
+// curve's 12px labels come out ~7.5px. Scale the canvas font up by exactly
+// the inverse of that display ratio so the *rendered* size never drops below
+// `minPx`, without changing anything on wider viewports where it already
+// renders at/above the minimum.
+function chartFontPx(canvas: HTMLCanvasElement, basePx: number, minPx = 11): number {
+  const scale = (canvas.clientWidth || canvas.width) / canvas.width;
+  return scale > 0 ? Math.max(basePx, minPx / scale) : basePx;
+}
 
 // ROADMAP 4.2: runId for this room's telemetry, and a summary-only (never raw values) reducer
 // feeding the global Tensor Telemetry dock's tensorSummary panel.
@@ -302,7 +316,7 @@ function mountGrad(root: HTMLElement, st: State, save: () => void): () => void {
     lctx.strokeStyle = 'rgba(128,140,170,.18)'; lctx.lineWidth = 1;
     const lo = Math.log10(1e-3), hi = Math.log10(2);
     const yOf = (v: number) => H - 6 - ((Math.log10(Math.max(v, 1e-3)) - lo) / (hi - lo)) * (H - 12);
-    lctx.font = '12px ui-monospace, monospace'; lctx.fillStyle = 'rgba(160,170,200,.7)';
+    lctx.font = `${chartFontPx(lossC, 12)}px ui-monospace, monospace`; lctx.fillStyle = 'rgba(160,170,200,.7)';
     for (const g of [1, 0.1, 0.01]) { const y = yOf(g); lctx.beginPath(); lctx.moveTo(0, y); lctx.lineTo(W, y); lctx.stroke(); lctx.fillText(String(g), 4, y - 3); }
     if (history.length < 2) return;
     lctx.beginPath();
@@ -626,7 +640,7 @@ function mountFFT(root: HTMLElement, st: State, save: () => void): () => void {
     sctx.clearRect(0, 0, S, SH);
     const maxM = Math.max(...r.Xmag, 1e-9);
     const yOf = (m: number) => SH - 20 - Math.sqrt(m / maxM) * (SH - 40);
-    sctx.font = '16px ui-monospace, monospace'; sctx.fillStyle = 'rgba(160,170,200,.7)';
+    sctx.font = `${chartFontPx(specC, 16)}px ui-monospace, monospace`; sctx.fillStyle = 'rgba(160,170,200,.7)';
     for (let f = 0; f <= 256; f += 32) {
       const gx = (f / B) * S;
       const label = `${f}`;
@@ -1193,14 +1207,20 @@ const playground: Playground = {
     if (!TABS.some((t) => t[0] === st.tab)) st.tab = 'grad';
     const save = () => writeState(st, DEFAULTS);
     const root = el('div', 'pg-tensor');
+    // M4: 4 tabs + a spacer + "copy link" all in one flex-wrap row ragged-wrapped
+    // into 3 rows at phone width (Autograd alone on row 1, Units + copy link
+    // orphaned on row 3 — confirmed live). Tabs get their own single-row
+    // horizontal-scroll strip; copy link moves to a row of its own below it
+    // (M6: one consistent place) instead of competing for room-head space.
+    const tabrow = el('div', 'tabrow');
     const bar = el('div', 'tabbar');
     const body = el('div', 'tabbody');
     for (const [id, name, pk] of TABS) {
       const b = el('button', 'tab', `<b>${name}</b><small>${pk}</small>`); b.dataset.tab = id; b.setAttribute('role', 'tab'); bar.append(b);
     }
     const link = el('button', 'tb-btn copy', 'copy link');
-    bar.append(el('span', 'spacer'), link);
-    root.append(bar, body);
+    tabrow.append(bar, link);
+    root.append(tabrow, body);
     host.append(root);
 
     let cleanup: (() => void) | null = null;

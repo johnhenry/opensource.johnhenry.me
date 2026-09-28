@@ -14,7 +14,13 @@
 
 .pg-leserve .lsv-note { margin: -4px 0 0; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
 
-.pg-leserve h3 { margin: 0 0 8px; font-family: var(--f-display); font-size: 14px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+/* M5: h3 had no flex-wrap, so a long meta pill (e.g. "(request, context) =>
+   Response") was forced to shrink to fit beside the title -- its own text
+   then wrapped inside the pill onto two lines (confirmed live). flex-wrap
+   lets the pill drop to its own full line instead, and white-space:nowrap
+   keeps its text on one line once it does. */
+.pg-leserve h3 { margin: 0 0 8px; font-family: var(--f-display); font-size: 14px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.pg-leserve h3 .chip { white-space: nowrap; }
 .pg-leserve h3:not(:first-child) { margin-top: 16px; }
 
 .pg-leserve .lsv-req-row { display: flex; gap: 12px; margin-bottom: 10px; }
@@ -25,7 +31,10 @@
 .pg-leserve #headers { min-height: 64px; }
 .pg-leserve #body { min-height: 84px; }
 
-.pg-leserve #send { margin-top: 10px; width: 100%; justify-content: center; }
+/* was #send -- the actual button is #send-btn, so this rule never matched
+   anything: no top margin (issue's "Send button is 2px below the Body
+   textarea"), not full width, not centered. */
+.pg-leserve #send-btn { margin-top: 10px; width: 100%; justify-content: center; }
 
 .pg-leserve .lsv-status { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-family: var(--f-mono); }
 .pg-leserve .lsv-code { display: inline-block; padding: 2px 9px; border-radius: 6px; font-weight: 700; font-size: 13px; }
@@ -62,4 +71,13 @@
 
 @media (max-width: 720px) {
   .pg-leserve .lsv-toolbar .stat { margin-left: 0; }
+  /* The 140px min-height on .lsv-wire pre.code exists to match the taller
+     sibling once .grid-2 lays the two wire panes out side by side (see the
+     "Pattern E" note above) -- but .grid-2's auto-fit collapses to a single
+     column below ~616px, so Request and Response are no longer competing
+     for the same row height, and a short Request trace just sits inside a
+     mostly-empty 140px box (M12, confirmed live: "Wire view Request pre is
+     ~50% empty"). Below the same breakpoint .grid-2 itself collapses, drop
+     the floor so it hugs its own (usually shorter) content instead. */
+  .pg-leserve .lsv-wire pre.code { min-height: 60px; }
 }

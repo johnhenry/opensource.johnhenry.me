@@ -1,12 +1,17 @@
 .pg-afm { display: flex; flex-direction: column; gap: 16px; }
 
+/* M6: with no wrap, the intro paragraph (a flex item with no explicit
+   basis) had to share the row with the never-shrinking copy-link button,
+   so it was squeezed down to a narrow column instead of using the panel's
+   full width -- confirmed live (~230px for the paragraph). Give it its own
+   full-width row and drop the button underneath. */
 .pg-afm .pg-topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
 }
-.pg-afm .pg-topbar .pg-hint { margin: 0; }
+.pg-afm .pg-topbar .pg-hint { flex: 1 1 100%; margin: 0; }
 .pg-afm .pg-topbar .pg-copy-link { flex-shrink: 0; }
 
 .pg-afm .pg-status-head {
@@ -17,18 +22,23 @@
 }
 .pg-afm .pg-status-head h3 { margin: 0; }
 
+/* Each .pg-status-row used to be its own independent grid (display:grid),
+   so its "auto" label column sized to that row's own label width only --
+   with labels of different lengths ("OS / arch" vs "on-device" etc.), the
+   value column started at a different x per row (confirmed live: value
+   left-edges at 196.8 / 184.4 / 190.5). Make the *grid* the shared
+   container and let each row's children flow into it directly
+   (display:contents) so all rows size the label column to the same,
+   widest-label width. */
 .pg-afm .pg-status-grid {
-  display: grid;
-  gap: 8px;
-}
-.pg-afm .pg-status-row {
   display: grid;
   grid-template-columns: 14px auto 1fr;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   font-size: 13px;
   color: var(--ink-2);
 }
+.pg-afm .pg-status-row { display: contents; }
 .pg-afm .pg-status-row b { color: var(--ink); }
 .pg-afm .pg-status-note { color: var(--ink-2); font-family: var(--f-mono); font-size: 12px; }
 .pg-afm .pg-status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
@@ -136,6 +146,19 @@
   overflow-wrap: break-word;
 }
 .pg-afm .pg-api-table th { color: var(--ink-2); font-weight: 600; }
+/* M3: table-layout:fixed splits the two columns 50/50 (~150px each at phone
+   width), and several Swift/TS signatures have no natural break point near
+   the middle of that width (e.g. "session.respond(prompt)"), so
+   overflow-wrap:break-word had to split them mid-token ("respond(pr/ompt)",
+   confirmed live). Below 560px, stack each row into a labelled card instead
+   so each snippet gets the panel's full width. */
+@media (max-width: 560px) {
+  .pg-afm .pg-api-table, .pg-afm .pg-api-table tbody, .pg-afm .pg-api-table tr { display: block; width: 100%; }
+  .pg-afm .pg-api-table thead { display: none; }
+  .pg-afm .pg-api-table tr { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .pg-afm .pg-api-table td { display: block; border-bottom: 0; padding: 3px 0; }
+  .pg-afm .pg-api-table td::before { content: attr(data-label); display: block; font-family: var(--f-display); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-bottom: 1px; }
+}
 
 .pg-afm .pg-snippet-block { margin: 10px 0; }
 .pg-afm .pg-snippet-block summary { cursor: pointer; color: var(--ink-2); font-size: 13px; margin-bottom: 6px; }

@@ -9,8 +9,14 @@
 .pg-dialback .companion-banner .err { display: block; margin-top: 6px; }
 .pg-dialback h3 { margin: 0; font-family: var(--f-display); font-size: 16px; letter-spacing: .01em; }
 .pg-dialback h3 small { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); font-weight: 400; margin-left: 8px; letter-spacing: 0; }
-.pg-dialback .ph { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-.pg-dialback .ph h3 { flex: 1; min-width: 180px; }
+/* M5: h3's flex:1 + min-width:180 let a wide sibling button squeeze it down
+   to ~223px, at which point its own title + <small> caption ("The public
+   side" / "the in-page Server") no longer fit on one line and wrapped mid
+   word ("the in-\npage Server") -- confirmed live at 393px. Give the title
+   its own full-width row so it gets the whole panel's width to lay out in,
+   and drop the button to a second row underneath. */
+.pg-dialback .ph { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.pg-dialback .ph h3 { flex: 1 1 100%; min-width: 180px; }
 .pg-dialback .muted { color: var(--ink-3); }
 .pg-dialback .ok { color: var(--success); }
 .pg-dialback .bad { color: var(--error); }
@@ -147,6 +153,10 @@
 .pg-dialback .how ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--ink-2); font-size: 14px; }
 .pg-dialback .how b { color: var(--ink); }
 .pg-dialback .how code { background: var(--code-bg); color: var(--code-ink); padding: 0 5px; border-radius: 4px; font-size: 12px; }
+/* M13: the "no companion" footer <p> sits outside the <ol> above, so it
+   didn't inherit the list's 14px and fell back to the page default (16px) --
+   confirmed live (14px vs 16px). One prose scale for this panel's body copy. */
+.pg-dialback .how p.muted { font-size: 14px; margin-top: 8px; }
 
 @media (max-width: 640px) {
   .pg-dialback .stage { grid-template-columns: 1fr; }

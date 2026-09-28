@@ -300,38 +300,77 @@ const playground: Playground = {
     const svg = $<SVGSVGElement>('.topo');
 
     /* -------------------------- topology SVG ------------------------- */
-    const X = { client: 95, server: 360, nat: 610, tab: 855 };
-    const Y = 140;
+    // issue's dialback P1: the desktop topology (client—server—NAT—tab laid
+    // out left-to-right in a 1000×270 viewBox) was simply scaled down to fit
+    // a 327px-wide panel, shrinking every label to ~4px and making the whole
+    // diagram unreadable. Below 640px we build a genuinely different, taller,
+    // portrait layout — the same four nodes stacked top-to-bottom — instead
+    // of squeezing the wide one. `vertical` picks which; `MAIN` holds each
+    // node's position along the "separation" axis (screen-x when horizontal,
+    // screen-y when stacked) and `CROSS` is the fixed perpendicular position
+    // shared by all nodes. `center()` turns a node into real screen [x, y]
+    // for either orientation, so every per-node label offset below (title
+    // above/below, icon, sub-lines) is written once as a plain screen-Y delta
+    // and works unchanged in both layouts. `shiftMain()` is only needed for
+    // the wires/tube, which run *along* the separation axis.
+    const vertical = window.matchMedia('(max-width: 640px)').matches;
+    const MAIN = vertical
+      ? { client: 90, server: 300, nat: 540, tab: 800 }
+      : { client: 95, server: 360, nat: 610, tab: 855 };
+    const CROSS = vertical ? 170 : 140;
+    const VIEWBOX = vertical ? '0 0 340 900' : '0 0 1000 270';
+    type NodeKey = keyof typeof MAIN;
+    const center = (node: NodeKey): [number, number] => (vertical ? [CROSS, MAIN[node]] : [MAIN[node], CROSS]);
+    const shiftMain = (node: NodeKey, delta: number): [number, number] => { const [x, y] = center(node); return vertical ? [x, y + delta] : [x + delta, y]; };
+    const [cx0, cy0] = center('client');
+    const [sx0, sy0] = center('server');
+    const [tx0, ty0] = center('tab');
+    const legAStart = shiftMain('client', 40);
+    const legAEnd = shiftMain('server', -70);
+    const legBStart = shiftMain('server', 70);
+    const legBEnd = shiftMain('tab', -70);
+    const wallRects = vertical
+      ? `<rect x="24" y="${MAIN.nat - 14}" width="${CROSS - 16 - 24}" height="28" fill="url(#dbBricks)" rx="3"/>
+         <rect x="${CROSS + 16}" y="${MAIN.nat - 14}" width="${316 - (CROSS + 16)}" height="28" fill="url(#dbBricks)" rx="3"/>
+         <rect x="${CROSS - 16}" y="${MAIN.nat - 12}" width="32" height="24" class="hole" rx="4"/>`
+      : `<rect x="${MAIN.nat - 14}" y="40" width="28" height="${CROSS - 52}" fill="url(#dbBricks)" rx="3"/>
+         <rect x="${MAIN.nat - 14}" y="${CROSS + 12}" width="28" height="${230 - CROSS - 12}" fill="url(#dbBricks)" rx="3"/>
+         <rect x="${MAIN.nat - 16}" y="${CROSS - 12}" width="32" height="24" class="hole" rx="4"/>`;
+    const natLabelAttrs = vertical ? ` style="text-anchor:start"` : '';
+    const [natLx, natLy] = vertical ? [CROSS + 60, MAIN.nat - 2] : [MAIN.nat, 252];
+    const [natLx2, natLy2] = vertical ? [CROSS + 60, MAIN.nat + 14] : [MAIN.nat, 266];
+    const [zonePubX, zonePubY] = vertical ? [CROSS, 24] : [MAIN.client + 130, 24];
+    const [zonePrivX, zonePrivY] = vertical ? [CROSS + 60, MAIN.nat + 70] : [MAIN.tab, 24];
+    const [tubeLblX, tubeLblY] = vertical ? [CROSS, MAIN.server + 72] : [(MAIN.server + MAIN.tab) / 2, 34];
+    svg.setAttribute('viewBox', VIEWBOX);
     svg.innerHTML = `
       <defs>
         <linearGradient id="dbTube" x1="0" x2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".15"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".35"/></linearGradient>
         <pattern id="dbBricks" width="24" height="14" patternUnits="userSpaceOnUse">
           <rect width="24" height="14" fill="var(--bg-inset)"/><path d="M0 0H24M0 7H24M12 0V7M0 7V14M24 7V14" stroke="var(--line)" stroke-width="1.5"/></pattern>
       </defs>
-      <text x="${X.client + 130}" y="24" class="zone">PUBLIC INTERNET</text>
-      <text x="${X.tab}" y="24" class="zone">PRIVATE NETWORK</text>
-      <line x1="${X.client + 40}" y1="${Y}" x2="${X.server - 70}" y2="${Y}" class="wire legA"/>
-      <path class="tube" d="M${X.server + 70} ${Y} H${X.tab - 70}" />
-      <path class="tube-flow" d="M${X.tab - 70} ${Y} H${X.server + 70}" />
+      <text x="${zonePubX}" y="${zonePubY}" class="zone">PUBLIC INTERNET</text>
+      <text x="${zonePrivX}" y="${zonePrivY}" class="zone"${natLabelAttrs}>PRIVATE NETWORK</text>
+      <line x1="${legAStart[0]}" y1="${legAStart[1]}" x2="${legAEnd[0]}" y2="${legAEnd[1]}" class="wire legA"/>
+      <path class="tube" d="M${legBStart[0]} ${legBStart[1]} L${legBEnd[0]} ${legBEnd[1]}" />
+      <path class="tube-flow" d="M${legBEnd[0]} ${legBEnd[1]} L${legBStart[0]} ${legBStart[1]}" />
       <g class="nat">
-        <rect x="${X.nat - 14}" y="40" width="28" height="${Y - 52}" fill="url(#dbBricks)" rx="3"/>
-        <rect x="${X.nat - 14}" y="${Y + 12}" width="28" height="${230 - Y - 12}" fill="url(#dbBricks)" rx="3"/>
-        <rect x="${X.nat - 16}" y="${Y - 12}" width="32" height="24" class="hole" rx="4"/>
-        <text x="${X.nat}" y="252" class="lbl">NAT / firewall</text>
-        <text x="${X.nat}" y="266" class="sub">outbound only</text>
+        ${wallRects}
+        <text x="${natLx}" y="${natLy}" class="lbl"${natLabelAttrs}>NAT / firewall</text>
+        <text x="${natLx2}" y="${natLy2}" class="sub"${natLabelAttrs}>outbound only</text>
       </g>
-      <g class="node client"><circle cx="${X.client}" cy="${Y}" r="38"/><text x="${X.client}" y="${Y - 2}" class="icon">$_</text>
-        <text x="${X.client}" y="${Y + 62}" class="lbl">public client</text><text x="${X.client}" y="${Y + 78}" class="sub">${live ? 'curl · this page' : 'this page'}</text></g>
-      <g class="node server"><rect x="${X.server - 70}" y="${Y - 44}" width="140" height="88" rx="12"/>
-        <text x="${X.server}" y="${Y - 8}" class="title">dialback Server</text>
-        <text x="${X.server}" y="${Y + 12}" class="sub mono">${live ? 'localhost:7777' : 'in this page'}</text>
-        <text x="${X.server}" y="${Y + 30}" class="sub mono">server.fetch(req)</text></g>
-      <g class="node tab"><rect x="${X.tab - 70}" y="${Y - 50}" width="140" height="100" rx="12"/>
-        <text x="${X.tab}" y="${Y - 26}" class="title">this tab</text>
-        <text x="${X.tab}" y="${Y - 8}" class="sub mono agent-id">Agent</text>
-        <rect x="${X.tab - 52}" y="${Y + 4}" width="104" height="30" rx="6" class="handler"/>
-        <text x="${X.tab}" y="${Y + 24}" class="sub mono">handler(req)</text></g>
-      <text x="${(X.server + X.tab) / 2}" y="34" class="tube-lbl">WebSocket the tab dialled out</text>
+      <g class="node client"><circle cx="${cx0}" cy="${cy0}" r="38"/><text x="${cx0}" y="${cy0 - 2}" class="icon">$_</text>
+        <text x="${cx0}" y="${cy0 + 62}" class="lbl">public client</text><text x="${cx0}" y="${cy0 + 78}" class="sub">${live ? 'curl · this page' : 'this page'}</text></g>
+      <g class="node server"><rect x="${sx0 - 70}" y="${sy0 - 44}" width="140" height="88" rx="12"/>
+        <text x="${sx0}" y="${sy0 - 8}" class="title">dialback Server</text>
+        <text x="${sx0}" y="${sy0 + 12}" class="sub mono">${live ? 'localhost:7777' : 'in this page'}</text>
+        <text x="${sx0}" y="${sy0 + 30}" class="sub mono">server.fetch(req)</text></g>
+      <g class="node tab"><rect x="${tx0 - 70}" y="${ty0 - 50}" width="140" height="100" rx="12"/>
+        <text x="${tx0}" y="${ty0 - 26}" class="title">this tab</text>
+        <text x="${tx0}" y="${ty0 - 8}" class="sub mono agent-id">Agent</text>
+        <rect x="${tx0 - 52}" y="${ty0 + 4}" width="104" height="30" rx="6" class="handler"/>
+        <text x="${tx0}" y="${ty0 + 24}" class="sub mono">handler(req)</text></g>
+      <text x="${tubeLblX}" y="${tubeLblY}" class="tube-lbl">WebSocket the tab dialled out</text>
       <g class="packets"></g>`;
     const packetsG = svg.querySelector('.packets') as SVGGElement;
     const tabNode = svg.querySelector('.node.tab') as SVGGElement;
@@ -339,12 +378,23 @@ const playground: Playground = {
     const agentIdText = svg.querySelector('.agent-id') as SVGTextElement;
     const flash = (el: Element, cls = 'hit') => { el.classList.remove(cls); void (el as HTMLElement).getBoundingClientRect(); el.classList.add(cls); };
 
-    // Leg endpoints. "A" = client⇄server over the open internet, "B" = server⇄tab through the tunnel.
-    const LEG = {
-      A: [X.client + 40, X.server - 72] as const,
-      B: [X.server + 72, X.tab - 72] as const,
+    // Leg endpoints as real [x, y] screen points (not bare x scalars) so the
+    // same packet-flight code below animates correctly whether the leg runs
+    // horizontally (desktop) or vertically (mobile). "A" = client⇄server
+    // over the open internet, "B" = server⇄tab through the tunnel.
+    const LEG: Record<'A' | 'B', readonly [[number, number], [number, number]]> = {
+      A: [shiftMain('client', 40), shiftMain('server', -72)],
+      B: [shiftMain('server', 72), shiftMain('tab', -72)],
     };
-    interface Pkt { x0: number; x1: number; t0: number; dur: number; g: SVGGElement; done: () => void; bounce?: number; y?: number }
+    interface Pkt {
+      p0: [number, number]; p1: [number, number]; t0: number; dur: number; g: SVGGElement; done: () => void;
+      /** Point where a non-delivered packet (the "knock") hits the wall and bounces off instead of arriving. */
+      bounce?: [number, number];
+      /** Post-bounce recoil, added linearly (back the way it came). */
+      back?: [number, number];
+      /** Post-bounce fall, added with a t² ease (perpendicular to travel — "falls away"). */
+      fall?: [number, number];
+    }
     const pkts: Pkt[] = [];
     let raf = 0;
     const chain = new Map<string, number>(); // id → time its visual sequence is free again
@@ -365,17 +415,33 @@ const playground: Playground = {
       for (let i = pkts.length - 1; i >= 0; i--) {
         const p = pkts[i];
         if (now < p.t0) continue;
-        let k = Math.min(1, (now - p.t0) / p.dur);
-        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-        let x = p.x0 + (p.x1 - p.x0) * e;
-        if (p.bounce !== undefined) {
+        const k = Math.min(1, (now - p.t0) / p.dur);
+        if (p.bounce) {
           // travel to the wall, then fall away
           const hit = 0.55;
-          if (k < hit) x = p.x0 + (p.bounce - p.x0) * (k / hit);
-          else { x = p.bounce - 40 * ((k - hit) / (1 - hit)); p.g.setAttribute('transform', `translate(${x},${(p.y ?? Y) + 70 * Math.pow((k - hit) / (1 - hit), 2)})`); p.g.style.opacity = String(1 - (k - hit) / (1 - hit)); if (k >= 1) { p.g.remove(); pkts.splice(i, 1); p.done(); } continue; }
+          if (k < hit) {
+            const t = k / hit;
+            const x = p.p0[0] + (p.bounce[0] - p.p0[0]) * t;
+            const y = p.p0[1] + (p.bounce[1] - p.p0[1]) * t;
+            p.g.style.opacity = '1';
+            p.g.setAttribute('transform', `translate(${x},${y})`);
+          } else {
+            const t = (k - hit) / (1 - hit);
+            const back = p.back ?? [0, 0];
+            const fall = p.fall ?? [0, 0];
+            const x = p.bounce[0] + back[0] * t + fall[0] * t * t;
+            const y = p.bounce[1] + back[1] * t + fall[1] * t * t;
+            p.g.setAttribute('transform', `translate(${x},${y})`);
+            p.g.style.opacity = String(1 - t);
+            if (k >= 1) { p.g.remove(); pkts.splice(i, 1); p.done(); }
+          }
+          continue;
         }
+        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        const x = p.p0[0] + (p.p1[0] - p.p0[0]) * e;
+        const y = p.p0[1] + (p.p1[1] - p.p0[1]) * e;
         p.g.style.opacity = '1';
-        p.g.setAttribute('transform', `translate(${x},${p.y ?? Y})`);
+        p.g.setAttribute('transform', `translate(${x},${y})`);
         if (k >= 1) { p.g.remove(); pkts.splice(i, 1); p.done(); }
       }
       if (pkts.length) raf = requestAnimationFrame(tick);
@@ -388,19 +454,27 @@ const playground: Playground = {
       const t0 = Math.max(now, chain.get(id) ?? now);
       chain.set(id, t0 + dur);
       return new Promise((done) => {
-        pkts.push({ x0: fwd ? a : b, x1: fwd ? b : a, t0, dur, g: drawPkt(cls, label), done });
+        pkts.push({ p0: fwd ? [...a] : [...b], p1: fwd ? [...b] : [...a], t0, dur, g: drawPkt(cls, label), done });
         kick();
       });
     }
     function knock() {
       const g = drawPkt('blk', 'SYN →');
-      pkts.push({ x0: X.client + 30, x1: X.tab, t0: performance.now(), dur: 1500, g, bounce: X.nat - 18, y: Y + 62, done: () => {} });
+      // A lane offset from the connected wire/tube so it doesn't visually
+      // overlap the "real" traffic, running the full client→tab span.
+      const lane = CROSS + 62;
+      const p0: [number, number] = vertical ? [lane, MAIN.client + 30] : [MAIN.client + 30, lane];
+      const p1: [number, number] = vertical ? [lane, MAIN.tab] : [MAIN.tab, lane];
+      const bounce: [number, number] = vertical ? [lane, MAIN.nat - 18] : [MAIN.nat - 18, lane];
+      const back: [number, number] = vertical ? [0, -40] : [-40, 0];
+      const fall: [number, number] = vertical ? [70, 0] : [0, 70];
+      pkts.push({ p0, p1, t0: performance.now(), dur: 1500, g, bounce, back, fall, done: () => {} });
       kick();
       setTimeout(() => flash(svg.querySelector('.nat')!, 'deny'), 700);
     }
     function dialAnim() {
       const g = drawPkt('dial', 'dial');
-      pkts.push({ x0: LEG.B[1], x1: LEG.B[0], t0: performance.now(), dur: 900, g, done: () => flash(serverNode) });
+      pkts.push({ p0: [...LEG.B[1]], p1: [...LEG.B[0]], t0: performance.now(), dur: 900, g, done: () => flash(serverNode) });
       kick();
     }
 
