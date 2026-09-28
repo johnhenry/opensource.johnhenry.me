@@ -1,5 +1,9 @@
 .pg-fields { display: grid; gap: 16px; }
-.pg-fields h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+/* "Canonical re-serialization <chip>" and "Typed decode <chip>" had no wrap,
+   so a long title next to a pill either overflowed or squeezed badly
+   (issue #42, Header Fields P2, pattern M5) */
+.pg-fields h3 { margin: 0 0 10px; font-family: var(--f-display); font-size: 15px; letter-spacing: .01em; color: var(--ink); display: flex; flex-wrap: wrap; row-gap: 6px; align-items: center; gap: 8px; }
+.pg-fields h3 .chip { white-space: nowrap; }
 .pg-fields .mono { font-family: var(--f-mono); }
 
 .pg-fields .fld-input { display: grid; gap: 10px; }
@@ -9,8 +13,17 @@
 /* the preset <select>'s intrinsic (content) width can exceed its 240px field column
    and run under the next field (Header name) -- force it to respect the column. */
 .pg-fields .fld-preset { width: 100%; min-width: 0; }
-.pg-fields .fld-detected { align-self: center; margin-bottom: 2px; white-space: nowrap; }
-.pg-fields .fld-copy-link { align-self: center; margin-bottom: 2px; white-space: nowrap; font-size: 12px; padding: 6px 10px; }
+/* The `type: dictionary` badge and the two buttons used to be bare flex
+   siblings of the .field columns, so they sat lower than the Field-type
+   select (whose own label text pushes the select down inside its box) and
+   "Use my Sec-CH-UA" could wrap to 2 lines while "Copy link" stayed on 1,
+   making the two look mismatched in size (issue #42, Header Fields P2,
+   pattern M5). Group them into their own row, vertically centered together
+   and never wrapping internally. */
+.pg-fields .fld-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1 1 100%; }
+.pg-fields .fld-detected { white-space: nowrap; }
+.pg-fields .fld-use-uach, .pg-fields .fld-copy-link { white-space: nowrap; }
+.pg-fields .fld-copy-link { font-size: 12px; padding: 6px 10px; }
 .pg-fields .fld-value { min-height: 64px; }
 .pg-fields .fld-note { margin: 0; color: var(--ink-2); font-size: 13px; }
 .pg-fields .fld-error { color: var(--error); white-space: pre; overflow-x: auto; }

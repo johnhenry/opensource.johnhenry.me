@@ -1522,8 +1522,13 @@ const playground: Playground = {
         writeState(pick, DEFAULTS);
       },
     };
+    // The tab strip scrolls horizontally on its own (see .mo-tabs-row in
+    // math.css); copy-link sits outside it so it never gets pushed onto its
+    // own wrapped row (issue #42, Math Observatory P2, M4/M6).
+    const tabsRow = h('div', { class: 'mo-tabs-row' });
     const tabs = h('div', { class: 'mo-tabs', role: 'tablist' });
-    root.append(tabs);
+    tabsRow.append(tabs);
+    root.append(tabsRow);
     const body = h('div');
     root.append(body);
 
@@ -1570,7 +1575,7 @@ const playground: Playground = {
       clearTimeout(linkTimer);
       linkTimer = window.setTimeout(() => { linkBtn.textContent = '🔗 copy link'; }, 1400);
     });
-    tabs.append(linkBtn);
+    tabsRow.append(linkBtn);
     show(url.mode);
 
     return () => {

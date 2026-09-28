@@ -473,12 +473,16 @@ const playground: Playground = {
     root.innerHTML = `
       <div class="panel ck-bar">
         <div class="ck-presets">
-          <span class="stat">presets</span>
-          <button class="btn" data-preset="wiki">Wikipedia-style</button>
-          <button class="btn" data-preset="meeting">Meeting notes</button>
-          <button class="btn" data-preset="readme">Markdown README</button>
-          <button class="btn" data-preset="spintax" hidden>Spintax document</button>
-          <button class="btn ck-copy" data-copy title="Copy a link to these settings">🔗 copy link</button>
+          <div class="ck-presets-list">
+            <span class="stat">presets</span>
+            <button class="btn" data-preset="wiki">Wikipedia-style</button>
+            <button class="btn" data-preset="meeting">Meeting notes</button>
+            <button class="btn" data-preset="readme">Markdown README</button>
+            <button class="btn" data-preset="spintax" hidden>Spintax document</button>
+          </div>
+          <div class="ck-actions" data-actions>
+            <button class="btn ck-copy" data-copy title="Copy a link to these settings">🔗 copy link</button>
+          </div>
         </div>
         <div class="ck-controls">
           <label class="field">segmenter
@@ -639,7 +643,7 @@ const playground: Playground = {
     });
     toLaya.title = 'Runs the moderationQuestions() preset in Laya Playground against every current chunk';
     toLaya.disabled = true;
-    root.querySelector('.ck-presets')!.appendChild(toLaya);
+    root.querySelector('[data-actions]')!.appendChild(toLaya);
 
     // ---- send chunks to Hashish, to find near-duplicate chunks ----
     const toHashishDedupe = handoffButton({
@@ -651,7 +655,7 @@ const playground: Playground = {
     });
     toHashishDedupe.title = 'Indexes every current chunk in Hashish Lab (MinHash + LSH) to find near-duplicate chunks';
     toHashishDedupe.disabled = true;
-    root.querySelector('.ck-presets')!.appendChild(toHashishDedupe);
+    root.querySelector('[data-actions]')!.appendChild(toHashishDedupe);
 
     // ---- embedders + cache ----
     type EmbedderId = 'toy' | 'minilm' | 'ollama';

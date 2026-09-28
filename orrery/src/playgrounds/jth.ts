@@ -612,6 +612,7 @@ const playground: Playground = {
           <span class="stat">compile <b data-s="ms">0</b>ms</span>
           <span class="stat">operators <b data-s="ops">0</b></span>
         </div>
+        <button class="btn copy-link" data-a="copylink" title="Copy a link to this program">copy link</button>
       </div>
       <div class="runbar">
         <label class="legacy"><input type="checkbox" class="legacy-input"> run on main thread <span class="hint">(legacy — can freeze the tab)</span></label>
@@ -620,7 +621,6 @@ const playground: Playground = {
           <b data-s="timeoutms">3000</b>ms
         </label>
         <button class="btn kill" data-a="kill" disabled title="Abort the current sandbox run">■ Kill</button>
-        <button class="btn copy-link" data-a="copylink" title="Copy a link to this program">copy link</button>
       </div>
       <div class="runbar sandboxbar">
         <label class="field">sandbox policy (<code>@johnhenry/jth-eval</code>)

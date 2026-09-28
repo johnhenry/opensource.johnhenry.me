@@ -31,6 +31,9 @@
   min-width: 0;
 }
 
+/* fixed 360px/220px heights left a mostly-empty box before Run finished
+   populating them (issue #42, Tester Console P2, pattern M12) -- grow with
+   content instead, up to the same cap. */
 .pg-tester .term {
   background: var(--code-bg);
   color: var(--code-ink);
@@ -40,7 +43,9 @@
   font-family: var(--f-mono);
   font-size: 12.5px;
   line-height: 1.55;
-  height: 360px;
+  height: auto;
+  min-height: 96px;
+  max-height: 360px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;

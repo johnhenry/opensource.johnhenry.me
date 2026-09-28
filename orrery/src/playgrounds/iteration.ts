@@ -562,11 +562,11 @@ const playground: Playground = {
             even trying to make more work.
           </p>
           <div class="bp-controls">
-            <label class="field">channel capacity (limit)<input type="range" id="bpCapacity" min="1" max="12" step="1" value="3"> <span class="ck-val" id="bpCapacityVal">3</span></label>
-            <label class="field">producer interval (ms)<input type="range" id="bpProduceMs" min="20" max="600" step="20" value="120"> <span class="ck-val" id="bpProduceMsVal">120</span></label>
-            <label class="field">producer burst chance<input type="range" id="bpBurst" min="0" max="80" step="5" value="35"> <span class="ck-val" id="bpBurstVal">35</span>%</label>
-            <label class="field">consumer interval (ms, both lanes)<input type="range" id="bpConsumeMs" min="40" max="800" step="20" value="260"> <span class="ck-val" id="bpConsumeMsVal">260</span></label>
-            <label class="field">prefetch depth (lane B)<input type="range" id="bpPrefetch" min="1" max="10" step="1" value="4"> <span class="ck-val" id="bpPrefetchVal">4</span></label>
+            <label class="field"><span class="bp-field-label">channel capacity (limit) <span class="ck-val" id="bpCapacityVal">3</span></span><input type="range" id="bpCapacity" min="1" max="12" step="1" value="3"></label>
+            <label class="field"><span class="bp-field-label">producer interval (ms) <span class="ck-val" id="bpProduceMsVal">120</span></span><input type="range" id="bpProduceMs" min="20" max="600" step="20" value="120"></label>
+            <label class="field"><span class="bp-field-label">producer burst chance <span class="ck-val" id="bpBurstVal">35</span>%</span><input type="range" id="bpBurst" min="0" max="80" step="5" value="35"></label>
+            <label class="field"><span class="bp-field-label">consumer interval (ms, both lanes) <span class="ck-val" id="bpConsumeMsVal">260</span></span><input type="range" id="bpConsumeMs" min="40" max="800" step="20" value="260"></label>
+            <label class="field"><span class="bp-field-label">prefetch depth (lane B) <span class="ck-val" id="bpPrefetchVal">4</span></span><input type="range" id="bpPrefetch" min="1" max="10" step="1" value="4"></label>
           </div>
           <div class="btn-row">
             <button class="btn primary" id="bpStart">▶ Start</button>

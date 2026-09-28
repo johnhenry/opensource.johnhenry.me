@@ -14,10 +14,39 @@
 /* label.field's own muted color (var(--ink-2)) cascades into its input/select, which
    makes live values read as washed-out/disabled. Fields should read as active text. */
 .pg-iteration label.field input, .pg-iteration label.field select { color: var(--ink); }
+/* Source (kind/start/step) and Run (speed/max tokens) inputs stayed at their
+   ~200px desktop width in a single-column phone layout, so the right edge
+   went ragged (issue #42, Iteration Pipes P3, pattern M7). */
+@media (max-width: 480px) {
+  .pg-iteration .row > label.field { flex: 1 1 100%; min-width: 0; }
+  .pg-iteration .row > label.field input,
+  .pg-iteration .row > label.field select { width: 100%; box-sizing: border-box; }
+}
+/* Run/Stop (base .btn, ~40px tall with default padding) sat next to the 3
+   preset buttons (.btn.small, ~32px) in the same wrapped row, at visibly
+   different heights (issue #42, Iteration Pipes P2). Give every button in
+   this row one consistent height regardless of its own font-size/padding. */
+.pg-iteration .btn-row .btn { height: 36px; box-sizing: border-box; white-space: nowrap; }
+/* "Start" and "Stop (abortable + throwIfAborted)" wrap to their own rows at
+   very different intrinsic widths (issue #42, Iteration Pipes P2). Full width
+   for both removes the mismatch once they've wrapped anyway. */
+@media (max-width: 480px) {
+  .pg-iteration .bp-panel > .btn-row .btn { flex: 1 1 100%; justify-content: center; }
+}
 
 /* ---- pipe row ---- */
-.pipe-scroll { overflow-x: auto; padding: 4px 2px 14px; }
+/* the pipeline is wider than the phone panel with no visual hint that it
+   scrolls, so the second stage card (and everything after it) reads as
+   missing rather than off-screen (issue #42, Iteration Pipes P2, pattern
+   M2) -- fade the trailing edge and snap stage-to-stage. */
+.pipe-scroll {
+  overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(90deg, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+}
 .pipe-row { display: flex; align-items: stretch; gap: 0; min-height: 150px; }
+.pg-iteration .node { scroll-snap-align: start; }
 .pg-iteration .node {
   position: relative;
   flex: 0 0 176px;
@@ -74,7 +103,21 @@
 }
 .inflight-badge.active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent); }
 
-.add-stage-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+/* the native <select> here had no styling at all (default UA appearance) next
+   to a normal .btn, so it sat at a different height/font from the button
+   beside it (issue #42, Iteration Pipes P2). Give it the same field styling
+   used everywhere else in this room, sized to match the button. */
+.add-stage-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.add-stage-row select {
+  flex: 1 1 160px; min-width: 0; height: 36px; box-sizing: border-box;
+  padding: 0 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg-inset); color: var(--ink); font-size: 13px;
+}
+.add-stage-row .btn { height: 36px; box-sizing: border-box; white-space: nowrap; flex: 0 0 auto; }
+@media (max-width: 480px) {
+  .add-stage-row select { flex: 1 1 100%; }
+  .add-stage-row .btn { flex: 1 1 100%; justify-content: center; }
+}
 
 .sink-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; font-family: var(--f-mono); font-size: 12px; }
 .sink-list li { padding: 4px 6px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; }
@@ -122,8 +165,15 @@
 .pg-iteration .bp-panel .hint { margin: 0 0 12px; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
 .pg-iteration .bp-panel .hint code { color: var(--accent); }
 .pg-iteration .bp-controls { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
-.pg-iteration .bp-controls label.field input[type=range] { min-width: 130px; accent-color: var(--accent); vertical-align: middle; }
+.pg-iteration .bp-controls label.field { flex: 1 1 200px; }
+.pg-iteration .bp-controls label.field input[type=range] { width: 100%; min-width: 130px; accent-color: var(--accent); vertical-align: middle; }
 .pg-iteration .bp-controls label.field input:disabled { opacity: .45; }
+/* the live value used to be a bare sibling <span> after the slider, which
+   `label.field`'s grid (one column) put on its own row below the slider
+   instead of beside its label (issue #42, Iteration Pipes P2, pattern M8).
+   Put the label text and value on one row, slider full-width underneath. */
+.pg-iteration .bp-field-label { display: flex; justify-content: space-between; gap: 8px; }
+.pg-iteration .ck-val { font-family: var(--f-mono); color: var(--accent); }
 
 .pg-iteration .bp-meter-row { margin: 4px 0 16px; }
 .pg-iteration .bp-meter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
