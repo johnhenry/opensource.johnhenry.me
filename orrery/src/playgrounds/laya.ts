@@ -644,7 +644,7 @@ function mountRoom(root: HTMLElement, disposers: (() => void)[], isAlive: () => 
       <div class="sl-row">
         <textarea class="code sl-state" spellcheck="false" rows="3"></textarea>
         <div class="sl-side">
-          <label class="field">k (kept options)<input type="range" class="sl-k" min="1" max="24" step="1" /><span class="stat sl-kv"></span></label>
+          <label class="field sl-kfield"><span class="sl-klabel">k (kept options) <span class="stat sl-kv"></span></span><input type="range" class="sl-k" min="1" max="24" step="1" /></label>
           <button class="btn primary sl-run" disabled>Run shortlist</button>
         </div>
       </div>
@@ -821,7 +821,7 @@ function mountRoom(root: HTMLElement, disposers: (() => void)[], isAlive: () => 
           <select class="q-type">${(['choice', 'score', 'noul'] as QType[]).map(t => `<option ${t === r.type ? 'selected' : ''}>${t}</option>`).join('')}</select>
           <input class="q-ins" value="${esc(r.instructions)}" aria-label="instructions" />
           <button class="q-del" title="remove">✕</button>
-          <input class="q-crit" value="${esc(r.criteria)}" placeholder="${r.type === 'noul' ? 'optional: false description, true description' : r.type === 'score' ? 'levels, low → high' : 'labels'}" aria-label="criteria" spellcheck="false" />
+          <input class="q-crit" value="${esc(r.criteria)}" placeholder="${r.type === 'noul' ? 'optional: false desc, true desc' : r.type === 'score' ? 'levels, low → high' : 'labels'}" aria-label="criteria" spellcheck="false" />
         </div>
         <div class="q-ans"><span class="stat">…</span></div>
       </div>`).join('');

@@ -7,6 +7,13 @@
 .pg-laya .engine { display: grid; gap: 12px; }
 .pg-laya .eng-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .pg-laya .eng-top .spacer { flex: 1; }
+@media (max-width: 480px) {
+  /* Once the mode badge + chips wrap onto their own line(s), .spacer's
+     flex:1 still pushes "copy link" flush right on whatever line is left,
+     landing it as a lone right-aligned button with nothing else nearby
+     (issue #42 P3, M6). Force it onto its own explicit row instead. */
+  .pg-laya .eng-top .spacer { flex-basis: 100%; height: 0; }
+}
 .pg-laya .eng-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pg-laya .chip.ok { border-color: color-mix(in srgb, #3ddc97 60%, transparent); background: color-mix(in srgb, #3ddc97 14%, transparent); }
 .pg-laya .chip.bad { border-color: color-mix(in srgb, #ff6b6b 60%, transparent); background: color-mix(in srgb, #ff6b6b 12%, transparent); }
@@ -59,7 +66,7 @@
 /* id/type only ever hold short slugs ("department", "choice") — give the instructions field
    (which routinely holds a full sentence) more of the row instead of padding these two. */
 .pg-laya .q-edit { display: grid; gap: 6px; grid-template-columns: minmax(5.5em, 7.5em) minmax(4.5em, 5.5em) minmax(0, 1fr) auto; }
-.pg-laya .q-edit input, .pg-laya .q-edit select { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); font-size: 13px; }
+.pg-laya .q-edit input, .pg-laya .q-edit select { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); font-size: 13px; text-overflow: ellipsis; }
 .pg-laya .q-id { font-family: var(--f-mono); color: var(--accent); }
 .pg-laya .q-crit { grid-column: 1 / -1; font-family: var(--f-mono); font-size: 12px !important; color: var(--ink-2); }
 /* visually a tiny "x" (~24x32 effective box) so it doesn't crowd the dense
@@ -118,7 +125,11 @@
 .pg-laya .dir-bars .pb { grid-template-columns: 4.5em minmax(0, 1fr) 4.2em; }
 .pg-laya .shadow-note { margin-top: 4px; }
 .pg-laya .snake-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; font-size: 13px; }
-.pg-laya .tog { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+/* .tog had no font-size of its own; inside .snake-ctl (font-size:13px) it
+   inherited that, but the router's "auto task detection" checkbox sits in
+   .router-side with no such ancestor, so it fell back to the page default
+   (~16px) next to 13px labels everywhere else (issue #42 P3, M13). */
+.pg-laya .tog { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
 .pg-laya .tog input { accent-color: var(--accent); }
 .pg-laya .speed-f { display: flex !important; align-items: center; gap: 8px; }
 .pg-laya .speed-f input { accent-color: var(--accent); width: 130px; padding: 0 !important; border: 0 !important; background: none !important; }
@@ -157,6 +168,12 @@
 .pg-laya .sl-out { margin-top: 12px; display: grid; gap: 10px; }
 .pg-laya .sl-ranked .pb .pt i { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .pg-laya .sl-answer { border-top: 1px dashed var(--line); padding-top: 10px; }
+/* label.field is display:grid (base.css), one row per child -- with the
+   value span as a separate 3rd child it landed on its own row well below
+   the slider instead of next to its label (issue #42 P3, M8). Pair the
+   label text and value in one flex row (row 1); the slider stays the grid's
+   2nd row, full width, underneath. */
+.pg-laya .sl-klabel { display: flex; justify-content: space-between; align-items: baseline; }
 
 /* ---- explainer ---- */
 .pg-laya .explain p { color: var(--ink-2); font-size: 14px; max-width: 90ch; margin: 8px 0 0; }
