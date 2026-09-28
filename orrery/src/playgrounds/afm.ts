@@ -227,7 +227,10 @@ async function buildRoom(host: HTMLElement): Promise<() => void> {
   const copyLinkBtn = host.querySelector<HTMLButtonElement>('.pg-copy-link')!;
 
   apiRows.innerHTML = API_ROWS.map(
-    (r) => `<tr><td><code>${escapeHtml(r.swift)}</code></td><td><code>${escapeHtml(r.ts)}</code></td></tr>`,
+    // data-label backs the stacked-card ::before headers below 560px (see
+    // afm.css) — the <thead> is hidden there since each card needs its own
+    // per-field label instead of one shared column header.
+    (r) => `<tr><td data-label="Swift"><code>${escapeHtml(r.swift)}</code></td><td data-label="JS / TS"><code>${escapeHtml(r.ts)}</code></td></tr>`,
   ).join('');
 
   let companion: Companion | null = null;
