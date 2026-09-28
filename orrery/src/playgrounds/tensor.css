@@ -4,14 +4,27 @@
 .pg-tensor .subhead { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 14px 0 8px; }
 .pg-tensor .subhead:first-child { margin-top: 0; }
 .pg-tensor .stats-row { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; align-items: baseline; }
+/* P3: a 20px column-gap between 4 short stats ("step"/"loss"/"accuracy"/
+   "params") was just wide enough to strand the last one alone on its own
+   row at phone width. A tighter gap below 480px lets more of them share a
+   row before wrapping. */
+@media (max-width: 480px) { .pg-tensor .stats-row { gap: 6px 14px; } }
 .pg-tensor canvas { display: block; width: 100%; height: auto; border-radius: 8px; background: var(--bg-inset); border: 1px solid var(--line); }
 .pg-tensor .err { color: var(--error); white-space: pre-wrap; }
 
 /* tabs */
-.pg-tensor .tabbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
-.pg-tensor .tabbar .spacer { flex: 1; }
-.pg-tensor .tabbar .copy { align-self: center; }
-.pg-tensor .tab { display: grid; gap: 2px; text-align: left; padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-panel); color: var(--ink-2); cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+/* M4: below, the tab strip scrolls horizontally in one row (never wraps)
+   instead of ragged-wrapping across 3 rows; copy link sits on its own line
+   underneath rather than competing with the tabs for room (M6). */
+.pg-tensor .tabrow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.pg-tensor .tabbar {
+  display: flex; flex-wrap: nowrap; gap: 8px; align-items: stretch;
+  flex: 1 1 auto; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity;
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+}
+.pg-tensor .tabbar .tab { scroll-snap-align: start; }
+.pg-tensor .tabrow .copy { flex: none; }
+.pg-tensor .tab { display: grid; gap: 2px; text-align: left; padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-panel); color: var(--ink-2); cursor: pointer; transition: border-color .15s, background .15s, transform .15s; flex: none; white-space: nowrap; }
 .pg-tensor .tab b { font-family: var(--f-display); font-size: 15px; color: var(--ink); font-weight: 700; }
 .pg-tensor .tab small { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); }
 .pg-tensor .tab:hover { border-color: var(--accent-border); transform: translateY(-1px); }
@@ -39,7 +52,11 @@
 .pg-tensor canvas.field { max-width: 480px; aspect-ratio: 1; margin: 0 auto; image-rendering: auto; }
 .pg-tensor canvas.losscurve { aspect-ratio: 520 / 150; }
 .pg-tensor .graph-panel { overflow: hidden; }
-.pg-tensor .graph-wrap { overflow-x: auto; }
+/* M2: the computation graph SVG has a 760px min-width (below) inside a
+   ~327px panel and just scrolls with no visible affordance -- confirmed
+   live (scrollWidth 760 vs clientWidth 327). An edge fade hints there's
+   more graph to the right. */
+.pg-tensor .graph-wrap { overflow-x: auto; mask-image: linear-gradient(to right, black calc(100% - 24px), transparent); }
 .pg-tensor svg.graph { width: 100%; min-width: 760px; height: auto; display: block; }
 .pg-tensor svg.graph .edge { fill: none; }
 .pg-tensor svg.graph .edge.fwd { stroke: var(--ink-3); stroke-width: 1.3; opacity: .7; }
