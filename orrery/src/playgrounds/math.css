@@ -1,6 +1,25 @@
-.pg-math { display: grid; gap: 16px; }
-.pg-math .mo-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+/* `minmax(0, 1fr)`, not an implicit auto column: without it the grid track
+   sizes to the widest child's min-content -- once .mo-tabs held nowrap tab
+   buttons (for the new horizontal-scroll strip, issue #42 fix below) that
+   min-content was wider than the viewport, pushing the whole room into real
+   horizontal page overflow (393px -> 729px, confirmed via scrollWidth). Same
+   pattern already used in jth.css/iteration.css/andbox.css. */
+.pg-math { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* Below the point where all 4 tabs + copy-link fit on one line, wrapping used
+   to ragged-wrap into 2-3 rows with copy-link stranded as an orphan on its
+   own row (issue #42, Math Observatory P2, pattern M4/M6). Make the tab strip
+   itself a single horizontal-scroll row and pull copy-link out of it so it
+   never competes for wrap space with the tabs. */
+.pg-math .mo-tabs-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pg-math .mo-tabs {
+  display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch; padding-bottom: 2px; flex: 1 1 auto; min-width: 0;
+  mask-image: linear-gradient(90deg, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+}
+.pg-math .mo-tabs .btn { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
 .pg-math .mo-tabs .btn[aria-selected="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-math .mo-tabs-row .mo-link { flex: 0 0 auto; margin-left: 0; }
 .pg-math .mo-stage { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
 @media (max-width: 880px) { .pg-math .mo-stage { grid-template-columns: minmax(0, 1fr); } }
 /* keep the canvas in view instead of leaving a void once the taller side
@@ -11,7 +30,15 @@
    it below 880px — measured 448px inside a 358px-wide container at a 390px
    viewport, pushing the room into horizontal page overflow/scroll on mobile
    (found in mobile touch audit, confirmed via bounding-box measurement). */
-.pg-math .mo-view { position: sticky; top: 16px; align-self: start; width: 100%; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
+/* Sticky is a desktop-only affordance: in the single-column mobile layout the
+   stage is no longer beside a taller sidebar, so `sticky` just pins the
+   canvas over the controls while the page scrolls, hiding them entirely
+   (issue #42, Math Observatory P1). `position:relative` below the breakpoint
+   keeps it as the positioning root for .mo-hud/.mo-hint/.mo-progress. */
+.pg-math .mo-view { position: relative; align-self: start; width: 100%; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #04050c; aspect-ratio: 16 / 10; min-height: 280px; }
+@media (min-width: 900px) {
+  .pg-math .mo-view { position: sticky; top: 16px; }
+}
 .pg-math .mo-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 /* these canvases all handle their own drag-to-pan/rotate and tap-to-zoom via
    Pointer Events; without this the browser's own touch-scroll/pinch-zoom
@@ -23,8 +50,18 @@
    (which flip to dark in light theme and go near-invisible here), issue #18
    dark/light spot-check. */
 .pg-math .mo-hud { position: absolute; left: 10px; top: 10px; pointer-events: none; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; color: var(--code-ink, var(--ink)); background: color-mix(in srgb, #04050c 72%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; backdrop-filter: blur(4px); max-width: calc(100% - 20px); }
+/* On Rotors the HUD grows to 3 lines (rotor formula + θ/kθ/pseudoscalar), which
+   at a ~200px-tall mobile canvas covers close to its top third (issue #42,
+   Math Observatory P2). Tighten it up below the desktop breakpoint. */
+@media (max-width: 899px) {
+  .pg-math .mo-hud { font-size: 10.5px; line-height: 1.35; padding: 4px 8px; }
+}
 .pg-math .mo-hud b { color: var(--accent); font-weight: 600; }
-.pg-math .mo-hint { position: absolute; right: 8px; bottom: 8px; background: color-mix(in srgb, #04050c 70%, transparent); padding: 2px 8px; border-radius: 6px; pointer-events: none; font-size: 11px; color: color-mix(in srgb, var(--code-ink, var(--ink)) 70%, transparent); font-family: var(--f-mono); }
+/* On a ~360px-wide canvas the full "click: zoom in · shift/right-click: out ·
+   wheel: zoom · hover: orbit" hint wrapped onto two lines and covered a much
+   bigger strip of the fractal (issue #42, Math Observatory P2). Keep it to
+   one line with an ellipsis instead of letting it grow taller. */
+.pg-math .mo-hint { position: absolute; right: 8px; bottom: 8px; left: 8px; background: color-mix(in srgb, #04050c 70%, transparent); padding: 2px 8px; border-radius: 6px; pointer-events: none; font-size: 11px; color: color-mix(in srgb, var(--code-ink, var(--ink)) 70%, transparent); font-family: var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pg-math .mo-progress { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); transition: width .08s linear, opacity .4s; }
 .pg-math .mo-side { display: grid; gap: 12px; }
 .pg-math .mo-side .panel { display: grid; gap: 10px; padding: 14px; }

@@ -543,6 +543,20 @@ const playground: Playground = {
     let frames = 0, fpsT = performance.now(), fps = 0;
     let raf = 0;
 
+    // The HOST box's capability list (e.g. "· fetchAllowed()") was drawn at a
+    // fixed x with no width check, so on a narrow mobile canvas (bw as low as
+    // ~100px) it ran past the box's own right edge (issue #42, Andbox Cell
+    // P2). Clip with an ellipsis to the box's actual interior width.
+    function fitText(ctx: CanvasRenderingContext2D, s: string, maxWidth: number): string {
+      if (ctx.measureText(s).width <= maxWidth) return s;
+      let lo = 0, hi = s.length;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (ctx.measureText(s.slice(0, mid) + '…').width <= maxWidth) lo = mid; else hi = mid - 1;
+      }
+      return lo > 0 ? s.slice(0, lo) + '…' : '…';
+    }
+
     function rr(x: number, y: number, w: number, h: number, r: number) {
       fctx.beginPath();
       fctx.moveTo(x + r, y); fctx.arcTo(x + w, y, x + w, y + h, r); fctx.arcTo(x + w, y + h, x, y + h, r);
@@ -644,7 +658,7 @@ const playground: Playground = {
       c.fillStyle = '#ffffff77';
       c.fillText('main thread', hx + 12, by + 35);
       const caps = Object.keys(raw);
-      caps.forEach((n, i) => { c.fillStyle = '#ff8cc6aa'; c.fillText(`· ${n}()`, hx + 12, by + 54 + i * 14); });
+      caps.forEach((n, i) => { c.fillStyle = '#ff8cc6aa'; c.fillText(fitText(c, `· ${n}()`, bw - 20), hx + 12, by + 54 + i * 14); });
       c.fillStyle = fps > 50 ? '#7dffb0' : '#ffb13b';
       c.fillText(`${fps.toFixed(0)} fps`, hx + 12, by + bh - 14);
 

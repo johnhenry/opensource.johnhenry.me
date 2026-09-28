@@ -1,12 +1,28 @@
 .pg-chunker { display: flex; flex-direction: column; gap: 16px; }
 
 .pg-chunker .ck-bar { display: flex; flex-direction: column; gap: 10px; }
-.pg-chunker .ck-presets { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* presets, copy-link and 2 "Send chunks to …" handoff buttons used to all be
+   siblings in one flex row, flowing together with no visual grouping
+   (issue #42, Chunker Scope P2). Split into a presets row and an actions row. */
+.pg-chunker .ck-presets { display: flex; flex-direction: column; gap: 8px; }
+.pg-chunker .ck-presets-list { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pg-chunker .ck-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed var(--line); }
 .pg-chunker .ck-controls { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
 .pg-chunker .ck-controls-2 { border-top: 1px dashed var(--line); padding-top: 10px; }
 .pg-chunker .ck-params { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
 .pg-chunker label.field input,
 .pg-chunker label.field select { min-width: 96px; }
+/* segmenter/method selects and the overlap/min/max number inputs stayed at
+   their desktop min-width in a single-column phone layout, leaving a ragged
+   right edge (issue #42, Chunker Scope P3, pattern M7). */
+@media (max-width: 480px) {
+  .pg-chunker .ck-controls > label.field,
+  .pg-chunker .ck-controls-2 > label.field { flex: 1 1 100%; }
+  .pg-chunker .ck-controls label.field input,
+  .pg-chunker .ck-controls label.field select,
+  .pg-chunker .ck-controls-2 label.field input,
+  .pg-chunker .ck-controls-2 label.field select { width: 100%; box-sizing: border-box; }
+}
 /* keep a slider's live value on the same visual row as the slider (label.field is a
    grid, so a bare sibling span would otherwise land on its own row below it). */
 .pg-chunker .ck-controls .ck-row { display: flex; align-items: center; gap: 8px; }
@@ -24,7 +40,9 @@
 .pg-chunker .grid-2 > .panel > textarea.code { flex: 1 1 auto; }
 .pg-chunker .grid-2 > .panel > .ck-doc { flex: 1 1 auto; min-height: 0; }
 
-.pg-chunker .ck-doc { max-height: 420px; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; }
+/* extra bottom padding so the last chunk isn't flush against (and read as cut
+   off by) the scroll boundary (issue #42, Chunker Scope P3) */
+.pg-chunker .ck-doc { max-height: 420px; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 16px; }
 .pg-chunker .ck-chunk {
   border-radius: 8px;
   padding: 10px 12px;

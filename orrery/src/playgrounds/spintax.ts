@@ -348,7 +348,8 @@ const playground: Playground = {
           <span class="stat joke" id="sp-joke"></span>
         </div>
         <pre class="code error" id="sp-error" hidden></pre>
-        <div class="handoff-row" id="sp-handoffs">
+        <div class="handoff-row">
+          <div class="handoff-list" id="sp-handoffs"></div>
           <button class="btn copy-link" id="sp-copy" title="Copy a link that reopens this exact template">🔗 copy link</button>
         </div>
       </div>

@@ -1129,7 +1129,7 @@ const playground: Playground = {
             <div class="custom-actions">
               <span class="stat" id="tester-custom-status"></span>
             </div>
-            <div class="term" id="tester-custom-term" role="log" aria-live="polite" style="height: 220px; margin-top: 10px;"><span class="tap-line tap-diag">press Run to execute this test &rarr;</span></div>
+            <div class="term" id="tester-custom-term" role="log" aria-live="polite" style="max-height: 220px; margin-top: 10px;"><span class="tap-line tap-diag">press Run to execute this test &rarr;</span></div>
           </div>
         </div>
 

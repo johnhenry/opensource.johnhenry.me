@@ -160,7 +160,7 @@ export default {
     root.className = 'pg-hashish';
     root.innerHTML = `
       <div class="panel">
-        <p style="margin:0 0 8px;color:var(--ink-2)">
+        <p class="hash-intro">
           Every document below is split into overlapping 5-character <b>shingles</b>, hashed
           <span class="stat"><b id="hf-label">50</b></span> ways into a <b>MinHash signature</b>,
           then that signature is cut into <b>bands</b>. Two documents only become LSH
