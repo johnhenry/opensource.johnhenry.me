@@ -1,0 +1,57 @@
+---
+title: "Getting started"
+description: "Install @johnhenry/mport, load it from a CDN, and route your first imports at build time or in the browser."
+sidebar:
+  order: 1
+---
+
+## Install
+
+```bash
+npm install @johnhenry/mport
+```
+
+:::note[Not on npm yet]
+`@johnhenry/mport` `0.0.0` is prepared but not yet published, so the install commands (and any `node_modules` or CDN paths) on these pages will not resolve until it is. Until then, the unscoped `mport@1.0.0` on npm is the 1.x API only (no router).
+:::
+
+Previously published as `mport`, last unscoped version 1.0.0. `@johnhenry/mport` restarts at `0.0.0` because it is a new address, not because the code is new: `0.0.0` is the first release of the router API (developed as mport 2.0, which never reached npm under the old name), and it keeps the 1.x API working. Before 1.0, `^0.0.0` matches only `0.0.0`, so pin exact versions until a deliberate `0.1.0`.
+
+The package is plain ES modules with no dependencies. It runs in browsers and Deno as well as Node; the Node floor for the package, its CLI and its tests is 26 (`engines.node >=26.0.0`). To load it straight from a CDN:
+
+```html
+<script type="module">
+  import { createRouter, esmSh, unpkg } from "https://cdn.jsdelivr.net/npm/@johnhenry/mport@0.0.0/src/index.mjs";
+</script>
+```
+
+## Quick start
+
+At build time, resolve once and write an import map plus a lockfile:
+
+```bash
+npx @johnhenry/mport build react@^19 react-dom@^19/client lit/
+# mport: wrote importmap.json (3 imports) and mport.lock.json
+```
+
+Put `importmap.json` in your page as `<script type="importmap">`, commit `mport.lock.json`, and the next build returns the same versions and builds without asking the registry.
+
+In the browser, decide at startup, or import through the router so a failing CDN is retried elsewhere:
+
+```js
+import { createRouter, startup, createImporter, esmSh, jsDelivr } from "@johnhenry/mport";
+
+const router = createRouter({ "*": [esmSh(), jsDelivr({ esm: true })] });
+
+await startup(router, ["preact@^10", "preact@^10/hooks"]); // injects the import map
+const load = createImporter(router);                        // failover on import errors
+const { default: dayjs } = await load("dayjs@1");
+```
+
+Every resolution explains itself:
+
+```js
+const r = await router.resolve("react@^19");
+r.url;   // "https://esm.sh/react@19.2.0"
+r.trace; // lookup → resolved → probe → ok (or fail → next provider …)
+```
