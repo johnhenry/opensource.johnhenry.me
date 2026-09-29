@@ -98,3 +98,26 @@ options, defaults, return shapes, errors and trace events:
 
 Source: [github.com/johnhenry/mport](https://github.com/johnhenry/mport). MIT licensed.
 
+
+## Family
+
+mport is one of three browser-side libraries adopted into the `@johnhenry` family
+together. None depends on another.
+
+- **[html-modules](/html-modules/)**: declarative HTML modules.
+  `<html-import src="./ui.html" as="ui">` turns an HTML file's `<html-export>`s into
+  custom elements. It composes with mport through the import map: html-modules resolves
+  a bare `src` with `import.meta.resolve`, which applies the page's own
+  `<script type="importmap">`, and does no package or CDN routing of its own (it was
+  split out of the project whose routing half became this router). mport's
+  `router.build()` and `startup()` produce that import map, so a prefix mapping such as
+  `"ui-kit/"` from `router.build(["ui-kit@1/"])` makes
+  `<html-import src="ui-kit/card.html">` load from whichever CDN mport chose. Route such
+  a package to a raw-file provider (`jsDelivr()`, `unpkg()`), since the HTML must be
+  served as published. See html-modules'
+  [Resolution, caching and errors](/html-modules/resolution-and-errors/).
+- **[window-algebra](/window-algebra/)**: a functional window manager for the browser
+  (pure state updates, a layout algebra, CSS as the layout solver). Independent of
+  mport: no shared mechanism or dependency in either direction. A no-build page using it
+  does need an import-map entry per entry point, which is the kind of map mport
+  produces; see window-algebra's [Getting started](/window-algebra/getting-started/).

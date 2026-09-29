@@ -78,3 +78,27 @@ source and tests: [state](/window-algebra/api/state/),
 [errors](/window-algebra/api/errors/).
 
 MIT licensed.
+
+## Family
+
+window-algebra is one of three zero-build, browser-first ESM libraries in this family.
+None of them depends on another. They fit together at the page level:
+
+- **[html-modules](/html-modules/)**: declarative HTML modules.
+  `<html-import src="./ui.html" as="ui">` turns each `<html-export>` in an ordinary HTML
+  file into a native custom element (`<ui--card>`). Those elements are exactly what
+  window-algebra's surfaces host: `htmlSurface(document.createElement("ui--card"))` (or
+  a `lazySurface` that creates one on first mount) puts an HTML-module component in a
+  window. window-algebra only ever calls `mount(target)`/`unmount()`, so it needs no
+  knowledge of how the element was defined. Neither package depends on the other. See
+  [Surfaces](/window-algebra/api/browser/#surfaces) here and html-modules'
+  [Lazy loading](/html-modules/settings-and-lazy-loading/#lazy-loading) for how a lazy
+  import behaves inside a window.
+- **[mport](/mport/)**: routes JavaScript imports across CDNs and compiles the result to a
+  standard import map. A no-build page using window-algebra needs an import-map entry for
+  each entry point it imports (see [Getting started](/window-algebra/getting-started/)),
+  and for anything it loads alongside, such as React for the `/react` binding, which the
+  repository's `demo/react.html` currently fetches from esm.sh by a hard-coded URL. mport
+  can produce that map with fallback across mirrors, instead of hand-written URLs. There
+  is no dependency in either direction; the browser only sees the resulting import map.
+  See mport's [Import maps, lockfiles and the CLI](/mport/import-maps-and-cli/).

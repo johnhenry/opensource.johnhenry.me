@@ -83,3 +83,31 @@ dependencies.
 and [errors](/html-modules/api/errors/).
 
 MIT licensed.
+
+## Family
+
+html-modules is the HTML-and-custom-elements layer of a browser stack whose neighbours
+each own one concern; it depends on neither of these packages, and neither depends on
+it.
+
+- **[mport](/mport/)**: package and CDN routing is mport's job, not this library's. mport
+  compiles package ranges to a standard import map (`router.build([...])` →
+  `{ importMap, lock }`, or `npx mport build` → `importmap.json`). html-modules resolves
+  a bare `<html-import src="@acme/ui/kit.html">` through `hostResolve`, which `/browser`
+  sets to `import.meta.resolve`, so the page's import map applies: put the map mport
+  generated (a prefix entry such as `"@acme/ui/": "https://…/"` covers HTML files too) in
+  the page before `browser.js` loads, and bare HTML-module specifiers resolve through
+  it. The same map can point `@johnhenry/html-modules/runtime` at one runtime copy. This
+  library used to carry an mport adapter, routers and a lockfile; they were removed when
+  it became html-modules. See mport's
+  [Import maps, lockfiles and the CLI](/mport/import-maps-and-cli/).
+- **[window-algebra](/window-algebra/)**: window-algebra's views host *surfaces*,
+  `{ mount(target), unmount() }`, and its `htmlSurface(element)` simply appends an
+  element. An html-modules component is a native custom element, so
+  `htmlSurface(document.createElement('ui--card'))` is a window whose content upgrades
+  when its import registers the tag. window-algebra's renderer creates no shadow roots,
+  so when its stage is in the document's light DOM a lazy `<html-import>` sees the
+  element as the window first mounts and loads the module then (a stage inside some
+  other component's shadow root is out of lazy loading's sight; call `load()`). An
+  `iframeSurface` is another document: the framed page needs its own `<html-import>`.
+  See window-algebra's [Surfaces](/window-algebra/api/browser/#surfaces).
