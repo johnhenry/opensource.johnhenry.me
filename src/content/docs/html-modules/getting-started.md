@@ -1,0 +1,116 @@
+---
+title: "Getting started"
+description: "Install @johnhenry/html-modules, load the bootstrap, and write, import and use your first HTML module."
+sidebar:
+  order: 1
+---
+
+## Install
+
+```sh
+npm install @johnhenry/html-modules
+```
+
+:::note[Not on npm yet]
+`@johnhenry/html-modules` `0.0.0` is prepared but not yet published, so the install commands (and any `node_modules` or CDN paths) on these pages will not resolve until it is. Its source repository will be linked here once it is published.
+:::
+
+**Provenance.** `@johnhenry/html-modules` is a new package: it was developed locally as `web-module-graph` and
+renamed before it was ever published, so `0.0.0` is the first version under any name. The **unscoped**
+`html-modules` on npm is an unrelated package by another author; install the scoped name. (Pre-1.0, `^0.0.0` matches
+only `0.0.0`: pin exactly until a deliberate `0.1.0`.)
+
+- **Browsers:** any browser with custom elements and shadow DOM. Constructable stylesheets are used where available;
+  elsewhere component styles fall back to a `<style>` per shadow root. Nothing needs a bundler.
+- **Node >= 26** (`engines`) for the compiler, the CLI, the tests and the Node examples. The browser code itself has
+  no Node requirement.
+
+Load the bootstrap once per page. Served from `node_modules`:
+
+```html
+<script type="module" src="/node_modules/@johnhenry/html-modules/src/browser.js"></script>
+```
+
+or through an import map, which is also what lets compiled modules (which import
+`@johnhenry/html-modules/runtime`) share the page's runtime:
+
+```html
+<script type="importmap">
+  { "imports": {
+      "@johnhenry/html-modules/browser": "/node_modules/@johnhenry/html-modules/src/browser.js",
+      "@johnhenry/html-modules/runtime": "/node_modules/@johnhenry/html-modules/src/runtime.js"
+  } }
+</script>
+<script type="module">import '@johnhenry/html-modules/browser';</script>
+```
+
+`browser.js` imports `./runtime.js`, so both entries above resolve to one copy of the runtime. Keep it that way
+(see [Honest limitations](/html-modules/limitations/)).
+
+## Quick start
+
+**1. Author an HTML module.** Any `.html` file; each `<html-export>` is a public export, everything else is
+private.
+
+```html
+<!-- ui.html -->
+<html-export name="card">
+  <style>:host { display: block; border: 1px solid #ddd; border-radius: 10px; padding: 1rem; }</style>
+  <template>
+    <article>
+      <header part="title"><slot name="title"></slot></header>
+      <slot></slot>
+    </article>
+  </template>
+</html-export>
+
+<html-export name="button" delegates-focus>
+  <template><button part="button" type="button"><slot></slot></button></template>
+</html-export>
+
+<html-export name="theme"><style>:root { --brand: #5b4bd6; }</style></html-export>
+
+<html-export name="meta"><script type="application/json">{ "version": "1.2.0" }</script></html-export>
+```
+
+**2. Import it with `<html-import as>`.** Every component export is registered as `<as>--<export>`.
+
+```html
+<script type="module" src="/node_modules/@johnhenry/html-modules/src/browser.js"></script>
+<html-import src="./ui.html" as="ui"></html-import>
+```
+
+**3. Use the tags.** Anywhere, before or after the import: elements upgrade in place when the module arrives.
+
+```html
+<ui--card>
+  <b slot="title">Hello</b>
+  <ui--button>Click me</ui--button>
+</ui--card>
+<style>ui--card:not(:defined) { visibility: hidden; }</style>
+```
+
+**4. Pick only what you need**, choose tag names, adopt the stylesheet, read the data:
+
+```html
+<html-import src="./ui.html" as="ui">
+  <html-binding export="card"></html-binding>                          <!-- <ui--card> only -->
+  <html-binding export="button" element="brand-button"></html-binding>  <!-- a tag you choose -->
+  <html-binding export="theme" adopt></html-binding>                   <!-- adopted into the document -->
+  <html-binding export="meta"></html-binding>                          <!-- el.bindings.meta -->
+</html-import>
+```
+
+**5. Or from JavaScript**, sharing the same cache:
+
+```js
+import { HTMLModules } from '@johnhenry/html-modules/browser';
+
+const ui = await HTMLModules.load('./ui.html');     // { button, card, components, meta, theme }: registers nothing
+ui.card.define('profile-card');                    // one definition, any number of tags
+await HTMLModules.import('./ui.html', { as: 'admin' });   // = <html-import src="./ui.html" as="admin">
+```
+
+Runnable, self-verifying versions of all of this are in [`examples/`](/html-modules/examples/) (`npm run examples`), and
+a browser demo site with live checks on every page is at `/examples/` when you serve the package root
+(`python3 -m http.server`).
