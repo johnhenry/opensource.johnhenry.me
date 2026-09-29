@@ -14,7 +14,7 @@ so that similar documents are cheap to find without comparing every pair.
 > [`agtabesh/lsh-js`](https://github.com/agtabesh/lsh-js) (previously
 > published under that same name), rewritten in TypeScript with a fixed
 > banding algorithm, no native dependencies, and a pluggable storage layer.
-> See the [repo's CHANGELOG](https://github.com/johnhenry/hashish/blob/main/CHANGELOG.md)
+> See the [repo's CHANGELOG](https://github.com/johnhenry/hashish/blob/master/CHANGELOG.md)
 > for what changed and why — including the banding bug this fork fixes.
 
 - **Zero native dependencies.** MurmurHash3 is implemented in pure JS (no

@@ -44,6 +44,28 @@ function walk(dir) {
   });
 }
 
+/**
+ * External http(s) hrefs in a built page, excluding resource hints:
+ * `<link rel="preconnect|dns-prefetch" href="https://origin">` names an origin
+ * to warm up, not a page, and an origin root may legitimately 404
+ * (fonts.googleapis.com does), so hints are not links to check.
+ */
+export function extractExternalLinks(html) {
+  const hints = new Set();
+  for (const [tag] of html.matchAll(/<link\b[^>]*>/gi)) {
+    if (/\brel=["'][^"']*\b(preconnect|dns-prefetch)\b/i.test(tag)) {
+      const href = tag.match(/\bhref=["'](https?:\/\/[^"']+)["']/i)?.[1];
+      if (href) hints.add(href);
+    }
+  }
+  const out = [];
+  for (const [tag, href] of html.matchAll(/<[a-z][^>]*\bhref="(https?:\/\/[^"]+)"[^>]*>/gi)) {
+    if (/^<link\b/i.test(tag) && hints.has(href) && /\brel=["'][^"']*\b(preconnect|dns-prefetch)\b/i.test(tag)) continue;
+    out.push(href);
+  }
+  return out;
+}
+
 // Guarded so the pure helpers above can be imported by tests without also
 // running the network scan (which needs a built dist/ and live internet).
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
@@ -52,7 +74,7 @@ if (isMain) {
   for (const page of walk(DIST)) {
     const html = fs.readFileSync(page, 'utf8');
     const from = '/' + path.relative(DIST, page).replace(/index\.html$/, '');
-    for (const [, href] of html.matchAll(/href="(https?:\/\/[^"]+)"/g)) {
+    for (const href of extractExternalLinks(html)) {
       const url = href.split('#')[0];
       if (url.includes('opensource.johnhenry.me')) continue;
       if (!links.has(url)) links.set(url, new Set());

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { npmRegistryEquivalent } from './check-external-links.mjs';
+import { npmRegistryEquivalent, extractExternalLinks } from './check-external-links.mjs';
 
 test('npmRegistryEquivalent: scoped package URL maps to registry API', () => {
   assert.equal(
@@ -78,4 +78,22 @@ test('live: a deliberately-broken npmjs.com package URL is now caught as a failu
   assert.equal(websiteRes.status, 403, 'expected npmjs.com to bot-block this request with 403');
   // The registry API is the one that actually distinguishes real from broken.
   assert.equal(registryRes.status, 404);
+});
+
+test('extractExternalLinks: resource hints are not links, real links and stylesheets are', () => {
+  const html = `
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://cdn.example.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans" rel="stylesheet" />
+    <a href="https://github.com/johnhenry/mport">repo</a>
+    <a href="/relative/">internal</a>`;
+  assert.deepEqual(extractExternalLinks(html), [
+    'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans',
+    'https://github.com/johnhenry/mport',
+  ]);
+});
+
+test('extractExternalLinks: the same origin as a real <a> link is still checked', () => {
+  const html = '<link rel="preconnect" href="https://example.com"><a href="https://example.com">site</a>';
+  assert.deepEqual(extractExternalLinks(html), ['https://example.com']);
 });

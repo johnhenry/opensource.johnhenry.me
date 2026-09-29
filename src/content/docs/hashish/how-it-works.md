@@ -25,5 +25,5 @@ The repo ships a benchmark script:
 npm run bench
 ```
 
-See [`benchmarks/`](https://github.com/johnhenry/hashish/tree/main/benchmarks)
+See [`benchmarks/`](https://github.com/johnhenry/hashish/tree/master/benchmarks)
 in the repo for the harness itself.
