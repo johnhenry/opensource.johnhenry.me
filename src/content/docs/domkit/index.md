@@ -18,6 +18,10 @@ individually; there is no single root import.
 > itself is unaffected: its own copies of these modules keep existing at
 > their original published URLs, per its own no-deletion policy.
 
+See the repo's [`demo/`](https://github.com/johnhenry/domkit/tree/main/demo)
+for a live gallery running most of these modules at once, each isolated in
+its own iframe.
+
 ## Install
 
 ```sh
