@@ -221,6 +221,13 @@
 :root[data-tool='html-modules']     { --hue: 165; } /* splits the 155(temporals/css-signals)-175(semantic-chunker) gap */
 :root[data-tool='mport']            { --hue: 230; } /* splits the 220(http-fields)-240(agent-query) gap */
 :root[data-tool='window-algebra']   { --hue: 290; } /* splits the 280(ecmanim)-300(raijin) gap */
+/* Hue-share: domkit takes domable's stop. Real technical link -- domkit's
+   package.json carries a hard npm dependency on @johnhenry/domable (six
+   modules domkit originally vendored a second copy of -- simple-element,
+   create-element, text-to-dom, dom-to-text, react-to-dom, dom-to-react --
+   were dropped from domkit 0.0.1 in favor of importing domable directly),
+   not a thematic pairing. */
+:root[data-tool='domkit']           { --hue: 13; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

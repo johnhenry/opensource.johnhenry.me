@@ -75,6 +75,15 @@ depending on React.
   defects the six original modules had, undetected until they were tested
   together
 
+## Family
+
+- [`domkit`](/domkit/) — a toolkit of ~35 custom elements, shadow-DOM
+  primitives, and DOM/React interop glue, built on top of domable's
+  conversions. domkit carries a hard npm dependency on this package
+  (`simple-element` for its custom-element factories, `text-to-dom`/
+  `dom-to-react`/`react-to-dom` for interop) rather than vendoring a second
+  copy of any of it.
+
 ## License
 
 MIT
