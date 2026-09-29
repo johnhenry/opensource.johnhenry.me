@@ -39,8 +39,8 @@ const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0
 ```
 
 > **Provenance:** a new package, never published under another name. `0.0.0` is its
-> first version under any name, not a sign of immaturity. It is not on npm yet, and its
-> source repository will be linked here once it is published.
+> first version under any name, not a sign of immaturity. It is not on npm yet; the
+> source is at [github.com/johnhenry/window-algebra](https://github.com/johnhenry/window-algebra).
 
 ## What's here
 
@@ -77,7 +77,7 @@ source and tests: [state](/window-algebra/api/state/),
 [versioning and migration](/window-algebra/api/versioning/) and
 [errors](/window-algebra/api/errors/).
 
-MIT licensed.
+Source: [github.com/johnhenry/window-algebra](https://github.com/johnhenry/window-algebra). MIT licensed.
 
 ## Family
 

@@ -46,8 +46,8 @@ dependencies.
 > **Provenance:** a new package. It was developed locally as `web-module-graph` and
 > renamed before it was ever published, so `0.0.0` is the first version under any name.
 > The **unscoped** `html-modules` on npm is an unrelated package by another author;
-> install the scoped name. It is not on npm yet, and its source repository will be linked
-> here once it is published.
+> install the scoped name. It is not on npm yet; the source is at
+> [github.com/johnhenry/html-modules](https://github.com/johnhenry/html-modules).
 
 ## What's here
 
@@ -82,7 +82,7 @@ dependencies.
 [names](/html-modules/api/names/), [the compiler and CLI](/html-modules/api/compiler/)
 and [errors](/html-modules/api/errors/).
 
-MIT licensed.
+Source: [github.com/johnhenry/html-modules](https://github.com/johnhenry/html-modules). MIT licensed.
 
 ## Family
 
