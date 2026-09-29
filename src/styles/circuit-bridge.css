@@ -208,6 +208,19 @@
    and HostTensor layout match @johnhenry/math-plus-tensor-core
    (toMathPlusArgs hands results to Tensor.fromTypedArray without a copy). */
 :root[data-tool='laya-js']          { --hue: 320; }
+/* mport, window-algebra and html-modules (added together, 2026-09): the
+   same fallback signalle took. The wheel has no stop >=20 degrees from
+   every existing one (every gap is now 20 degrees or less, verified by
+   computing all 22 gaps), and none of the three has a genuine technical
+   link to share a stop with: no package.json dependency of any kind on an
+   existing family section, in either direction, and none on each other
+   (their READMEs' Family sections say so; they compose only through a
+   page's import map and custom elements). So each splits an ordinary 20
+   degree grid gap ~10/10, in three gaps far enough apart that the three
+   new sections sit >=60 degrees from each other. */
+:root[data-tool='html-modules']     { --hue: 165; } /* splits the 155(temporals/css-signals)-175(semantic-chunker) gap */
+:root[data-tool='mport']            { --hue: 230; } /* splits the 220(http-fields)-240(agent-query) gap */
+:root[data-tool='window-algebra']   { --hue: 290; } /* splits the 280(ecmanim)-300(raijin) gap */
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

@@ -47,6 +47,9 @@ hue (see `src/styles/circuit-bridge.css`).
 | hashish | `hashish/` | 58° — same fallback as domable, no real dependency either direction; splits the 45°(Circuit)–70°(objectify) gap |
 | http-converter | `http-converter/` | 83° — same fallback; splits the 70°(objectify)–95°(andbox) gap |
 | signalle | `signalle/` | 145° — same fallback, but the registry's three remaining 25°-wide gaps were already claimed by domable/hashish/http-converter above, so signalle instead splits an ordinary 20° grid gap (135°(isomorphic-jj)–155°(temporals)) roughly in half — a tighter ≈10°/10° squeeze than the other three's ≈13°/12° |
+| html-modules | `html-modules/` | 165° — same fallback as signalle: no real dependency either direction (on any existing section, or on mport/window-algebra, added with it); splits the ordinary 20° 155°(temporals/css-signals)–175°(semantic-chunker) gap ≈10°/10° |
+| mport | `mport/` | 230° — same fallback; splits the 220°(http-fields)–240°(agent-query) gap ≈10°/10° |
+| window-algebra | `window-algebra/` | 290° — same fallback; splits the 280°(ecmanim)–300°(raijin) gap ≈10°/10° |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -100,8 +103,8 @@ Two ways content gets into `src/content/docs/<name>/`:
 
 - **Hand-author it directly**, like most sections here (browsermesh,
   css-signals, fileable, objectify, andbox, leserve, packfile,
-  letterpress, domable, hashish, http-converter, signalle, and most of
-  the rest). This is the default.
+  letterpress, domable, hashish, http-converter, signalle, mport,
+  window-algebra, html-modules, and most of the rest). This is the default.
 - **Run `scripts/port-docs.mjs`**, but only if the library has its own
   *actively-maintained* external Starlight docs source you intend to keep
   re-importing from — a `SOURCES` entry names a `repo`/`ref`/`subdir` to pull
@@ -173,6 +176,21 @@ original ~15° figure but still the honest, non-repacking choice — hues
 carry no rendered meaning beyond distinctness, so a ~10° gap is visually
 fine, just a smaller margin for whatever fallback stop needs to land
 between 135° and 155° next.
+
+mport, window-algebra, and html-modules were added together and hit the
+same situation as signalle, three times at once. Every gap in the wheel
+was already 20° or less, so no candidate is ≥20° from every existing stop
+(verified by computing all 22 gaps), and none of the three has a genuine
+technical link to share with: no `package.json` dependency of any kind on
+an existing section in either direction, and none on each other either —
+their own READMEs' `## Family` sections say they compose only through a
+page's import map and custom elements, never a dependency. Each therefore
+splits an ordinary 20° grid gap ≈10°/10°, as signalle did, and the three
+gaps were picked far apart (165°, 230°, 290°) so the new sections sit
+≥60° from each other. 25 distinct hue values total. The next no-link
+addition has only 20° gaps left to split: nine of them (25°–45°, 95°–115°,
+115°–135°, 175°–195°, 240°–260°, 260°–280°, 300°–320°, 320°–340°,
+340°–360°), after which a real repack, or a policy change, is needed.
 
 ## Develop
 

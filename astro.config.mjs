@@ -83,6 +83,9 @@ export default defineConfig({
           { label: 'hashish', directory: 'hashish' },
           { label: 'http-converter', directory: 'http-converter' },
           { label: 'signalle', directory: 'signalle' },
+          { label: 'mport', directory: 'mport' },
+          { label: 'window-algebra', directory: 'window-algebra' },
+          { label: 'html-modules', directory: 'html-modules' },
         ].map(({ label, directory }) => ({
           label,
           collapsed: true,
