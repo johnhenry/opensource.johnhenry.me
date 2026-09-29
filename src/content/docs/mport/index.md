@@ -117,7 +117,8 @@ together. None depends on another.
   served as published. See html-modules'
   [Resolution, caching and errors](/html-modules/resolution-and-errors/).
 - **[window-algebra](/window-algebra/)**: a functional window manager for the browser
-  (pure state updates, a layout algebra, CSS as the layout solver). Independent of
-  mport: no shared mechanism or dependency in either direction. A no-build page using it
-  does need an import-map entry per entry point, which is the kind of map mport
-  produces; see window-algebra's [Getting started](/window-algebra/getting-started/).
+  (pure state updates, a layout algebra, CSS as the layout solver). No dependency in
+  either direction; they meet at the import map. A no-build page using window-algebra needs
+  an import-map entry per entry point (and for anything loaded alongside, such as React for
+  its `/react` binding), and mport can generate that map with fallback across mirrors; see
+  window-algebra's [Getting started](/window-algebra/getting-started/).
