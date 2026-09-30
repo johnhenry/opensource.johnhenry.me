@@ -29,10 +29,16 @@ individually; there is no single root import.
 > rename in `cyclable`, and a bug in `hydratable`'s `mounts` that made its
 > "reuse an existing element" path effectively dead code in any normally
 > formatted HTML page — and added genuinely missing counterpart operations
-> (`.previous()`/`.peek()`/`.set()`, `dehydrate()`, `unmount()`). `lib`
-> itself is unaffected by any of this: its own copies of these modules
-> keep existing at their original published URLs, per its own no-deletion
-> policy. See the repo's `CHANGELOG.md` for the full history.
+> (`.previous()`/`.peek()`/`.set()`, `dehydrate()`, `unmount()`). A naming
+> pass (`0.0.7`) then fixed individual-module `.component`-suffix and
+> kebab-case inconsistencies (`shadow-dom.element` → `shadow-dom.component`,
+> `xy-grapher`/`chernoff-face` → `xy-grapher.component`/`chernoff-face.component`,
+> `pause`/`pauseframespersecond` → `delay`/`frame-delay`,
+> `menu-component.component` → `menu.component`) and removed `brains`, a
+> 12-file undocumented experiment nothing else depended on. `lib` itself is
+> unaffected by any of this: its own copies of these modules keep existing
+> at their original published URLs, per its own no-deletion policy. See
+> the repo's `CHANGELOG.md` for the full history.
 
 See the repo's [`demo/`](https://github.com/johnhenry/domkit/tree/main/demo)
 for a live gallery running most of these modules at once, each isolated in
@@ -100,7 +106,7 @@ section with no `[query]` prefix, meaning "always applies."
 
 | Module | Description |
 |---|---|
-| `shadow-dom.element` | Deprecated alias for domable's `simple-element` `shadowOpen` |
+| `shadow-dom.component` | Deprecated alias for domable's `simple-element` `shadowOpen` |
 | `internal-timer.component` | A pause/frame-timer element (shadow-DOM+slot plumbing) |
 
 ### `cyclable/` — the class-cycler family, plus other widgets
@@ -118,16 +124,17 @@ callable to step forward, and also carries `.previous()` (step back),
 | `cyclable/localstorage-class-cycler` | Applies a cycled value as a class on a given element |
 | `cyclable/localstorage-cycler` | The base engine: cycle a localStorage value through a fixed list |
 
-`hotkey-modal.dialog.component`, `menu-component.component` (with a
-`hash.mjs` location-hash companion), `stylable-select.component`,
-`tabbed-ui.component`, `infinite-combo.component`, `event-consumer.component`,
-`code-color.component`.
+`hotkey-modal.dialog.component`, `menu.component` (registers the
+`menu-component` tag; the module name dropped a redundant `.component.component`
+stutter but the tag name is unchanged), with a `hash.mjs` location-hash
+companion, `stylable-select.component`, `tabbed-ui.component`,
+`infinite-combo.component`, `event-consumer.component`, `code-color.component`.
 
 ### Visual/canvas experiments
 
 `canvasrenderer.component`, `animate-paths.component`, `pixelshader.component`,
-`imagedata-emitter.component`, `xy-grapher`, `chernoff-face`, `brains` —
-demo/experiment-grade custom elements (canvas rendering, SVG path
+`imagedata-emitter.component`, `xy-grapher.component`, `chernoff-face.component`
+— demo/experiment-grade custom elements (canvas rendering, SVG path
 animation, pixel shaders, generative graphics).
 
 ### `hydratable/` — DOM ⇄ React interop
@@ -142,8 +149,9 @@ here.
 
 ### Support utilities
 
-`clamp`, `pause`, `pauseframespersecond` — small helpers a handful of the
-modules above depend on.
+`clamp`, `delay` (renamed from `pause`), `frame-delay` (renamed from
+`pauseframespersecond`) — small helpers a handful of the modules above
+depend on.
 
 ## Family
 
