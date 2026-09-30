@@ -21,10 +21,18 @@ individually; there is no single root import.
 > packages (`0.0.3`) before coming back as namespaced subpaths of this one
 > package instead (`0.0.4`) — running four separate repos for clusters
 > this small cost more (CI/publish setups, secrets, release cadences,
-> demo galleries to keep in sync) than it bought. `lib` itself is
-> unaffected by any of this: its own copies of these modules keep existing
-> at their original published URLs, per its own no-deletion policy. See
-> the repo's `CHANGELOG.md` for the full history.
+> demo galleries to keep in sync) than it bought. A completeness pass
+> across all four clusters (`0.0.5`–`0.0.6`) then found and fixed several
+> real bugs — a media-query grammar divergence and a crash on malformed
+> input in `matchable`, an attribute documented to do something the
+> platform can't actually do in `definable`, a global-variable leak on
+> rename in `cyclable`, and a bug in `hydratable`'s `mounts` that made its
+> "reuse an existing element" path effectively dead code in any normally
+> formatted HTML page — and added genuinely missing counterpart operations
+> (`.previous()`/`.peek()`/`.set()`, `dehydrate()`, `unmount()`). `lib`
+> itself is unaffected by any of this: its own copies of these modules
+> keep existing at their original published URLs, per its own no-deletion
+> policy. See the repo's `CHANGELOG.md` for the full history.
 
 See the repo's [`demo/`](https://github.com/johnhenry/domkit/tree/main/demo)
 for a live gallery running most of these modules at once, each isolated in
@@ -79,7 +87,9 @@ different kinds of source, plus the primitive they're built on.
 ### `matchable/` — responsive containers
 
 Two duals of the same idea — respond to a media query by swapping vs. by
-styling — sharing a query grammar and a real `parsel-js` dependency.
+styling — sharing one query-section parser (`matchable/query-sections.mjs`)
+and a real `parsel-js` dependency. Both modules support a bracket-less
+section with no `[query]` prefix, meaning "always applies."
 
 | Module | Description |
 |---|---|
@@ -96,7 +106,10 @@ styling — sharing a query grammar and a real `parsel-js` dependency.
 ### `cyclable/` — the class-cycler family, plus other widgets
 
 One localStorage-backed cycling engine, a class-applying wrapper, and two
-ready-made custom elements built on it.
+ready-made custom elements built on it. The engine's returned function is
+callable to step forward, and also carries `.previous()` (step back),
+`.peek()` (read the current value without changing it), and `.set(value)`
+(jump directly to a specific value).
 
 | Module | Description |
 |---|---|
@@ -124,8 +137,8 @@ here.
 
 | Module | Description |
 |---|---|
-| `hydratable/mounts` | Framework-agnostic DOM mount-point helpers (Solid/Vue/React) |
-| `hydratable` | A generic async hydration mixin |
+| `hydratable/mounts` | Framework-agnostic DOM mount-point helpers (Solid/Vue/React), plus `unmount()` and lazy `resolveFirst()`/`resolveLast()` |
+| `hydratable` | A generic async hydration mixin — `hydrate()` and its counterpart `dehydrate()` |
 
 ### Support utilities
 
