@@ -221,6 +221,18 @@
 :root[data-tool='html-modules']     { --hue: 165; } /* splits the 155(temporals/css-signals)-175(semantic-chunker) gap */
 :root[data-tool='mport']            { --hue: 230; } /* splits the 220(http-fields)-240(agent-query) gap */
 :root[data-tool='window-algebra']   { --hue: 290; } /* splits the 280(ecmanim)-300(raijin) gap */
+/* safe-fragment (2026-10): the same fallback as the trio above. Re-checked
+   against the registry as it stands: every gap between adjacent stops is
+   20 degrees or less (largest: 95(andbox)-115(oat), 115-135, 175-195 ...),
+   so no arc is >=20 degrees from every stop and the strict rule cannot be
+   met. safe-fragment has no package.json dependency of any kind on a family
+   section (its only runtime dependency is DOMPurify) and none depends on it
+   (its README's Family section names mechanisms, not dependencies), so
+   there is no genuine link to hue-share with. It splits the ordinary 20
+   degree 95(andbox)-115(oat) gap ~10/10. That gap is >=60 degrees from the
+   three sections added just before it (html-modules 165, mport 230,
+   window-algebra 290), so the four stay spread out. */
+:root[data-tool='safe-fragment']    { --hue: 105; } /* splits the 95(andbox)-115(oat) gap */
 /* Hue-share: domkit takes domable's stop. Real technical link -- domkit's
    package.json carries a hard npm dependency on @johnhenry/domable (six
    modules domkit originally vendored a second copy of -- simple-element,

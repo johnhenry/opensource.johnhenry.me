@@ -86,6 +86,7 @@ export default defineConfig({
           { label: 'mport', directory: 'mport' },
           { label: 'window-algebra', directory: 'window-algebra' },
           { label: 'html-modules', directory: 'html-modules' },
+          { label: 'safe-fragment', directory: 'safe-fragment' },
           { label: 'domkit', directory: 'domkit' },
         ].map(({ label, directory }) => ({
           label,
