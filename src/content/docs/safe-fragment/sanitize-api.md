@@ -33,10 +33,14 @@ Options (`SanitizeToFragmentOptions`):
 | `document` | The document whose realm should be used (for example a pop-out's). Defaults to the ambient `document`; without any DOM it throws `UNSUPPORTED_ENVIRONMENT`. |
 | `maxInputLength` | Largest accepted input in UTF-16 code units (default 1,000,000). Longer input throws `SOURCE_TOO_LARGE`. |
 | `baseUrl` | Base URL that protocol-relative URLs inherit their scheme from. Defaults to `document.baseURI`. |
+| `idPolicy` | `"prefix"` (default) rewrites every id (and reference) to `user-content-<id>`. `"keep-in-shadow"` keeps ids as written and is safe **only** if you insert the returned fragment into a shadow root: in light DOM or the document a kept id can clobber `window` and `document` properties. Nothing here can check where you insert it, so that guarantee is yours. Any other value throws `INVALID_OPTION`. See [Ids inside a shadow root](/safe-fragment/profiles/#ids-inside-a-shadow-root). |
 | `loadDOMPurify` | DOMPurify loader for this call; see [`loadDOMPurify`](#loaddompurify) below. |
 
 The report lists what both the engine and `enforceProfile` removed (`removedElements`, `removedAttributes`, `rewrittenUrls`);
-`outputLength` is an approximation.
+`outputLength` is an approximation. It lists only genuinely removed nodes: DOMPurify's own scaffolding (the `<remove>` sentinel and the `<body>`
+wrapper) is not reported, so a benign input reports nothing on either engine ([safe-fragment#9](https://github.com/johnhenry/safe-fragment/issues/9),
+`081f92c`). The native engine's report cannot list what it strips unconditionally (`<script>`, `<iframe>`, `on*` handlers, `javascript:` URLs);
+DOMPurify's does ([ADR 0007](/safe-fragment/decisions/#adr-0007-no-trusted-types-gated-sink-is-ever-touched-even-for-the-report)).
 
 ## `sanitizeToFragmentSync(html, options)`
 

@@ -11,8 +11,8 @@ documents what that registry is.
 
 ## Contents
 
-- A `Map` from profile name to a deeply frozen `ProfileDefinition`, seeded lazily with the four built-ins (`plain-text-v1`,
-  `article-v1`, `ui-v1`, `email-v1`).
+- A `Map` from profile name to a deeply frozen `ProfileDefinition`, seeded lazily with the five built-ins (`plain-text-v1`,
+  `article-v1`, `ui-v1`, `email-v1`, `component-template-v1`).
 - A set of the built-in names, which is how `registerProfile` and `unregisterProfile` refuse to replace or remove them.
 
 Reading it never touches a DOM global, so `getProfile` and `listProfiles` work in Node.

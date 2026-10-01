@@ -61,6 +61,19 @@ from the custom elements platform, come after. What the library does and does no
   `{ ready, load(), cancel(), state }`. Await `handle.ready`.
 - **The compiler never lazy-loads.** Compiled dependencies are static `import`s;
   `load="lazy"` is carried along but does not make compiled code lazy.
+- **The configuration elements render nothing but are not hidden.** `<html-import>`, `<html-binding>`,
+  `<html-import-settings>` and `<html-module-settings>` have no default style, so inside a grid or flex container (a
+  `<body>` that is `display: grid`, say) each one becomes a layout item and can leave a gap. Hide them:
+  `html-import, html-binding, html-import-settings, html-module-settings { display: none }`. (The library adds no
+  stylesheet of its own, which is what keeps it usable under a strict `style-src`.)
+- **A sanitized module cannot import JavaScript, and loses more than scripts.** With a `sanitize` hook,
+  `<html-import src="*.js">` in a sanitized module is refused (`import()` would run it with the page's authority). Under
+  safe-fragment's profiles a template also loses `<style>` (a non-goal there: put the CSS in `<html-export><style>`, which
+  the sanitizer never sees), forms and their controls (so a `form-associated` component loses its control), SVG, `style=""`,
+  `data-*` beyond what you list and `http:` links; its ids are kept inside the shadow root. The native Sanitizer API does not
+  report what it strips by itself (`<script>`, `<iframe>`, handlers, `javascript:`), so on Chromium a `sanitize` event lists
+  only what the profile removed. See [Security model](/html-modules/security/#sanitizing-templates-from-less-trusted-modules)
+  and [what a template loses](/html-modules/api/sanitize/#what-a-template-loses).
 - **`npx html-module` outside a project that has the package installed** looks for an npm
   package *named* `html-module`, which is not this one. Use
   `npx -p @johnhenry/html-modules html-module …`.

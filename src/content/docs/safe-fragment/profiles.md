@@ -1,6 +1,6 @@
 ---
 title: "Profiles"
-description: "The four built-in profiles, versioning and immutability, registerProfile and deriveProfile, custom-element prefix patterns, and how to add a new profile."
+description: "The five built-in profiles (including component-template-v1 and idPolicy), versioning and immutability, registerProfile and deriveProfile, custom-element prefix patterns, and how to add a new profile."
 sidebar:
   order: 3
 ---
@@ -17,9 +17,10 @@ existing name. A name whose `-v<N>` suffix disagrees with `version` is rejected 
 | `plain-text-v1` | Fully implemented, tested | No HTML parsing at all: `textContent` only. |
 | `article-v1` | Fully implemented, tested | Rich read-mostly content: prose, headings, lists, tables, links, images. |
 | `ui-v1` | Fully implemented, tested | Layout and interactive elements, `data-action` delegation, forced `type="button"`. Derive a profile to add custom elements. |
+| `component-template-v1` | Fully implemented, tested | `ui-v1` plus `<slot>` and `part`/`slot`/`exportparts`, for a web component's template. Opt-in `idPolicy: "keep-in-shadow"`. No `<style>`. |
 | `email-v1` | **Scaffold** ([safe-fragment#2](https://github.com/johnhenry/safe-fragment/issues/2)) | Restrictive table-layout-friendly subset; blocks relative auto-loading URLs; no `cid:`, VML or MSO-comment handling yet. |
 
-The exported constants `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1` and `EMAIL_V1` are **name strings**, not definitions. Read a
+The exported constants `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1`, `EMAIL_V1` and `COMPONENT_TEMPLATE_V1` are **name strings**, not definitions. Read a
 definition with `getProfile(ARTICLE_V1)`.
 
 ### `plain-text-v1`
@@ -52,6 +53,73 @@ It deliberately excludes forms (`<form>`, `<input>`, `<select>`, `<textarea>`, `
 both are well-documented sanitizer-bypass surfaces (`formaction` hijacking; `<svg onload>` and `xlink:href` `javascript:` abuse)
 that add a lot of allowlist surface for a use case ("clickable region dispatches an app action") that does not need them.
 
+### `component-template-v1`
+
+The markup of a web component's template: what you are about to clone into a shadow root. It is `ui-v1` (same elements and
+attributes, same URL schemes, `data-action`, forced `type="button"`, ids namespaced by default) plus shadow-DOM composition:
+
+- `<slot>` with `name`;
+- `part`, `slot` and `exportparts` on every allowed element.
+
+Nothing else differs. In particular, still removed (each by design):
+
+| Input | Result |
+| --- | --- |
+| `<style>` | Dropped with its content. Not supported ([ADR 0006](/safe-fragment/decisions/#adr-0006-style-is-a-non-goal)): keep stylesheets outside the sanitized template ([below](#styles)). |
+| `style="..."`, `srcset`, `data-*` other than `data-action` | Removed. |
+| `<form>`, `<input>`, `<select>`, `<textarea>` | Unwrapped. Form-associated components: the control must come from your own code, or derive a profile and accept the surface. |
+| SVG, MathML | Dropped ([safe-fragment#3](https://github.com/johnhenry/safe-fragment/issues/3)). |
+| `http:` links, including `//host` when the page is served over `http:` | Removed: schemes are `https:`, `mailto:` and relative. Correct, but surprising on a local `http:` dev page. |
+| `id` and every reference to it | Rewritten to `user-content-<id>` unless you opt in to `idPolicy: "keep-in-shadow"` ([below](#ids-inside-a-shadow-root)). |
+
+Custom elements are not part of the built-in (it is immutable and the prefix is yours to choose). The recipe:
+
+```ts
+import { registerProfile, deriveProfile, COMPONENT_TEMPLATE_V1 } from "@johnhenry/safe-fragment";
+
+registerProfile(
+  deriveProfile(COMPONENT_TEMPLATE_V1, {
+    name: "my-app-template-v1",
+    customElements: [
+      // list part/slot/exportparts yourself: a custom element's attributes are exactly what you say
+      { tag: "my-app-*", attributes: ["part", "slot", "exportparts", "class", "id", "variant"] },
+    ],
+  }),
+);
+```
+
+#### Ids inside a shadow root
+
+By default every `id` becomes `user-content-<id>` and every reference to it (`for`, `aria-controls`, `aria-labelledby`,
+`aria-describedby`, `aria-owns`, `href="#x"`, ...) is rewritten with it. A component whose own script or stylesheet uses `#id`
+(or `form-control="#id"`) stops matching. That rewrite exists to stop DOM clobbering of `window` and `document`, which cannot
+happen to content inside a shadow root, so there is an opt-in:
+
+```ts
+// the caller guarantees the fragment goes into a shadow root
+const { fragment } = await sanitizeToFragment(html, { profile: "component-template-v1", idPolicy: "keep-in-shadow" });
+shadowRoot.append(fragment);
+```
+
+```html
+<safe-fragment profile="component-template-v1" scope="shadow" id-policy="keep-in-shadow"></safe-fragment>
+```
+
+`<safe-fragment>` enforces the precondition: `id-policy="keep-in-shadow"` with `scope="light"` rejects with `INVALID_OPTION`.
+`sanitizeToFragment` cannot, so the guarantee is yours: inserted into light DOM or the document, a kept id can clobber `window`
+and `document` properties. Everything else is still enforced. See [ADR 0005](/safe-fragment/decisions/#adr-0005-component-templates-a-composition-profile-and-ids-kept-only-inside-a-shadow-root) for the residual risk.
+
+#### Styles
+
+`<style>` is a non-goal ([ADR 0006](/safe-fragment/decisions/#adr-0006-style-is-a-non-goal)). Author component CSS outside the sanitized markup, as trusted code:
+
+```ts
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(componentCss); // application-authored, not from the template
+shadowRoot.adoptedStyleSheets = [sheet];
+shadowRoot.append(fragment);
+```
+
 ### `email-v1`
 
 **A scaffold, not fully hardened.** A restrictive subset covering the table-based layout patterns real HTML email relies on:
@@ -71,7 +139,7 @@ that a `class` value could coincidentally match a selector in the host page's st
 
 ## Versioning and immutability
 
-The built-ins are deeply frozen. Nothing can modify them. A change to a shipped profile's output is a **new version**
+The five built-ins are deeply frozen. Nothing can modify them. A change to a shipped profile's output is a **new version**
 (`foo-v2`), never an edit to `foo-v1`. To change behavior in your application, derive a new profile under a new name.
 
 ## `registerProfile`

@@ -24,6 +24,14 @@ version, so there is no earlier name or version to migrate from.
 without `Element.setHTML` (Safari today) or when you force the fallback. The shipped ESM and CJS output targets evergreen
 browsers; Node 26 or newer is only the toolchain (`devEngines`).
 
+**From git.** Until there is a release, a commit can be installed directly:
+`npm install git+https://github.com/johnhenry/safe-fragment.git#<sha>`. `dist/` is not committed, so the package has a `prepare`
+script that builds it for git installs and `npm ci` (after installing its devDependencies; it skips with a warning instead of
+failing when devDependencies are omitted). Before that script
+([safe-fragment#10](https://github.com/johnhenry/safe-fragment/issues/10), `1817d79`) a git install was an empty package. A
+registry tarball is never built this way. The built `dist/index.js` still reaches the fallback with a bare `import("dompurify")`,
+so a page that imports it from `node_modules` needs the [import map](#no-bundler-the-import-map) too.
+
 ## Register the element
 
 ```js
@@ -97,7 +105,8 @@ exactly this. Call `await preloadSanitizer()` at startup to pay the load once an
 [the sanitize API](/safe-fragment/sanitize-api/).
 
 **With [mport](https://github.com/johnhenry/mport):** on raw-file CDNs (jsDelivr, unpkg) the generated import map only contains
-the entry points you ask for, so list `dompurify` explicitly:
+the entry points you ask for, so list `dompurify` explicitly, or let mport add it from this package's `dependencies` with
+`--dependencies` (`build(specs, { dependencies: true })` from code):
 
 ```bash
 npx @johnhenry/mport build @johnhenry/safe-fragment@0 dompurify@3.4.16

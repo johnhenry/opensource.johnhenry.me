@@ -54,7 +54,7 @@ createHTMLModules(options?: {
   mode?: 'cors' | 'same-origin' | 'no-cors';          // fetch option for HTML modules; = the platform's default
   trustedTypes?: { createHTML(html: string): unknown } | false;  // = a policy named "html-modules" where window.trustedTypes exists
   nonce?: string;                        // CSP nonce for the <style> fallback; no default
-  parseHTML?: (html: string, url: string) => Document;   // = new window.DOMParser().parseFromString(html, 'text/html')
+  parseHTML?: (html: string, url: string) => ParentNode;  // = a detached <body> holding the parsed markup (see Trusted Types and CSP)
   importModule?: (url: string) => Promise<object>;       // = (url) => import(url)
   onEvent?: (event: { type: 'fetch' | 'load' | 'error', url: string, kind?: 'html' | 'js', error?: unknown }) => void;
 }): HTMLModulesInstance
@@ -76,9 +76,10 @@ createHTMLModules(options?: {
 | `mode` | the platform's | The `mode` passed to `fetch()` for HTML modules. `navigate` is not allowed, and `no-cors` gives an opaque response a module cannot be read from, so it is only useful with a custom `fetch`. |
 | `trustedTypes` | `"html-modules"` policy, if `window.trustedTypes` exists | A Trusted Types policy object (`{ createHTML(html) }`) used for the HTML the library parses and stamps in this window; `false` never uses Trusted Types. See [Trusted Types and CSP](#trusted-types-and-csp). |
 | `nonce` | none | The CSP nonce set on the `<style>` elements used where constructable stylesheets are unavailable. |
-| `parseHTML` | the window's `DOMParser` | Parses fetched HTML into a `Document`. Without either, loading an HTML module throws `` TypeError: No DOMParser available; pass `parseHTML` to createLoader() ``. |
+| `parseHTML` | a detached `<body>` made by an empty `DOMParser` document (a whole `DOMParser` document where the `DOMParser` is not a browser's) | Parses fetched HTML into a `Document` or any other node whose descendants are the module's elements. Without either, loading an HTML module throws `` TypeError: No DOMParser available; pass `parseHTML` to createLoader() ``. |
 | `importModule` | native `import()` | Loads JavaScript modules. |
-| `onEvent` | no-op | Observes the loader: `{ type: 'fetch', url }` before an HTML module is fetched; `{ type: 'load', url, kind }` and `{ type: 'error', url, kind, error }` when any module (HTML or JS) settles. |
+| `sanitize` | none | A function every component template of the HTML modules this instance loads (and of those they import) passes through at load time, before anything is registered: `(html, { def, url, window, report }) => string \| TrustedHTML \| DocumentFragment` (or a Promise of one). Overridable per `load()` / `import()` / `<html-import>`; `false` opts out. See [Sanitizing templates](/html-modules/api/sanitize/). |
+| `onEvent` | no-op | Observes the loader: `{ type: 'fetch', url }` before an HTML module is fetched; `{ type: 'load', url, kind }` and `{ type: 'error', url, kind, error }` when any module (HTML or JS) settles; and `{ type: 'sanitize', url, name, details }` for each [report](/html-modules/api/sanitize/#reports) a `sanitize` function makes (also dispatched as `html-modules:sanitize` on the document). |
 
 Precedence: these import defaults sit **below** each `<html-import>` attribute and its document's
 `<html-import-settings>`, and **never apply inside HTML modules** (whose imports use their own settings or the
@@ -95,6 +96,7 @@ createHTMLModules()` in the message: `Invalid load="soon" in createHTMLModules()
 instance.load(src: string, options?: {
   base?: string, type?: 'html' | 'js',
   integrity?: string, credentials?: 'omit' | 'same-origin' | 'include', mode?: 'cors' | 'same-origin' | 'no-cors',
+  sanitize?: Sanitizer | false,
 }): Promise<namespace>
 ```
 
@@ -115,6 +117,11 @@ it, so an unverified copy never satisfies it (and a failed check is evicted like
 `mode` apply to this module's fetch only; the module's own dependencies use the instance defaults and their own
 `integrity` attribute.
 
+`sanitize` runs every component template of this module, **and of every HTML module it imports**, through that function
+before the module's definitions exist (`false`: through none, even if the instance has one; JavaScript modules are not
+affected, but a sanitized HTML module importing one is refused). The result is cached apart from a load without it (and
+from one with another function). See [Sanitizing templates](/html-modules/api/sanitize/).
+
 A loaded HTML module's dependencies are loaded too (eager ones), but its components are only registered, and their
 dependencies bound, when something registers them: `ns.card.define('my-card')`, `bind()`, `import()`, or an
 `<html-import>`.
@@ -126,7 +133,7 @@ instance.import(src: string, options?: {
   as?: string, delimiter?: string, bindings?: Array<{ export: string, element?: string, adopt?: boolean }>,
   base?: string, type?: 'html' | 'js', root?: Document | ShadowRoot,
   conflict?: 'error' | 'reuse', load?: 'eager' | 'lazy', errors?: 'event' | 'throw',
-  integrity?: string, credentials?: string, mode?: string,   // as for load()
+  integrity?: string, credentials?: string, mode?: string, sanitize?: Sanitizer | false,   // as for load()
 }): Promise<{ module, elements, values, tags }> | LazyHandle
 ```
 
@@ -177,12 +184,13 @@ anything already registered); [`unload()`](#unload) does that by specifier.
 ### `hotReload`
 
 ```ts
-instance.hotReload(src: string, options?: { base?: string }): Promise<{ reload: boolean, reasons: string[], updated: string[], elements: number, skipped?: true }>
+instance.hotReload(src: string, options?: { base?: string, sanitize?: Sanitizer | false }): Promise<{ reload: boolean, reasons: string[], updated: string[], elements: number, skipped?: true }>
 ```
 
 Fetch an HTML module again (bypassing the HTTP cache), replace its cache entry, and swap its components and stylesheets
 under the elements already registered: the primitive behind `html-module dev`. See [Dev server, hot reload and
-Vite](/html-modules/api/dev/#htmlmoduleshotreloadsrc).
+Vite](/html-modules/api/dev/#htmlmoduleshotreloadsrc). `sanitize` names the sanitizer the module was imported with (default: the instance's),
+because a sanitized copy is a separate cache entry.
 
 ### `unload`
 
@@ -197,6 +205,15 @@ registered tags stay registered (custom elements cannot be undefined), and a Jav
 module map, so `import()` of it returns the same module: only html-modules' entry goes. Throws `TypeError` for an
 unresolvable bare specifier.
 
+### `sanitize`
+
+```ts
+instance.sanitize: Sanitizer | undefined      // assignable; false or undefined clears it
+```
+
+The instance's default sanitizer (the `sanitize` option), also on `instance.loader.sanitize`. Assigning it affects the loads
+that start afterwards; see [Sanitizing templates](/html-modules/api/sanitize/#where-it-can-be-set).
+
 ### `options`, `delimiter`, `base`
 
 - `options`: the instance's import defaults after validation, frozen: `{ delimiter, conflict, load, errors }`.
@@ -205,12 +222,12 @@ unresolvable bare specifier.
 
 ### `loader`
 
-The underlying [`createLoader()`](#createloaderoptions) object: `{ load, unload, reload, resolve, cache, baseURL }`.
+The underlying [`createLoader()`](#createloaderoptions) object: `{ load, unload, reload, cached, resolve, cache, baseURL, sanitize }`.
 
 ## Trusted Types and CSP
 
 Under `Content-Security-Policy: require-trusted-types-for 'script'`, assigning a string to `template.innerHTML` or
-passing one to `DOMParser.parseFromString` throws. The two places html-modules does this (the loader parsing a
+assigning one to the `innerHTML` of the element a fetched module is parsed into throws. The two places html-modules does this (the loader parsing a
 fetched module, and a component stamping its template) wrap the HTML first:
 
 - With the **`trustedTypes`** option (a policy object with `createHTML(html)`), through your policy. `false` opts out.
@@ -227,7 +244,14 @@ A custom `parseHTML` is yours and is not wrapped. For compiled modules (which ne
 
 `nonce` is put on the `<style data-html-module>` elements inserted where constructable stylesheets are unavailable
 (adopted sheets are not subject to `style-src` nonces). A `<style>` in a module's source is never inserted into the
-page, so no other `nonce` is needed. `script-src` is not involved: html-modules inserts no `<script>`.
+page, so no other `nonce` is needed. The loader parses a module into a detached `<body>` (made by an empty `DOMParser`
+document, so `<noscript>` parses as it does in a `DOMParser` document in every engine) rather than a whole `DOMParser` document, because Chromium evaluates `style-src` for every `<style>` in a document's
+tree and logs a `style-src-elem` violation (and sends a report) for each one even though nothing is applied; a detached
+element is never checked. The parse is the same fragment parse a document gets after `<body>` (verified record-for-record
+against `DOMParser` in Chromium, Firefox and WebKit). Only a browser's native `DOMParser` gets this path: another DOM implementation
+(linkedom, jsdom) has no CSP and gets a whole document, as before, and so does a module whose source mentions `<noscript>` (Firefox parses
+`<noscript>` content in any fragment as text, which would make the record differ from the scanner's). A `style="…"` attribute is different: it is reported as
+`style-src-attr` by every way of parsing markup, so a module that has one reports under a strict `style-src`. `script-src` is not involved: html-modules inserts no `<script>`.
 
 ## Lazy loading
 
@@ -346,9 +370,11 @@ defineHTMLModuleElements({ modules });
 ## `createLoader(options)`
 
 ```ts
-createLoader(options?: { baseURL?, hostResolve?, fetch?, credentials?, mode?, trustedTypes?, nonce?, parseHTML?, importModule?, window?, onEvent? }):
-  { load(specifier, referrer?, { type?, integrity?, credentials?, mode? }?): Promise<namespace>, resolve(specifier, referrer?): string,
-    unload(specifier, referrer?, { type? }?): boolean, reload(specifier, referrer?): Promise<{ previous, next }>, cache: Map<string, Promise<namespace>>, baseURL: string | undefined }
+createLoader(options?: { baseURL?, hostResolve?, fetch?, credentials?, mode?, trustedTypes?, nonce?, sanitize?, parseHTML?, importModule?, window?, onEvent? }):
+  { load(specifier, referrer?, { type?, integrity?, credentials?, mode?, sanitize? }?): Promise<namespace>, resolve(specifier, referrer?): string,
+    unload(specifier, referrer?, { type? }?): boolean, reload(specifier, referrer?, { sanitize? }?): Promise<{ previous, next }>,
+    cached(specifier, referrer?, { sanitize? }?): boolean, sanitize: Sanitizer | undefined,
+    cache: Map<string, Promise<namespace>>, baseURL: string | undefined }
 ```
 
 The loader alone: resolve → fetch → parse → read the record → load dependencies → link. Options as in

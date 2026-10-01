@@ -18,7 +18,7 @@ scripts run the real scanner, compiler, loader and runtime, and use [linkedom](h
 | `01-a-module-reads-into-a-json-record.mjs` | `scanHTMLModule()` reads `components/ui.html` into a plain-JSON module record (four components, one of them the default, and a JSON data export; the unexported paragraph is absent), and `readHTMLModule()` over a parsed DOM produces the **same** record. That agreement is what keeps compiled and runtime-loaded modules identical. |
 | `02-tags-are-namespace-delimiter-export.mjs` | `bindingName()` makes `<ui--card>` by default and `<ui-card>` with `"-"`; `"."` with a one-word export is **rejected** with a `SyntaxError` naming `<ui.card>` and "it has no hyphen"; `parseBindingName()` returns `null` for an ambiguous tag; `isValidDelimiter()` rejects `""`, `" "`, `":"` and upper case; `elementNameProblem()` explains, in words, why a name is invalid. |
 | `03-compiled-output-is-a-plain-es-module.mjs` | `compileHTMLModule()` turns `rating.html` (which imports `icons.html` and `themes.html`) into an ES module whose only library import is `@johnhenry/html-modules/runtime` and whose `.html` dependencies are rewritten to `.js`; the compiled files import in plain Node and export definitions that keep their identity and their module's imports, and **nothing is registered**. The `register` format emits a `registerComponents()` call, and an invalid tag is rejected at compile time. |
-| `04-invalid-modules-fail-with-a-named-syntax-error.mjs` | 51 kinds of broken module (missing `name`, bad names, duplicate and double defaults, two templates, bad `shadow`/`delegates-focus`, invalid JSON, `@import` in a `<style>`, a bad `integrity`, a lazy import that adopts or has no tag to wait for, a misplaced `<html-binding>`, misplaced or duplicate settings, …) each fail with the documented `SyntaxError`, naming the module, **identically** through the scanner, the DOM reader and the compiler. |
+| `04-invalid-modules-fail-with-a-named-syntax-error.mjs` | 55 kinds of broken module (missing `name`, bad names, duplicate and double defaults, two templates, bad `shadow`/`delegates-focus`, invalid JSON, `@import` in a `<style>`, a bad `integrity`, a lazy import that adopts or has no tag to wait for, a misplaced `<html-binding>`, misplaced or duplicate settings, …) each fail with the documented `SyntaxError`, naming the module, **identically** through the scanner, the DOM reader and the compiler. |
 | `05-html-import-registers-and-upgrades-in-place.mjs` | In a linkedom window, `<html-import src as="ui">` registers `<ui--card>` and friends (not the data export), and an element written **before** the import upgrades in place with its light DOM slotted; `el.tags` records `{ tag, namespace, export }`; one definition is registered under several tags as distinct subclasses; a second namespace reuses the cached module (**one fetch**); a tag already held by a different definition is an error unless `conflict: 'reuse'`, which records `reused: true`; `<html-binding>` children bind only what they name. |
 | `06-lazy-import-fetches-on-first-use.mjs` | Under `<html-import-settings load="lazy">`, imports fetch **nothing** until one of their tags appears (another namespace's tags do not count), while `load="eager"` on one import overrides the setting; the first `<ui--…>` loads, registers and upgrades; `el.load()` forces a load; `HTMLModules.import(src, { load: 'lazy' })` returns a handle (not a promise) with `state`, `load()` and `cancel()`. |
 | `07-hot-reload-swaps-components-under-live-elements.mjs` | `HTMLModules.hotReload()` re-fetches an edited module and re-stamps a live element **in place** (same shadow root, light DOM kept, bindings re-bound), while a shadow-mode change, which cannot be applied under live elements, comes back as `reload: true` and changes nothing. |
@@ -49,6 +49,7 @@ the pages that cover it.
 | `settings.html` | `<html-import-settings>` (`settings/` frames): a page-wide delimiter, a `base` switching a vendored library between `vendor/ui@1/` and `vendor/ui@2/`, `conflict="reuse"` letting a compiled and a runtime copy share a page, `errors="throw"` reaching `window.onerror`, lexical scope, and `<html-module-settings>` (closed shadow roots by default). |
 | `lazy.html` | `load="lazy"` with a live network panel: each module fetched only when its first element appears, including inside a component's shadow root, a binding's exact tag, a module's own lazy import, `el.load()`, disconnecting before load, and a lazy `HTMLModules.import()` handle. |
 | `scripting.html` | Live checks for driving the library from script: a scripted `<html-import>` (`createElement`, `append`, then set `src` and `as`; reflected properties; changing `src` after loading started is an error), un-adopting a stylesheet, `HTMLModules.unload()`, server-rendered (declarative) shadow DOM, open and closed, with `renderDeclarative()`, markup mistakes that used to be silent (a self-closed `<html-binding />`, a lazy import with nothing to wait for), and the security options (`integrity`, `credentials`, `mode`, a Trusted Types policy). |
+| `sanitize.html` | The opt-in `sanitize` hook for modules from less-trusted origins (`components/untrusted.html` carries `<img onerror>`, a `javascript:` link, `<iframe srcdoc>`, a handler and a `<script>` in its templates): a function you write, returning a string or a `DocumentFragment`; async, at load time; per import, `false` to opt out, cached per sanitizer; reports as events; a sanitized module cannot import JavaScript (`components/untrusted-importer.html`); and `safeFragmentSanitizer()` over `@johnhenry/safe-fragment` (the devDependency, loaded from `node_modules` with an import map for DOMPurify; the section reports itself unsupported without it). |
 
 Supporting folders, used by the pages above (not pages themselves): `components/` (the HTML component library),
 `app/`, `interop/`, `errors/` (intentionally broken modules), `vendor/` (two versions of a vendored library),
@@ -97,7 +98,7 @@ error) and targeted specs: constructable stylesheets and `url()` resolution agai
 (open and closed), Trusted Types under an enforced `require-trusted-types-for` CSP (`scripts/test-server.js` adds CSP
 headers on request), data binding, form association, hot reload against a real `html-module dev` server and a real Vite
 dev server, and scoped registries. A feature an engine lacks is reported by the page as **unsupported**, never as a
-failure. The CI `browsers` job runs all three engines; what it found (117 specs, Chromium 153, Firefox 155,
+failure. The CI `browsers` job runs all three engines; what it found (201 specs, Chromium 153, Firefox 155,
 WebKit 26.6 on Linux):
 
 | Feature | Chromium | Firefox | WebKit |
@@ -107,8 +108,11 @@ WebKit 26.6 on Linux):
 | form state restored on history navigation | restored | the engine restored not even a plain form-associated element in an automated back navigation, so the page reports those checks as unsupported | restored |
 
 (Firefox cannot be launched in the sandbox the maintainer's agent runs in, so it is exercised only in CI; Chromium and
-WebKit also run locally.) Chromium reports a `style-src-elem` CSP violation (a report: nothing is applied) for the
-`<style>` inside a module's `DOMParser` document under a strict `style-src`; the specs assert every other directive is clean.
+WebKit also run locally.) Under a strict `style-src` no engine reports a CSP violation for a module's `<style>`: the
+loader parses a module into a detached element rather than a `DOMParser` document (Chromium CSP-checks the `<style>`
+elements of a document, one `style-src-elem` report each), and `test/browser/parse.spec.js` checks in each engine that
+the record is identical to the `DOMParser` one. A `style="…"` *attribute* in a module's markup is a `style-src-attr`
+report whichever way it is parsed (and is blocked when stamped), so keep inline style attributes out of modules.
 
 ## Benchmarks
 

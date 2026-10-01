@@ -28,7 +28,7 @@ A type guard, safe across realms: checks the shape (an object with `code`, `mess
 
 ## Error codes
 
-`SafeFragmentErrorCode` has these 22 members. "Surfaces as" says where you meet each one: a `reject` event (and a rejected
+`SafeFragmentErrorCode` has these 23 members. "Surfaces as" says where you meet each one: a `reject` event (and a rejected
 `render()` result), a thrown error from a function, or the `render()` result only.
 
 ### Source resolution
@@ -38,6 +38,7 @@ A type guard, safe across realms: checks the shape (an object with `code`, `mess
 | `AMBIGUOUS_SOURCE` | `reject` | More than one markup source while `strict`. |
 | `NO_SOURCE` | `reject` | No `.html`, `<template>`, `src` or `content`. |
 | `INVALID_SOURCE` | `reject`, throw | The source is not a string (never rendered as `[object Object]`). |
+| `INVALID_OPTION` | `reject`, throw | An option has a value outside its allowed set (for example `idPolicy: "none"`), or one that is only valid in another configuration (`id-policy="keep-in-shadow"` without `scope="shadow"`). |
 | `SOURCE_TOO_LARGE` | `reject`, throw | The source exceeds `maxInputLength`, which bounds the sanitizer's worst-case cost. |
 
 ### Profiles

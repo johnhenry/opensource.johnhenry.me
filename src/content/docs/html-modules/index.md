@@ -77,7 +77,7 @@ dependencies.
   demo site with live checks, and the cross-browser tests and benchmark.
 - [Limitations and traps](/html-modules/limitations/): read this before shipping.
 - [Security model](/html-modules/security/): what the library guarantees (inert parsing,
-  `integrity`, Trusted Types and CSP) and what stays yours.
+  `integrity`, Trusted Types and CSP), the opt-in template sanitizer, and what stays yours.
 - [Adding a new export kind](/html-modules/adding-an-export-kind/), and the project
   layout.
 - [PRD coverage and extensions](/html-modules/prd-coverage/).
@@ -89,7 +89,8 @@ dependencies.
 [the runtime](/html-modules/api/runtime/),
 [module records and settings](/html-modules/api/records/),
 [names](/html-modules/api/names/), [the compiler and CLI](/html-modules/api/compiler/),
-[the dev server and Vite plugin](/html-modules/api/dev/) and [errors](/html-modules/api/errors/).
+[the dev server and Vite plugin](/html-modules/api/dev/),
+[sanitizing templates](/html-modules/api/sanitize/) and [errors](/html-modules/api/errors/).
 
 Source: [github.com/johnhenry/html-modules](https://github.com/johnhenry/html-modules). MIT licensed.
 
@@ -110,6 +111,22 @@ it.
   library used to carry an mport adapter, routers and a lockfile; they were removed when
   it became html-modules. See mport's
   [Import maps, lockfiles and the CLI](/mport/import-maps-and-cli/).
+- **[safe-fragment](/safe-fragment/)**: the sanitizer to reach for when markup comes from
+  somewhere less trusted. Two mechanisms, neither a dependency in either direction:
+  - **The `sanitize` hook**, wired by
+    [`safeFragmentSanitizer()`](/html-modules/api/sanitize/#the-safe-fragment-adapter) from
+    `@johnhenry/html-modules/safe-fragment`: every component template of a less-trusted
+    module goes through safe-fragment's `sanitizeToFragment()` under a profile (derived
+    from `component-template-v1`, with `ui--*` custom elements) and the returned
+    `DocumentFragment` is stamped. safe-fragment is a peer you pass in. See safe-fragment's
+    [Profiles](/safe-fragment/profiles/).
+  - **`<safe-fragment>` inside a component template**, for text a *page* hands a component
+    you trust: `<safe-fragment profile="article-v1" content="{{bio}}"></safe-fragment>`
+    renders the host's `bio` attribute sanitized and re-renders when it changes
+    (`content` is safe-fragment's lowest-precedence source and logs a console note; it is
+    the one a `{{binding}}` can feed). Call `registerSafeFragment()` on the page. In a
+    *sanitized* module the element is not one of the profile's custom elements and is
+    unwrapped, so use it in modules you trust.
 - **[window-algebra](/window-algebra/)**: window-algebra's views host *surfaces*,
   `{ mount(target), unmount() }`, and its `htmlSurface(element)` simply appends an
   element. An html-modules component is a native custom element, so

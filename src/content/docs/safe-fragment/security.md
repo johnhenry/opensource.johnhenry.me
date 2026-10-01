@@ -25,7 +25,7 @@ rely on it for hostile content before that review.
   [ADR 0004](/safe-fragment/decisions/#adr-0004-one-behavior-for-disallowed-elements)), never "escaped and left in place." The
   output is rebuilt from fresh nodes.
 - **URL filtering uses the platform `URL` parser, never regex**, on every URL-valued attribute including custom-element
-  attributes and every `srcset` candidate. `javascript:`, `data:`, `vbscript:`, and `file:` are rejected under every shipped
+  attributes, every `srcset` candidate, and the `srcset` value as a whole. `javascript:`, `data:`, `vbscript:`, and `file:` are rejected under every shipped
   profile (whitespace, entity and case-obfuscated variants included), and protocol-relative and backslash URLs inherit the
   *document's* scheme, not an assumed `https:`.
 - **Two engines, one boundary.** The native Sanitizer API or a locked-down DOMPurify do the initial parse; the shared
@@ -47,7 +47,8 @@ rely on it for hostile content before that review.
   then re-validated), size-capped while streaming, time-limited until the body is read, and a stale fetch can never overwrite a
   newer render. See [Remote `src`](/safe-fragment/remote-src/).
 - **Works under Trusted Types** (`require-trusted-types-for 'script'`): one DOMPurify instance, hence one `dompurify` policy, per
-  window. See [Trusted Types and CSP](/safe-fragment/trusted-types-and-csp/).
+  window, and no Trusted-Types-gated sink is ever called with a string, so sanitizing produces zero violations and CSP reports in
+  every engine (the native report's trade-off is in [Trusted Types and CSP](/safe-fragment/trusted-types-and-csp/)).
 - **Bounded input:** `maxInputLength` (default 1,000,000 characters) rejects oversized sources with `SOURCE_TOO_LARGE` before
   parsing.
 
@@ -98,8 +99,10 @@ The same pipeline backs `<safe-fragment>` and the public `sanitizeToFragment()` 
    native `setHTML` when available, otherwise DOMPurify configured with an explicit allowlist derived from the profile (never its
    own defaults). Both engines parse inside an **inert document** (no browsing context, so nothing loads or runs), in body
    context, so the same input yields the same tree in both. Neither config needs to be perfect: step 7 is the boundary. What the
-   engine removed is reported (DOMPurify via its `removed` log; native via a diff against an inert second parse, with the
-   Trusted Types caveat of [safe-fragment#8](https://github.com/johnhenry/safe-fragment/issues/8)).
+   engine removed is reported: DOMPurify via its `removed` log (minus its own scaffolding, the `<remove>` sentinel and the `<body>`
+   wrapper, so a benign input reports nothing); native via a diff of a permissive second `setHTML` in the same inert document against
+   its output. The native diff cannot see the engine's unconditional baseline removals (`<script>`, `<iframe>`, `on*`, `javascript:`
+   URLs); see [ADR 0007](/safe-fragment/decisions/#adr-0007-no-trusted-types-gated-sink-is-ever-touched-even-for-the-report).
 7. **`enforceProfile()`**, the authoritative allowlist pass, run identically regardless of engine:
    - strips comments and walks every element;
    - drops dangerous containers (`script`, `style`, `template`, `noscript`, `iframe`, `noembed`, `noframes`, `xmp`, `textarea`,
@@ -111,14 +114,27 @@ The same pipeline backs `<safe-fragment>` and the public `sanitizeToFragment()` 
      own list;
    - **checks every URL-valued attribute** (`src`, `href`, `srcset`, `imagesrcset`, `poster`, `action`, `formaction`,
      `xlink:href`, `background`, `ping`, `cite`, `data`, ...) through `checkUrl()`, whatever the profile's own `urlAttributes`
-     says, including on custom elements; every `srcset` candidate must pass and `ping` is checked per token; a disallowed or
+     says, including on custom elements; every `srcset` candidate must pass and `ping` is checked per token, and the whole value (and
+     for `srcset` each comma-separated segment) is also checked as one URL, because splitting on whitespace turns `java<TAB>script:x`
+     into the harmless candidate `java` while the URL parser strips the tab (`5561b98`); a disallowed or
      unparseable URL removes the attribute entirely rather than rewriting it to something "safe-looking";
    - resolves protocol-relative and backslash URLs against the document's own base, and rejects them where the base cannot resolve
      them (`about:blank`, `data:`);
    - removes **relative URLs on auto-loading attributes** when the profile sets `blockRelativeAutoLoadUrls`;
    - normalizes `target` and forces `rel`, forces `<button>` to `type="button"`, and prefixes ids (`user-content-`), rewriting
      in-fragment references (`href="#x"`, `for`, `aria-controls`, `aria-labelledby`, `aria-describedby`, `aria-owns`,
-     `headers`, `list`, ...) consistently.
+     `headers`, `list`, ...) consistently. DOMPurify's own `SANITIZE_NAMED_PROPS` and `SANITIZE_DOM` are off, so ids are prefixed
+     exactly once and both engines treat colliding values (`id="title"`, `<slot name="title">`) alike. A `name` on an element that
+     creates named properties (`img`, `form`, `iframe`, `object`, `embed`, `a`, `area`, form controls; no built-in allows it, a
+     derived profile can) is prefixed the same way, under every policy;
+   - **`idPolicy: "keep-in-shadow"`** (opt-in, [ADR 0005](/safe-fragment/decisions/#adr-0005-component-templates-a-composition-profile-and-ids-kept-only-inside-a-shadow-root)) leaves ids and references as written. It is safe only when the fragment lands in a
+     shadow root, where named access on `window` and `document` cannot see it. `<safe-fragment id-policy="keep-in-shadow">` rejects
+     with `INVALID_OPTION` unless `scope="shadow"`; `sanitizeToFragment(html, { idPolicy: "keep-in-shadow" })` cannot see where you
+     insert the result, so that guarantee is the caller's. Residual risk: a kept id can collide with one the component looks up itself,
+     and the fragment is clobberable if you insert it into light DOM. Everything else is still enforced. Do not combine it with a
+     derived profile that allows `form` controls or `name` for content you do not trust;
+   - **`<style>` is not supported**, in any profile: it is dropped with its content ([ADR 0006](/safe-fragment/decisions/#adr-0006-style-is-a-non-goal)). Keep component stylesheets outside the
+     sanitized template.
 8. **Rebuild.** The enforced fragment is rebuilt from fresh `createElement` and `createTextNode` calls, copying only surviving
    attributes. A DOM node can carry hidden state no attribute check can see (a customized built-in's `is` value survives
    `removeAttribute("is")`), so after this pass the output is exactly the allowlisted tree.

@@ -27,12 +27,13 @@ registered under any number of tags.
 ```ts
 new HTMLComponent(spec?: {
   name?: string | null,                 // = null: the identity, e.g. "custom-card" (null for a default-only export)
-  template?: string,                    // the <template>'s content HTML; required unless `element` is given
+  template?: string | DocumentFragment, // the <template>'s content HTML (or a DocumentFragment of it, stamped without being parsed: what a sanitizer may return); required unless `element` is given
   shadow?: 'open' | 'closed',           // = "open"
   delegatesFocus?: boolean,             // = false
   styles?: string[],                    // = []: CSS texts, adopted into every shadow root (one sheet per definition)
   formAssociated?: boolean,             // = false: static formAssociated + ElementInternals (see html-syntax.md)
   formControl?: string,                 // a selector for the control in the template that supplies the form value
+  formRole?: 'submit' | 'reset',        // a button: needs formAssociated, excludes formControl
   props?: Array<{ name: string, type?: 'string' | 'number' | 'boolean' }>,  // = []: attributes that are also properties (observed, reflected)
   imports?: Array<{                     // = []: modules this component uses, bound before it is registered
     module?: object, from: string, as?: string, bindings?: Array<{ export, element?, adopt? }>,
@@ -54,7 +55,7 @@ defineHTMLComponent(spec | Class | HTMLComponent): HTMLComponent
 | `name` | The identity (`string` or `null`). For an `element` class without a `name`, the class name kebab-cased (`FancyButton` → `fancy-button`). |
 | `template` | The template HTML, or `null` for a class-backed definition. |
 | `props` | The declared props, frozen, each `{ name, type }` (type defaults to `"string"`). Every one is an observed attribute and a reflected property of the registered class; every attribute the template binds with `{{…}}` is observed too. See [Data binding](/html-modules/api/html-syntax/#data-binding-in-templates). Registering a definition whose template has an invalid binding (an `on*`, `style` or `srcdoc` target, an expression, an unterminated `{{`) throws a `SyntaxError` before anything is registered. |
-| `formAssociated`, `formControl` | As given (`formControl` is present only when given, and needs `formAssociated`). See [Form-associated components](/html-modules/api/html-syntax/#form-associated-components). Every template-backed class memoizes `attachInternals()`. |
+| `formAssociated`, `formControl`, `formRole` | As given (`formControl` and `formRole` are present only when given, both need `formAssociated`, and a button has no `formControl`: `TypeError: defineHTMLComponent: \`formRole\` needs \`formAssociated: true\``, `SyntaxError: defineHTMLComponent: Invalid formRole "x": use "submit" or "reset"`, `TypeError: defineHTMLComponent: a button (\`formRole\`) has no \`formControl\`: it carries no value`). See [Form-associated components](/html-modules/api/html-syntax/#form-associated-components). Every template-backed class memoizes `attachInternals()`. |
 | `shadow`, `delegatesFocus`, `styles`, `imports` | As given (normalized; `styles` and `imports` frozen, each import and its `bindings` frozen). |
 | `url` | Present only when given. The runtime loader sets the module URL; compiled output sets `import.meta.url`. |
 | `isClass` | `true` for a JS-authored (`element`) definition. |
@@ -104,7 +105,7 @@ class LikeButton extends likeView.element { connectedCallback() { /* … */ } }
 export const components = { 'like-button': defineHTMLComponent({ element: LikeButton, imports: likeView.imports }) };
 ```
 
-Throws `` TypeError: defineHTMLComponent: pass a `template` string or an `element` class ``, `` TypeError:
+Throws `` TypeError: defineHTMLComponent: pass a `template` string (or a DocumentFragment) or an `element` class ``, `` TypeError:
 defineHTMLComponent: `element` must be a class extending HTMLElement ``, or `SyntaxError: Invalid shadow mode "…":
 use "open" or "closed"`.
 
@@ -164,7 +165,9 @@ const html = `<ui--card>${renderDeclarative(ui.card, '<h2>Title</h2>')}</ui--car
 are written as `<style>` elements in the template so the first paint is styled before any script runs; when the
 element upgrades the component adopts its constructed sheets as well, so the rules are listed twice (harmless). `</style`
 inside the CSS is escaped. It is pure string work: it runs in Node, on definitions from `HTMLModules.load()` or from a
-compiled module. Throws `TypeError: renderDeclarative: pass a component definition …`, or `… is a JavaScript-authored
+compiled module. A definition whose template is a `DocumentFragment` (a sanitized one) is serialized from that DOM; the
+browser parses the string again, which is the step a fragment otherwise avoids (see [Sanitizing templates](/html-modules/api/sanitize/#what-it-covers-and-what-it-does-not)).
+Throws `TypeError: renderDeclarative: pass a component definition …`, or `… is a JavaScript-authored
 class, not a template; there is no template to render`. It does not render the module's *nested* components (a
 template that uses `<ui--icon>` gets the declarative markup of that one from you), and it does not set the page's
 Trusted Types policy: server-rendered markup goes through the HTML parser, not `innerHTML`.

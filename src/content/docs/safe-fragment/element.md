@@ -17,12 +17,13 @@ through the setters on first connect.
 
 | Attribute | Property | Notes |
 | --- | --- | --- |
-| `profile` | `.profile` | **Required.** Name of a registered profile (`plain-text-v1`, `article-v1`, `ui-v1`, `email-v1`, or one you registered). There is no default. |
+| `profile` | `.profile` | **Required.** Name of a registered profile (`plain-text-v1`, `article-v1`, `ui-v1`, `email-v1`, `component-template-v1`, or one you registered). There is no default. |
 | none | `.html` | Highest-precedence markup source. `undefined` behaves like `null`; a non-string is rejected with `INVALID_SOURCE`. Setting it schedules a render. |
 | `src` | `.source` | URL to fetch markup from. Disabled by default; see [Remote `src`](/safe-fragment/remote-src/). |
 | `content` | none | Legacy, lowest-precedence source. Emits a `console.warn` when used. |
 | `render-mode` | `.renderMode` | `"replace"` (default), `"once"` or `"manual"`. `clear()` and disabling reset `once`, so a later change renders again. |
 | `scope` | `.scope` | `"light"` (default) or `"shadow"`. Switching scope removes the stale wrapper. Shadow DOM is a styling convenience, not a boundary: see [ADR 0003](/safe-fragment/decisions/#adr-0003-shadow-dom-is-not-a-security-boundary). |
+| `id-policy` | `.idPolicy` | `"prefix"` (default) or `"keep-in-shadow"`. The latter keeps author ids and is honored only with `scope="shadow"`; otherwise the render rejects with `INVALID_OPTION`. See [Ids inside a shadow root](/safe-fragment/profiles/#ids-inside-a-shadow-root). |
 | `loading` | `.loading` | `"eager"` (default) or `"lazy"`, which defers a `src` fetch until the element intersects the viewport. A changed `src` goes back through the gate; a reconnect re-arms it. |
 | `disabled` | `.disabled` | Clears the content, cancels any in-flight render and suspends rendering. |
 | `strict` | `.strict` | When present, more than one simultaneous markup source is an `AMBIGUOUS_SOURCE` rejection instead of silently picking by precedence. |

@@ -1,11 +1,11 @@
 ---
 title: "Decisions"
-description: "The four architecture decision records behind safe-fragment: HTML as data, the native-plus-DOMPurify engines, Shadow DOM is not a boundary, and unwrap-or-drop for disallowed elements."
+description: "The seven architecture decision records behind safe-fragment: HTML as data, the native-plus-DOMPurify engines, Shadow DOM is not a boundary, unwrap-or-drop for disallowed elements, component templates and idPolicy, why style is a non-goal, and no Trusted Types gated sink."
 sidebar:
   order: 10
 ---
 
-The four accepted ADRs, condensed. The full text is in
+The seven accepted ADRs, condensed. The full text is in
 [`docs/adr/`](https://github.com/johnhenry/safe-fragment/tree/main/docs/adr) in the repository.
 
 ## ADR 0001: HTML is data, never code
@@ -114,3 +114,97 @@ where a browser has no native engine (WebKit today) it is skipped with the reaso
 `element-unwrapped:not-in-profile`, `element-unwrapped:custom-element-not-registered`, `element-dropped:dangerous-container` and
 `element-dropped:foreign-namespace`. Unwrapping is the more author-friendly behavior and matches the DOMPurify default; the cost is
 that a disallowed element's text now appears, but for dangerous containers (the only place hostile text could hide) it does not.
+
+## ADR 0005: Component templates: a composition profile, and ids kept only inside a shadow root
+
+**Status:** Accepted. Resolves the `<slot>`/`part` and `id` items of [safe-fragment#11](https://github.com/johnhenry/safe-fragment/issues/11).
+
+A web component's template is markup the component clones into its own shadow root. Sanitizing it needed three things the
+built-ins did not offer: `<slot>` and the `part`/`slot`/`exportparts` attributes (reachable only through an undocumented
+hand-written derived profile); author ids left alone (every surviving `id` is rewritten to `user-content-<id>`, which closes DOM
+clobbering but breaks a component whose own script or stylesheet uses `#id` or `form-control="#id"`, even though nothing inside a
+shadow root is reachable through `window` or `document` named access); and `<style>` (ADR 0006).
+
+**Decision.**
+
+- **A built-in `component-template-v1`:** `ui-v1` plus `<slot name>` and `part`, `slot`, `exportparts` on every allowed element.
+  Everything else (URL schemes, `data-action`, forced `type="button"`, no forms, SVG or `style`) is `ui-v1`'s by construction.
+  Custom elements are not part of it: built-ins are immutable and the right prefix is the caller's decision, so the documented
+  recipe is `deriveProfile("component-template-v1", { name, customElements: [...] })`. `slot` and `part` are not a bypass surface:
+  they are inert token lists that accept no URL and run nothing; `part` is a styling hook the host stylesheet can target, the same
+  class of exposure as `class`.
+- **An opt-in `idPolicy: "keep-in-shadow"`,** judged safe with a hard precondition. Named access on `window` and `document` does not
+  cross a shadow boundary. `<safe-fragment>` enforces the precondition: `id-policy="keep-in-shadow"` is honored only with
+  `scope="shadow"`, and with `scope="light"` the render is **rejected** with `INVALID_OPTION`, never silently downgraded to
+  prefixing. `sanitizeToFragment` cannot know where the caller inserts the fragment, so the option is explicit, its name carries
+  the condition, an unknown value throws `INVALID_OPTION`, and the default stays `"prefix"`. Residual risk, documented: a kept id
+  can collide with an id the component itself looks up, and it removes clobbering protection if the fragment is later inserted
+  into light DOM. Everything else (attribute allowlist, URL checks, rebuild) still runs.
+- **`name` is namespaced separately, always,** on elements that create named properties (`img`, `form`, `iframe`, `object`,
+  `embed`, `a`, `area`, form controls). No built-in allows it, but a derived profile can. This replaces DOMPurify's
+  `SANITIZE_DOM`, now off: it dropped any id or name value that collides with a `document` or form property (`<slot name="title">`,
+  `<p id="title">`) on the DOMPurify engine only, so the same template rendered differently in Safari.
+- **DOMPurify `ALLOW_UNKNOWN_PROTOCOLS: true`.** DOMPurify dropped any non-URL attribute whose value merely looked like `scheme:`
+  (`exportparts="a:b"`, `data-action="cart:add"`) while the native engine kept it. `javascript:`, `vbscript:` and `data:` values are
+  still refused, and every URL-valued attribute goes through `checkUrl` in `enforceProfile`, the actual scheme gate for both engines.
+
+**Consequences.** Component templates are expressible without a bespoke profile, and the two engines agree on them. There is a new
+error code, `INVALID_OPTION`. `http:` links are still dropped (`https:`, `mailto:` and relative only), and form controls are still
+excluded.
+
+## ADR 0006: `<style>` is a non-goal
+
+**Status:** Accepted for 0.0.0. Reopen with an independent review ([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1))
+in hand. Leaves the `<style>` item of [safe-fragment#11](https://github.com/johnhenry/safe-fragment/issues/11) open as a documented
+non-goal.
+
+A component template commonly carries its own `<style>`, and shadow DOM is what makes that safe to write. Today `<style>` is
+dropped with its content, identically in both engines, and `registerProfile` refuses it. Supporting it means sanitizing CSS, and
+HTML sanitizers are not CSS sanitizers. A CSSOM-based one (no regex is allowed in this project) would have to cover every
+URL-bearing construct (`url()`, `image-set()`, `src()`, `@import`, `@font-face`, `cursor`, `mask`, `border-image`, `content`, and
+whatever fetches next year) by property and function-name allowlist, indirection through custom properties and `var()`, attacks that
+need no network (UI redress with `position: fixed` and `pointer-events`, `:host`/`::slotted`/`::part` reaching outside the
+component, attribute-selector and `:has()` probing), and parser differentials across engines. That is a different, larger security
+surface than the rest of the package, and shipping one that is "mostly right" before the first independent review is worse than
+shipping none.
+
+**Decision.** `<style>` is out of scope: no profile option, no `sanitizeStyle()`, no stylesheet string handling. It stays dropped,
+`registerProfile` still refuses it, and the `style` attribute is still refused.
+
+**What to do instead.** Keep component stylesheets **outside** the sanitized template, as trusted, application-authored CSS
+(`shadowRoot.adoptedStyleSheets = [sheet]` with a constructed `CSSStyleSheet`, or a `<style>` the component creates itself), and
+sanitize only the markup with `component-template-v1`. A stylesheet from a source less trusted than the component is a trust
+decision this package does not make for you.
+
+**Consequences.** Loaders such as html-modules keep treating `<html-export><style>` as unsanitized, exactly as trusted as the
+module's script. Any revisit is a separate, opt-in, CSSOM-based design with its own adversarial corpus and an independent review,
+not a flag on an existing profile.
+
+## ADR 0007: No Trusted-Types-gated sink is ever touched, even for the report
+
+**Status:** Accepted. Supersedes the `DOMParser` baseline of the native report described in
+[safe-fragment#8](https://github.com/johnhenry/safe-fragment/issues/8); resolves
+[safe-fragment#12](https://github.com/johnhenry/safe-fragment/issues/12).
+
+The native Sanitizer API reports nothing about what it removed, so the native path's `SanitizationReport` was built by parsing the
+input a second time with `DOMParser#parseFromString` and diffing the inventories against the engine's output. Under
+`require-trusted-types-for 'script'`, `parseFromString` is a gated sink: a string passed to it is a blocked action, a
+`securitypolicyviolation` event and (with `report-uri` or `report-to`) a CSP report, **on every sanitization, including benign
+input**. The code caught the `TypeError` and fell back to a second `setHTML`, so the output was right, but a page that treats
+violation reports as alerts was alerted for every template. There is no way to find out whether Trusted Types is enforced without
+triggering the violation, and creating our own policy would violate any CSP whose `trusted-types` list does not name it.
+
+**Decision.** The library never calls a Trusted-Types-gated sink with a string, anywhere. The native report's baseline is a second
+`setHTML` with a permissive, blocklist-free config in the same inert document (`setHTML` is not gated).
+
+**Consequences.**
+
+- Sanitizing under an enforcing CSP produces **zero** violations in every engine; a test listens for `securitypolicyviolation` on
+  an enforcing frame and asserts none. Behavior no longer depends on whether Trusted Types is enforced.
+- The native report lists what **the profile's config** removed (elements outside the profile, dangerous containers,
+  non-allowlisted attributes) but not what the engine removes unconditionally: `<script>`, `<iframe>`, `on*` handlers,
+  `javascript:` URLs. Every safe `setHTML` strips these before we can look, and the only way to see them is a gated parse. The
+  DOMPurify path's report does list them. The engines therefore agree on benign input (empty) and on everything the profile removes,
+  and differ only in these engine-baseline removals. `enforceProfile` still removes anything either engine misses, so the security
+  outcome is unaffected; only the diagnostic is less complete.
+- This closes safe-fragment#8 as a documented limitation.

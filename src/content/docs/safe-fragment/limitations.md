@@ -1,6 +1,6 @@
 ---
 title: "Limitations and traps"
-description: "Known gaps and traps in safe-fragment, traps first, each linked to its issue (#1 to #8), plus what is solid and what is not a goal."
+description: "Known gaps and traps in safe-fragment, traps first, each linked to its issue or ADR (#1 to #8, #11), plus what is solid and what is not a goal."
 sidebar:
   order: 9
 ---
@@ -28,8 +28,13 @@ Each has an issue in [johnhenry/safe-fragment](https://github.com/johnhenry/safe
   `blockRelativeAutoLoadUrls` ([safe-fragment#6](https://github.com/johnhenry/safe-fragment/issues/6)).
 - **`ui-v1` allows `class`**, which can match host selectors
   ([safe-fragment#7](https://github.com/johnhenry/safe-fragment/issues/7)).
-- **The native path's report cannot count the engine's own baseline removals under Trusted Types**
-  ([safe-fragment#8](https://github.com/johnhenry/safe-fragment/issues/8)); on DOMPurify it is complete.
+- **`<style>` is not supported** in any profile (dropped with its content): sanitizing CSS is a separate, larger security
+  surface ([ADR 0006](/safe-fragment/decisions/#adr-0006-style-is-a-non-goal), [safe-fragment#11](https://github.com/johnhenry/safe-fragment/issues/11)). Keep component stylesheets outside the
+  sanitized template; see [Styles](/safe-fragment/profiles/#styles).
+- **The native path's report cannot count the engine's own unconditional removals** (`<script>`, `<iframe>`, `on*` handlers,
+  `javascript:` URLs; [safe-fragment#8](https://github.com/johnhenry/safe-fragment/issues/8), [ADR 0007](/safe-fragment/decisions/#adr-0007-no-trusted-types-gated-sink-is-ever-touched-even-for-the-report)): counting them needs a
+  Trusted-Types-gated parse, which this package never makes, so sanitizing produces zero CSP violations. It lists everything the
+  profile removed, and on DOMPurify the log also includes those baseline removals.
 
 ## Traps
 
@@ -45,7 +50,11 @@ Each has an issue in [johnhenry/safe-fragment](https://github.com/johnhenry/safe
 - **Unregistered custom elements are unwrapped, not kept.** Allow them by deriving a profile, and register your element
   definitions yourself.
 - **Ids are rewritten.** Every surviving `id` is prefixed `user-content-`, so `document.getElementById("x")` will not find
-  content authored as `id="x"`.
+  content authored as `id="x"`. Opt out with `idPolicy: "keep-in-shadow"` only when the fragment goes into a shadow root
+  (`<safe-fragment>` rejects it with `INVALID_OPTION` under `scope="light"`; `sanitizeToFragment` cannot check, so it is yours).
+  `name` on elements that create named properties is namespaced under every policy.
+- **A git install needs the `dompurify` import map too.** `prepare` builds `dist/` ([getting started](/safe-fragment/getting-started/#install)),
+  but `dist/index.js` still does a bare `import("dompurify")`.
 - **`<button>` is always `type="button"`, `data-*` is an allowlist.** `data-action` is the only one `ui-v1` allows.
 - **`scope="shadow"` is not isolation** ([ADR 0003](/safe-fragment/decisions/#adr-0003-shadow-dom-is-not-a-security-boundary)).
 - **The legacy `content` attribute** is the lowest-precedence source and logs a `console.warn`.
@@ -59,7 +68,7 @@ Each has an issue in [johnhenry/safe-fragment](https://github.com/johnhenry/safe
   pins.
 - **`sanitizeToFragmentSync` throws `SANITIZER_NOT_READY`** where no engine is ready synchronously. It fails closed. Call
   `await preloadSanitizer()` first.
-- **On raw-file CDNs, list `dompurify` explicitly** when generating an import map with mport.
+- **On raw-file CDNs, list `dompurify` explicitly** when generating an import map with mport, or pass `--dependencies` (`build(specs, { dependencies: true })`) to let mport add it.
 
 ### Profiles
 
@@ -91,7 +100,7 @@ Implemented and covered by the Vitest Browser Mode suite (real Chromium, WebKit 
 the adversarial XSS corpus and a benign-content corpus compared across both sanitization engines:
 
 - The sanitizer pipeline (both engines, `enforceProfile`, rebuild), the report, and the public `sanitizeToFragment` API.
-- `plain-text-v1`, `article-v1`, `ui-v1`; custom profiles via `registerProfile`.
+- `plain-text-v1`, `article-v1`, `ui-v1`, `component-template-v1`; custom profiles via `registerProfile`.
 - `<safe-fragment>`'s lifecycle, `render()` results, events, shadow and light scope, `loading="lazy"`.
 - The `src` fetch capability model.
 - `<example-sandbox>`, including a direct isolation-proof test and Trusted Types support.

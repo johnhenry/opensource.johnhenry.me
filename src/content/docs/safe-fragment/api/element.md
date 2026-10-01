@@ -37,7 +37,7 @@ Returns the `<safe-fragment>` element class for the ambient (or given) realm, bu
 The factory behind both. Takes the `HTMLElement` base class as a parameter instead of a top-level `class ... extends HTMLElement`,
 so the module never dereferences `HTMLElement` at evaluation time (which would throw in Node or SSR). `deps` is a
 `SafeFragmentElementDeps`: `{ fetchCapability: FetchCapability, maxInputLength?: number }`. Returns a constructor with the
-`observedAttributes` `profile`, `src`, `render-mode`, `scope`, `content`, `disabled`, `strict`, `loading`.
+`observedAttributes` `profile`, `src`, `render-mode`, `scope`, `id-policy`, `content`, `disabled`, `strict`, `loading`.
 
 ## `registerExampleSandbox(options?)`
 
@@ -72,6 +72,7 @@ Extends `HTMLElement`.
 | `profile` | `string` |
 | `renderMode` | `RenderMode` |
 | `scope` | `RenderScope` |
+| `idPolicy` | `IdPolicy` (reflects `id-policy`: `"prefix"` or `"keep-in-shadow"`; the latter needs `scope="shadow"`, else the render rejects with `INVALID_OPTION`) |
 | `loading` | `"eager" \| "lazy"` |
 | `disabled`, `debug`, `strict` | `boolean` |
 | `sourceKind` | read-only `SourceKind \| "none" \| "ambiguous"` |
@@ -98,6 +99,7 @@ Typed `addEventListener` and `removeEventListener` overloads use `SafeFragmentEv
 
 - `RenderMode`: `"replace" | "once" | "manual"`.
 - `RenderScope`: `"light" | "shadow"`.
+- `IdPolicy`: `"prefix" | "keep-in-shadow"`.
 - `SanitizerEngineKind`: `"native" | "dompurify"`.
 - `SourceKind`: `"html-property" | "template-child" | "src" | "content-attribute"`.
 

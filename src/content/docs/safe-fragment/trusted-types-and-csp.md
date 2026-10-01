@@ -9,7 +9,9 @@ sidebar:
 
 ## `<safe-fragment>`
 
-- **The native path** uses `setHTML`, which is not gated by Trusted Types, so it needs no policy.
+- **The native path** uses `setHTML`, which is not gated by Trusted Types, so it needs no policy. No sink that Trusted Types gates is
+  ever called with a string, so sanitizing produces **zero** violations and CSP reports in every engine, including for the
+  `SanitizationReport` (tested with a `securitypolicyviolation` listener; [safe-fragment#12](https://github.com/johnhenry/safe-fragment/issues/12), [ADR 0007](/safe-fragment/decisions/#adr-0007-no-trusted-types-gated-sink-is-ever-touched-even-for-the-report)).
 - **The DOMPurify path** registers one `dompurify` policy per window. Add `dompurify` to your `trusted-types` list.
   `'allow-duplicates'` is **not** needed, because exactly one DOMPurify instance is created per window and reused.
 
@@ -21,8 +23,10 @@ The one-instance-per-window rule is a fix, not a nicety: re-creating DOMPurify o
 so `trusted-types dompurify` without `'allow-duplicates'` broke every render after the first. If you call `preloadSanitizer()`
 or pass `loadDOMPurify`, you are still using that single shared instance.
 
-**Trap:** the native path's `SanitizationReport` cannot count the engine's own baseline removals under Trusted Types
-([safe-fragment#8](https://github.com/johnhenry/safe-fragment/issues/8)). Treat the report's counts as a lower bound there. On the DOMPurify path the report is complete.
+**Trade-off:** to keep that promise, the native path's `SanitizationReport` does not count what the engine strips unconditionally
+(`<script>`, `<iframe>`, `on*` handlers, `javascript:` URLs; [safe-fragment#8](https://github.com/johnhenry/safe-fragment/issues/8),
+[ADR 0007](/safe-fragment/decisions/#adr-0007-no-trusted-types-gated-sink-is-ever-touched-even-for-the-report)). It lists everything the *profile* removed. Treat the report as a lower bound on the native path; on the DOMPurify path it also
+includes those baseline removals. The security outcome is the same either way, because `enforceProfile` removes anything either engine misses.
 
 ## `<example-sandbox>`
 

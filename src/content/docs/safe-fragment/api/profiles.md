@@ -79,11 +79,11 @@ Returns every registered profile name: the built-ins plus anything added with `r
 
 ### `BuiltInProfileName`
 
-`"plain-text-v1" | "article-v1" | "ui-v1" | "email-v1"`.
+`"plain-text-v1" | "article-v1" | "ui-v1" | "email-v1" | "component-template-v1"`.
 
 ## Built-in profile names
 
-`PLAIN_TEXT_V1 = "plain-text-v1"`, `ARTICLE_V1 = "article-v1"`, `UI_V1 = "ui-v1"`, `EMAIL_V1 = "email-v1"`. These are **strings, not
+`PLAIN_TEXT_V1 = "plain-text-v1"`, `ARTICLE_V1 = "article-v1"`, `UI_V1 = "ui-v1"`, `EMAIL_V1 = "email-v1"`, `COMPONENT_TEMPLATE_V1 = "component-template-v1"`. These are **strings, not
 definitions**, for autocomplete and typo protection; read a definition with `getProfile(ARTICLE_V1)`. Built-ins are frozen and
 cannot be modified.
 

@@ -48,7 +48,7 @@ Node or SSR code; nothing is defined until you call `registerSafeFragment()`.
 | Piece | What it is |
 | --- | --- |
 | `<safe-fragment>` | The element. One markup source, one named profile, sanitized render, events. |
-| Profiles | `plain-text-v1`, `article-v1`, `ui-v1` and the `email-v1` scaffold; versioned, frozen, and extensible by deriving your own. |
+| Profiles | `plain-text-v1`, `article-v1`, `ui-v1`, `component-template-v1` (for a web component's template: `<slot>`, `part`, and ids kept inside a shadow root on request) and the `email-v1` scaffold; versioned, frozen, and extensible by deriving your own. |
 | `sanitizeToFragment()` | The same pipeline without the element: a detached, profile-conformant `DocumentFragment` plus a report. |
 | `src` fetch | Optional remote markup, **disabled by default**, GET-only, origin-allowlisted, size- and time-capped. |
 | `<example-sandbox>` | A *separate* component that runs application-authored, executable code in an `allow-scripts`-only iframe. Never for untrusted input. |
@@ -62,3 +62,24 @@ Node or SSR code; nothing is defined until you call `registerSafeFragment()`.
 - [API reference](/safe-fragment/api/): every export.
 
 The source is on [GitHub](https://github.com/johnhenry/safe-fragment). There is no npm link because nothing has been published.
+
+## Family
+
+safe-fragment is one of a few browser-stack packages that each own one concern. None is a dependency of another.
+
+- **[html-modules](/html-modules/)** wires `sanitizeToFragment()` in as the template sanitizer for HTML modules from less-trusted
+  origins, through a `sanitize` hook and an adapter that derives a profile from `component-template-v1`
+  ([Sanitizing templates](/html-modules/api/sanitize/)). A `<safe-fragment>` inside a trusted component's template does the same
+  job declaratively for untrusted text a page hands the component.
+- **[window-algebra](/window-algebra/)**: its `htmlSurface(element)` hosts any element, so `htmlSurface(safeFragmentEl)` puts
+  sanitized content in a window. It only calls `mount` and `unmount`, so neither package knows the other. With the default
+  `scope="light"` the rendered wrapper is an ordinary child of the host, so it moves with the element into a pop-out document.
+- **[mport](/mport/)** is the CDN router that compiles to an import map. safe-fragment's DOMPurify fallback needs a `dompurify`
+  import-map entry on pages with no bundler; on raw-file CDNs list it explicitly
+  (`mport build @johnhenry/safe-fragment@0 dompurify@3.4.16`) or let mport add it from this package's `dependencies` with
+  `--dependencies` (`build(specs, { dependencies: true })`); see
+  [No bundler: the import map](/safe-fragment/getting-started/#no-bundler-the-import-map).
+
+The one real runtime dependency is [DOMPurify](https://github.com/cure53/DOMPurify) (exact-pinned), used only as the fallback
+sanitization engine ([ADR 0002](/safe-fragment/decisions/#adr-0002-native-sanitizer-with-a-dompurify-fallback-plus-a-shared-allowlist-pass)),
+never vendored and never used with its permissive defaults.

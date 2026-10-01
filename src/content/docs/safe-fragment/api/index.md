@@ -27,7 +27,7 @@ For the sanitizer functions see [Sanitizing without the element](/safe-fragment/
 
 ## Runtime exports
 
-Every value exported from the package root (24 in all).
+Every value exported from the package root (25 in all).
 
 | Export | Kind | Page |
 | --- | --- | --- |
@@ -43,7 +43,7 @@ Every value exported from the package root (24 in all).
 | `listProfiles()` | function | [Profiles](/safe-fragment/api/profiles/#listprofiles) |
 | `RESERVED_CUSTOM_ELEMENT_NAMES` | constant | [Profiles](/safe-fragment/api/profiles/#custom-element-name-helpers) |
 | `isValidCustomElementName(name)` | function | [Profiles](/safe-fragment/api/profiles/#custom-element-name-helpers) |
-| `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1`, `EMAIL_V1` | constants (name strings) | [Profiles](/safe-fragment/api/profiles/#built-in-profile-names) |
+| `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1`, `EMAIL_V1`, `COMPONENT_TEMPLATE_V1` | constants (name strings) | [Profiles](/safe-fragment/api/profiles/#built-in-profile-names) |
 | `sanitizeToFragment(html, options)` | function | [Sanitize API](/safe-fragment/sanitize-api/#sanitizetofragmenthtml-options) |
 | `sanitizeToFragmentSync(html, options)` | function | [Sanitize API](/safe-fragment/sanitize-api/#sanitizetofragmentsynchtml-options) |
 | `preloadSanitizer(options?)` | function | [Sanitize API](/safe-fragment/sanitize-api/#preloadsanitizeroptions) |
@@ -53,7 +53,7 @@ Every value exported from the package root (24 in all).
 | `SAFE_DEFAULT_URL_SCHEMES` | constant | [URL policy](/safe-fragment/api/url-policy/#constants) |
 | `RELATIVE_URL_SCHEME` | constant | [URL policy](/safe-fragment/api/url-policy/#constants) |
 
-The four constants `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1` and `EMAIL_V1` are counted individually above.
+The five constants `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1`, `EMAIL_V1` and `COMPONENT_TEMPLATE_V1` are counted individually above.
 
 ## Type exports
 
@@ -61,7 +61,7 @@ The four constants `PLAIN_TEXT_V1`, `ARTICLE_V1`, `UI_V1` and `EMAIL_V1` are cou
 | --- | --- |
 | `SafeFragmentElement`, `SafeFragmentEventMap` | [Element](/safe-fragment/api/element/#types) |
 | `SafeFragmentElementDeps`, `RegisterSafeFragmentOptions`, `RegisterExampleSandboxOptions`, `FetchCapability` | [Element](/safe-fragment/api/element/#types) |
-| `RenderMode`, `RenderScope`, `SourceKind`, `RenderResult` | [Element](/safe-fragment/api/element/#types) |
+| `RenderMode`, `RenderScope`, `IdPolicy`, `SourceKind`, `RenderResult` | [Element](/safe-fragment/api/element/#types) |
 | `BeforeRenderDetail`, `RenderDetail`, `RejectDetail`, `ActionDetail`, `LinkDetail`, `ClearDetail` | [Element](/safe-fragment/api/element/#types) |
 | `SanitizerEngineKind`, `SanitizationNote`, `SanitizationReport` | [Element](/safe-fragment/api/element/#types) |
 | `SanitizeToFragmentOptions`, `SanitizeToFragmentResult`, `PreloadSanitizerOptions` | [Sanitize API](/safe-fragment/sanitize-api/) |
