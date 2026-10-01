@@ -77,12 +77,10 @@ depending on React.
 
 ## Family
 
-- [`domkit`](/domkit/) — a toolkit of ~35 custom elements, shadow-DOM
-  primitives, and DOM/React interop glue, built on top of domable's
-  conversions. domkit carries a hard npm dependency on this package
-  (`simple-element` for its custom-element factories, `text-to-dom`/
-  `dom-to-react`/`react-to-dom` for interop) rather than vendoring a second
-  copy of any of it.
+- [`domkit`](/domkit/) — small, independent custom elements and DOM
+  utilities. domkit carries a hard npm dependency on this package
+  (`simple-element` for building element classes, `text-to-dom` for
+  parsing option markup) rather than vendoring a second copy of either.
 
 ## License
 

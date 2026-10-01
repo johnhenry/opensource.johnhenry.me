@@ -1,48 +1,25 @@
 ---
 title: "domkit"
-description: "A toolkit of DOM/HTML-component modules — custom-element authoring, responsive containers, shadow-DOM widgets, and DOM/React interop glue, organized into namespaced clusters. Depends on @johnhenry/domable for the underlying conversions."
+description: "Small, independent custom elements and DOM utilities that work straight from a CDN: tabs, stylable selects, search combos, media-query containers, persisted theme toggles, declarative loaders. No build step."
 planet: domkit
 ---
 
-**`@johnhenry/domkit`** is a toolkit of small, independent DOM/HTML-component
-modules — custom-element authoring primitives, responsive containers,
-shadow-DOM widgets, a family of standalone interactive elements, and
-DOM/React interop glue. Each module is its own directory, importable
-individually; there is no single root import.
+**`@johnhenry/domkit`** is a set of small custom elements and DOM
+utilities that work straight from a CDN, with no build step and no
+framework. Every module is independent, so a page loads only what it uses.
 
-> **Provenance:** extracted from [`johnhenry/lib`](https://github.com/johnhenry/lib)'s
-> `js/` directory, where these modules lived as individually-versioned,
-> hot-linked source files. Consolidated into one real npm package after an
-> audit found real duplication, drift, and several lifecycle bugs across
-> the cluster. Six foundation modules that duplicated the already-published
-> [`@johnhenry/domable`](/domable/) were dropped in favor of depending on it
-> directly (`0.0.1`). Four more coherent clusters (`definable`, `matchable`,
-> `cyclable`, `hydratable`) briefly existed as their own standalone npm
-> packages (`0.0.3`) before coming back as namespaced subpaths of this one
-> package instead (`0.0.4`) — running four separate repos for clusters
-> this small cost more (CI/publish setups, secrets, release cadences,
-> demo galleries to keep in sync) than it bought. A completeness pass
-> across all four clusters (`0.0.5`–`0.0.6`) then found and fixed several
-> real bugs — a media-query grammar divergence and a crash on malformed
-> input in `matchable`, an attribute documented to do something the
-> platform can't actually do in `definable`, a global-variable leak on
-> rename in `cyclable`, and a bug in `hydratable`'s `mounts` that made its
-> "reuse an existing element" path effectively dead code in any normally
-> formatted HTML page — and added genuinely missing counterpart operations
-> (`.previous()`/`.peek()`/`.set()`, `dehydrate()`, `unmount()`). A naming
-> pass (`0.0.7`) then fixed individual-module `.component`-suffix and
-> kebab-case inconsistencies (`shadow-dom.element` → `shadow-dom.component`,
-> `xy-grapher`/`chernoff-face` → `xy-grapher.component`/`chernoff-face.component`,
-> `pause`/`pauseframespersecond` → `delay`/`frame-delay`,
-> `menu-component.component` → `menu.component`) and removed `brains`, a
-> 12-file undocumented experiment nothing else depended on. `lib` itself is
-> unaffected by any of this: its own copies of these modules keep existing
-> at their original published URLs, per its own no-deletion policy. See
-> the repo's `CHANGELOG.md` for the full history.
+```html
+<script type="module" src="https://esm.sh/@johnhenry/domkit/tabbed-ui/global.mjs"></script>
 
-See the repo's [`demo/`](https://github.com/johnhenry/domkit/tree/main/demo)
-for a live gallery running most of these modules at once, each isolated in
-its own iframe.
+<tabbed-ui>
+  <div slot="tab-bar"><button>One</button><button>Two</button></div>
+  <div>First panel</div>
+  <div>Second panel</div>
+</tabbed-ui>
+```
+
+Each module has its own README in the repo, with its full attribute, API,
+and event reference. The tables below link to them.
 
 ## Install
 
@@ -51,117 +28,143 @@ npm install @johnhenry/domkit
 ```
 
 ```js
-import { shadowOpen } from "@johnhenry/domable/simple-element";
-import defineComponent from "@johnhenry/domkit/definable/define-component.component/index.mjs";
+import "@johnhenry/domkit/tabbed-ui/global.mjs"; // registers <tabbed-ui>
+import TabbedUI from "@johnhenry/domkit/tabbed-ui"; // or just the class
+import liveQuerySelector from "@johnhenry/domkit/live-query-selector";
 ```
 
-or, in a browser with no build step, via a CDN:
+Or skip installing: every path above also works as
+`https://esm.sh/@johnhenry/domkit/<path>`.
 
-```html
-<script
-  type="module"
-  src="https://esm.sh/@johnhenry/domkit/matchable/query-container.component/global.mjs"
-></script>
-```
+## Find what you need
 
-## Modules
+### Interface pieces
 
-### Foundation
+| Module | What it's for | `global.mjs` registers |
+|---|---|---|
+| [tabbed-ui](https://github.com/johnhenry/domkit/tree/main/src/tabbed-ui) | Tabs and panels from plain children, matched by position | `<tabbed-ui>` |
+| [stylable-select](https://github.com/johnhenry/domkit/tree/main/src/stylable-select) | A listbox whose options you can fully style | `<stylable-select>` |
+| [infinite-combo](https://github.com/johnhenry/domkit/tree/main/src/infinite-combo) | Search-as-you-type combo box, with options from your async function | `<infinite-combo>` |
+| [hotkey-modal-dialog](https://github.com/johnhenry/domkit/tree/main/src/hotkey-modal-dialog) | A `<dialog>` toggled by a keyboard shortcut ¹ | `<dialog is="hotkey-modal">` |
+| [menu-component](https://github.com/johnhenry/domkit/tree/main/src/menu-component) | Keyboard-navigable menu that drills into sub-screens, optionally synced to `location.hash` | `<menu-component>` |
+| [code-color](https://github.com/johnhenry/domkit/tree/main/src/code-color) | Syntax highlighting for HTML, CSS, or JS | `<code-color>` |
 
-`simple-element`, `create-element`, `text-to-DOM-nodes`/`DOM-nodes-to-text`
-live in [`@johnhenry/domable`](/domable/) — a real npm dependency of this
-package, not a local copy (see [Family](#family)). What remains here:
+### Responding to screen size: `matchable/`
 
-| Module | Description |
+Both share one `[media query] value | …` grammar, documented in the
+[matchable README](https://github.com/johnhenry/domkit/tree/main/src/matchable).
+
+| Module | What it's for | `global.mjs` registers |
+|---|---|---|
+| [query-container](https://github.com/johnhenry/domkit/tree/main/src/matchable/query-container) | Change the element that wraps content (`ul` → `ol`, …) by media query | `<query-container>` |
+| [attribute-provider](https://github.com/johnhenry/domkit/tree/main/src/matchable/attribute-provider) | Change children's classes, styles, and attributes by media query | `<attribute-provider>` |
+
+### Remembering a user's choice (e.g. a theme toggle): `cyclable/`
+
+| Module | What it's for | `global.mjs` registers |
+|---|---|---|
+| [class-cycler](https://github.com/johnhenry/domkit/tree/main/src/cyclable/class-cycler) | A global function that cycles a persisted class | `<class-cycler>` |
+| [class-cycler-button](https://github.com/johnhenry/domkit/tree/main/src/cyclable/class-cycler-button) | A button that does the same on click ¹ | `<button is="class-cycler-button">` |
+| [localstorage-class-cycler](https://github.com/johnhenry/domkit/tree/main/src/cyclable/localstorage-class-cycler) | The same, as a JS function | |
+| [localstorage-cycler](https://github.com/johnhenry/domkit/tree/main/src/cyclable/localstorage-cycler) | The engine: a persisted value with `next`/`previous`/`peek`/`set` | |
+
+### Wiring things up from markup instead of scripts: `definable/`
+
+| Module | What it's for | `global.mjs` registers |
+|---|---|---|
+| [define-component](https://github.com/johnhenry/domkit/tree/main/src/definable/define-component) | Register a custom element from a module URL | `<define-component>` |
+| [define-component-by-content](https://github.com/johnhenry/domkit/tree/main/src/definable/define-component-by-content) | Register a markup-only custom element from an HTML string | `<define-component-by-content>` |
+| [polyfill-window](https://github.com/johnhenry/domkit/tree/main/src/definable/polyfill-window) | Load a module onto `window` | `<polyfill-window>` |
+| [until-window-load](https://github.com/johnhenry/domkit/tree/main/src/definable/until-window-load) | Hide content until the page has loaded | (strips the `until-window-load` class) |
+| [definetag](https://github.com/johnhenry/domkit/tree/main/src/definable/definetag) | Curried `customElements.define` | |
+| [event-consumer](https://github.com/johnhenry/domkit/tree/main/src/event-consumer) | Handle (and by default stop) events with inline code | `<event-consumer>` |
+
+### Timing, collections, and small helpers
+
+| Module | What it's for | `global.mjs` registers |
+|---|---|---|
+| [delay](https://github.com/johnhenry/domkit/tree/main/src/delay) | `await delay(ms)` | |
+| [frame-delay](https://github.com/johnhenry/domkit/tree/main/src/frame-delay) | `await frameDelay(fps)`: an animation-frame-paced wait | |
+| [internal-timer](https://github.com/johnhenry/domkit/tree/main/src/internal-timer) | An element that emits `tick` events at a fixed rate, with pause/resume | `<internal-timer>` |
+| [live-query-selector](https://github.com/johnhenry/domkit/tree/main/src/live-query-selector) | `querySelectorAll` that stays current | |
+| [create-mutable-nodelist](https://github.com/johnhenry/domkit/tree/main/src/create-mutable-nodelist) | A real `NodeList` you can push to and pop from | |
+| [clamp](https://github.com/johnhenry/domkit/tree/main/src/clamp) | `clamp(min, max)(value)` | |
+
+### Bootstrapping an app: `hydratable/`
+
+| Module | What it's for |
 |---|---|
-| `create-mutable-nodelist` | A push/pop/shift/unshift-able `NodeList`-like collection |
-| `live-query-selector` | An auto-updating live collection matching a selector, with a `.stop()` to disconnect it |
+| [hydratable](https://github.com/johnhenry/domkit/tree/main/src/hydratable) | A run-once async `hydrate()` (with `dehydrate()` to undo it) for any object |
+| [hydratable/mounts](https://github.com/johnhenry/domkit/tree/main/src/hydratable/mounts) | Find or create the element at the start/end of `<body>` to render an app into |
 
-### `definable/` — defining custom elements
+### Experimental: `experimental/`
 
-Four related ways to get behavior onto a page declaratively, from four
-different kinds of source, plus the primitive they're built on.
+Sketches without the stable modules' guarantees. Their APIs can change in
+any release. A composable canvas pixel pipeline (`imagedata-emitter` →
+`pixel-shader` → `canvas-renderer`), `animate-paths` (self-drawing SVG),
+`xy-grapher` (CSS scatter plots), and `chernoff-face`. See the
+[experimental README](https://github.com/johnhenry/domkit/tree/main/src/experimental).
 
-| Module | Description |
-|---|---|
-| `definable/definetag` | Curried `customElements.define` wrapper |
-| `definable/define-component.component` | Load a module by URL, register its export as a custom element |
-| `definable/define-component-by-content.component` | Define a custom element from an inline HTML string attribute |
-| `definable/polyfill-window.component` | Load a module by URL, assign its export to a global (not a custom-element registrar) |
-| `definable/until-window-load` | Remove a "hidden until loaded" class once `window` fires `load` |
+### Deprecated
 
-### `matchable/` — responsive containers
+`shadow-dom` is an alias for [domable](/domable/)'s
+`` shadowOpen`<slot />` ``. Use domable directly.
 
-Two duals of the same idea — respond to a media query by swapping vs. by
-styling — sharing one query-section parser (`matchable/query-sections.mjs`)
-and a real `parsel-js` dependency. Both modules support a bracket-less
-section with no `[query]` prefix, meaning "always applies."
+¹ A *customized built-in* (`is="…"`). These work in Chromium and Firefox
+but **not Safari**, unless you add a polyfill such as
+[`@ungap/custom-elements`](https://github.com/ungap/custom-elements).
 
-| Module | Description |
-|---|---|
-| `matchable/query-container.component` | Swap the rendered child element by media query |
-| `matchable/attribute-provider.component` | Apply classes/styles/attributes to children by media query |
+## How the package is laid out
 
-### Shadow DOM / slots
+- **One directory per module.** Related modules are grouped one level
+  deeper (`matchable/`, `cyclable/`, `definable/`, `hydratable/`,
+  `experimental/`), and the group is part of the import path.
+- **`@johnhenry/domkit/<module>`** imports the module's `index.mjs`: an
+  element class (unregistered) or a function. **`global.mjs`** registers
+  the element under the tag in the tables above. Import the class instead
+  for a different tag name.
+- **No root import, on purpose.** These modules share no state or API,
+  and a barrel would make every page download all of them, especially
+  from a CDN where nothing tree-shakes.
+- **Source is what ships.** There's no build step: modern JS, ES modules
+  only.
 
-| Module | Description |
-|---|---|
-| `shadow-dom.component` | Deprecated alias for domable's `simple-element` `shadowOpen` |
-| `internal-timer.component` | A pause/frame-timer element (shadow-DOM+slot plumbing) |
+Three modules import [domable](/domable/) by bare name, and
+`query-container` imports `parsel-js`. esm.sh and bundlers resolve those
+for you. Serving the raw source to a browser needs an import map, as the
+repo's demos show. `event-consumer` and `infinite-combo` compile inline
+code with `new Function`, so a strict Content-Security-Policy needs
+`unsafe-eval` for those two.
 
-### `cyclable/` — the class-cycler family, plus other widgets
+## Stability
 
-One localStorage-backed cycling engine, a class-applying wrapper, and two
-ready-made custom elements built on it. The engine's returned function is
-callable to step forward, and also carries `.previous()` (step back),
-`.peek()` (read the current value without changing it), and `.set(value)`
-(jump directly to a specific value).
+Everything outside `experimental/` is documented, covered by the test
+suite (`node:test` + happy-dom, plus a checker that every documented
+import path resolves), and changed only with a changelog entry. The
+package is still pre-1.0, so read the
+[changelog](https://github.com/johnhenry/domkit/blob/main/CHANGELOG.md)
+when upgrading. Module paths have changed in past releases.
 
-| Module | Description |
-|---|---|
-| `cyclable/class-cycler.component` | Global-function class cycler |
-| `cyclable/class-cycler.button.component` | Self-contained button variant |
-| `cyclable/localstorage-class-cycler` | Applies a cycled value as a class on a given element |
-| `cyclable/localstorage-cycler` | The base engine: cycle a localStorage value through a fixed list |
-
-`hotkey-modal.dialog.component`, `menu.component` (registers the
-`menu-component` tag; the module name dropped a redundant `.component.component`
-stutter but the tag name is unchanged), with a `hash.mjs` location-hash
-companion, `stylable-select.component`, `tabbed-ui.component`,
-`infinite-combo.component`, `event-consumer.component`, `code-color.component`.
-
-### Visual/canvas experiments
-
-`canvasrenderer.component`, `animate-paths.component`, `pixelshader.component`,
-`imagedata-emitter.component`, `xy-grapher.component`, `chernoff-face.component`
-— demo/experiment-grade custom elements (canvas rendering, SVG path
-animation, pixel shaders, generative graphics).
-
-### `hydratable/` — DOM ⇄ React interop
-
-`domToReact`/`reactToDom` live in [`@johnhenry/domable`](/domable/), not
-here.
-
-| Module | Description |
-|---|---|
-| `hydratable/mounts` | Framework-agnostic DOM mount-point helpers (Solid/Vue/React), plus `unmount()` and lazy `resolveFirst()`/`resolveLast()` |
-| `hydratable` | A generic async hydration mixin — `hydrate()` and its counterpart `dehydrate()` |
-
-### Support utilities
-
-`clamp`, `delay` (renamed from `pause`), `frame-delay` (renamed from
-`pauseframespersecond`) — small helpers a handful of the modules above
-depend on.
+The repo's [`demo/`](https://github.com/johnhenry/domkit/tree/main/demo)
+is a live gallery running most modules at once, each in its own iframe.
 
 ## Family
 
-- [`domable`](/domable/) — the DOM ⇄ text ⇄ React conversion primitives
-  this package depends on (`simple-element`, `create-element`, `text-to-dom`/
-  `dom-to-text`, `react-to-dom`/`dom-to-react`). domable is genuinely
-  independent (real TS types, jsdom tests, published before this cluster
-  existed) and stays its own package — domkit carries a hard npm
-  dependency on it rather than vendoring a second copy, and it's not
-  folded in the way `definable`/`matchable`/`cyclable`/`hydratable` were.
+- [`domable`](/domable/) converts between HTML text, DOM nodes, and
+  React-element-shaped objects, and builds custom-element classes from
+  HTML strings. domkit depends on it (`simple-element` and `text-to-dom`)
+  rather than vendoring a copy.
+
+## History
+
+Extracted from [`johnhenry/lib`](https://github.com/johnhenry/lib)'s
+hot-linked modules in September 2026, then consolidated over several
+releases. Duplicates of domable were dropped, related modules were grouped
+into families, and the experiments were separated out. A run of bugs was
+fixed along the way, most of them found by actually running the modules
+in a browser. The
+[changelog](https://github.com/johnhenry/domkit/blob/main/CHANGELOG.md)
+has the full account.
 
 ## License
 
