@@ -17,7 +17,7 @@ createRegistry({ fetch? = globalThis.fetch, npm? = "https://registry.npmjs.org",
 | Method | Returns |
 |---|---|
 | `version({ registry, name, range })` | the exact version per the [resolution table](/mport/api/router/#resolution-versions-and-entry-files) |
-| `entryInfo(name, version, subpath?)` | `{ file, esm }` from `GET <npm>/<name>/<version>` |
+| `entryInfo(name, version, subpath?)` | `{ file, esm, hasExports }` from `GET <npm>/<name>/<version>` |
 | `entry(name, version, subpath?)` | `entryInfo(...).file` |
 
 All memoized per client; failures are evicted. Errors are `ResolutionError`s as listed
@@ -26,10 +26,10 @@ under [Errors](/mport/api/trace-and-errors/#errors).
 ### entryInfo()
 
 ```ts
-entryInfo(pkg: packageJson, subpath? = ""): { file: string, esm: boolean }
+entryInfo(pkg: packageJson, subpath? = ""): { file: string, esm: boolean, hasExports: boolean }
 ```
 
-The file to import for a package (or a sub-path), and whether it is an ES module. The
+The file to import for a package (or a sub-path), whether it is an ES module, and whether the package has an `exports` field (`hasExports`). The
 file is chosen in this order:
 
 1. `exports`, mapped through [`resolveExports`](#resolveexports) (conditions `browser`,

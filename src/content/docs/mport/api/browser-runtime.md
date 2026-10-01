@@ -1,6 +1,6 @@
 ---
 title: "Browser runtime helpers"
-description: "injectImportMap(), startup() and createImporter()."
+description: "injectImportMap(), injectModulePreload(), startup() and createImporter()."
 sidebar:
   order: 109
 ---
@@ -19,6 +19,18 @@ Creates `<script type="importmap">` with `JSON.stringify(map)` and inserts it be
 first `script[type="module"]` or existing `script[type="importmap"]`, or at the end of
 `<head>`. Throws `Error("mport: injectImportMap needs a document")` without one. It has
 to run before the first module import that uses the map resolves.
+
+## injectModulePreload()
+
+```ts
+injectModulePreload(map: ImportMap, { document? = globalThis.document, crossorigin? = "anonymous" }?): HTMLLinkElement[]
+```
+
+Appends a `<link rel="modulepreload">` to `<head>` for each
+[`modulePreloads(map)`](/mport/api/lockfiles-and-import-maps/#modulepreloads) entry
+(with `integrity` where known) and returns the elements. Throws
+`Error("mport: injectModulePreload needs a document")` without a document. On a server,
+use [`renderModulePreload`](/mport/api/lockfiles-and-import-maps/#rendermodulepreload).
 
 ## startup()
 

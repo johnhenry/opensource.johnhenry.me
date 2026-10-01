@@ -33,12 +33,22 @@ limitations, the ones that follow from what CDNs and import maps are, come after
 - **Lock keys are the specifier as written.** `react@^19` and `react@19` are different
   keys, so a pin applies only when the specifier is spelled exactly as it was when the
   lockfile was made. See [lockKey()](/mport/api/lockfiles-and-import-maps/#lockkey).
-- **`router.build()` returns every resolution the router has ever made**, including
-  earlier `resolve()` and `import()` calls, not only this build's specifiers. Use a
-  fresh router per build if the lockfile should contain exactly one build's inputs.
-- **When `mport.config.mjs` exports a router, `--lock` is not applied to it.** The pins
-  are silently ignored (pass `lock` to your own `createRouter`), although `build` still
-  writes the lockfile.
+- **`router.build()` returns every resolution this router has made**, including
+  earlier `resolve()` and `import()` calls, not only this build's specifiers. The
+  lockfile you passed in only pins and is never copied across, so specifiers you stopped
+  building are pruned. Use a fresh router per build if the lockfile should contain
+  exactly one build's inputs.
+- **A prebuilt router in `mport.config.mjs` can't take a lockfile.** `--lock` and
+  `--relock` with one are an error, and `build` writes the import map but leaves the
+  lock file alone. Export a function instead:
+  `export default ({ lock }) => createRouter(routes, { lock })`.
+- **Two specifiers that map one import-map key to different URLs throw.** `react@18`
+  and `react@19` in one `build()` is a `ResolutionError` naming the key; give the second
+  its own `scopes` entry.
+- **A prefix specifier (`lit/`) can skip a provider.** Raw file CDNs skip it for
+  packages with an `exports` map (subpaths such as `lit/decorators.js` would 404), and
+  `jsDelivr({ esm: true })` always skips it. The route falls through to e.g. esm.sh, so
+  `lit/` may be served by a different CDN than `lit`.
 - **A pinned `entry` is trusted to be ESM.** Lockfile entries skip the entry lookup and
   the CommonJS check entirely.
 
@@ -47,15 +57,20 @@ limitations, the ones that follow from what CDNs and import maps are, come after
 - **A long-lived router never re-reads `latest`.** Registry lookups are memoized per
   router for its whole lifetime (failed lookups are forgotten and retried). Create a new
   router when you want fresh dist-tags.
-- **`cache()` saves the probe, not the registry request.** Its key contains the exact
-  version, so a range still costs one lookup. And the router writes every successful
-  resolution into **every** `cache()` node in its whole route table, not only the route
-  that served it.
+- **`cache()` is keyed on the specifier as written, so a hit makes no request at all**
+  (it works offline). The flip side: a range stays pinned to whatever it resolved to
+  until the record expires (`ttl`) or the store is cleared. And the router writes every
+  successful resolution into **every** `cache()` node in its whole route table, not only
+  the route that served it.
 - **An exact version is used as written, even if it doesn't exist.** No lookup happens
   for `react@19.2.0`; a typo surfaces later as a probe failure, not a
   `ResolutionError`.
 - **`resolveVersions: false` hands the CDN the range as written** (for example
-  `https://esm.sh/react@^19`), so the CDN, not mport, picks the version.
+  `https://esm.sh/react@^19?target=es2022`), so the CDN, not mport, picks the version.
+  Providers that need an entry file (the raw CDNs) skip a range or tag and the route
+  falls through.
+- **The `latest` tag wins when it satisfies the range, and deprecated versions are
+  passed over,** as in npm, so `react@^19` may not be the highest matching version.
 - **Prereleases only match a range that names one.** `^20` does not match
   `20.0.0-rc.1`; `>=20.0.0-rc.0` does.
 
@@ -64,9 +79,14 @@ limitations, the ones that follow from what CDNs and import maps are, come after
 - **`probe: "none"` records no health data.** Nothing was checked, so circuits never
   open and `adaptive()` never learns. It is for build-time routing you trust.
 - **`verified()` trusts the first download when no hash is pinned** (trust on first
-  use), and its download is **in addition to** the probe: a `"head"` probe plus
-  `verified()` is two requests per candidate, and it downloads even with
-  `probe: "none"`.
+  use), and it downloads even with `probe: "none"`. With the default `"head"` probe the
+  download is the probe (one `GET` per candidate); with another probe it follows it.
+- **Integrity covers the entry module only.** `verified()` hashes the one URL it
+  selected, not the modules that file imports in turn.
+- **`router.import()` only resets the failure streak when the import completes.** A
+  mirror that passes the probe but fails to import accumulates failures and its circuit
+  opens; `resolve()` and `build()` never import, so there a passing probe still resets
+  it.
 - **A circuit is half-open after `reset`.** The failure streak is not reset when the
   circuit closes again, so the next failure reopens it immediately; only a success
   closes it for good.
@@ -113,7 +133,10 @@ These follow from what raw CDNs, import maps and the npm registry are, not from 
 - **A probe proves availability, not correctness.** `probe: "head"` learns that a URL
   answers, not that it is an ES module that will evaluate; `probe: "none"` checks
   nothing and records no health; `resolveVersions: false` hands the CDN a range it
-  resolves on its own. `verified()` checks bytes only against a hash you already have.
+  resolves on its own (so providers that need an entry file, the raw CDNs, skip a range
+  and fall through). `verified()` hashes the entry module only, not the modules it
+  imports in turn, and checks bytes only against a hash you already have: without a
+  pinned `integrity` it records whatever the first mirror served (trust on first use).
   By design: stronger checks cost a download per candidate.
 - **The npm registry answers an unknown package with a 404 that carries no CORS
   header.** In a browser that surfaces as a network error, so "this package doesn't

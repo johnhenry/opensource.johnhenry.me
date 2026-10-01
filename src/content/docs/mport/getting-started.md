@@ -52,6 +52,6 @@ Every resolution explains itself:
 
 ```js
 const r = await router.resolve("react@^19");
-r.url;   // "https://esm.sh/react@19.2.0"
+r.url;   // "https://esm.sh/react@19.2.0?target=es2022"
 r.trace; // lookup → resolved → probe → ok (or fail → next provider …)
 ```

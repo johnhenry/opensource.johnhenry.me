@@ -27,9 +27,9 @@ const { importMap, lock } = await router.build(["react@^19", "lit/", "@std/path@
 ```json
 {
   "imports": {
-    "react": "https://esm.sh/react@19.2.0",
+    "react": "https://esm.sh/react@19.2.0?target=es2022",
     "lit/": "https://esm.sh/lit@3.3.1/",
-    "@std/path": "https://esm.sh/jsr/@std/path@1.1.0"
+    "@std/path": "https://esm.sh/jsr/@std/path@1.1.0?target=es2022"
   }
 }
 ```
@@ -80,7 +80,7 @@ map can and cannot do on its own.
 - [In the browser](/mport/in-the-browser/): `startup()` vs `createImporter()`.
 - [Debugging: traces and events](/mport/debugging/).
 - [The v1 API and migrating from 1.x](/mport/v1-and-migration/).
-- [Examples](/mport/examples/): eleven self-verifying Node examples and three browser
+- [Examples](/mport/examples/): twelve self-verifying Node examples and three browser
   pages.
 - [Limitations and traps](/mport/limitations/): read this before relying on failover.
 - [Adding a new provider](/mport/adding-a-provider/).

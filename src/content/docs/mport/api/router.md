@@ -67,7 +67,7 @@ Builds one array-form entry.
 |---|---|---|---|
 | `probe` | `"head" \| "import" \| "none" \| function` | `"head"` | How a candidate URL is checked. See [Probing](/mport/api/probing-and-health/#probing). |
 | `lock` | `Lockfile` | none | A lockfile whose entries pin version, entry, build and integrity. See [Lockfiles](/mport/api/lockfiles-and-import-maps/#lockfiles). |
-| `resolveVersions` | `boolean` | `true` | Resolve ranges to exact versions through the registries. With `false`, providers get the range (or nothing) as written, e.g. `https://esm.sh/react@^19`; exact versions and lockfile pins still apply. |
+| `resolveVersions` | `boolean` | `true` | Resolve ranges to exact versions through the registries. With `false`, providers get the range (or nothing) as written, e.g. `https://esm.sh/react@^19?target=es2022`; exact versions and lockfile pins still apply. Providers that need an entry file (`needsEntry`: jsDelivr raw, unpkg, jspm, `local()`) can't look one up for a range, so they **skip** with a reason (`needs an exact version to find its entry file…`) and the route falls through to e.g. esm.sh; an exact version or a lockfile pin still gets an entry. |
 | `circuitBreaker` | `{ failures?, reset? }` | `{ failures: 3, reset: 30000 }` | Options for this router's own [`HealthRegistry`](/mport/api/probing-and-health/#healthregistry). Ignored when `health` is given. |
 | `health` | `HealthRegistry` | a new one | Share health and open circuits with another router (`health: other.health`). |
 | `target` | `string` | `"browser"` | Default target for [`prefer()`](/mport/api/strategies/#prefer). |
@@ -132,8 +132,7 @@ losing probes can still be appended for a moment after `resolve()` returns.
 (the package or version can't exist, or the registry is unreachable); `RoutingError`
 (a fallback or race ran out of providers); `SkipError` or `IntegrityError` when the
 route is a single provider or `verified()` node that declined; a plain `Error` from a
-provider that can't build the URL (`jsr({ via: "jsr.io" })` without a path; a prefix
-specifier on `jsDelivr({ esm: true })`). Whatever it rejects with gets a `trace`
+provider that can't build the URL (`jsr({ via: "jsr.io" })` without a path). Whatever it rejects with gets a `trace`
 property. See [Errors](/mport/api/trace-and-errors/#errors).
 
 ### router.import()
@@ -176,9 +175,11 @@ resolved and placed under its scope with the key you gave. A specifier that reso
 `ResolutionError("mport: no route for …")`; nothing is silently dropped. Any other
 rejection from `resolve()` rejects the build.
 
-`lock` is `router.lock.toJSON()`: every resolution this router has made so far,
-including earlier `resolve()` and `import()` calls, not only this build's specifiers.
-Use a fresh router per build if the lockfile should contain exactly one build's inputs.
+`lock` is `router.lock.toJSON()`: every resolution this router has made itself so far,
+including earlier `resolve()` and `import()` calls, not only this build's specifiers. It
+starts **empty**: entries of the `lock` option are read-only pins, never copied across, so
+specifiers you no longer build are pruned from the written lockfile. Use a fresh router
+per build if the lockfile should contain exactly one build's inputs.
 
 ### router.health, router.lock, router.name
 
@@ -190,6 +191,11 @@ Use a fresh router per build if the lockfile should contain exactly one build's 
 
 ## Resolution: versions and entry files
 
+The lockfile's `version` is only ever a **resolved** version. A provider with
+`needsVersion: false` (`local()`, `origin()`) is handed the range as written to build its
+URL, but the lock records `version` only when a resolution happened anyway (`local()`
+looks up the entry file, so it does) and otherwise omits it.
+
 The deterministic half, run lazily and only for the providers that need it.
 
 **Versions** (providers with `needsVersion`, which is all built-ins except `local()` and
@@ -197,13 +203,13 @@ The deterministic half, run lazily and only for the providers that need it.
 
 | Situation | Version | Registry request |
 |---|---|---|
-| the lockfile pins a version (and no `relock`) | the pinned one | none |
+| the lockfile pins a version (and no `relock`) | the pinned one, if it is an exact version or a GitHub ref (an entry whose `version` is a range, as older locks recorded for `local()`/`origin()`, is ignored) | none |
 | `resolveVersions: false` | the range as written (may be `undefined`) | none |
 | GitHub | the ref as written | none |
 | an exact version (`19.2.0`) | as written, even if it doesn't exist | none |
 | a dist-tag present in the registry (`next`) | the tag's version | one |
 | no range, `""` or `latest` | the `latest` dist-tag | one |
-| any other range | the highest satisfying version (see [semver](/mport/api/registry-and-semver/#semver)) | one |
+| any other range | npm's rule: the `latest` dist-tag if it satisfies the range, else the highest satisfying version (see [semver](/mport/api/registry-and-semver/#semver)). Versions marked `deprecated` (npm) are passed over unless nothing else satisfies | one |
 
 npm lookups read `GET <npm>/<name>` with the abbreviated-metadata `accept` header; JSR
 lookups read `GET <jsr>/<name>/meta.json` and ignore yanked versions. Lookups are

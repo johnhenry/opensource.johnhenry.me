@@ -7,7 +7,7 @@ sidebar:
 
 | Provider | Build | Registries | Notes |
 |---|---|---|---|
-| `esmSh()` | `esm.sh` | npm, jsr, github | transforms to browser ESM |
+| `esmSh()` | `esm.sh` | npm, jsr, github | transforms to browser ESM; URLs carry `?target=es2022` (`esTarget`) so the bytes, and `integrity`, don't vary by browser |
 | `jsDelivr()` | `npm` | npm, github | raw files. The entry comes from `exports` → `module` → `main`, and sub-paths such as `preact/hooks` are mapped through `exports` |
 | `jsDelivr({ esm: true })` | `jsdelivr-esm` | npm | jsDelivr's `/+esm` bundles |
 | `unpkg()` | `npm` | npm | raw files |

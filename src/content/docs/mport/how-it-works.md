@@ -20,7 +20,7 @@ sidebar:
                               └─ unpkg
          │
          ▼                                   COMPILATION
-   import map       "react": "https://esm.sh/react@19.2.0"
+   import map       "react": "https://esm.sh/react@19.2.0?target=es2022"
          │
          ▼
    native browser ESM

@@ -12,7 +12,7 @@ const r = await router.resolve("react@^19");
 r.trace;
 // [ { type: "lookup",   provider: "npm registry", url: "npm:react@^19" },
 //   { type: "resolved", provider: "npm registry", version: "19.2.0", ms: 38 },
-//   { type: "probe", provider: "esm.sh",   url: "https://esm.sh/react@19.2.0" },
+//   { type: "probe", provider: "esm.sh",   url: "https://esm.sh/react@19.2.0?target=es2022" },
 //   { type: "fail",  provider: "esm.sh",   ms: 212, error: "… responded 503" },
 //   { type: "skip",  provider: "jspm",     reason: 'serves build "jspm", locked to "npm"' },
 //   { type: "probe", provider: "jsdelivr", url: "…" },

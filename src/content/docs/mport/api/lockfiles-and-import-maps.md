@@ -14,7 +14,7 @@ sidebar:
     "react@^19": {
       "specifier": "react@^19", "registry": "npm", "name": "react", "range": "^19",
       "version": "19.2.0", "build": "esm.sh", "provider": "esm.sh",
-      "url": "https://esm.sh/react@19.2.0", "integrity": "sha384-…"
+      "url": "https://esm.sh/react@19.2.0?target=es2022", "integrity": "sha384-…"
     }
   }
 }
@@ -76,8 +76,12 @@ compileImportMap(resolved: Resolution[], scoped?: Record<string, Resolution[]>):
 
 `{ imports, scopes?, integrity? }`. Each Resolution maps `key → url`; a prefix key
 (ending `/`) maps to `base` (or the URL without its file name). `integrity` maps URL →
-hash for every Resolution with an `integrity` (prefix entries excluded at the top
-level). `scopes` and `integrity` are omitted when empty. For scoped lists, each entry's
+hash for every Resolution with an `integrity` (prefix keys are excluded, at the top
+level and in scopes alike: the hash is of one entry file, not of the directory a prefix maps). `scopes` and `integrity` are omitted when empty. Two Resolutions that map one key
+to **different** URLs (`react@18` and `react@19` both want `"react"`) throw a
+`ResolutionError` naming the key and both URLs, in `imports` and inside each scope alike,
+instead of keeping one silently; the same URL twice is fine. Give the second version its
+own scope (`router.build(specifiers, { scopes })`). For scoped lists, each entry's
 `key` is the key to use inside that scope.
 
 ### mergeImportMaps()
@@ -87,3 +91,44 @@ mergeImportMaps(...maps: ImportMap[]): ImportMap
 ```
 
 Later maps win, per key; scopes merge per scope. Empty `scopes`/`integrity` are omitted.
+
+### renderImportMap()
+
+```ts
+renderImportMap(map: ImportMap, { nonce? }?): string
+```
+
+`<script type="importmap">…</script>` as an HTML string, for a server-rendered page (the
+counterpart of [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), which needs a DOM). The JSON has
+`<`, U+2028 and U+2029 escaped, so no key or URL can end the element early. Put it before
+the first module script. `nonce` adds a CSP nonce attribute.
+
+### modulePreloads()
+
+```ts
+modulePreloads(map: ImportMap): Array<{ href: string, integrity?: string }>
+```
+
+Every distinct module URL in `imports` and `scopes` (prefix mappings are directories, not
+modules, and are left out), in order, each with its hash from `map.integrity` when there is
+one.
+
+### renderModulePreload()
+
+```ts
+renderModulePreload(map: ImportMap, { crossorigin? = "anonymous", nonce? }?): string
+```
+
+One `<link rel="modulepreload" href integrity? crossorigin>` per `modulePreloads(map)`
+entry, joined by newlines, with attributes HTML-escaped. Put them in `<head>` next to the
+import map so the browser fetches the modules before the importing script runs.
+`crossorigin: ""` omits the attribute.
+
+```js
+const { importMap } = await router.build(["react@^19"]);
+res.send(`<head>${renderModulePreload(importMap)}${renderImportMap(importMap)}</head>`);
+```
+
+`renderImportMap` and `renderModulePreload` need no DOM, so they run on a server; the
+DOM counterparts are [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap) and
+[`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload).

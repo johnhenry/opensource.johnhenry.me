@@ -26,9 +26,12 @@ thrown instead of whatever the node rejected with. Otherwise errors are collecte
 when every node has failed or skipped the result is
 `RoutingError("mport: no provider could serve <specifier>")` with `errors` in node order.
 
-The object form gives the fallback **its own** `HealthRegistry` built from
-`circuitBreaker`, used by its nodes instead of the router's. It uses `Date.now` unless
-`circuitBreaker.now` is given.
+The object form gives the fallback its own circuit-breaker **settings** (`failures`,
+`reset`, optionally `now`) over the router's health **state**: its nodes' successes and
+failures are recorded in `router.health` (and in a shared `health`), on the router's `now`
+clock unless `circuitBreaker.now` is given, and the fallback decides whether a circuit is
+open using its own `failures`/`reset` (via `health.scoped()`). Used outside a router,
+where there is no registry, it builds a private one.
 
 ## race()
 
@@ -87,7 +90,8 @@ SRI hash (`sha256`, `sha384` or `sha512`). The expected hash is `options.integri
 the lockfile entry's `integrity`.
 
 - The download responds non-OK: rejects with `IntegrityError("… responded <status>")`.
-  No trace event, no health failure.
+  With the `"head"` probe this is the probe failing, so it is traced `fail` and counts
+  against the provider's health; with another probe it is neither.
 - The hash differs from the expected one: records a health failure, traces
   `{ type: "fail", phase: "integrity", provider, url, error: "expected …, got …" }`, and
   rejects with `IntegrityError`.
@@ -95,20 +99,28 @@ the lockfile entry's `integrity`.
   map's `integrity` field and the lockfile.
 
 With no expected hash it only records what it downloaded: trust on first use. Wrap each
-mirror (`race(verified(a), verified(b))`) so a bad one fails over. The download is in
-addition to the probe, so a `"head"` probe plus `verified()` is two requests per
-candidate; `verified()` downloads even with `probe: "none"`.
+mirror (`race(verified(a), verified(b))`) so a bad one fails over. With the default `"head"`
+probe the download **is** the probe (one `GET` per candidate, traced `probe` → `ok`, health
+recorded from it; a non-OK answer is a failed candidate), not a `HEAD` followed by a `GET`
+of the same URL. With any other probe (`"import"`, a function) the probe runs first and the
+download follows; `verified()` downloads even with `probe: "none"`. A cache hit inside
+`verified()` is hashed again.
 
 ## cache()
 
 ```ts
-cache({ store? = new Map(), name? = "cache", prefix? = "mport:" }?): Node
+cache({ store? = new Map(), name? = "cache", prefix? = "mport:", ttl? }?): Node
 ```
 
 A node that serves remembered resolutions without probing. The router writes every
 successful, non-cached resolution into **every** `cache()` node in its whole route
-table (not only the route that served it), keyed
-`<registry>:<name>@<version>/<path>`. `store` is a `Map`, anything with `get`/`set`, or
+table (not only the route that served it), keyed by the **specifier as written** plus the
+target, the matched route and any lockfile pin (never the resolved version, so a hit needs
+no network). Each record holds the resolution and its artifact (`registry`, `version`,
+`entry`), so a hit returns the same `registry`, `entry` and lock data as a miss. `ttl`
+(milliseconds or `"30s"`/`"5m"`) expires records: an older one traces `skip` (reason
+`expired`) and is re-resolved and overwritten; without `ttl` records never expire.
+`store` is a `Map`, anything with `get`/`set`, or
 a `Storage` such as `localStorage` (detected by `getItem`; values are JSON under
 `prefix + key`, and storage errors are ignored).
 
@@ -118,8 +130,10 @@ circuit, rejects with `SkipError` without a trace event; otherwise it traces
 `{ type: "ok", provider: <cache name>, url, cached: true }` and returns the stored
 resolution with `cached: true`.
 
-The cache key contains the exact version, so a lookup still happens for ranges; the
-cache saves the probe, not the registry request.
+A hit makes no request at all, not even a registry lookup, so a `cache()` over a
+persistent `store` serves `react@^19` while offline. The flip side: a range stays pinned to
+whatever it resolved to until the record expires (`ttl`) or the store is cleared; a changed
+lockfile pin is a different key.
 
 ## sri()
 

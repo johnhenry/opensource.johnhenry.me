@@ -36,9 +36,9 @@ The `./core` exports, grouped:
 | Strategies | [`fallback`](/mport/api/strategies/#fallback), [`race`](/mport/api/strategies/#race), [`adaptive`](/mport/api/strategies/#adaptive), [`weighted`](/mport/api/strategies/#weighted), [`prefer`](/mport/api/strategies/#prefer), [`verified`](/mport/api/strategies/#verified), [`cache`](/mport/api/strategies/#cache), [`sri`](/mport/api/strategies/#sri) |
 | Health and errors | [`HealthRegistry`](/mport/api/probing-and-health/#healthregistry), [`RoutingError`](/mport/api/trace-and-errors/#errors), [`SkipError`](/mport/api/trace-and-errors/#errors), [`IntegrityError`](/mport/api/trace-and-errors/#errors), [`ResolutionError`](/mport/api/trace-and-errors/#errors) |
 | Registry | [`createRegistry`](/mport/api/registry-and-semver/#createregistry), [`entryInfo`](/mport/api/registry-and-semver/#entryinfo), [`entryOf`](/mport/api/registry-and-semver/#entryof), [`resolveExports`](/mport/api/registry-and-semver/#resolveexports) |
-| Import maps | [`compileImportMap`](/mport/api/lockfiles-and-import-maps/#compileimportmap), [`mergeImportMaps`](/mport/api/lockfiles-and-import-maps/#mergeimportmaps) |
+| Import maps | [`compileImportMap`](/mport/api/lockfiles-and-import-maps/#compileimportmap), [`mergeImportMaps`](/mport/api/lockfiles-and-import-maps/#mergeimportmaps), [`renderImportMap`](/mport/api/lockfiles-and-import-maps/#renderimportmap), [`modulePreloads`](/mport/api/lockfiles-and-import-maps/#modulepreloads), [`renderModulePreload`](/mport/api/lockfiles-and-import-maps/#rendermodulepreload) |
 | Lockfiles | [`createLock`](/mport/api/lockfiles-and-import-maps/#createlock), [`lockKey`](/mport/api/lockfiles-and-import-maps/#lockkey) |
-| Browser runtime | [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) |
+| Browser runtime | [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) |
 | Misc | [`semver`](/mport/api/registry-and-semver/#semver), [`DEFAULT_CACHE_KEY`](/mport/api/v1/#constants) |
 
 ## Concepts
@@ -86,7 +86,7 @@ Every export, from `@johnhenry/mport` (all of them), `@johnhenry/mport/firefox` 
 | [`adaptive`](/mport/api/strategies/#adaptive), [`weighted`](/mport/api/strategies/#weighted) | `(...[node, weight])`, `(node, weight)` | Ordered by weight and health |
 | [`prefer`](/mport/api/strategies/#prefer) | `({ [target]: node, default? })` | By target |
 | [`verified`](/mport/api/strategies/#verified) | `(node, { algorithm? })` | SRI check against the pinned hash |
-| [`cache`](/mport/api/strategies/#cache) | `({ store?, name?, prefix? }?)` | Remembered resolutions |
+| [`cache`](/mport/api/strategies/#cache) | `({ store?, name?, prefix?, ttl? }?)` | Remembered resolutions |
 | [`sri`](/mport/api/strategies/#sri) | `(bytes, algorithm?) → Promise<string>` | Compute an SRI hash |
 | [`HealthRegistry`](/mport/api/probing-and-health/#healthregistry) | `new ({ failures?, reset?, now? }?)` | Per-provider health and circuit breaker |
 | [`RoutingError`, `SkipError`, `IntegrityError`, `ResolutionError`](/mport/api/trace-and-errors/#errors) | classes | See the errors table |
@@ -94,8 +94,9 @@ Every export, from `@johnhenry/mport` (all of them), `@johnhenry/mport/firefox` 
 | [`createRegistry`](/mport/api/registry-and-semver/#createregistry) | `({ fetch?, npm?, jsr? }?)` | Version and entry lookups |
 | [`entryInfo`](/mport/api/registry-and-semver/#entryinfo), [`entryOf`](/mport/api/registry-and-semver/#entryof), [`resolveExports`](/mport/api/registry-and-semver/#resolveexports) | `(packageJson, subpath?)` | Entry-file selection and CommonJS detection |
 | [`compileImportMap`](/mport/api/lockfiles-and-import-maps/#compileimportmap), [`mergeImportMaps`](/mport/api/lockfiles-and-import-maps/#mergeimportmaps) | | Import maps from resolutions; merging |
+| [`renderImportMap`](/mport/api/lockfiles-and-import-maps/#renderimportmap), [`renderModulePreload`](/mport/api/lockfiles-and-import-maps/#rendermodulepreload), [`modulePreloads`](/mport/api/lockfiles-and-import-maps/#modulepreloads) | `(importMap, options?)` | HTML strings (`<script type="importmap">`, `<link rel="modulepreload">`) for server rendering |
 | [`createLock`](/mport/api/lockfiles-and-import-maps/#createlock), [`lockKey`](/mport/api/lockfiles-and-import-maps/#lockkey) | | Lockfiles and their keys |
-| [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) | | Browser runtime helpers |
+| [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) | | Browser runtime helpers |
 | [`semver`](/mport/api/registry-and-semver/#semver) | namespace | `parse`, `valid`, `compare`, `satisfies`, `maxSatisfying` |
 | [`mport`](/mport/api/v1/#mport) (default), [`MPort`](/mport/api/v1/#mport-and-mporturl), [`MPortURL`](/mport/api/v1/#mport-and-mporturl) | | The v1 API (not in `./core`) |
 | [`DEFAULT_ORIGINS`, `DEFAULT_CACHE_KEY`](/mport/api/v1/#constants) | | v1 defaults |
