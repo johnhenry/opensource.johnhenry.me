@@ -54,11 +54,11 @@ Notes that follow from the table:
   hash. `esmSh()` therefore adds `?target=es2022` (`esTarget`, also on `jsr()` and
   `github({ via: "esm.sh" })`; `esTarget: null` leaves it to esm.sh). A **prefix** mapping
   (`lit/`) points at a directory, which can't carry a query, so it stays unpinned.
-- **Integrity covers the entry module only.** `verified()` hashes the one URL it selected.
-  The modules that file imports in turn (esm.sh's rewritten `/react@19.2.0/es2022/react.mjs`
+- **`verified()` covers the entry module only.** It hashes the one URL it selected. The
+  modules that file imports in turn (esm.sh's rewritten `/react@19.2.0/es2022/react.mjs`
   chains, dependencies of a raw file) are fetched by the browser without an integrity
-  check unless you add them to the import map's `integrity` yourself; the hash proves the
-  entry file's bytes, not the whole dependency graph.
+  check unless the import map's `integrity` lists them. `build(specifiers, { graph: true })`
+  walks the graph and lists them: see [Whole-graph integrity](/mport/api/router/#whole-graph-integrity-graph).
 - `jsr()` defaults to esm.sh's build, so it and `esmSh()` are mirrors of each other.
 - `github()` defaults to jsDelivr's `"npm"` build, so it can stand in for other raw mirrors
   of a GitHub-hosted package only if they serve the same files.
