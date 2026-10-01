@@ -48,6 +48,7 @@ export default defineConfig({
       sidebar: [
         { label: 'Overview', link: '/' },
         { label: 'Orrery · live playground', link: '/orrery/', badge: { text: 'live', variant: 'success' } },
+        { label: 'Built with the family: workbench', link: '/workbench/', badge: { text: 'live', variant: 'success' } },
         ...[
           { label: 'aimatey', directory: 'aimatey' },
           { label: 'browsermesh', directory: 'browsermesh' },

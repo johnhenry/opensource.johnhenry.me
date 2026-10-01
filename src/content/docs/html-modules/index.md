@@ -137,3 +137,4 @@ it.
   other component's shadow root is out of lazy loading's sight; call `load()`). An
   `iframeSurface` is another document: the framed page needs its own `<html-import>`.
   See window-algebra's [Surfaces](/window-algebra/api/browser/#surfaces).
+- **[workbench](/workbench/)**: a live app built from html-modules components, one loaded through the `sanitize` hook, with mport, window-algebra and safe-fragment.
