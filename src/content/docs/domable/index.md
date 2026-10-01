@@ -77,10 +77,9 @@ depending on React.
 
 ## Family
 
-- [`domkit`](/domkit/) — small, independent custom elements and DOM
-  utilities. domkit carries a hard npm dependency on this package
-  (`simple-element` for building element classes, `text-to-dom` for
-  parsing option markup) rather than vendoring a second copy of either.
+- [`domkit`](/domkit/) — custom elements that behave like native HTML,
+  for no-build pages. It began on top of domable and is now
+  dependency-free.
 
 ## License
 
