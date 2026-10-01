@@ -1,0 +1,422 @@
+---
+title: "Reference"
+description: "Every domkit element's attributes, properties, methods, events, and CSS custom properties, generated from the code."
+sidebar:
+  order: 3
+---
+
+<!-- Generated: copied from domkit's docs/reference.md, which is generated from custom-elements.json. Re-copy it when domkit changes. -->
+
+Every stable element's attributes, properties, methods, events, and CSS custom properties, generated from the code. Each element's guide (linked) explains how to use it.
+
+## `<attribute-provider>`
+
+Add classes, styles, and attributes to children by media query. [Guide](https://github.com/johnhenry/domkit/blob/main/src/matchable/attribute-provider/readme.md) · module `@johnhenry/domkit/matchable/attribute-provider`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `classes` | `string` | `[media query] class class \| …` sections. Bracket-less sections always apply. |
+| `styles` | `string` | `[media query] property: value; … \| …` sections. |
+| `attributes` | `string` | `[media query] name=value; name; name=null \| …` sections. `null` removes the attribute while the query matches. |
+
+## `<class-cycler>`
+
+A persisted class switch (e.g. a theme toggle) driven by buttons. [Guide](https://github.com/johnhenry/domkit/blob/main/src/cyclable/class-cycler/readme.md) · module `@johnhenry/domkit/cyclable/class-cycler`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `classes` | `string` | Comma-separated values to cycle through. An empty entry means "no class". |
+| `target` | `string` | Selector for the element(s) whose class is set. Default `html`. |
+| `storage-key` | `string` | localStorage key to persist under. Without it, the value isn't persisted. |
+| `value` | `string` | The current value. Reflects; set it to choose the initial value when nothing is stored. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `values` (read-only) | `string[]` | The values to cycle through, in order. |
+| `value` | `string` | The current value. Setting it applies and persists it, without an event. |
+| `targets` (read-only) | `Element[]` | The elements whose class is set. |
+| `storageKey` | `string` | Mirrors the `storage-key` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `next()` | Move to the next value (wrapping), without an event. |
+| `previous()` | Move to the previous value (wrapping), without an event. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `change` | The user changed the value with a button or command. |
+
+## `<code-color>`
+
+Syntax highlighting that never touches your markup. [Guide](https://github.com/johnhenry/domkit/blob/main/src/code-color/readme.md) · module `@johnhenry/domkit/code-color`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `language` | `string` | `js`, `css`, or `html` (plus aliases like `javascript`, `ts`, `json`, `xml`). Default: a `language-*` class on a `<code>` inside, else `html`. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `resolvedLanguage` (read-only) | `string | null` | The language in effect: `js`, `css`, `html`, or null if unrecognized. |
+| `language` | `string` | Mirrors the `language` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `tokens()` | The current token ranges, by type (for tests and tooling). |
+
+## `<combo-box>`
+
+An accessible autocomplete/search input with a popup option list. [Guide](https://github.com/johnhenry/domkit/blob/main/src/combo-box/readme.md) · module `@johnhenry/domkit/combo-box`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `placeholder` | `string` | Placeholder for the input. |
+| `disabled` | `boolean` | Blocks interaction and form submission. Also inherited from a disabled fieldset. |
+| `required` | `boolean` | The form is invalid until there's a value. |
+| `open` | `boolean` | Whether the option list is showing. Reflects. |
+| `value` | `string` | Initial value (the value of an option, or text with `allow-custom`). |
+| `src` | `string` | URL template for remote options; `{query}` is replaced with the encoded text. JSON or HTML responses. |
+| `name` | `string` | Name submitted with the form. |
+| `debounce` | `number` | Milliseconds to wait after typing before searching. Default 0 for local options, 200 for `src`/`searchFunction`. |
+| `min-length` | `number` | Characters needed before searching. Default 0. |
+| `allow-custom` | `boolean` | Typed text is a valid value even if it matches no option. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `value` | `string` | The current value: the chosen option's value, or the typed text with `allow-custom`. Setting it chooses the matching option (by value, then by label). Script changes don't fire events. |
+| `text` | `string` | The text in the input. |
+| `options` (read-only) | `Element[]` | The options currently in the list. |
+| `selectedOption` (read-only) | `Element | null` | The chosen option element, if it's in the list. |
+| `input` (read-only) | `HTMLInputElement | null` | The inner `<input>` (generated, or the one you wrote as a child). |
+| `searchFunction` | `((query: string, init: { signal: AbortSignal }) => unknown) | null` | A function that produces options for a query, instead of filtering the child `<option>`s or fetching `src`: `async (query, { signal }) =>` an HTML string, an array of strings / `{ value, label }` / Nodes, or a Node. `signal` aborts when a newer search starts. |
+| `open` | `boolean` | Mirrors the `open` attribute. |
+| `name` | `string` | Mirrors the `name` attribute. |
+| `src` | `string` | Mirrors the `src` attribute. |
+| `allowCustom` | `boolean` | Mirrors the `allow-custom` attribute. |
+| `disabled` | `boolean` | Mirrors the `disabled` attribute. |
+| `required` | `boolean` | Mirrors the `required` attribute. |
+| `form` (read-only) | `HTMLFormElement | null` |  |
+| `labels` (read-only) | `NodeList` |  |
+| `validity` (read-only) | `ValidityState` |  |
+| `validationMessage` (read-only) | `string` |  |
+| `willValidate` (read-only) | `boolean` |  |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `checkValidity()` |  |
+| `reportValidity()` |  |
+| `setCustomValidity(message)` |  |
+| `focus(options)` | Focus the input. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `input` | The user changed the value (chose an option, or typed with `allow-custom`). |
+| `error` |  |
+| `change` | The user committed a new value (chose an option, or left the field after typing with `allow-custom`). |
+| `toggle` | The list opened or closed (a ToggleEvent with `oldState`/`newState`, like a popover). |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-combo-accent` | Background of the active option (index.css). |
+
+## `<define-component>`
+
+Register a custom element from a module URL, in HTML. [Guide](https://github.com/johnhenry/domkit/blob/main/src/definable/define-component/readme.md) · module `@johnhenry/domkit/definable/define-component`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `name` | `string` | The tag name to register. |
+| `src` | `string` | URL of the module, resolved against the document's base URL. |
+| `import` | `string` | Name of the export to register. Default `default`. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `ready` (read-only) | `Promise<CustomElementConstructor>` | Resolves with the registered class once the element is defined; rejects if it couldn't be. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `load` | The element is registered (or the name already was). |
+| `error` | The module failed to load, lacked the export, or the export isn't a class. An `ErrorEvent`. |
+
+## `<define-component-by-content>`
+
+Register a markup-only custom element from inline HTML. [Guide](https://github.com/johnhenry/domkit/blob/main/src/definable/define-component-by-content/readme.md) · module `@johnhenry/domkit/definable/define-component-by-content`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `name` | `string` | The tag name to register. |
+| `content` | `string` | The markup, if there's no `<template>` child. |
+| `mode` | `string` | `open` (default) or `closed` shadow root, or `none` to append the markup as light DOM. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `load` | The element is registered (or the name already was). |
+| `error` | Missing/invalid name or mode. An `ErrorEvent`. |
+
+## `<drill-menu>`
+
+A list that drills into sub-screens and back. [Guide](https://github.com/johnhenry/domkit/blob/main/src/drill-menu/readme.md) · module `@johnhenry/domkit/drill-menu`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `screen` | `string` | Key of the screen currently shown (absent = the list). Reflects; set it to navigate. |
+| `sync-hash` | `boolean` | Mirror the current screen in `location.hash`, so links and the browser's Back button work. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `items` (read-only) | `Element[]` | The items: element children other than templates and the screen. |
+| `screen` | `string | null` | Key of the open screen, or null. Setting it navigates. |
+| `syncHash` | `boolean` | Mirrors the `sync-hash` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `push(key, options)` | Show the screen of the item with this key (its `data-key`, or its position). Items without a template are leaves and can't be pushed. |
+| `pop(options)` | Return to the list, restoring focus to the item that opened the screen. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `push` | A screen was shown. `event.detail` is `{ key, item }`. |
+| `pop` | The menu returned to the list. `event.detail` is `{ key, item }` for the screen that closed. |
+
+## `<frame-timer>`
+
+A frame-paced ticking clock with play/pause. [Guide](https://github.com/johnhenry/domkit/blob/main/src/frame-timer/readme.md) · module `@johnhenry/domkit/frame-timer`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `paused` | `boolean` | Whether the timer is paused. Reflects; write it in markup to start paused. |
+| `fps` | `number` | Ticks per second. Default 60. Any positive number up to the display's refresh rate. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `fps` | `number` | Ticks per second. |
+| `paused` (read-only) | `boolean` | Whether the timer is paused. |
+| `ticks` | `number` | Ticks fired since the element was created (pausing keeps the count). |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `play()` | Start or resume ticking. |
+| `pause()` | Stop ticking (the count is kept). |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `play` | The timer started (or resumed). |
+| `pause` | The timer paused. |
+| `tick` | Once per period while playing. Read `ticks` for the count. |
+
+## `<hotkey-dialog>`
+
+Toggle a native dialog with a keyboard shortcut. [Guide](https://github.com/johnhenry/domkit/blob/main/src/hotkey-dialog/readme.md) · module `@johnhenry/domkit/hotkey-dialog`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `hotkey` | `string` | One or more space-separated shortcuts, e.g. `mod+k /`. `mod` is ⌘ on Apple platforms and Ctrl elsewhere. |
+| `non-modal` | `boolean` | Open with `show()` instead of `showModal()`. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `dialog` (read-only) | `HTMLDialogElement | null` | The `<dialog>` this element controls: its first `<dialog>` descendant. |
+| `hotkey` | `string` | Mirrors the `hotkey` attribute. |
+| `nonModal` | `boolean` | Mirrors the `non-modal` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `show()` | Open the dialog (modally, unless `non-modal`). |
+| `close(returnValue)` | Close the dialog. |
+| `toggle()` | Open the dialog if it's closed, close it if it's open. |
+
+## `<polyfill-window>`
+
+Load a module's export onto window, in HTML. [Guide](https://github.com/johnhenry/domkit/blob/main/src/definable/polyfill-window/readme.md) · module `@johnhenry/domkit/definable/polyfill-window`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `name` | `string` | The global to assign (`window[name]`). |
+| `src` | `string` | URL of the module, resolved against the document's base URL. |
+| `import` | `string` | Name of the export to assign. Default `default`. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `ready` (read-only) | `Promise<unknown>` | Resolves with the global's value once it's in place. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `error` | The module failed to load or lacked the export. An `ErrorEvent`. |
+| `load` | The global is in place (assigned now, or already there). |
+
+## `<query-container>`
+
+Swap the element wrapping some content by media query. [Guide](https://github.com/johnhenry/domkit/blob/main/src/matchable/query-container/readme.md) · module `@johnhenry/domkit/matchable/query-container`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `default` | `string` | Wrapper when no query matches, as a simple selector (`ul`, `ol.steps`, `div#x[data-y=z]`). Defaults to the first section's. |
+| `query` | `string` | `[media query] selector` sections separated by `\|`. The last matching section wins. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `setInitial(selector)` |  |
+| `setQueries(queries)` |  |
+| `triggerQuery()` |  |
+| `update()` |  |
+
+## `<stylable-select>`
+
+A fully stylable listbox that works like a native select. [Guide](https://github.com/johnhenry/domkit/blob/main/src/stylable-select/readme.md) · module `@johnhenry/domkit/stylable-select`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `disabled` | `boolean` | Blocks interaction and form submission. Also inherited from a disabled fieldset. |
+| `required` | `boolean` | The form is invalid until an option is selected. |
+| `multiple` | `boolean` | Allow selecting more than one option. |
+| `size` | `number` | Number of visible rows (sets `--domkit-select-size`, used by index.css). |
+| `name` | `string` | Name submitted with the form. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `options` (read-only) | `Element[]` | Every option, in document order (including those in groups). |
+| `selectedOptions` (read-only) | `Element[]` | The selected options. |
+| `selectedIndex` | `number` | Index of the first selected option, or -1. Setting it selects only that option. Script changes don't fire events. |
+| `value` | `string` | Value of the first selected option, or "". Setting it selects the first option with that value (or nothing, if none matches). |
+| `length` (read-only) | `number` | Number of options. |
+| `type` (read-only) | `string` | "select-one" or "select-multiple", like a native select. |
+| `name` | `string` | Mirrors the `name` attribute. |
+| `multiple` | `boolean` | Mirrors the `multiple` attribute. |
+| `disabled` | `boolean` | Mirrors the `disabled` attribute. |
+| `required` | `boolean` | Mirrors the `required` attribute. |
+| `size` | `number` | Mirrors the `size` attribute. |
+| `form` (read-only) | `HTMLFormElement | null` | The form this element belongs to. |
+| `labels` (read-only) | `NodeList` | Labels associated with this element. |
+| `validity` (read-only) | `ValidityState` |  |
+| `validationMessage` (read-only) | `string` |  |
+| `willValidate` (read-only) | `boolean` |  |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `item(index)` | The option at `index`. |
+| `checkValidity()` |  |
+| `reportValidity()` |  |
+| `setCustomValidity(message)` |  |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `input` | The user changed the selection. |
+| `change` | The user changed the selection (fired right after `input`, like a native select). |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-select-size` | Visible rows, from the `size` attribute. |
+| `--domkit-select-accent` | Background of selected options (index.css). |
+
+## `<tabbed-ui>`
+
+Accessible tabs and panels from plain children. [Guide](https://github.com/johnhenry/domkit/blob/main/src/tabbed-ui/readme.md) · module `@johnhenry/domkit/tabbed-ui`
+
+**Attributes**
+
+| Attribute | Type | Description |
+|---|---|---|
+| `selected-index` | `number` | Index of the selected tab. Reflects the current selection. |
+| `manual` | `boolean` | Arrow keys move focus only; Enter/Space selects (manual activation). |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `tabList` (read-only) | `Element | null` | The tab list: the child with role="tablist", else the first element child. |
+| `tabs` (read-only) | `Element[]` | The tabs, in order. |
+| `panels` (read-only) | `Element[]` | The panels, in order (every element child except the tab list). |
+| `selectedIndex` | `number` | Index of the selected tab. Setting it does not fire `change`. |
+| `manual` | `boolean` | With `manual`, arrow keys move focus and Enter/Space selects. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `change` | The user selected a different tab (click or keyboard). Not fired for script changes. |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-tab-gap` | Space between tabs (index.css). |
+| `--domkit-tab-padding` | Padding inside each tab (index.css). |
+| `--domkit-tab-accent` | Color of the selected-tab indicator and focus ring (index.css). |
+| `--domkit-tab-border` | Color of the line under the tab list (index.css). |
