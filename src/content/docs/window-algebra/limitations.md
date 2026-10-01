@@ -88,7 +88,11 @@ support, come after.
   rejection, not an exception. Most browsers reload an iframe adopted into another
   document, so iframe state resets on the way out. A pop-in that doesn't go through
   `attachPopouts` (`window/restore`, undo) remounts the surface fresh instead of
-  carrying the DOM back.
+  carrying the DOM back. A popped-out window is never the WM's focused window (focus is
+  only given to windows on the stage), so focusing its popup clears the WM focus.
+  Undoing a pop-out closes the popup; redoing it (or loading a saved state with a
+  popped-out window) cannot reopen one without a user gesture, so `attachPopouts` pops
+  the window back in instead of leaving it invisible.
 - **The pure core has no pixels.** Tiled sizes are CSS's decision, so
   `config.drag.tooSmall: "reject"` is only enforced when a `geometry` estimate is
   supplied (the input adapter measures its ghost), size increments are advisory for
@@ -100,6 +104,21 @@ support, come after.
   replace a mounted surface. `canvasSurface` repaints on resize only where
   `ResizeObserver` exists (it paints once otherwise). `<wa-stage>` creates a fresh
   manager on each connect or `configure()` unless you pass your own `wm`.
+- **The pure `update` cannot know your custom layouts.** `layout/set` accepts any string
+  `type`; `derive` falls back to `columns` for a type with no interpreter instead of
+  throwing, and only the manager rejects it up front (`unknown-layout`). Stickiness is
+  inherited by dialogs and popovers, and a workspace switch can still bring two
+  fullscreen windows into view (a sticky one and one on the new workspace); only one is
+  presented.
+- **Keyboard accessibility is opt-in and partial.** Tabs and splitters work from the
+  keyboard always; moving and resizing a floating window (Alt+Shift+Arrow,
+  Ctrl+Alt+Shift+Arrow) needs `attachInput({ keyboard })`. Tabs use manual activation
+  (arrows move focus, Enter/Space activates). Moves are not announced, and
+  `workspace/rename` leaves `config.rules` that name the old id untouched.
+- **The bindings commit once per animation frame.** `<wa-stage>` and
+  `WindowManagerStage` coalesce commits with `createFrameScheduler()`, so a hidden tab
+  (which never runs `requestAnimationFrame`) does not repaint until it is shown again.
+  Pass `schedule: immediateScheduler` for synchronous commits.
 
 ## Non-goals
 

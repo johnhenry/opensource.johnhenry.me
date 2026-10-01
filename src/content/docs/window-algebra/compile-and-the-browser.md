@@ -14,9 +14,9 @@ sidebar:
 In the browser (`@johnhenry/window-algebra/browser`):
 
 - **`createDomRenderer({ root, surfaceFor, anchorFallback?, animate? })`** reconciles top-down and moves views with `moveBefore()` where available, so iframes, focus and playing media survive layout changes. It measures geometry, positions anchors with JS where CSS anchor positioning is missing, and animates commits with View Transitions (`animate`), skipping gestures and `prefers-reduced-motion`.
-- **`attachInput({ root, wm })`** turns pointer and keyboard input into commands: floating move/resize with magnetism and snap zones; tiled drags with a ghost preview rendered by the same derive → compile pipeline; tab and splitter drags; touch long-press; keyboard focus kept in sync with WM focus; a modal focus trap; and opt-in F6 cycling, keyboard moving and `aria-live` narration.
+- **`attachInput({ root, wm })`** turns pointer and keyboard input into commands: floating move/resize with magnetism and snap zones; tiled drags with a ghost preview rendered by the same derive → compile pipeline; tab and splitter drags; touch long-press; keyboard focus kept in sync with WM focus; a modal focus trap; roving-tabindex tabs and labelled splitters that work from the keyboard; and opt-in F6 cycling, keyboard moving and resizing of floating windows (Alt+Shift+Arrow, Ctrl+Alt+Shift+Arrow, `floatStep`) and `aria-live` narration. A strong focus ring is drawn, and `prefers-reduced-motion` switches off transitions and animations.
 - **Surfaces** share one contract, `{ mount(target), unmount() }`: `htmlSurface`, `lazySurface`, `iframeSurface`, `canvasSurface`, plus `createSurfaceRegistry`.
-- **`createFrameScheduler()`** coalesces commits to one per frame.
+- **`createFrameScheduler()`** coalesces commits to one per frame. It is the default for `<wa-stage>` and `WindowManagerStage`; pass `schedule: immediateScheduler` for synchronous commits.
 - **`attachPopouts({ wm, renderer })`** pops a window out into a real browser window, carrying its live DOM there and back.
 
 Every option, attribute and custom property is in [compile and CSS](/window-algebra/api/compile/) and [Browser adapters](/window-algebra/api/browser/).

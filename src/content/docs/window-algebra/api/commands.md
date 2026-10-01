@@ -1,6 +1,6 @@
 ---
 title: "Commands"
-description: "update, reduce, replay, COMMANDS and extensions, and all 51 built-in commands: payloads, events, effects and rejections."
+description: "update, reduce, replay, COMMANDS and extensions, and all 58 built-in commands: payloads, events, effects and rejections."
 sidebar:
   order: 102
 ---
@@ -15,21 +15,21 @@ import { update, reduce, replay, COMMANDS } from "@johnhenry/window-algebra";
 update(state, command, extensions?) → { state, events, effects }
 reduce(state, command, extensions?) → state          // update(...).state
 replay(state, commands, extensions?) → state         // migrate(state), then reduce each command
-COMMANDS                                              // frozen array of the 51 built-in command types
+COMMANDS                                              // frozen array of the 58 built-in command types
 ```
 
 - `state`: the next state. When nothing changed it is **the same reference** as the input.
 - `events`: an array of event objects recording what happened, in order. See [Events](/window-algebra/api/events/).
 - `effects`: an array of effect values for the effectful shell. There are only two types, `{ type: "render" }` and `{ type: "focus", id }` (`id` may be `null`). Effects are de-duplicated by `type`, keeping the **last** occurrence, so a command that focuses twice yields one `focus` effect naming the final target.
-- `extensions`: optional `{ [type]: (state, command) => ({ state, events?, effects? }) }`. An extension handler **overrides** a built-in of the same type. Missing `events`/`effects` default to `[]`.
-- A `null`/non-object command, or one without a string `type`, is rejected as `invalid-command`. An unknown `type` is rejected as `unknown-command`.
+- `extensions`: optional `{ [type]: (state, command) => ({ state, events?, effects? }) }`. An extension handler **overrides** a built-in of the same type. Missing `events`/`effects` default to `[]`. A handler that throws (or returns something that is not `{ state, ... }`) makes the command a `handler-threw` rejection instead of propagating the exception.
+- A `null`/non-object command, or one without a string `type`, is rejected as `invalid-command`. An unknown `type` is rejected as `unknown-command`. A command whose `id`, `target`, `to`, `parent`, `workspace`, `output` or `fallback` is an `Object.prototype` key (`__proto__`, `constructor`, `toString`, ...) is rejected as `invalid-id`, so those names can never be window, workspace or output ids.
 - `replay` migrates its starting state first (see [Versioning](/window-algebra/api/versioning/)). If migration fails, it replays from the state as given.
 
-`COMMANDS` is `Object.keys` of the built-in handler table, 51 entries, in the order the sections below follow.
+`COMMANDS` is `Object.keys` of the built-in handler table, 58 entries, in the order the sections below follow.
 
 ## Shared behaviour
 
-**Rejections.** A refused command returns the input state unchanged, one event `{ type: "command/rejected", command: <type>, id: <command.id>, reason }` and no effects. The `id` field is copied from the command even for commands whose subject is not `id` (for `window/swap` it is `undefined`). Every reason is listed per command below and collected in [Errors](/window-algebra/api/errors/).
+**Rejections.** A refused command returns the input state unchanged, one event `{ type: "command/rejected", command: <type>, id: <command.id>, reason }` and no effects. The `id` field is copied from the command even for commands whose subject is not `id`. Every reason is listed per command below and collected in [Errors](/window-algebra/api/errors/).
 
 **Focus policy (`applyFocus`).** It is used by every command that focuses a window: `window/create`, `window/focus`, `focus/*`, `scratchpad/toggle`, `window/move-to-workspace { follow }`, `output/focus`, and refocus. In order:
 
@@ -41,6 +41,11 @@ COMMANDS                                              // frozen array of the 51 
 6. **Urgency.** With `config.urgency.clearOnFocus` (default), an urgent target loses its hint and `window/urgent-changed { id, urgent: false }` is emitted.
 7. `focus.window` is set and the id moves to the end of `focus.history`.
 8. `focus/redirected { requested, id }` is emitted if modal redirection changed the target. `window/focused { id, previous }` is emitted if the focused window changed.
+
+9. **Focus is only given to what is shown.** A target that is hidden in the scratchpad, popped out, or has such an ancestor can never be focused, and one that would still be invisible after steps 2 to 4 is skipped too. Commands that name their target (`window/focus`, `focus/urgent`) reject with `not-on-workspace`, `popped-out` or `not-visible`; the others (a create, a `follow`) simply do not focus. The invariant is that `focus.window` is `null` or a visible window.
+10. **Fullscreen.** While a window is fullscreen, only it and its descendants are presented. Cycling (`focus/next`, `focus/previous`) stays inside that set; creating a window does not focus one outside it. An explicit `window/focus` (or `focus/urgent`, a `follow`, showing a scratchpad window) of a window beneath the fullscreen one ends that fullscreen first (`window/status-changed { status: "normal", previous: "fullscreen" }`).
+
+Minimized ancestors of the target are restored along with it (step 4 applies to the whole chain).
 
 Effects: `render`, `{ type: "focus", id: target }`.
 
@@ -69,7 +74,7 @@ It is then focused through the focus policy, **unless** `focus: false` is given 
 
 - **Events:** `window/created { id, rules? }` (`rules` is the array of matched rule indices, present only when at least one matched), followed by the focus events.
 - **Effects:** `render`, plus `focus` when focused.
-- **Rejections:** `missing-id` (not a non-empty string), `duplicate-id`, `unknown-parent`, `unknown-workspace` (after rules: a rule may send the window to a workspace that does not exist).
+- **Rejections:** `missing-id` (not a non-empty string), `duplicate-id`, `unknown-parent`, `hidden-parent` (the parent is hidden in the scratchpad), `parent-on-other-workspace` (a modal dialog on another workspace than its parent), `unknown-role` (not in `ROLES`), `unknown-layer` (not in `LAYERS`), `unknown-mode` (not `tiled` or `floating`), `unknown-workspace` (after rules: a rule may send the window to a workspace that does not exist).
 
 ### `window/close`
 
@@ -93,7 +98,7 @@ Focuses a window through the full [focus policy](#shared-behaviour): modal redir
 
 - **Events:** as the focus policy.
 - **Effects:** `render`, `{ type: "focus", id: <final target> }`.
-- **Rejections:** `unknown-window`.
+- **Rejections:** `unknown-window`, `not-on-workspace` (hidden in the scratchpad, or a child of such a window), `popped-out` (a popped-out window, or a child of one), `not-visible` (the target would still not be shown, for example a child whose parent is on another workspace).
 
 ### `window/blur`
 
@@ -133,7 +138,7 @@ Like `focus/next`, backwards.
 { type: "focus/urgent" }
 ```
 
-Focuses the **oldest** urgent window (first in `state.urgent`), switching output and workspace as needed. With `config.urgency.clearOnFocus` its urgency is cleared.
+Focuses the **oldest** urgent window that can be focused (first in `state.urgent`; urgent windows hidden in the scratchpad or popped out are skipped), switching output and workspace as needed. With `config.urgency.clearOnFocus` its urgency is cleared.
 
 - **Events:** the focus-policy events, including `window/urgent-changed { urgent: false }`.
 - **Effects:** `render`, `focus`.
@@ -149,7 +154,7 @@ Marks or clears a window's urgency hint (EWMH/X11 style). A newly urgent window 
 
 - **Events:** `window/urgent-changed { id, urgent }`.
 - **Effects:** `render`.
-- **Rejections:** `unknown-window`, `invalid-urgent` (`urgent` given but not a boolean).
+- **Rejections:** `unknown-window`, `invalid-urgent` (`urgent` given but not a boolean). A missing `urgent` means `true`, as a missing `sticky` does for `window/set-sticky`.
 
 ## Stacking
 
@@ -183,7 +188,7 @@ Moves the window to the bottom of its layer. Descendants are not moved.
 { type: "window/set-layer", id, layer }
 ```
 
-Moves the window to the top of another layer (or of its own).
+Moves the window to the top of another layer (or of its own). Its descendants (dialogs, sheets, popovers) that are in the window's old layer move with it, keeping their relative order, so a child is never left painted beneath its parent; a descendant deliberately on another layer stays put.
 
 - **Events:** `window/layer-changed { id, layer }`.
 - **Effects:** `render`.
@@ -197,11 +202,11 @@ Moves the window to the top of another layer (or of its own).
 { type: "window/move", id, x?, y? }
 ```
 
-Stores the **requested** position, whatever the mode. `derive` uses it only while the window is floating. Omitted coordinates keep their current values. Constraints are not applied (a move changes no size).
+Stores the **requested** position, whatever the mode. `derive` uses it only while the window is floating. Omitted coordinates keep their current values. `x` and `y` must each be a finite number or `"center"`. Constraints are not applied (a move changes no size).
 
 - **Events:** `window/moved { id, placement }`.
 - **Effects:** `render`.
-- **Rejections:** `unknown-window`.
+- **Rejections:** `unknown-window`, `invalid-geometry` (a non-finite or non-number coordinate).
 
 The manager coalesces a run of absolute moves (both `x` and `y` given) sharing a `gesture` token into one log entry. See [The manager › Gestures](/window-algebra/api/manager/#gestures).
 
@@ -211,11 +216,11 @@ The manager coalesces a run of absolute moves (both `x` and `y` given) sharing a
 { type: "window/resize", id, width?, height?, x?, y? }
 ```
 
-Stores a requested size (and optionally position) after `constrainSize(size, win.constraints)`: min/max clamp, aspect ratio and size increments. Omitted fields keep their values.
+Stores a requested size (and optionally position) after `constrainSize(size, win.constraints)`: min/max clamp, aspect ratio and size increments. Omitted fields keep their values. `width` and `height` must be finite numbers ≥ 0; `x` and `y` finite numbers or `"center"`.
 
 - **Events:** `window/resized { id, placement }` (the constrained placement).
 - **Effects:** `render`.
-- **Rejections:** `unknown-window`.
+- **Rejections:** `unknown-window`, `invalid-geometry`.
 
 ### `window/set-mode`
 
@@ -259,9 +264,11 @@ The drag-to-float gesture as one command (one undo step). It turns a droppable t
 
 Merges `constraints` into the window's constraints (keys not given are kept) and re-clamps its placement's size with `constrainSize`. Tiled windows get CSS `min-*`/`max-*` and, for an exact `aspectRatio`, CSS `aspect-ratio`.
 
+`constraints` must be a plain object of the documented keys: `minWidth`, `minHeight`, `baseWidth`, `baseHeight` (finite numbers ≥ 0), `maxWidth`, `maxHeight` (a number ≥ 0 or `Infinity`), `widthIncrement`, `heightIncrement` (finite numbers > 0), and `aspectRatio` (a number > 0, or `{ min?, max? }` with at least one). `undefined`/`null` clears a key. Unknown keys are rejected.
+
 - **Events:** `window/constrained { id, constraints }` (the merged constraints).
 - **Effects:** `render`.
-- **Rejections:** `unknown-window`.
+- **Rejections:** `unknown-window`, `invalid-constraints`.
 
 ## Status
 
@@ -285,10 +292,10 @@ Sets `status: "minimized"`. The window leaves the presentation and stops blockin
 { type: "window/maximize", id }
 ```
 
-Sets `status: "maximized"`. The window leaves the tiled base (if it was in it) and fills the stage in its layer.
+Sets `status: "maximized"`. The window leaves the tiled base (if it was in it) and fills the stage in its layer. If the window is currently shown, it is also focused (through the focus policy, so a modal child takes the focus instead); a window on another workspace is not, so maximizing never switches workspace.
 
-- **Events:** `window/status-changed { id, status: "maximized", previous }`.
-- **Effects:** `render`.
+- **Events:** `window/status-changed { id, status: "maximized", previous }`, then the focus events.
+- **Effects:** `render`, plus `focus`.
 - **Rejections:** `unknown-window`.
 
 ### `window/fullscreen`
@@ -297,10 +304,10 @@ Sets `status: "maximized"`. The window leaves the tiled base (if it was in it) a
 { type: "window/fullscreen", id }
 ```
 
-Sets `status: "fullscreen"`. While a visible window is fullscreen, `derive` presents it alone and `paintOrder` is `[id]`.
+Sets `status: "fullscreen"`. While a visible window is fullscreen, `derive` presents it and its **descendants** (its own dialogs, sheets and popovers, which stay above it) and nothing else, and `paintOrder` is the window followed by those descendants. So fullscreening a parent with an open modal dialog does not strand the dialog: it stays painted and focused. As with `window/maximize`, a window that is currently shown also takes focus; one on another workspace does not. There is at most one fullscreen window per output: fullscreening a window restores any other fullscreen window shown on its output (one `window/status-changed` event each). If a workspace switch still brings two into view, the one covering the focused window is presented, else the topmost.
 
-- **Events:** `window/status-changed { id, status: "fullscreen", previous }`.
-- **Effects:** `render`.
+- **Events:** `window/status-changed { id, status: "fullscreen", previous }`, then the focus events.
+- **Effects:** `render`, plus `focus`.
 - **Rejections:** `unknown-window`.
 
 ### `window/restore`
@@ -314,6 +321,22 @@ Sets `status: "normal"` from any other status, including `"popped-out"`. When a 
 - **Events:** `window/status-changed { id, status: "normal", previous }`.
 - **Effects:** `render`.
 - **Rejections:** `unknown-window`.
+
+### `window/toggle-maximize`
+
+```js
+{ type: "window/toggle-maximize", id }
+```
+
+`window/maximize`, or `window/restore` when the window is already maximized. Same events, effects and rejections as those.
+
+### `window/toggle-fullscreen`
+
+```js
+{ type: "window/toggle-fullscreen", id }
+```
+
+`window/fullscreen`, or `window/restore` when the window is already fullscreen. Same events, effects and rejections as those.
 
 ### `window/pop-out`
 
@@ -333,11 +356,11 @@ Sets `status: "popped-out"`, so the window leaves the layout to live in a separa
 { type: "window/pop-in", id }
 ```
 
-Reverses `window/pop-out` (`status: "normal"`). Unlike the other status setters, a window that is not popped out is **rejected**, not treated as a no-op. The browser helper relies on that to tell whether it is undoing a real pop-out.
+Reverses `window/pop-out` (`status: "normal"`). Like `window/restore` and the other status setters, a window that is not popped out is a **no-op** (it used to be rejected as `not-popped-out`). Unlike `window/restore` it only ever undoes a pop-out: a minimized or maximized window is left alone.
 
 - **Events:** `window/status-changed { id, status: "normal", previous: "popped-out" }`.
 - **Effects:** `render`.
-- **Rejections:** `unknown-window`, `not-popped-out`.
+- **Rejections:** `unknown-window`.
 
 ## Properties
 
@@ -368,28 +391,36 @@ Pins (`draggable: false`) or unpins (anything else, including omitted) a window.
 ### `window/set-sticky`
 
 ```js
-{ type: "window/set-sticky", id, sticky: boolean }
+{ type: "window/set-sticky", id, sticky? = true }
 ```
 
-EWMH-style sticky: the window is visible on every workspace of its own output. It is never part of a tiled base (it is always presented as a floating overlay, even with `mode: "tiled"`), it keeps its place in `state.stack`, and focusing it never switches workspace. Only `sticky: true` is stored. It is a no-op when unchanged. Then [refocus](#shared-behaviour): unsticking the focused window while its home workspace is inactive moves focus off it.
+EWMH-style sticky: the window is visible on every workspace of its own output. It is never part of a tiled base (it is always presented as a floating overlay, even with `mode: "tiled"`), it keeps its place in `state.stack`, and focusing it never switches workspace. Only `sticky: true` is stored. A missing `sticky` means `true` (as for `window/set-urgent`). Stickiness is inherited by descendants: a dialog or popover of a sticky window is shown wherever its parent is. It is a no-op when unchanged. Then [refocus](#shared-behaviour): unsticking the focused window while its home workspace is inactive moves focus off it.
 
 - **Events:** `window/sticky-changed { id, sticky }`, then the refocus events.
 - **Effects:** `render`, plus `focus` from refocus.
-- **Rejections:** `unknown-window`, `invalid-sticky` (not a boolean).
+- **Rejections:** `unknown-window`, `invalid-sticky` (`sticky` given but not a boolean).
+
+### `window/toggle-sticky`
+
+```js
+{ type: "window/toggle-sticky", id }
+```
+
+Flips the window's own `sticky` flag. Same events, effects and rejections as `window/set-sticky`.
 
 ## Order within a layout
 
 ### `window/swap`
 
 ```js
-{ type: "window/swap", a, b }
+{ type: "window/swap", id, target }
 ```
 
-Exchanges two windows' positions in their workspace's `windows` order, and in the stored tree for `bsp` and docking `tree` workspaces. Any two windows on the same workspace can be swapped; no droppability checks apply.
+Exchanges two windows' positions in their workspace's `windows` order, and in the stored tree for `bsp` and docking `tree` workspaces. Any two windows on the same workspace can be swapped; no droppability checks apply. Swapping a window with itself is a no-op.
 
-- **Events:** `window/swapped { a, b }`.
+- **Events:** `window/swapped { id, target }`.
 - **Effects:** `render`.
-- **Rejections:** `unknown-window` (either missing), `different-workspaces`.
+- **Rejections:** `unknown-window` (either missing), `not-on-workspace` (either is hidden in the scratchpad), `different-workspaces`.
 
 ### `window/promote`
 
@@ -473,11 +504,11 @@ The mirror of `window/move-before` (bottom/right, after, the next neighbour). Th
 { type: "window/move-to-workspace", id, workspace, follow? }
 ```
 
-Moves a window **and its descendants** to another workspace (appended to its `windows`, re-inserted into a `bsp` tree there). A floating window keeps its placement. Moving a scratchpad window (shown or hidden) onto a workspace directly takes it out of the scratchpad permanently. With `follow: true`, the window is then focused (activating its new workspace, and output if different). Otherwise [refocus](#shared-behaviour) runs. It is a no-op when the window is already on that workspace.
+Moves a window **and its descendants** to another workspace (appended to its `windows`, re-inserted into a `bsp` tree there). A floating window keeps its placement. Moving a scratchpad window (shown or hidden) onto a workspace directly takes it out of the scratchpad permanently. With `follow: true`, the window is then focused (activating its new workspace, and output if different). Otherwise [refocus](#shared-behaviour) runs. It is a no-op when the window is already on that workspace. A window with a parent cannot be moved on its own (that would strand a dialog away from the window it blocks): move its root ancestor instead and the descendants follow.
 
 - **Events:** `window/workspace-changed { id, workspace }` (the requested window only), then the focus or refocus events.
 - **Effects:** `render`, plus `focus`.
-- **Rejections:** `unknown-window`, `unknown-workspace`.
+- **Rejections:** `unknown-window`, `unknown-workspace`, `has-parent`.
 
 ### `window/to-scratchpad`
 
@@ -485,11 +516,11 @@ Moves a window **and its descendants** to another workspace (appended to its `wi
 { type: "window/to-scratchpad", id }
 ```
 
-i3-style scratchpad. It hides the window off every workspace: `workspace: null`, removed from its workspace and BSP tree, forced to `mode: "floating"`, marked `scratchpad: true`, and recorded as `lastScratchpad`. Then [refocus](#shared-behaviour). It is a no-op when the window is already hidden. Children are not moved; they stay on their workspace but become invisible, because visibility requires a visible parent.
+i3-style scratchpad. It hides the window off every workspace: `workspace: null`, removed from its workspace and BSP tree, forced to `mode: "floating"`, marked `scratchpad: true`, and recorded as `lastScratchpad`. Then [refocus](#shared-behaviour). It is a no-op when the window is already hidden. Children stay on their workspace but become invisible, because visibility requires a visible parent; `scratchpad/toggle` brings them along when it shows the window again. A window that has a parent cannot be sent to the scratchpad on its own.
 
-- **Events:** `window/scratchpad { id }`, then the refocus events.
+- **Events:** `scratchpad/hidden { id }` (the same event `scratchpad/toggle` emits when it hides), then the refocus events.
 - **Effects:** `render`, plus `focus` from refocus.
-- **Rejections:** `unknown-window`.
+- **Rejections:** `unknown-window`, `has-parent`.
 
 ### `scratchpad/toggle`
 
@@ -499,7 +530,7 @@ i3-style scratchpad. It hides the window off every workspace: `workspace: null`,
 
 Shows or hides a scratchpad window (default: `lastScratchpad`).
 
-- **Hidden → shown:** placed on the active workspace, floating and centred (`placement.x`/`y` become `"center"`, resolved purely in CSS), then focused.
+- **Hidden → shown:** placed on the active workspace (with its descendants), floating and centred (`placement.x`/`y` become `"center"`, resolved purely in CSS), then focused (ending a fullscreen window beneath it, if any).
 - **Shown → hidden:** back to `workspace: null`, then refocus.
 
 Either way it becomes `lastScratchpad`.
@@ -508,13 +539,25 @@ Either way it becomes `lastScratchpad`.
 - **Effects:** `render`, `focus`.
 - **Rejections:** `empty-scratchpad` (no `id` and no `lastScratchpad`), `unknown-window`, `not-scratchpad` (the window was never sent to the scratchpad, or was pulled out of it).
 
+### `window/from-scratchpad`
+
+```js
+{ type: "window/from-scratchpad", id }
+```
+
+The inverse of `window/to-scratchpad`: the window stops being a scratchpad window (the `scratchpad` flag is cleared, and `lastScratchpad` too if it was this window). A **hidden** one is placed on the active workspace (with its descendants), keeps its floating mode, and is focused (ending a fullscreen window beneath it, if any). A **shown** one simply loses the flag and stays where it is.
+
+- **Events:** `scratchpad/removed { id }`, then (for a hidden window) the focus events.
+- **Effects:** `render`, plus `focus` for a hidden window.
+- **Rejections:** `unknown-window`, `not-scratchpad`.
+
 ### `workspace/create`
 
 ```js
 { type: "workspace/create", id, layout?, output?, activate? }
 ```
 
-Creates an empty workspace on `output` (default: the focused output), appended to `workspaceOrder` and the output's `workspaces`. `layout` defaults to a copy of the active workspace's layout; a copied `bsp` spec gets `tree: null`. With `activate: true` it is then activated.
+Creates an empty workspace on `output` (default: the focused output), appended to `workspaceOrder` and the output's `workspaces`. `layout` defaults to a copy of the active workspace's layout **without** anything that describes that workspace's windows: `tree`, `sizes`, `ratios` (and a copied `bsp` spec gets `tree: null`), so no foreign window id leaks into the new workspace. With `activate: true` it is then activated.
 
 - **Events:** `workspace/created { id, output }`, then (with `activate`) the `workspace/activate` events.
 - **Effects:** `render`, plus `focus` with `activate`.
@@ -543,6 +586,30 @@ Removes a workspace. Its top-level windows (and so their descendants) move to `f
 - **Events:** `workspace/removed { id, fallback }`, then the refocus events. The window moves are silent: no `window/workspace-changed`.
 - **Effects:** `render`, plus `focus`.
 - **Rejections:** `unknown-workspace` (the workspace, or an invalid or identical `fallback`), `last-workspace` (the only workspace anywhere), `last-workspace-on-output` (the only workspace on its output).
+
+### `workspace/rename`
+
+```js
+{ type: "workspace/rename", id, to }
+```
+
+Changes a workspace's id and every reference to it: the `workspaces` map and the record's own `id`, its windows' `workspace`, `workspaceOrder`, its output's `workspaces` and `activeWorkspace`, and `activeWorkspace`. `config.rules` whose `set.workspace` names the old id are left as written. Renaming to the same id is a no-op.
+
+- **Events:** `workspace/renamed { id, to }`.
+- **Effects:** `render`.
+- **Rejections:** `unknown-workspace`, `missing-id` (`to` is not a non-empty string), `duplicate-id` (`to` exists).
+
+### `workspace/reorder`
+
+```js
+{ type: "workspace/reorder", id, index }
+```
+
+Moves a workspace to `index` (a non-negative integer, clamped to the last position) among its output's `workspaces`. `workspaceOrder` follows: the output's workspaces keep the slots of it they occupied, in their new order, and other outputs' workspaces do not move. A move to the current position is a no-op.
+
+- **Events:** `workspace/reordered { id, index }` (the clamped index).
+- **Effects:** `render`.
+- **Rejections:** `unknown-workspace`, `invalid-index`.
 
 ### `workspace/move-to-output`
 
@@ -596,6 +663,18 @@ Gives input focus to another output (`activeWorkspace` follows). Keyboard focus 
 - **Effects:** `render`, `focus` (when focus moved or cleared).
 - **Rejections:** `unknown-output`.
 
+### `output/reorder`
+
+```js
+{ type: "output/reorder", id, index }
+```
+
+Moves an output to `index` (a non-negative integer, clamped) in `outputOrder`, which focus cycling (`focus/next`, `focus/previous`) follows. A move to the current position is a no-op.
+
+- **Events:** `output/reordered { id, index }`.
+- **Effects:** `render`.
+- **Rejections:** `unknown-output`, `invalid-index`.
+
 ## Layout
 
 Every layout command takes an optional `workspace` (default: the active workspace). Layout specs are described in [Layouts](/window-algebra/api/layouts/).
@@ -606,7 +685,7 @@ Every layout command takes an optional `workspace` (default: the active workspac
 { type: "layout/set", layout, workspace? }
 ```
 
-Replaces a workspace's layout spec. A `bsp` spec without a `tree` is seeded from the workspace's current tiled order, and so is a `tree` spec whose `tree` is `undefined`. A spec is valid if it is a function, or an object with a string `type` and, if present, a valid `modifiers` list (an array of objects with string `type`).
+Replaces a workspace's layout spec. A `bsp` spec without a `tree` is seeded from the workspace's current tiled order, and so is a `tree` spec whose `tree` is `undefined`. A spec is valid if it is a function, or an object with a string `type` and, if present, a valid `modifiers` list (an array of objects with string `type`). The pure `update` cannot know which custom interpreters you will pass to `derive`, so it accepts any string `type`; `derive` falls back to `columns` for a type it has no interpreter for, and the manager rejects it up front (`unknown-layout`).
 
 - **Events:** `layout/changed { workspace, layout }` (the seeded spec).
 - **Effects:** `render`.
@@ -640,11 +719,11 @@ A single window becomes a bare leaf and no windows becomes `null`. Modifiers and
 { type: "layout/set-ratio", ratio, workspace?, id? }
 ```
 
-Sets a ratio, clamped to `[0.05, 0.95]`. On a `bsp` workspace it sets the ratio of the split **directly containing** leaf `id` (default: the focused window); if that leaf has no split parent the tree is unchanged. On any other layout it sets `layout.ratio` (read by `master-stack` and `spiral`; harmless elsewhere).
+Sets a ratio, clamped to `[0.05, 0.95]`. On a `bsp` workspace it sets the ratio of the split **directly containing** leaf `id` (default: the focused window); if that leaf has no split parent the tree is unchanged. On `master-stack` and `spiral` it sets `layout.ratio`. Any other layout (a function spec, `columns`, `rows`, `grid`, `tabs`, `monocle`, `floating`, `tree`, custom types) is rejected.
 
 - **Events:** `layout/ratio-changed { workspace, ratio }` (the clamped ratio).
 - **Effects:** `render`.
-- **Rejections:** `unknown-workspace`, `invalid-ratio` (`Number(ratio)` is not finite).
+- **Rejections:** `unknown-workspace`, `not-resizable` (not `master-stack`, `spiral` or `bsp`), `invalid-ratio` (`ratio` is not a finite number; strings are not coerced).
 
 ### `layout/rotate-split`
 
@@ -709,7 +788,9 @@ Shallow-patches `state.config` with every field of the command except `type`. A 
 - `urgency`: a plain object; `clearOnFocus` a boolean.
 - `snap`: a plain object; `edges` a boolean; `threshold` and `magnet` numbers ≥ 0; `zones` in `"halves-quarters"`/`"halves"`/`"quarters"`/`"off"`.
 
-Other keys (`gap`, `inset`, `focusRaises`, `defaultPlacement`, custom keys) are not validated.
+- `gap`, `inset`: finite numbers ≥ 0. `focusRaises`: a boolean.
+- `defaultPlacement`: a plain object with only `x`, `y` (finite number or `"center"`) and `width`, `height` (finite numbers ≥ 0).
+- Any other key is rejected: `config` has a fixed set of keys (`focusRaises`, `gap`, `inset`, `defaultPlacement`, `drag`, `rules`, `urgency`, `snap`).
 
 - **Events:** `config/changed { patch }` (the patch as given, without `type`).
 - **Effects:** `render`.

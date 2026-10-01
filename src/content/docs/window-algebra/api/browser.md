@@ -68,6 +68,7 @@ attachInput({
   announce,              // true | Element | (message) => void: aria-live narration (opt-in)
   keyboard,              // true | { [combo]: commandType }: keyboard moving and F6 cycling (opt-in)
   splitterStep: 0.05,    // fraction of a pair's total an arrow key nudges a focused splitter by
+  floatStep: 10,         // px a keyboard move/resize of a floating window changes it by
   afterRender,           // (task) => void: when to move DOM focus after a focus change (default: next frame)
 }) → detach
 ```
@@ -108,6 +109,10 @@ Anywhere on the page (usually a workspace switcher): `data-wm-workspace-target="
 | Keys | Condition | Command |
 | --- | --- | --- |
 | Arrow along a focused splitter's axis | always | `layout/resize-split`, nudging by `splitterStep` of the pair's total |
+| <kbd>←</kbd> <kbd>→</kbd> (and <kbd>↑</kbd> <kbd>↓</kbd>), <kbd>Home</kbd>, <kbd>End</kbd> on a focused tab | always | move focus between the tabs of the strip, wrapping (roving `tabindex`); focus alone does not change the WM focus |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> on a focused tab | always | `window/focus` for that tab's window (which also moves focus into its panel) |
+| <kbd>Alt</kbd>+<kbd>Shift</kbd>+Arrow | `keyboard` truthy, the focused window is floating and normal | `window/move` by `floatStep` px. A tiled window keeps its reorder keys below |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+Arrow | the same | `window/resize` by `floatStep` px (right/down grow, left/up shrink; never below 0) |
 | <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> | the focused window is modal | trapped: focus wraps within the modal's element (or goes to the element itself if it has nothing focusable) |
 | <kbd>F6</kbd> / <kbd>Shift</kbd>+<kbd>F6</kbd> | `keyboard` truthy | `focus/next` / `focus/previous` |
 | `DEFAULT_MOVE_KEYS` (or your map) | `keyboard` truthy, a window focused, no drag | the mapped command with `{ id: focused }` |
@@ -185,7 +190,7 @@ attachPopouts({
 }) → { popOut(id, { name?, features? }?), popIn(id), isPoppedOut(id), detach() }
 ```
 
-**`popOut(id, options?)`**: it dry-runs `window/pop-out` first, so it never opens a popup for a refused command. Then it opens a window (`name` defaults to `wm-popout-<id>`; `features` defaults to `popup,width=<w>,height=<h>` from the window's placement) and sets its title. It copies every `<link rel=stylesheet>` and `<style>` from the page into the popup, `release`s the view's element, `adoptNode`s it into the popup and makes it fill the popup, and dispatches `window/pop-out`. It keeps the popup's title in sync with the window title, and focusing the popup focuses the window in the WM. It returns `dispatch`'s result, a rejection (`unknown-window`, `blocked`), or `{ events: [command/rejected popup-blocked] }` when `open()` returns a falsy or already-closed window. State and the DOM are untouched in that case. Popping out an already popped-out window returns an empty result.
+**`popOut(id, options?)`**: it dry-runs `window/pop-out` first, so it never opens a popup for a refused command. Then it opens a window (`name` defaults to `wm-popout-<id>`; `features` defaults to `popup,width=<w>,height=<h>` from the window's placement) and sets its title. It copies every `<link rel=stylesheet>` and `<style>` from the page into the popup, `release`s the view's element, `adoptNode`s it into the popup and makes it fill the popup, and dispatches `window/pop-out`. It keeps the popup's title in sync with the window title, and focusing the popup clears the WM focus (`window/blur`): a popped-out window is not on the stage, so it can never be the WM's focused window. It returns `dispatch`'s result, a rejection (`unknown-window`, `blocked`), or `{ events: [command/rejected popup-blocked] }` when `open()` returns a falsy or already-closed window. State and the DOM are untouched in that case. Popping out an already popped-out window returns an empty result.
 
 **`popIn(id)`**: closes the popup, carries the element back (`adoptNode` + `renderer.adopt`, so the surface was never unmounted) and dispatches `window/pop-in`. The same happens automatically when the popup closes itself (`pagehide`/`beforeunload`).
 

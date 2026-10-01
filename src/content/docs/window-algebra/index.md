@@ -51,7 +51,7 @@ const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0
 - [The layout algebra](/window-algebra/layout-algebra/): the eleven primitives, derived
   layouts and tree transforms.
 - [State, commands and events](/window-algebra/state-commands-events/): the
-  `{ state, events, effects }` protocol and the 51 built-in commands.
+  `{ state, events, effects }` protocol and the 58 built-in commands.
 - [Layouts, modifiers and drag-and-drop](/window-algebra/layouts-and-drag-and-drop/):
   layout specs, resizable splits, modifiers, and structural drops.
 - [Policy at a glance](/window-algebra/policy/): the window-manager policy borrowed from
