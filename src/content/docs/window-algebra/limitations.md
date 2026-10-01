@@ -1,6 +1,6 @@
 ---
 title: "Limitations and traps"
-description: "What window-algebra does not do, traps first: saved-state gaps, collapsed stages, frozen hidden tabs, extension handlers, modifiers and custom layouts, surfaces, pop-outs and progressive browser features."
+description: "What window-algebra does not do, traps first: saved-state gaps, collapsed stages, frozen hidden tabs, extension handlers, modifiers and custom layouts, surfaces, pop-outs, sync, touch, RTL and progressive browser features."
 sidebar:
   order: 8
 ---
@@ -115,6 +115,11 @@ support, come after.
   Ctrl+Alt+Shift+Arrow) needs `attachInput({ keyboard })`. Tabs use manual activation
   (arrows move focus, Enter/Space activates). Moves are not announced, and
   `workspace/rename` leaves `config.rules` that name the old id untouched.
+- **Right-to-left mirrors the horizontal axis of the whole stage, not its content.** Window content inherits `dir="rtl"` from the stage root (set `dir="ltr"` on content that must not flip). A floating window's `placement.x` is measured from the right edge under `rtl`, so a saved placement does not carry across a direction change. The page's `dir` is followed through an explicit `dir` attribute (or computed `direction: rtl`); a page with none leaves `config.direction` alone.
+- **The command palette lists commands, not targets.** It asks for the common payload fields only (`window/create` takes an id and a title, `layout/set` a layout type without options; JSON fields cover the rest), and `window/pop-out` opens a real browser window only when you give it your `attachPopouts` handle. Its default shortcut can be reserved by a browser (Firefox's private window), so it is configurable.
+- **Browser coverage is real but not exhaustive.** Touch is driven with real multi-touch only in Chromium (Playwright has no multi-touch in Firefox or WebKit, where the same pointer streams are dispatched as synthetic `PointerEvent`s), and the end-to-end tests run on the demo pages, not on every combination of options.
+- **Cross-tab sync is same-origin and last-writer-wins.** `attachSync` shares whole logical states over a `BroadcastChannel`; it is not collaboration between users, it does not merge concurrent edits (the loser's change is dropped), it syncs no surfaces or DOM, and pop-outs stay in the tab that opened them (peers see the window minimized). Two tabs that never changed anything share nothing, so seed them identically.
+- **Touch gestures are opt-in and trade scrolling for recognition.** Pinch needs `touch-action: none` on floating windows (their content cannot be panned by touch) and the two-finger workspace swipe needs `pan-y` on the stage (nothing inside scrolls horizontally by touch). Pinch and the workspace swipe are touch-only, a pen being one pointer. Moving or docking a tiled window by touch still needs a still long press, so it does not compete with scrolling.
 - **The bindings commit once per animation frame.** `<wa-stage>` and
   `WindowManagerStage` coalesce commits with `createFrameScheduler()`, so a hidden tab
   (which never runs `requestAnimationFrame`) does not repaint until it is shown again.
@@ -122,7 +127,8 @@ support, come after.
 
 ## Non-goals
 
-Replacing an operating-system window manager or compositor, and collaborative
-synchronization (the deterministic command log makes it possible, but it is not built).
+Replacing an operating-system window manager or compositor, and multi-user
+collaborative synchronization (the deterministic command log makes it possible, but it
+is not built; syncing one user's tabs is `attachSync`).
 A runtime dependency is also a non-goal: the bindings take React as an argument rather
 than importing it. See the [design document](/window-algebra/design/#non-goals-v0).

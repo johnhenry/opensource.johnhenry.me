@@ -1,6 +1,6 @@
 ---
 title: "Examples"
-description: "Six self-verifying Node scripts over the pure core, and the interactive browser demos with their capability checklist."
+description: "Six self-verifying Node scripts over the pure core, the interactive browser demos with their capability checklist, and the tests and benchmark that back them."
 sidebar:
   order: 7
 ---
@@ -8,7 +8,7 @@ sidebar:
 Two kinds of example live in the window-algebra repository.
 
 - **`examples/`:** runnable, self-verifying Node scripts. Each one asserts the behavior it demonstrates and exits 0 on success, so `npm run examples` doubles as a smoke test (CI runs it). They exercise the pure core only (`update`, `derive`, `compile`, the manager, geometry). That is the same code that runs in the browser; only the DOM renderer and the pointer adapter are left out.
-- **`demo/`:** interactive browser pages. They exercise the DOM renderer, the input adapter, surfaces, pop-outs and the framework bindings, which need a real browser. They are listed [below](/window-algebra/examples/#browser-demos-demo) and are **not** part of `npm run examples`.
+- **`demo/`:** interactive browser pages. They exercise the DOM renderer, the input adapter, surfaces, pop-outs, cross-tab sync, the command palette, touch gestures, right-to-left layout, theming and the framework bindings, which need a real browser. They are listed [below](/window-algebra/examples/#browser-demos-demo) and are **not** part of `npm run examples`.
 
 | Example | Demonstrates |
 | --- | --- |
@@ -47,9 +47,50 @@ Serve the repository root with any static server (for example `python3 -m http.s
 | `demo/console.html` | Compose any command, see a gallery of every rejection and the events and effects of each dispatch, plus undo/redo, a replay scrubber, serialize/restore, versioning and migration. |
 | `demo/surfaces.html` | html, lazy, iframe (`srcdoc`) and canvas surfaces keep their state while windows move through layouts. |
 | `demo/geometry.html` | Requested vs measured geometry, constraints on tiled windows, size hints (aspect ratio, width/height increments) with a live "80×24" cell readout, container queries, CSS anchors vs the forced JS fallback, and positioner rules (`gravity`/`flip`/`slide`/`resize`) with a "pin near a corner" overflow trigger. |
+| `demo/palette.html` | The command palette: Ctrl/Cmd+Shift+P (or `createPalette({ wm })`) lists the commands that apply to the current state, filters them by fuzzy text, prompts for payload fields and dispatches. Shows the dispatched commands. |
+| `demo/sync.html` | Cross-tab sync. Open the page in two tabs and change windows in either: `attachSync({ wm })` broadcasts a versioned state snapshot over a `BroadcastChannel`; last writer wins by Lamport clock, undo and redo sync, pop-outs stay in their tab. Shows this tab's id, clock and peers. |
+| `demo/touch.html` | Touch and pen gestures through `attachInput({ touch })`: pinch a floating window to resize it, swipe on the tab strip to switch tabs, two-finger swipe to switch workspace, long-press a window for its menu. Has buttons for the same actions. |
+| `demo/theming.html` | A theme editor over the `--wa-*` tokens: override any token, try presets, and read the overrides in effect and the computed token values. |
+| `demo/rtl.html` | A right-to-left stage: `dir` on the root drives `config.direction` through `attachDirection`, and layouts, floating `x`, drop zones, arrow keys, splitters and snap zones mirror. |
 | `demo/ide.html` | A realistic IDE built from the pieces: a custom grid-areas layout, tab stacks, a command palette, context menus, toasts, three workspaces and session persistence. |
 | `demo/outputs.html` | Multiple outputs (sway-style displays): two stages side by side, each with its own workspaces, renderer and input adapter (`output` option), driven by one manager. Move workspaces between outputs and watch `focus/next` cross both. |
 | `demo/element.html` | The `<wa-stage>` custom element: no framework, no build step, fully offline. |
 | `demo/react.html` | The React bindings: `useWindowManager`, `useWindowState`, and `WindowManagerStage` with window content as React portals. **Loads React from esm.sh, so it needs network access.** |
+
+## Tests and benchmark
+
+`npm test` runs the pure core and the DOM adapters against a fake DOM (Node). `npm run test:types` type-checks a usage file against the shipped declarations. `npm run test:browser` drives the demo pages in **Chromium, Firefox and WebKit** with Playwright (keyboard tab navigation, floating move/resize by keyboard, drag-and-drop docking with real pointer events, focus following visible windows, pop-out, frame-coalesced commits, RTL, the command palette, touch gestures, cross-tab sync) and scans every demo page with axe-core, light and dark, which must find no serious or critical violation. CI runs the browser suite as its own `browser` job.
+
+`npm run bench` (non-gating; `bench/run.mjs`) measures the pure core in Node and a real drag in browsers. The numbers below come from one run on an Apple M-series laptop, Node 24, with other work running, so read them as orders of magnitude and compare runs on your own machine. Browser frame times are paced at one pointer move per frame (a 60 Hz mouse); the drag drives a floating window across a stage of 100 views (`bench/drag.html`).
+
+Throughput, 50 windows (master-stack), mixed commands:
+
+| step | ops/s | µs/op |
+| --- | ---: | ---: |
+| update | 145,752 | 6.86 |
+| update + derive | 21,403 | 46.72 |
+| update + derive + compile | 8,744 | 114 |
+
+Median time per call (ms):
+
+| layout | derive 10 | +compile 10 | derive 100 | +compile 100 | derive 500 | +compile 500 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| master-stack | 0.01 | 0.03 | 0.07 | 0.20 | 0.53 | 1.27 |
+| columns | 0.01 | 0.03 | 0.08 | 0.27 | 0.50 | 1.59 |
+| rows | 0.01 | 0.02 | 0.08 | 0.26 | 0.49 | 1.59 |
+| grid | 0.01 | 0.02 | 0.08 | 0.20 | 0.51 | 1.22 |
+| spiral | 0.02 | 0.05 | 0.24 | 0.54 | 1.71 | 3.68 |
+| bsp | 0.03 | 0.05 | 0.30 | 0.66 | 2.57 | 4.60 |
+| tree | 0.01 | 0.03 | 0.09 | 0.30 | 0.57 | 1.77 |
+| tabs | 0.01 | 0.03 | 0.09 | 0.29 | 0.59 | 1.78 |
+
+Drag frame time, a floating window dragged over a stage of 100 windows (ms between frames):
+
+| browser | windows | frames | p50 | p95 | max | frames over 20 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| chromium | 100 | 242 | 16.70 | 16.70 | 33.40 | 1 |
+| webkit | 100 | 120 | 17.00 | 18.00 | 35.00 | 1 |
+
+Writing the bench found two super-linear spots in deep trees, now fixed: `bspReconcile` was cubic (a 500-window BSP `derive` took about 340 ms, now about 3 ms) and `compile` built a view list per splitter (a 500-window spiral compile took about 90 ms, now about 4 ms).
 
 `demo/shared/kit.mjs`, `demo/shared/style.css` and `demo/shared/coverage.mjs` are the demos' shared chrome, stylesheet (light/dark, phone-width layouts, reduced-motion-aware transitions) and checklist data.

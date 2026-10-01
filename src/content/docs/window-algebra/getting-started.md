@@ -30,7 +30,9 @@ Node ≥ 26 (`engines.node`) for the pure core in Node. In the browser, use it t
 </script>
 ```
 
-Entry points: `@johnhenry/window-algebra` (everything pure, plus the manager), `/browser` (renderer, input, surfaces, schedulers, pop-outs), `/react`, `/element`, and the narrower `/algebra`, `/transforms`, `/layouts` and `/css`. See [the entry-point table](/window-algebra/api/#entry-points).
+Entry points: `@johnhenry/window-algebra` (everything pure, plus the manager), `/browser` (renderer, input, surfaces, schedulers, pop-outs, cross-tab sync, the command palette), `/react`, `/element`, and the narrower `/algebra`, `/transforms`, `/layouts` and `/css`. See [the entry-point table](/window-algebra/api/#entry-points).
+
+**TypeScript:** every entry point ships declarations (a `types` condition on each export), with `Command` and `Event` as discriminated unions keyed by `type` and exact payloads for all 58 commands. No build step and no `@types` package. See [TypeScript types](/window-algebra/api/types/).
 
 ## Quick start
 

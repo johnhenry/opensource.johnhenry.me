@@ -26,7 +26,8 @@ command → update (pure) → state → derive (pure) → layout tree → compil
   a keyed render tree, so a window keeps its element, and its mounted surface, when the
   layout changes around it.
 
-Zero dependencies. ESM only. The core runs in Node, workers and browsers.
+Zero dependencies. ESM only. The core runs in Node, workers and browsers. Every entry
+point ships TypeScript declarations.
 
 ```js
 import { createState, update, derive, compile, presentationContext, toHTML } from "@johnhenry/window-algebra";
@@ -59,8 +60,18 @@ const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0
 - [compile and the browser](/window-algebra/compile-and-the-browser/): the render tree,
   the DOM renderer, input, surfaces, pop-outs, and the React and custom-element
   bindings.
-- [Examples](/window-algebra/examples/): six self-verifying Node scripts and eleven
-  browser demo pages.
+- [Cross-tab sync](/window-algebra/sync/): `attachSync`, state snapshots over a
+  `BroadcastChannel`, last writer wins.
+- [Touch and pen gestures](/window-algebra/touch/): `attachInput({ touch })`, pinch,
+  swipe and long-press.
+- [Theming](/window-algebra/theming/): the `--wa-*` custom properties, light, dark and
+  high-contrast defaults.
+- [The command palette](/window-algebra/palette/): `createPalette`, `<wa-palette>` and
+  the pure command catalog.
+- [Right-to-left layouts](/window-algebra/rtl/): `config.direction` and
+  `attachDirection`.
+- [Examples](/window-algebra/examples/): six self-verifying Node scripts, sixteen
+  browser demo pages, the browser test suite and the benchmark.
 - [Limitations and traps](/window-algebra/limitations/): read this before shipping.
 - [Adding a new layout](/window-algebra/adding-a-layout/).
 - [Design document](/window-algebra/design/): the PRD, prior art and open questions.
@@ -71,10 +82,14 @@ source and tests: [state](/window-algebra/api/state/),
 [queries](/window-algebra/api/queries/), [the layout algebra](/window-algebra/api/algebra/),
 [layouts and modifiers](/window-algebra/api/layouts/),
 [drag and drop](/window-algebra/api/drops/), [compile and CSS](/window-algebra/api/compile/),
+[theming](/window-algebra/api/theming/),
 [geometry and interaction](/window-algebra/api/geometry/),
 [the manager](/window-algebra/api/manager/), [browser adapters](/window-algebra/api/browser/),
+[the command palette](/window-algebra/api/palette/),
+[cross-tab sync](/window-algebra/api/sync/),
 [framework bindings](/window-algebra/api/bindings/),
-[versioning and migration](/window-algebra/api/versioning/) and
+[versioning and migration](/window-algebra/api/versioning/),
+[TypeScript types](/window-algebra/api/types/) and
 [errors](/window-algebra/api/errors/).
 
 Source: [github.com/johnhenry/window-algebra](https://github.com/johnhenry/window-algebra). MIT licensed.

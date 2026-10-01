@@ -43,7 +43,7 @@ It reconciles a render tree into real DOM:
 
 **The JS anchor fallback.** With `anchorFallback`, the native anchor declarations are stripped and each anchored element is positioned with `left`/`top` computed from measured rects. Side-anchored elements run the full [`positionPopup`](/window-algebra/api/geometry/#positionpopupanchorrect-popupsize-stage-options), including `slide` and `resize` (setting `width`/`height` when it shrinks something). Inside-anchored elements are aligned by `justify-self`/`align-self`. Coordinates and sizes it set are cleared when an element stops being anchored.
 
-**Animation.** Every primary view gets a unique `view-transition-name` (`wm-r<renderer#>-<sanitized id>`, unique per document), so each window animates on its own. `duration`/`easing` set `--wm-transition-duration`/`--wm-transition-easing` on the document element, which `BASE_CSS` reads. The manager passes `immediate: true` for commands carrying a `gesture` token or `immediate: true`.
+**Animation.** Every primary view gets a unique `view-transition-name` (`wm-r<renderer#>-<sanitized id>`, unique per document), so each window animates on its own. `duration`/`easing` set `--wa-transition-duration`/`--wa-transition-easing` on the document element, which `BASE_CSS` reads. The manager passes `immediate: true` for commands carrying a `gesture` token or `immediate: true`.
 
 ## `attachInput(options)`
 
@@ -70,6 +70,7 @@ attachInput({
   splitterStep: 0.05,    // fraction of a pair's total an arrow key nudges a focused splitter by
   floatStep: 10,         // px a keyboard move/resize of a floating window changes it by
   afterRender,           // (task) => void: when to move DOM focus after a focus change (default: next frame)
+  touch,                 // true | { pinch, swipe, contextMenu, ... }: touch and pen gestures (opt-in), see below
 }) → detach
 ```
 
@@ -103,6 +104,57 @@ Anywhere on the page (usually a workspace switcher): `data-wm-workspace-target="
 - **Pinned windows** (`draggable: false`): a press on the move handle or tab marks the view or tab `data-wm-drag-denied` for the press, and nothing moves.
 - **Splitters**: a press captures the pointer; each move dispatches `layout/resize-split` with full `weights` and a shared gesture token. It is clamped so neither side crosses the min/max constraints of a single window directly on that side. <kbd>Escape</kbd> restores the original weights in the same gesture.
 - While a press or drag is live, the adapter also listens on the document (capture phase), so the pointer may leave the stage (toward a workspace tab) before the threshold. A new `pointerdown` cancels any stale gesture.
+
+### Touch and pen
+
+Everything in [Pointer behaviour](#pointer-behaviour) is pointer-event based, so a finger or a pen drags a floating window (its title bar sets `touch-action: none`), and drags a tiled window or a tab after a still `longPress`. A pen behaves like a mouse for those (a drag starts after `threshold` px). `touch` adds the gestures a mouse has no equivalent for. It is **opt-in**: without it nothing below is recognised, and `pointerType: "mouse"` is never touched by any of it.
+
+```js
+attachInput({ root, wm, touch: true });
+attachInput({
+  root, wm,
+  touch: {
+    pinch: true,                       // two touches on a floating window resize it
+    swipe: { tabs: true, workspaces: false },
+    contextMenu: (press) => openMenu(press), // true | (press) => void | "window/toggle-floating" | false
+    contextDelay: 500,                 // ms held still
+    slop: 10,                          // px of drift that cancels a long press
+    swipeDistance: 48,                 // px for a tab swipe
+    workspaceSwipeDistance: 64,        // px for a two-finger workspace swipe
+  },
+});
+```
+
+`touch: true` means `pinch`, `swipe: { tabs: true }` and `contextMenu: true`. `swipe: false` turns both swipes off; `workspaces` is off by default because it needs `touch-action: pan-y` on the whole stage.
+
+| Gesture | Pointers | Result |
+| --- | --- | --- |
+| Pinch | two **touch** pointers on the same floating window (not tiled, blocked, pinned or minimized) | `window/resize` with `x`, `y`, `width`, `height` per move and one shared `gesture` token: one undo step, one log entry. The window scales with the finger distance (honouring `constraints`, never below 48 px) and follows the fingers' midpoint. `pointercancel` puts it back. The pure math is `createPinch`/`updatePinch`. |
+| Tab swipe | one touch or pen pointer, a horizontal stroke on a tab strip of at least `swipeDistance` px, mostly horizontal, within 700 ms | `window/focus` on the next tab (swipe left) or previous (swipe right); no wrap. A vertical stroke scrolls as usual. The classifier is `swipeOf`. |
+| Workspace swipe | two **touch** pointers, a horizontal stroke of the midpoint of at least `workspaceSwipeDistance` px (when they are not a pinch) | `workspace/activate` on the next (swipe left) or previous workspace of the stage's output; no wrap. |
+| Long press | one touch or pen pointer held still for `contextDelay` ms on a window (not on a control, tab or splitter) | `contextMenu`: `true` dispatches a bubbling `wm-contextmenu` event on the window element (`detail` is the press); a function is called with `{ id, x, y, clientX, clientY, pointerType, target }` (`x`/`y` are relative to `root`); a string is a command type dispatched as `{ type, id }`. The native context menu that follows is suppressed. A held press on a floating title bar cancels its (unmoved) move first; on a **tiled** title bar it still starts a drag, as before, and does not fire. |
+
+A second finger always ends a single-finger gesture in progress (a floating move is put back, a drag cancelled), then starts a pinch if both fingers are on one floating window, else a workspace swipe if enabled.
+
+**`touch-action`.** The browser decides which touch gestures it keeps by `touch-action` on the touched element and its ancestors, so each gesture needs its own. The adapter sets `data-wm-touch` on `root` (tokens `pinch`, `swipe-tabs`, `swipe-workspaces`, `context`), and `BASE_CSS` maps them: floating windows get `touch-action: none` (pinch), tab strips `pan-y` (horizontal strokes are the page's, vertical ones scroll), the stage `pan-y` for workspace swipes, windows `-webkit-touch-callout: none` (long press). Handles and splitters are always `touch-action: none`. Without `BASE_CSS`, set the same rules yourself. The costs: with `pinch`, a floating window's own content cannot be panned by touch; with `swipe.workspaces`, nothing inside the stage scrolls horizontally by touch.
+
+Under `config.direction: "rtl"` swipes mirror: swiping toward the inline-start edge (right) goes to the next tab or workspace.
+
+### Right-to-left
+
+With `config.direction: "rtl"` (see [Layouts › Right-to-left](/window-algebra/api/layouts/#right-to-left)) the adapter works in screen terms, so every gesture does what it looks like:
+
+| Interaction | In RTL |
+| --- | --- |
+| Floating move, resize, snap zones, magnetism, detach, pinch | pointer positions are physical, a window's `x` is measured from the right edge. Gestures run in screen coordinates and are mirrored (`x' = stage width - x - width`) on the way in and out, so the window follows the pointer; the snap preview and the resulting placement cover the same screen half |
+| Drop zones, the drop line, the tab-drag insertion point | the screen-left half of a target is the *later* side of it; the preview is drawn where the pointer is |
+| <kbd>←</kbd> <kbd>→</kbd> on a focused tab | swapped (WAI-ARIA: in a right-to-left tab list the left arrow goes to the next tab); <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Home</kbd>, <kbd>End</kbd> unchanged |
+| Arrow keys on a focused splitter | swapped: the first pane is on the right, so the right arrow shrinks it. Dragging the splitter right shrinks it too |
+| `DEFAULT_MOVE_KEYS` and a custom `keyboard` map | the left and right arrows are swapped when looked up, so <kbd>Alt+Shift+←</kbd> still moves the window left on screen (later in layout order). The map itself is written for left-to-right |
+| <kbd>Alt+Shift+←/→</kbd> and <kbd>Ctrl+Alt+Shift+←/→</kbd> on a floating window | the window moves toward the arrow, and the arrow resizes toward itself (`placement.x` and `width` change the other way) |
+| Swipes (`touch`) | swiping toward the inline-start edge (right) goes to the next tab or workspace |
+
+**Following the page's `dir`.** `attachDirection({ wm, element })` (also on `attachStage` as `direction: "auto"`, the default) reads an explicit `dir` on the stage or any ancestor, or a computed `direction: rtl`, dispatches `config/set { direction }` when it differs, and watches `dir` changes with a `MutationObserver`. A page with **no** `dir` says nothing, so `createState({ config: { direction: "rtl" } })` still works. `pageDirection(element)` is the pure read (`"rtl"`, `"ltr"` or `undefined`). `attachStage` also takes `direction: "ltr" | "rtl"` (set once) or `false` (never touch it). Cross-tab sync keeps the direction per tab (it is neither sent nor applied).
 
 ### Keyboard
 
@@ -193,6 +245,8 @@ attachPopouts({
 **`popOut(id, options?)`**: it dry-runs `window/pop-out` first, so it never opens a popup for a refused command. Then it opens a window (`name` defaults to `wm-popout-<id>`; `features` defaults to `popup,width=<w>,height=<h>` from the window's placement) and sets its title. It copies every `<link rel=stylesheet>` and `<style>` from the page into the popup, `release`s the view's element, `adoptNode`s it into the popup and makes it fill the popup, and dispatches `window/pop-out`. It keeps the popup's title in sync with the window title, and focusing the popup clears the WM focus (`window/blur`): a popped-out window is not on the stage, so it can never be the WM's focused window. It returns `dispatch`'s result, a rejection (`unknown-window`, `blocked`), or `{ events: [command/rejected popup-blocked] }` when `open()` returns a falsy or already-closed window. State and the DOM are untouched in that case. Popping out an already popped-out window returns an empty result.
 
 **`popIn(id)`**: closes the popup, carries the element back (`adoptNode` + `renderer.adopt`, so the surface was never unmounted) and dispatches `window/pop-in`. The same happens automatically when the popup closes itself (`pagehide`/`beforeunload`).
+
+**Chrome in the popup**: the window's `data-wm-command` buttons move into the popup with it, outside the stage root `attachInput` listens on, so the popup gets the same click delegation: a button dispatches `{ type, id }` (`data-wm-target` overrides `id`), and `window/pop-in` goes through `popIn(id)` so the DOM is carried back. Give a pop-out button `data-wm-command="window/pop-in"` while its window is popped out and it works from inside the popup.
 
 **Other paths**: if the window leaves `"popped-out"` some other way (`window/restore`, undo/redo), the popup is closed and the surface **remounts fresh** in the main document. If the window closes (`window/closed`), the popup closes.
 
