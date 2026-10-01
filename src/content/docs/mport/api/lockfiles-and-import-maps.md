@@ -20,6 +20,11 @@ sidebar:
 }
 ```
 
+With `build(…, { graph })` the lockfile also has a top-level `files` map, URL → SRI hash,
+for every file of every locked module's import graph (keys sorted); see
+[Whole-graph integrity](/mport/api/router/#whole-graph-integrity-graph). Without `graph` the key is absent.
+`createLock()`'s `getFile(url)` and `setFile(url, integrity)` read and write it.
+
 Entry fields, in this order: `specifier`, `registry`, `name`, `range`, `version`, `path`,
 `entry`, `build`, `provider`, `url`, `integrity`. Undefined and empty-string values are
 left out. Keys are sorted.
@@ -60,28 +65,30 @@ was written when the lockfile was made.
 ### createLock()
 
 ```ts
-createLock(data?: { packages? }): { get(key), set(key, entry), toJSON() }
+createLock(data?: { packages?, files? }): { get(key), set(key, entry), getFile(url), setFile(url, integrity), toJSON() }
 ```
 
 The in-memory lock the router uses. `set` keeps only the fields above; `toJSON()` returns
-`{ lockfileVersion: 1, packages }` sorted by key.
+`{ lockfileVersion: 1, packages, files? }` sorted by key (`files` only when non-empty).
 
 ## Import maps
 
 ### compileImportMap()
 
 ```ts
-compileImportMap(resolved: Resolution[], scoped?: Record<string, Resolution[]>): ImportMap
+compileImportMap(resolved: Resolution[], scoped?: Record<string, Resolution[]>, extra?: { integrity?: Record<string, string> }): ImportMap
 ```
 
-`{ imports, scopes?, integrity? }`. Each Resolution maps `key → url`; a prefix key
+`{ imports, scopes?, integrity? }`. `extra.integrity` (URL → hash) is merged into the map's
+`integrity`, which is how `build({ graph })` adds the files of the import graph. Each Resolution maps `key → url`; a prefix key
 (ending `/`) maps to `base` (or the URL without its file name). `integrity` maps URL →
 hash for every Resolution with an `integrity` (prefix keys are excluded, at the top
 level and in scopes alike: the hash is of one entry file, not of the directory a prefix maps). `scopes` and `integrity` are omitted when empty. Two Resolutions that map one key
 to **different** URLs (`react@18` and `react@19` both want `"react"`) throw a
 `ResolutionError` naming the key and both URLs, in `imports` and inside each scope alike,
 instead of keeping one silently; the same URL twice is fine. Give the second version its
-own scope (`router.build(specifiers, { scopes })`). For scoped lists, each entry's
+own scope (`router.build(specifiers, { scopes })`), or build with
+[`conflicts: "scope"`](/mport/api/router/#conflicting-versions-conflicts-scope). For scoped lists, each entry's
 `key` is the key to use inside that scope.
 
 ### mergeImportMaps()
@@ -132,3 +139,16 @@ res.send(`<head>${renderModulePreload(importMap)}${renderImportMap(importMap)}</
 `renderImportMap` and `renderModulePreload` need no DOM, so they run on a server; the
 DOM counterparts are [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap) and
 [`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload).
+
+### parseImports()
+
+```ts
+parseImports(source: string, options?: { dynamic?: boolean }): string[]
+```
+
+The specifiers a JavaScript module imports **statically**, in source order: `import … from "x"`,
+`import "x"`, `export … from "x"`, `export * from "x"`, `export * as ns from "x"`. With
+`dynamic: true`, `import("x")` calls whose first argument is a string literal as well
+(computed ones are never reported). Text inside comments, strings, template literals and
+regular expressions is ignored. A tokenizer, not a parser; see the
+[limits](/mport/api/router/#whole-graph-integrity-graph). It is what `build({ graph })` uses.

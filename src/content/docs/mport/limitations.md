@@ -44,7 +44,30 @@ limitations, the ones that follow from what CDNs and import maps are, come after
   `export default ({ lock }) => createRouter(routes, { lock })`.
 - **Two specifiers that map one import-map key to different URLs throw.** `react@18`
   and `react@19` in one `build()` is a `ResolutionError` naming the key; give the second
-  its own `scopes` entry.
+  its own `scopes` entry, or opt in with `conflicts: "scope"` (next two items).
+- **`conflicts: "scope"` only scopes what the build's packages depend on.** Dependents
+  are the npm packages named in the build, not their transitive dependencies: list
+  `lib-a-utils` too, or add an explicit scope. JSR and GitHub packages have no manifest
+  the router reads. A conflicting version nobody depends on lands in no scope (the report
+  lists it as `unscoped`), and the page's own modules only ever see the first-listed
+  version.
+- **A scope does nothing for CDNs that import by URL.** Scopes change only what a bare
+  specifier resolves to. esm.sh and jsDelivr `+esm` rewrite their dependency imports to
+  absolute URLs, so the scope is generated but has no effect; it matters for jspm, raw
+  jsDelivr/unpkg and `local()`. See
+  [Conflicting versions](/mport/api/router/#conflicting-versions-conflicts-scope).
+- **`graph` is bounded, same-origin and tokenizer-level.** It stops at `maxFiles` (500)
+  and `maxDepth` (20) and only reports it as a `truncated` event and in `result.graph`
+  (the CLI prints a warning): a truncated lockfile is partial, so treat the warning as an
+  error in CI. It follows static imports on the module's own origin, with a tokenizer,
+  not a JavaScript parser: dynamic imports with computed arguments, workers, fetched
+  assets and a second CDN's files are not hashed. It downloads every file at build time,
+  and an import map's `integrity` is enforced only by engines that implement it. See
+  [Whole-graph integrity](/mport/api/router/#whole-graph-integrity-graph).
+- **`mport update` moves within the range and leaves the import map alone.** It never
+  crosses a major (change the specifier and `build`), run `mport build` afterwards, and
+  with a `files` map it re-walks and re-records every file hash, not only the selected
+  packages'. See [`mport outdated` and `mport update`](/mport/api/cli/#mport-outdated-and-mport-update).
 - **A prefix specifier (`lit/`) can skip a provider.** Raw file CDNs skip it for
   packages with an `exports` map (subpaths such as `lit/decorators.js` would 404), and
   `jsDelivr({ esm: true })` always skips it. The route falls through to e.g. esm.sh, so
@@ -103,6 +126,17 @@ limitations, the ones that follow from what CDNs and import maps are, come after
 
 ### In the browser and the v1 API
 
+- **Firefox ignores an import map added after any module has loaded** (155, the version
+  the browser tests run), so `startup()` and `injectImportMap()` work in Chromium and
+  WebKit only. Firefox logs "Import maps are not allowed after a module load or preload
+  has started" and leaves bare specifiers unmapped; mport is itself a module, so it is
+  always too late. `startup()` now notices (it asks `import.meta.resolve()`) and rejects
+  with an `Error` carrying the build result as `error.result`, instead of leaving bare
+  imports to fail later with a `TypeError`. What works in all three engines: a map in the
+  HTML before any module script (build it ahead of time and use `renderImportMap()`), or
+  `createImporter()`, which needs no map. Permanent until Firefox ships late or multiple
+  import maps; a browser test fails the day it does.
+
 - **`startup()` has to win the race with your modules.** The import map must be in the
   document before the first module that uses it resolves: put the startup code in its
   own `<script type="module">` before the rest, or generate the map at build time.
@@ -111,6 +145,16 @@ limitations, the ones that follow from what CDNs and import maps are, come after
   rather than racing again, and the default v1 race still mixes builds (raw
   jsDelivr/unpkg files against jspm's transformed output). For consistent builds, use a
   router such as `createRouter({ "*": race(jsDelivr(), unpkg()) })`.
+
+### Bundler plugins
+
+- **`"external"` mode picks one URL per import at build time.** There is no runtime
+  failover and no `integrity` (a URL in an `import` statement can't carry one). Use
+  `mode: "importmap"` to keep bare imports and get a map with `integrity` and scopes.
+- **Only imports the bundler reports are routed**, and a routable package whose lookup
+  fails fails the build. Vite's dev server is untouched by default (it pre-bundles
+  itself), so dev and production can differ. Tested against Rollup 4 and Vite 8; other
+  majors are untested. See [Bundler plugins](/mport/api/bundler-plugins/#bundler-plugins).
 
 ## Permanent limitations
 
@@ -134,9 +178,10 @@ These follow from what raw CDNs, import maps and the npm registry are, not from 
   answers, not that it is an ES module that will evaluate; `probe: "none"` checks
   nothing and records no health; `resolveVersions: false` hands the CDN a range it
   resolves on its own (so providers that need an entry file, the raw CDNs, skip a range
-  and fall through). `verified()` hashes the entry module only, not the modules it
-  imports in turn, and checks bytes only against a hash you already have: without a
-  pinned `integrity` it records whatever the first mirror served (trust on first use).
+  and fall through). `verified()` hashes the entry module only; `build(…, { graph: true })` hashes the
+  modules it imports in turn too. Either checks bytes only against a hash you already
+  have: without a pinned `integrity` it records whatever the first mirror served (trust
+  on first use).
   By design: stronger checks cost a download per candidate.
 - **The npm registry answers an unknown package with a 404 that carries no CORS
   header.** In a browser that surfaces as a network error, so "this package doesn't

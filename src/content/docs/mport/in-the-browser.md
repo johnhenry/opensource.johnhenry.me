@@ -21,3 +21,5 @@ const { default: dayjs } = await load("dayjs@1");
 ```
 
 With `startup()`, the import map has to be in the page before the first module that uses it resolves. Put the startup code in its own `<script type="module">` before the rest of your modules, or generate the map at build time with the CLI.
+
+**Firefox ignores an import map added after any module has loaded** ("Import maps are not allowed after a module load or preload has started"), and mport is itself a module, so `startup()` and `injectImportMap()` work in Chromium and Safari/WebKit but not in Firefox. There `startup()` rejects with a clear error (carrying the build result as `error.result`) instead of leaving bare imports to fail later. Firefox needs the map in the HTML before any module script, which a build step or server does with `renderImportMap()`, or use `createImporter()` (mode B), which needs no map. See [Limitations](/mport/limitations/#in-the-browser-and-the-v1-api).

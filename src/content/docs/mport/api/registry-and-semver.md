@@ -1,6 +1,6 @@
 ---
 title: "Registry, CommonJS detection and semver"
-description: "createRegistry(), entryInfo(), entryOf(), resolveExports(), the CommonJS detection rules, and the semver namespace."
+description: "createRegistry(), pickVersion(), outdated(), entryInfo(), entryOf(), resolveExports(), the CommonJS detection rules, and the semver namespace."
 sidebar:
   label: "Registry and semver"
   order: 108
@@ -17,11 +17,38 @@ createRegistry({ fetch? = globalThis.fetch, npm? = "https://registry.npmjs.org",
 | Method | Returns |
 |---|---|
 | `version({ registry, name, range })` | the exact version per the [resolution table](/mport/api/router/#resolution-versions-and-entry-files) |
+| `info(registry, name)` | `{ versions, tags, deprecated }` for a package on `"npm"` or `"jsr"`; one request per package, however many ranges ask (JSR: yanked versions are left out, `tags` is `{ latest }`) |
+| `manifest(name, version)` | the package.json for one exact npm version (what `conflicts: "scope"` reads) |
 | `entryInfo(name, version, subpath?)` | `{ file, esm, hasExports }` from `GET <npm>/<name>/<version>` |
 | `entry(name, version, subpath?)` | `entryInfo(...).file` |
 
 All memoized per client; failures are evicted. Errors are `ResolutionError`s as listed
 under [Errors](/mport/api/trace-and-errors/#errors).
+
+### pickVersion()
+
+```ts
+pickVersion(name: string, range: string | undefined, info: { versions, tags, deprecated? }): string
+```
+
+The choice `registry.version()` makes from `registry.info()`: a dist-tag name is that tag;
+no range means `latest`; otherwise `latest` if it satisfies the range, else the highest
+satisfying version, passing over deprecated ones unless nothing else matches. Throws
+`ResolutionError` for an unparseable range or when nothing satisfies it.
+
+### outdated()
+
+```ts
+outdated(lock: Lockfile, { registry, names?, signal? }): Promise<{ outdated: OutdatedRow[], skipped: { key, reason }[] }>
+```
+
+What `mport outdated` prints. For each lockfile entry (all, or those whose key, specifier or
+package name is in `names`) on npm or JSR with an exact locked `version`: `wanted` is the
+newest version the entry's own `range` allows (an exact range is its own `wanted`) and
+`latest` the registry's `latest` dist-tag. A row is returned when `updatable` (`wanted` is
+newer than `current`) or `behindLatest` (`latest` is). GitHub refs, entries with no exact
+version, and entries whose lookup failed are returned in `skipped` with a reason instead
+of failing the call. `registry` is any client with `info()`; `router.registry` works.
 
 ### entryInfo()
 

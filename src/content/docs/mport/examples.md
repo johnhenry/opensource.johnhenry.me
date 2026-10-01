@@ -1,6 +1,6 @@
 ---
 title: "Examples"
-description: "Twelve self-verifying Node examples, one behaviour each, plus three browser pages against the real CDNs."
+description: "Sixteen self-verifying Node examples, one behaviour each, plus three browser pages against the real CDNs, and the cross-browser tests and benchmarks."
 sidebar:
   order: 10
 ---
@@ -27,6 +27,10 @@ network. The browser pages under the second table talk to the real CDNs.
 | `10-cli-builds-offline-from-a-config.mjs` | The `mport` CLI builds `importmap.json` and `mport.lock.json` from `mport.config.mjs`, `mport resolve` honours a hand-edited lockfile pin (no lookup in the trace), `--relock` ignores it, and an unknown command exits 1 with the message on stderr. |
 | `11-v1-api-races-origins-on-the-router.mjs` | The 1.x `MPortURL()` race takes the first import that succeeds (1.x rejected on the first failure), returns `[module, url, info]` with a trace, parses scoped names, and honours origin arguments. Uses the internal `createV1()` factory with a fake importer, because Node cannot `import()` https URLs. |
 | `12-server-renders-an-import-map-with-preloads.mjs` | Server-side HTML from a build: `renderImportMap()` and `renderModulePreload()` (with each module's `integrity`; prefix mappings are not preloaded), and `build()` throwing on two versions of one key until the second gets its own scope. |
+| `13-conflicting-versions-get-scopes.mjs` | `build()` throws when two specifiers want one key at different URLs; with `conflicts: "scope"` the first listed version keeps `imports` and a dependent package whose manifest asks for the other version gets a scope keyed by its own directory, with a report of what was scoped and what nothing reaches. |
+| `14-whole-graph-integrity-in-the-lockfile.mjs` | `build({ graph: true })` follows an esm.sh-style stub into the files it re-exports, hashes every one into the import map's `integrity` and the lockfile's `files`, refuses a later build when one file's bytes changed, and reports a walk cut short by `maxFiles` as a `truncated` event. |
+| `15-outdated-and-update-keep-the-lockfile-current.mjs` | `outdated()` (what `mport outdated` prints) reports `current`, `wanted` (newest the range allows) and `latest`, skipping what it can't judge; the `mport update` CLI re-resolves only the named entry, rewrites the lockfile, and `--json` reports what moved. |
+| `16-rollup-plugin-routes-bare-imports.mjs` | A real Rollup build with `@johnhenry/mport/rollup`: `external` mode turns `import "react"` into the CDN URL; `importmap` mode keeps it bare and emits the import map. Needs the `rollup` dev dependency (installed by `npm ci`). |
 
 Browser pages, demos and support files (not part of `npm run examples`):
 
@@ -50,6 +54,25 @@ node examples/05-lockfile-pins-version-and-build.mjs
 npm run demo:html     # serve the repo, then open http://localhost:8712/examples/
 npm run demo          # 1.x calls against the real CDNs (Deno)
 ```
+
+## Browser tests and benchmarks
+
+`npm run test:browser` runs [Playwright](https://playwright.dev) tests on **Chromium, Firefox and WebKit** (`npx playwright install --with-deps` once; CI does this on all three, one job per engine). Pages are served from the repo by a small static server Playwright starts (port 8731, `MPORT_TEST_PORT` to change it), and every CDN and registry request is answered by `page.route` stubs, so the suite makes no network requests. It covers the playground (all ten scenarios must pass their own checks), `app.html` in both modes with esm.sh up, down and broken, `compat.html`, import-map scopes and integrity as each engine enforces them, and the Firefox late-import-map behaviour described under [Limitations](/mport/limitations/#in-the-browser-and-the-v1-api).
+
+`npm run bench` (non-gating, also a `continue-on-error` CI job) measures mport's own work against a fake `fetch`, so it shows overhead, not network speed. On an Apple M-series laptop (Node 24):
+
+| | |
+|---|---|
+| cold build, 50 specifiers, esm.sh route, HEAD probe | 0.8 ms |
+| cold build, 50 specifiers, jsDelivr raw (entry lookup + probe) | 2.8 ms |
+| cold build, 50 specifiers, `probe: "none"` | 0.5 ms |
+| cold build with `graph: true` (4 files per module, 200 files hashed and parsed) | 5.2 ms |
+| the same cold build with 20 ms per request | 42.5 ms (concurrent: about two round trips, not 100) |
+| `resolve()`, pinned by a lockfile, `probe: "none"` | ~283,000 / s |
+| `resolve()`, warm registry memo, `probe: "none"` | ~165,000 / s |
+| `parseImports()` | ~42 MB/s |
+
+A real build is dominated by round trips; these numbers say mport adds well under a millisecond per specifier. Your machine will differ: run it.
 
 ## Runtime requirements (honest edition)
 

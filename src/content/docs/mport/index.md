@@ -80,7 +80,7 @@ map can and cannot do on its own.
 - [In the browser](/mport/in-the-browser/): `startup()` vs `createImporter()`.
 - [Debugging: traces and events](/mport/debugging/).
 - [The v1 API and migrating from 1.x](/mport/v1-and-migration/).
-- [Examples](/mport/examples/): twelve self-verifying Node examples and three browser
+- [Examples](/mport/examples/): sixteen self-verifying Node examples and three browser
   pages.
 - [Limitations and traps](/mport/limitations/): read this before relying on failover.
 - [Adding a new provider](/mport/adding-a-provider/).

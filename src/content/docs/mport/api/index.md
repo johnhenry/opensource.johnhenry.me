@@ -20,9 +20,11 @@ tutorial; this is the reference.
 | `@johnhenry/mport` | `src/index.mjs` | everything in `./core`, plus the v1 functions `mport` (also the default export), `MPort`, `MPortURL` |
 | `@johnhenry/mport/firefox` | `src/firefox.mjs` | the same names as `@johnhenry/mport`. No file it loads contains a two-argument `import()`, which older Firefox rejects at parse time. See [Firefox](/mport/api/v1/#the-firefox-entry-point). |
 | `@johnhenry/mport/core` | `src/core.mjs` | the router, providers, strategies, registry, import-map, lockfile, runtime and semver exports, without the v1 functions |
+| `@johnhenry/mport/vite` | `src/vite.mjs` | [`mportVite`](/mport/api/bundler-plugins/) (also the default export). Node-side build tooling. |
+| `@johnhenry/mport/rollup` | `src/rollup.mjs` | [`mportRollup`](/mport/api/bundler-plugins/) (also the default export). Node-side build tooling. |
 | `mport` (bin) | `bin/mport.mjs` | the [CLI](/mport/api/cli/) |
 
-All three module entry points are ES modules with no dependencies. The package is plain
+The first three module entry points are ES modules with no dependencies. The package is plain
 JavaScript that runs in browsers, Deno and Node; the router's defaults (`fetch`,
 `import()`) are the host's.
 
@@ -35,9 +37,9 @@ The `./core` exports, grouped:
 | Providers | [`provider`](/mport/api/providers/#provider), [`esmSh`](/mport/api/providers/#built-in-providers), [`jsDelivr`](/mport/api/providers/#built-in-providers), [`unpkg`](/mport/api/providers/#built-in-providers), [`jspm`](/mport/api/providers/#built-in-providers), [`jsr`](/mport/api/providers/#built-in-providers), [`github`](/mport/api/providers/#built-in-providers), [`local`](/mport/api/providers/#built-in-providers), [`custom`](/mport/api/providers/#custom), [`origin`](/mport/api/providers/#origin), [`DEFAULT_ORIGINS`](/mport/api/v1/#constants) |
 | Strategies | [`fallback`](/mport/api/strategies/#fallback), [`race`](/mport/api/strategies/#race), [`adaptive`](/mport/api/strategies/#adaptive), [`weighted`](/mport/api/strategies/#weighted), [`prefer`](/mport/api/strategies/#prefer), [`verified`](/mport/api/strategies/#verified), [`cache`](/mport/api/strategies/#cache), [`sri`](/mport/api/strategies/#sri) |
 | Health and errors | [`HealthRegistry`](/mport/api/probing-and-health/#healthregistry), [`RoutingError`](/mport/api/trace-and-errors/#errors), [`SkipError`](/mport/api/trace-and-errors/#errors), [`IntegrityError`](/mport/api/trace-and-errors/#errors), [`ResolutionError`](/mport/api/trace-and-errors/#errors) |
-| Registry | [`createRegistry`](/mport/api/registry-and-semver/#createregistry), [`entryInfo`](/mport/api/registry-and-semver/#entryinfo), [`entryOf`](/mport/api/registry-and-semver/#entryof), [`resolveExports`](/mport/api/registry-and-semver/#resolveexports) |
+| Registry | [`createRegistry`](/mport/api/registry-and-semver/#createregistry), [`pickVersion`](/mport/api/registry-and-semver/#pickversion), [`outdated`](/mport/api/registry-and-semver/#outdated), [`entryInfo`](/mport/api/registry-and-semver/#entryinfo), [`entryOf`](/mport/api/registry-and-semver/#entryof), [`resolveExports`](/mport/api/registry-and-semver/#resolveexports) |
 | Import maps | [`compileImportMap`](/mport/api/lockfiles-and-import-maps/#compileimportmap), [`mergeImportMaps`](/mport/api/lockfiles-and-import-maps/#mergeimportmaps), [`renderImportMap`](/mport/api/lockfiles-and-import-maps/#renderimportmap), [`modulePreloads`](/mport/api/lockfiles-and-import-maps/#modulepreloads), [`renderModulePreload`](/mport/api/lockfiles-and-import-maps/#rendermodulepreload) |
-| Lockfiles | [`createLock`](/mport/api/lockfiles-and-import-maps/#createlock), [`lockKey`](/mport/api/lockfiles-and-import-maps/#lockkey) |
+| Lockfiles | [`createLock`](/mport/api/lockfiles-and-import-maps/#createlock), [`lockKey`](/mport/api/lockfiles-and-import-maps/#lockkey), [`parseImports`](/mport/api/lockfiles-and-import-maps/#parseimports) |
 | Browser runtime | [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) |
 | Misc | [`semver`](/mport/api/registry-and-semver/#semver), [`DEFAULT_CACHE_KEY`](/mport/api/v1/#constants) |
 
@@ -74,7 +76,7 @@ Every export, from `@johnhenry/mport` (all of them), `@johnhenry/mport/firefox` 
 | [`createRouter`](/mport/api/router/#createrouter) | `(routes, options?) → Router` | Build a router. Options: `probe`, `lock`, `resolveVersions`, `circuitBreaker`, `health`, `target`, `capabilities`, `fetch`, `importer`, `registries`, `registry`, `onEvent`, `now`, `allowCommonJS`, `name` |
 | [`router.resolve`](/mport/api/router/#routerresolve) | `(specifier, options?) → Promise<Resolution \| null>` | Resolve one specifier. Options: `signal`, `exclude`, `build`, `integrity`, `target`, `capabilities`, `relock`, `onEvent` |
 | [`router.import`](/mport/api/router/#routerimport) | `(specifier, options?) → Promise<module>` | Resolve and import, failing over when the import fails |
-| [`router.build`](/mport/api/router/#routerbuild) | `(specifiers, { scopes?, signal? }?) → Promise<{ importMap, lock }>` | Resolve many and compile an import map and lockfile |
+| [`router.build`](/mport/api/router/#routerbuild) | `(specifiers, { scopes?, conflicts?, graph?, signal? }?) → Promise<{ importMap, lock, conflicts, graph? }>` | Resolve many and compile an import map and lockfile; [`conflicts: "scope"`](/mport/api/router/#conflicting-versions-conflicts-scope) scopes conflicting versions per dependent; [`graph`](/mport/api/router/#whole-graph-integrity-graph) hashes every file of each module's import graph |
 | `router.health`, `router.lock`, `router.name` | | The router's [`HealthRegistry`](/mport/api/probing-and-health/#healthregistry), its in-memory lock, its name |
 | [`route`](/mport/api/router/#route) | `(match, use) → { match, use }` | One array-form route |
 | [`esmSh`, `jsDelivr`, `unpkg`, `jspm`, `jsr`, `github`, `local`](/mport/api/providers/#built-in-providers) | `(options?) → Provider` | Built-in providers |
@@ -91,14 +93,18 @@ Every export, from `@johnhenry/mport` (all of them), `@johnhenry/mport/firefox` 
 | [`HealthRegistry`](/mport/api/probing-and-health/#healthregistry) | `new ({ failures?, reset?, now? }?)` | Per-provider health and circuit breaker |
 | [`RoutingError`, `SkipError`, `IntegrityError`, `ResolutionError`](/mport/api/trace-and-errors/#errors) | classes | See the errors table |
 | [`parseSpecifier`](/mport/api/specifiers/#parsespecifier), [`keyOf`](/mport/api/specifiers/#keyof), [`isRoutable`](/mport/api/specifiers/#isroutable) | | Specifier parsing, import-map keys, routability |
-| [`createRegistry`](/mport/api/registry-and-semver/#createregistry) | `({ fetch?, npm?, jsr? }?)` | Version and entry lookups |
+| [`createRegistry`](/mport/api/registry-and-semver/#createregistry) | `({ fetch?, npm?, jsr? }?)` | Version, entry, `info()` and `manifest()` lookups |
+| [`pickVersion`](/mport/api/registry-and-semver/#pickversion) | `(name, range, info) → string` | The version `registry.version()` chooses from `registry.info()` |
+| [`outdated`](/mport/api/registry-and-semver/#outdated) | `(lock, { registry, names?, signal? }) → Promise<{ outdated, skipped }>` | What `mport outdated` prints: current, wanted and latest per lockfile entry |
 | [`entryInfo`](/mport/api/registry-and-semver/#entryinfo), [`entryOf`](/mport/api/registry-and-semver/#entryof), [`resolveExports`](/mport/api/registry-and-semver/#resolveexports) | `(packageJson, subpath?)` | Entry-file selection and CommonJS detection |
 | [`compileImportMap`](/mport/api/lockfiles-and-import-maps/#compileimportmap), [`mergeImportMaps`](/mport/api/lockfiles-and-import-maps/#mergeimportmaps) | | Import maps from resolutions; merging |
 | [`renderImportMap`](/mport/api/lockfiles-and-import-maps/#renderimportmap), [`renderModulePreload`](/mport/api/lockfiles-and-import-maps/#rendermodulepreload), [`modulePreloads`](/mport/api/lockfiles-and-import-maps/#modulepreloads) | `(importMap, options?)` | HTML strings (`<script type="importmap">`, `<link rel="modulepreload">`) for server rendering |
-| [`createLock`](/mport/api/lockfiles-and-import-maps/#createlock), [`lockKey`](/mport/api/lockfiles-and-import-maps/#lockkey) | | Lockfiles and their keys |
-| [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) | | Browser runtime helpers |
+| [`createLock`](/mport/api/lockfiles-and-import-maps/#createlock), [`lockKey`](/mport/api/lockfiles-and-import-maps/#lockkey) | | Lockfiles (including the `files` map) and their keys |
+| [`parseImports`](/mport/api/lockfiles-and-import-maps/#parseimports) | `(source, { dynamic? }?) → string[]` | The specifiers a module imports statically; what `build({ graph })` uses |
+| [`mportVite`](/mport/api/bundler-plugins/), [`mportRollup`](/mport/api/bundler-plugins/) | `(router, options?) → Plugin` | Bundler plugins, from `@johnhenry/mport/vite` and `/rollup` (not in `./core`) |
+| [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), [`injectModulePreload`](/mport/api/browser-runtime/#injectmodulepreload), [`startup`](/mport/api/browser-runtime/#startup), [`createImporter`](/mport/api/browser-runtime/#createimporter) | | Browser runtime helpers (`startup()` rejects on [Firefox](/mport/api/browser-runtime/#startup)) |
 | [`semver`](/mport/api/registry-and-semver/#semver) | namespace | `parse`, `valid`, `compare`, `satisfies`, `maxSatisfying` |
 | [`mport`](/mport/api/v1/#mport) (default), [`MPort`](/mport/api/v1/#mport-and-mporturl), [`MPortURL`](/mport/api/v1/#mport-and-mporturl) | | The v1 API (not in `./core`) |
 | [`DEFAULT_ORIGINS`, `DEFAULT_CACHE_KEY`](/mport/api/v1/#constants) | | v1 defaults |
 
-Errors, in one line each: `ResolutionError` means the package or version can't exist (or the registry is unreachable) and no CDN is blamed; `RoutingError` (an `AggregateError`) means every provider in a fallback or race failed or was skipped; `SkipError` is a provider declining without trying; `IntegrityError` is `verified()` rejecting bytes. Types ship in `src/types.d.ts`.
+Errors, in one line each: `ResolutionError` means the package or version can't exist (or the registry is unreachable) and no CDN is blamed; `RoutingError` (an `AggregateError`) means every provider in a fallback or race failed or was skipped; `SkipError` is a provider declining without trying; `IntegrityError` is `verified()` rejecting bytes, or `build({ graph })` finding a file that no longer matches the lockfile. Types ship in `src/types.d.ts`.

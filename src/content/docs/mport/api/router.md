@@ -165,7 +165,7 @@ at runtime only works when the page's import map already covers those.
 ### router.build()
 
 ```ts
-router.build(specifiers: string[], options?: { scopes?, signal? }): Promise<{ importMap: ImportMap, lock: Lockfile }>
+router.build(specifiers: string[], options?: { scopes?, signal?, conflicts?, graph? }): Promise<{ importMap: ImportMap, lock: Lockfile, conflicts: ConflictReport[], graph?: GraphReport }>
 ```
 
 Resolves every specifier concurrently and compiles an [import map](/mport/api/lockfiles-and-import-maps/#import-maps).
@@ -175,11 +175,133 @@ resolved and placed under its scope with the key you gave. A specifier that reso
 `ResolutionError("mport: no route for …")`; nothing is silently dropped. Any other
 rejection from `resolve()` rejects the build.
 
+`conflicts` is `"error"` (the default) or `"scope"`; see [Conflicting versions](#conflicting-versions-conflicts-scope).
+Any other value is a `TypeError`. The result's `conflicts` array holds one
+[`ConflictReport`](#conflicting-versions-conflicts-scope) per conflicting key that `"scope"` handled
+(always empty with `"error"`).
+
+`graph` (default off) is `true` or [`GraphOptions`](#whole-graph-integrity-graph); the result then
+has a `graph` report.
+
 `lock` is `router.lock.toJSON()`: every resolution this router has made itself so far,
 including earlier `resolve()` and `import()` calls, not only this build's specifiers. It
 starts **empty**: entries of the `lock` option are read-only pins, never copied across, so
 specifiers you no longer build are pruned from the written lockfile. Use a fresh router
 per build if the lockfile should contain exactly one build's inputs.
+
+#### Conflicting versions (`conflicts: "scope"`)
+
+An import map maps one key to one URL per scope. If `react@18.3.1` and `react@19.2.0` are
+both requested, the unscoped `imports.react` can hold only one, and the other is reachable
+only from a **scope**. By default `build()` throws (`ResolutionError`, *conflicting
+resolutions for "react"*). With `conflicts: "scope"` it instead:
+
+1. keeps the **first listed** specifier in `imports` (put your app's own version first);
+2. for every other package in the build, reads its registry manifest (`dependencies`,
+   `peerDependencies`, `optionalDependencies`; one `GET <npm>/<name>/<version>` per
+   package, memoized) and looks at the range it declares for the conflicting package;
+3. gives each such dependent the first of the conflicting versions that satisfies its
+   range, *if that is not the unscoped one*, as an entry in `scopes[<dependent's package
+   directory>]`. The directory is the dependent provider's `base()` for that exact
+   version (`https://cdn.jsdelivr.net/npm/lib-a@1.0.0/`, `https://ga.jspm.io/npm:lib-a@1.0.0/`,
+   `https://esm.sh/lib-a@1.0.0/`).
+
+The scope key is a **URL prefix of the importing module**, which is how import maps work:
+for every module whose URL starts with it, the scoped mapping beats the top-level one.
+Each scoped URL's `integrity` is carried into the map like any other. Each conflicting key
+yields a report, also traced as `{ type: "conflict", provider: "build", reason }` through
+`onEvent`:
+
+```ts
+interface ConflictReport {
+  key: string;
+  kept: { specifier: string; url: string };      // owns the unscoped imports entry
+  scoped: Array<{ specifier; url; scope; dependent: "name@version"; range }>;
+  unscoped: Array<{ specifier; url }>;            // versions no package in the build depends on
+}
+```
+
+Why this design rather than a `{ scope }` per specifier: the information that decides which
+dependent needs which version is the dependency graph, and the registry already records it.
+Explicit scopes remain available (`build(specifiers, { scopes })`) and combine with
+`conflicts: "scope"`. They are also the only way to scope something the manifests don't
+tell you about.
+
+**Limits, stated plainly:**
+
+- Dependents are the **npm packages named in this build**, not their transitive
+  dependencies. If `lib-a` imports `lib-a-utils` which imports `react@18`, list
+  `lib-a-utils` in the build too (or add an explicit scope); otherwise `lib-a-utils` sees
+  the unscoped version.
+- Scopes only change what a **bare specifier** inside a file resolves to. Builds that
+  rewrite their dependency imports to absolute URLs (esm.sh, jsDelivr `+esm`) never use
+  the key, so for them the scope is generated but has no effect; the version a module
+  gets is already fixed inside it. Scopes matter for jspm, raw CDNs (jsDelivr, unpkg)
+  and `local()`, whose files keep bare imports.
+- A key conflicting between two **explicit** scoped lists, or two different URLs inside one
+  scope, is still an error.
+- `npm` dependents only; JSR and GitHub packages have no manifest the router reads.
+- A conflicting version nobody depends on (or whose dependents' ranges it doesn't satisfy)
+  ends up in no scope: it is listed under `unscoped` and the map still has no way to reach
+  it. The page's own modules can only ever see the unscoped version.
+- A dependent whose range both the unscoped version and another satisfy keeps the unscoped
+  one. A dependent whose range no listed version satisfies gets nothing.
+
+#### Whole-graph integrity (`graph`)
+
+`verified()` proves the bytes of the one URL a specifier resolves to. On esm.sh that URL
+is a stub (`export * from "/react@19.2.0/es2022/react.mjs"`) and the real code is one hop
+away, unchecked. `build(specifiers, { graph })` closes that gap at build time:
+
+1. For every module the build maps (top-level, scoped, conflict-scoped; **not** prefix
+   specifiers such as `lit/`, which map a directory), it `fetch`es the URL with the
+   router's `fetch` and computes its SRI hash (`algorithm`, default `sha384`).
+2. It parses the file's **static** imports (`import … from`, `import "x"`,
+   `export … from`, `export * from`, with or without `with { … }` attributes;
+   `import("literal")` as well when `dynamic: true`) with [`parseImports()`](/mport/api/lockfiles-and-import-maps/#parseimports),
+   resolves each against the file's URL, and repeats for every **same-origin** URL it
+   has not seen. Origin means the module's own origin plus `origins`.
+3. Every hash goes into the import map's `integrity` (so the browser verifies every file),
+   and into the lockfile's top-level `files` map. The entry's hash is also its package's
+   `integrity`. If `verified()` or the lockfile already pinned a different hash for the
+   entry, the build rejects with `IntegrityError`.
+
+On the next build the lockfile's `files` are expectations: a file whose bytes no longer
+match rejects with `IntegrityError` (traced `fail`, `phase: "integrity"`) instead of being
+re-recorded. Dropping the lock (`relock`, a router without `lock`) accepts the new bytes.
+A file that cannot be fetched (non-OK, network error) **fails the build**: it could not be
+hashed, and an unlisted file is an unverified one.
+
+`GraphOptions`: `maxFiles` (default 500, counted across the whole build), `maxDepth`
+(default 20 hops from a module), `dynamic` (false), `origins` (none), `algorithm`
+(`"sha384"`), `concurrency` (8). Hitting a bound does not fail the build: the files past it
+are not fetched and the walk reports it, as a `{ type: "truncated", phase: "graph",
+provider, url, reason: "maxFiles" | "maxDepth", limit, skipped, examples }` event through
+`onEvent` and as `result.graph.truncated` (one entry per module and bound). The CLI prints
+a warning for each. A truncated lockfile is a *partial* one: treat the warning as an
+error in CI, or raise the bound.
+
+`result.graph` is `{ files, truncated, bare, skipped }`: `bare` lists the bare specifiers
+found inside files (raw CDN files import their dependencies by name, so they depend on
+your import map; they are **not** followed), `skipped` the imports left alone (other
+origins, non-HTTP schemes).
+
+**Limits:**
+
+- *The parser is a tokenizer, not a JavaScript parser.* It skips comments, strings,
+  template literals and regular expressions and finds import/export statements; it is
+  exercised on minified esm.sh output. A construct it misreads (an obscure regex or
+  division ambiguity) can hide or invent an import; a hidden one is simply not hashed.
+- Dynamic imports with computed arguments, `new Worker(url)`, `fetch()`ed assets, CSS
+  and anything else the code loads at run time are not in the graph, and neither are
+  other origins (a CDN file importing from a second CDN).
+- It hashes the bytes *the build machine's* request received. esm.sh pins `?target=` so
+  those bytes don't depend on the User-Agent; a CDN that varies its output per client
+  produces a hash some browsers will reject.
+- Browsers verify import map `integrity` only where they implement the key; where they
+  don't, the entries are ignored (as an unknown key is) and nothing is verified.
+- Every file is downloaded once more at build time (the entry is fetched again even
+  after `verified()`), so this is for build and CI, not page load.
 
 ### router.health, router.lock, router.name
 

@@ -23,6 +23,9 @@ as `error.trace`; `onEvent` receives each event as it happens. Every event has
 | `fail` (no phase) | the probe failed | `provider`, `url`, `ms`, `error` |
 | `aborted` | a race loser's probe was cancelled, or finished after the race was decided | `provider`, `url`, `ms`; `reason: "lost the race"` for the late finisher |
 | `fail`, `phase: "integrity"` | `verified()` got bytes with the wrong hash | `provider`, `url`, `error: "expected …, got …"` |
+| `fail`, `phase: "integrity"` | `build({ graph })` fetched a file whose hash differs from the lockfile's `files` entry. **`onEvent` only** | `provider`, `url`, `error` |
+| `truncated`, `phase: "graph"` | `build({ graph })` hit `maxFiles` or `maxDepth` and left files unhashed. **`onEvent` only** | `provider`, `url` (the module), `reason`, `limit`, `skipped`, `examples` |
+| `conflict` | `build({ conflicts: "scope" })` handled one conflicting key. **`onEvent` only** | `provider: "build"`, `reason` |
 | `fail`, `phase: "import"` | `router.import()` failed to import a resolved URL. **`onEvent` only**, not in a trace. | `provider`, `url`, `error` |
 
 A typical fallback where esm.sh is down:
@@ -38,7 +41,7 @@ lookup:npm registry → resolved:npm registry → probe:esm.sh → fail:esm.sh �
 | `ResolutionError` | `Error` | a registry lookup fails: the fetch itself throws (in browsers an unknown npm package's 404 has no CORS header and looks like this; the message says so), the registry answers 404 (`not found in the registry`) or another non-OK status, no version satisfies the range, or the range is neither a dist-tag nor valid; `router.build()` meets an unroutable or unmatched specifier, or two specifiers map one import-map key to different URLs | Propagates through `fallback()` and `race()` at once: no provider is blamed or put in its circuit. The fetch case has the original error as `cause`. |
 | `RoutingError` | `AggregateError` | `fallback()` or `race()` ran out of providers; `router.import()` exhausted its mirrors after an import failure | `errors` holds each provider's (or import's) error, `SkipError`s included |
 | `SkipError` | `Error` | a node declined without trying | Normally ends up in a `RoutingError`'s `errors`; reaches the caller directly when the route is a single provider, cache or `prefer()` |
-| `IntegrityError` | `Error` | `verified()` got a non-OK response or a hash mismatch | As above: collected by `fallback()` / `race()`, direct from a lone `verified()` |
+| `IntegrityError` | `Error` | `verified()` got a non-OK response or a hash mismatch; `build({ graph })` met a file whose bytes differ from the lockfile's `files` entry, or an entry hash that contradicts a pinned one | As above: collected by `fallback()` / `race()`, direct from a lone `verified()` |
 | `TypeError` | | an invalid specifier ([parseSpecifier](/mport/api/specifiers/#parsespecifier)); a string inside a strategy; a non-node argument to a strategy; `provider()` without `url`; an unsupported `sri` algorithm; a bad duration string | Synchronous for strategy/provider construction |
 | `Error` | | `jsr({ via: "jsr.io" })` without a path; the CLI's usage errors | |
 | `signal.reason` | | the caller's `AbortSignal` aborted | Whatever you passed to `abort()` (a `DOMException` `AbortError` by default) |
