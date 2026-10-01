@@ -19,7 +19,7 @@ palette.open({ query: "close" });
 ## What it does
 
 1. **Lists** the commands that make sense for the current state: no "Close window" with no windows, no "Switch workspace" with one workspace, "Pop window back in" only when something is popped out. They are grouped and named for people, not as `window/close`.
-2. **Filters** them by fuzzy text, matching the title first, then the command type, group and keywords. The matched letters are highlighted.
+2. **Filters** them by fuzzy text, matching the title first (a contiguous phrase beats a scattered match), then the keywords, group and command type read together as one text, in that order, so "new window" finds *Open window*, whose keywords are "new add". The matched letters are highlighted.
 3. **Prompts** for the payload fields of the chosen command, one at a time: windows, workspaces, outputs, enums, booleans and layouts as a filterable list, the rest as validated text.
 4. **Dispatches** `wm.dispatch(command)`. A rejected command keeps the palette open on its last field with the reason, so it can be corrected.
 

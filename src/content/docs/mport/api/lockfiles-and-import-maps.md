@@ -108,7 +108,51 @@ renderImportMap(map: ImportMap, { nonce? }?): string
 `<script type="importmap">…</script>` as an HTML string, for a server-rendered page (the
 counterpart of [`injectImportMap`](/mport/api/browser-runtime/#injectimportmap), which needs a DOM). The JSON has
 `<`, U+2028 and U+2029 escaped, so no key or URL can end the element early. Put it before
-the first module script. `nonce` adds a CSP nonce attribute.
+the first module script. `nonce` adds a CSP nonce attribute; a page that cannot have one
+(a static site) allows the script [by hash](/mport/api/lockfiles-and-import-maps/#importmaphash-importmaptext-csphash-renderimportmapcsp).
+
+### importMapHash(), importMapText(), cspHash(), renderImportMapCsp()
+
+```ts
+importMapHash(map: ImportMap, { algorithm? = "sha256" }?): Promise<string>        // "'sha256-…'"
+renderImportMapCsp(map: ImportMap, { algorithm?, nonce? }?): Promise<{ html: string, hash: string, text: string }>
+importMapText(map: ImportMap): string                                              // the text between the tags
+cspHash(text: string, algorithm?: "sha256" | "sha384" | "sha512"): Promise<string>
+```
+
+**Which to use.** A server that renders every response can give each its own **nonce**
+(`renderImportMap(map, { nonce })`, `script-src 'nonce-…'`). A **static site** (GitHub Pages, any
+CDN) cannot, and a CSP can allow an inline script only by the hash of its text:
+
+```js
+const { html, hash } = await renderImportMapCsp(importMap);
+// <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-…'">  ← hash, quotes included
+// …and `html` in <head>, before the first module script
+```
+
+- `importMapText(map)` is the string `renderImportMap()` puts between the tags (`JSON.stringify`
+  with `<`, U+2028 and U+2029 escaped). It is also what `injectImportMap()` sets as the script's
+  `textContent` and what the Vite plugin injects, so **one hash allows the map whichever way it
+  reaches the page**. A change to the escaping changes the text and the hash together.
+- `importMapHash(map)` is `cspHash(importMapText(map))`: the value for `script-src`, **with its single
+  quotes** (`'sha256-47DEQ…='`). `renderImportMapCsp(map)` returns the rendered HTML, the hash and the
+  text from the same string; a `nonce` only adds the attribute (the hash is unaffected).
+- `cspHash(text)` hashes any inline script's UTF-8 bytes. mport renders no other inline script: its
+  `<link rel="modulepreload">` tags are not scripts, and the Vite plugin's injected map is covered by
+  `plugin.api.importMapHash()` (see [Bundler plugins](/mport/api/bundler-plugins/#bundler-plugins)).
+- They use Web Crypto (`crypto.subtle`), so they are **async**, and in a browser need a secure context
+  (HTTPS or localhost). `sha384` and `sha512` are accepted; anything else is a `TypeError`.
+
+The hash is of the text exactly as emitted: write `html` to the page unchanged. A build step that
+re-serialises the HTML afterwards (a minifier that rewrites the script, CRLF conversion) changes the
+text and the browser blocks the map. **Recompute the hash from the final map** whenever it changes
+(a new lockfile means a new map means a new hash) and generate the policy and the page in the same
+build. `test/browser/csp.spec.mjs` has real engines enforce a strict policy: the map is allowed by
+mport's hash and blocked by a wrong one, and the engine's own hash of the parsed text equals mport's.
+
+Under `require-trusted-types-for 'script'`, an import map set from script (`injectImportMap()`)
+assigns a string to a script's text, which Trusted Types refuses: put the map in the HTML
+(`renderImportMapCsp()`) instead; the static-page test runs under that directive.
 
 ### modulePreloads()
 
@@ -127,13 +171,16 @@ renderModulePreload(map: ImportMap, { crossorigin? = "anonymous", nonce? }?): st
 ```
 
 One `<link rel="modulepreload" href integrity? crossorigin>` per `modulePreloads(map)`
-entry, joined by newlines, with attributes HTML-escaped. Put them in `<head>` next to the
-import map so the browser fetches the modules before the importing script runs.
+entry, joined by newlines, with attributes HTML-escaped. Put them in `<head>` so the browser
+fetches the modules before the importing script runs, **after the import map**: Firefox
+(155) ignores an import map that comes after a `modulepreload` (it has "started a module
+load or preload", the same warning as for a late map), so every bare import on the page then
+fails there, while Chromium and WebKit take either order (a browser test pins this down).
 `crossorigin: ""` omits the attribute.
 
 ```js
 const { importMap } = await router.build(["react@^19"]);
-res.send(`<head>${renderModulePreload(importMap)}${renderImportMap(importMap)}</head>`);
+res.send(`<head>${renderImportMap(importMap)}${renderModulePreload(importMap)}</head>`);
 ```
 
 `renderImportMap` and `renderModulePreload` need no DOM, so they run on a server; the

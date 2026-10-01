@@ -25,6 +25,9 @@ as `error.trace`; `onEvent` receives each event as it happens. Every event has
 | `fail`, `phase: "integrity"` | `verified()` got bytes with the wrong hash | `provider`, `url`, `error: "expected …, got …"` |
 | `fail`, `phase: "integrity"` | `build({ graph })` fetched a file whose hash differs from the lockfile's `files` entry. **`onEvent` only** | `provider`, `url`, `error` |
 | `truncated`, `phase: "graph"` | `build({ graph })` hit `maxFiles` or `maxDepth` and left files unhashed. **`onEvent` only** | `provider`, `url` (the module), `reason`, `limit`, `skipped`, `examples` |
+| `dependency`, `phase: "dependencies"` | `build({ dependencies })` added one entry. **`onEvent` only** | `provider: "build"`, `reason: "<specifier> -> <url> (needed by <name@version>, depth N)"` |
+| `truncated`, `phase: "dependencies"` | `build({ dependencies })` found a dependency deeper than `dependencyDepth`. **`onEvent` only** | `provider: "build"`, `reason` |
+| `fail`, `phase: "dependencies"` | `build({ dependencies })` could not resolve a dependency (it is in `result.dependencies.skipped`). **`onEvent` only** | `provider: "build"`, `reason` |
 | `conflict` | `build({ conflicts: "scope" })` handled one conflicting key. **`onEvent` only** | `provider: "build"`, `reason` |
 | `fail`, `phase: "import"` | `router.import()` failed to import a resolved URL. **`onEvent` only**, not in a trace. | `provider`, `url`, `error` |
 

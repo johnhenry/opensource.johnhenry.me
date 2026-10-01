@@ -64,13 +64,15 @@ const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0
   `BroadcastChannel`, last writer wins.
 - [Touch and pen gestures](/window-algebra/touch/): `attachInput({ touch })`, pinch,
   swipe and long-press.
+- [Window chrome](/window-algebra/window-chrome/): `chrome: true`, a built-in title bar,
+  buttons and resize grips.
 - [Theming](/window-algebra/theming/): the `--wa-*` custom properties, light, dark and
   high-contrast defaults.
 - [The command palette](/window-algebra/palette/): `createPalette`, `<wa-palette>` and
   the pure command catalog.
 - [Right-to-left layouts](/window-algebra/rtl/): `config.direction` and
   `attachDirection`.
-- [Examples](/window-algebra/examples/): six self-verifying Node scripts, sixteen
+- [Examples](/window-algebra/examples/): six self-verifying Node scripts, seventeen
   browser demo pages, the browser test suite and the benchmark.
 - [Limitations and traps](/window-algebra/limitations/): read this before shipping.
 - [Adding a new layout](/window-algebra/adding-a-layout/).
@@ -96,8 +98,8 @@ Source: [github.com/johnhenry/window-algebra](https://github.com/johnhenry/windo
 
 ## Family
 
-window-algebra is one of three zero-build, browser-first ESM libraries in this family.
-None of them depends on another. They fit together at the page level:
+window-algebra is one of the family's browser-first libraries. None of them depends on
+another. They fit together at the page level:
 
 - **[html-modules](/html-modules/)**: declarative HTML modules.
   `<html-import src="./ui.html" as="ui">` turns each `<html-export>` in an ordinary HTML
@@ -117,3 +119,10 @@ None of them depends on another. They fit together at the page level:
   can produce that map with fallback across mirrors, instead of hand-written URLs. There
   is no dependency in either direction; the browser only sees the resulting import map.
   See mport's [Import maps, lockfiles and the CLI](/mport/import-maps-and-cli/).
+- **[safe-fragment](/safe-fragment/)**: Web Components that render untrusted HTML through
+  versioned security profiles. A `<safe-fragment>` is an ordinary element, so
+  `htmlSurface(safeFragmentEl)` puts sanitized, less-trusted content in a window;
+  window-algebra only calls `mount`/`unmount`. Prefer its default `scope="light"` in
+  windows that may pop out: the rendered content moves with the element into the pop-out
+  document (`scope="shadow"` is not isolation, and its content does not receive the copied
+  page stylesheets). Neither package depends on the other.

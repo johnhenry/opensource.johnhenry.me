@@ -49,13 +49,14 @@ Serve the repository root with any static server (for example `python3 -m http.s
 | `demo/geometry.html` | Requested vs measured geometry, constraints on tiled windows, size hints (aspect ratio, width/height increments) with a live "80×24" cell readout, container queries, CSS anchors vs the forced JS fallback, and positioner rules (`gravity`/`flip`/`slide`/`resize`) with a "pin near a corner" overflow trigger. |
 | `demo/palette.html` | The command palette: Ctrl/Cmd+Shift+P (or `createPalette({ wm })`) lists the commands that apply to the current state, filters them by fuzzy text, prompts for payload fields and dispatches. Shows the dispatched commands. |
 | `demo/sync.html` | Cross-tab sync. Open the page in two tabs and change windows in either: `attachSync({ wm })` broadcasts a versioned state snapshot over a `BroadcastChannel`; last writer wins by Lamport clock, undo and redo sync, pop-outs stay in their tab. Shows this tab's id, clock and peers. |
+| `demo/chrome.html` | The built-in window chrome (`chrome: true`): title bar with icon, title and buttons, resize grips, double-click to maximize, pop-out, right-to-left and touch sizing; scanned by the axe tests. |
 | `demo/touch.html` | Touch and pen gestures through `attachInput({ touch })`: pinch a floating window to resize it, swipe on the tab strip to switch tabs, two-finger swipe to switch workspace, long-press a window for its menu. Has buttons for the same actions. |
 | `demo/theming.html` | A theme editor over the `--wa-*` tokens: override any token, try presets, and read the overrides in effect and the computed token values. |
 | `demo/rtl.html` | A right-to-left stage: `dir` on the root drives `config.direction` through `attachDirection`, and layouts, floating `x`, drop zones, arrow keys, splitters and snap zones mirror. |
 | `demo/ide.html` | A realistic IDE built from the pieces: a custom grid-areas layout, tab stacks, a command palette, context menus, toasts, three workspaces and session persistence. |
 | `demo/outputs.html` | Multiple outputs (sway-style displays): two stages side by side, each with its own workspaces, renderer and input adapter (`output` option), driven by one manager. Move workspaces between outputs and watch `focus/next` cross both. |
 | `demo/element.html` | The `<wa-stage>` custom element: no framework, no build step, fully offline. |
-| `demo/react.html` | The React bindings: `useWindowManager`, `useWindowState`, and `WindowManagerStage` with window content as React portals. **Loads React from esm.sh, so it needs network access.** |
+| `demo/react.html` | The React bindings: `useWindowManager`, `useWindowState`, and `WindowManagerStage` with window content as React portals (and `stageRef` for its handles). **Loads React from esm.sh, so it needs network access.** |
 
 ## Tests and benchmark
 

@@ -36,7 +36,7 @@ Then the URL is built and [probed](/mport/api/probing-and-health/#probing).
 | `jsr({ via: "jsr.io", origin?, name? })` | `jsr` | `jsr` | jsr | types, deno | no | `https://jsr.io/<name>/<version>/<path>`; throws without a path |
 | `github({ name? })` | `github` | `npm` | github | raw | no | `https://cdn.jsdelivr.net/gh/<user>/<repo>[@<ref>]/<path>` |
 | `github({ via: "esm.sh", name?, esTarget? })` | `github` | `esm.sh` | github | browser, esm-transform, types | no | `https://esm.sh/gh/<user>/<repo>[@<ref>][/<path>][?target=<esTarget>]` |
-| `local({ base?, name?, build? })` | `local` | `npm` | npm | raw, offline | yes | `<base>/<name>/<entry or path>`, `base` default `/node_modules/`; no version (`needsVersion: false`) |
+| `local({ base?, name?, build? })` | `local` | `npm` | npm | raw, offline | yes | `<base>/<name>/<entry or path>`, `base` default `/node_modules/`; no version (`needsVersion: false`). It still asks the router's registry for the version and entry: pair it with [`installedRegistry()`](/mport/api/registry-and-semver/#installedregistry) for packages that are not on npm or whose installed version must win. |
 | `custom(template, opts?)` | the template's host | the template's host | npm | none | with `{entry}` | see [custom()](#custom) |
 | `origin(o)` | `o.path` | `o.path` | npm | none | no | `https://<path><name><versionMarker><version>/<path>`; see [origin()](#origin) |
 

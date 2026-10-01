@@ -7,7 +7,7 @@ sidebar:
 
 ```
 mport build   [specifier...] [--config file] [--out importmap.json] [--lock mport.lock.json] [--relock] [--conflicts error|scope]
-              [--graph [--max-files N] [--max-depth N]]
+              [--graph [--max-files N] [--max-depth N]] [--dependencies [--dependency-depth N]]
 mport resolve <specifier> [--config file] [--trace] [--lock mport.lock.json] [--relock]
 mport outdated [name...] [--config file] [--lock mport.lock.json] [--json]
 mport update   [name...] [--config file] [--lock mport.lock.json] [--json]
@@ -26,6 +26,8 @@ global `fetch` (Node 18+; the package declares Node >= 26).
 | `--conflicts` | | config's `conflicts`, else `error` | `build`: `scope` generates import-map scopes for conflicting versions (see [Conflicting versions](/mport/api/router/#conflicting-versions-conflicts-scope)) |
 | `--graph` | | `false` (or config's `graph`) | `build`: hash the whole import graph (see [Whole-graph integrity](/mport/api/router/#whole-graph-integrity-graph)); the lockfile gets `files`, the import map `integrity` for every file; prints a warning per truncated walk |
 | `--max-files`, `--max-depth` | | 500, 20 | the graph bounds; imply `--graph` |
+| `--dependencies` | | `false` (or config's `dependencies`) | `build`: also add each raw-CDN package's manifest `dependencies` (see [Including dependencies](/mport/api/router/#including-dependencies-dependencies)); prints each addition and a warning per skipped or too-deep dependency |
+| `--dependency-depth` | | 5 | how many levels of dependencies to follow; implies `--dependencies` |
 | `--json` | | `false` | `outdated` and `update` print JSON |
 | `--trace` | | `false` | `resolve` prints the trace too |
 | `--help` | `-h` | | print usage |
@@ -42,6 +44,7 @@ global `fetch` (Node 18+; the package declares Node >= 26).
 | `scopes` | none | passed to `build` |
 | `graph` | off | `true` or `GraphOptions`, passed to `build` |
 | `conflicts` | `"error"` | passed to `build` (the `--conflicts` flag overrides it) |
+| `dependencies`, `dependencyDepth` | off, `5` | passed to `build` (the flags override them) |
 
 With no config at all, the default routes are used.
 

@@ -20,10 +20,11 @@ const sync = attachSync({ wm, channel: "my-app" });
 - **No echo loops.** A snapshot applied from a peer is never re-broadcast.
 - **Undo and redo** are ordinary changes and sync like any other. A snapshot received from a peer is recorded as a history step, so undo in the receiving tab steps back over it.
 - **Pop-outs stay per tab.** A popped-out window is a real browser window owned by the tab that opened it; on the wire it is `minimized`.
-- **Late joiners** announce themselves and a tab that has changed anything answers with its snapshot. Two tabs that never changed anything share nothing, so seed them identically.
+- **Late joiners** announce themselves and a tab that has changed anything answers with its snapshot. Every tab also answers with a presence reply (a `hello` with `reply: true`, not answered in turn), so the newcomer's `peers()` lists every tab already open even when none has anything to share. Two tabs that never changed anything share no state, so seed them identically.
+- **A closed tab leaves the group.** With the `lifecycle` option (on by default in a window), a tab announces `bye` on `pagehide` and `hello` again on a back/forward-cache `pageshow`, so peers stop counting it without anyone calling `detach()`. Pass `lifecycle: false` to do this yourself.
 
 ## What it does not do
 
 It is same-origin, same-browser only, not collaboration between users, and it has no persistence. It does not merge concurrent edits, and it does not sync surfaces, DOM, scroll positions or per-tab effects, so give each tab a `surfaceFor` that builds a window's content from its id. A state from a newer `STATE_VERSION` is refused by `wm.load` and ignored.
 
-Options (`channel`, `id`, `schedule`, `onSync`, `onError`), the return value (`peers()`, `flush()`, `detach()`) and the pure `toSnapshot`/`fromSnapshot` are in [Cross-tab sync](/window-algebra/api/sync/). Try it in two tabs with `demo/sync.html`.
+Options (`channel`, `id`, `schedule`, `onSync`, `onError`, `lifecycle`), the return value (`peers()`, `flush()`, `detach()`) and the pure `toSnapshot`/`fromSnapshot` are in [Cross-tab sync](/window-algebra/api/sync/). Try it in two tabs with `demo/sync.html`.

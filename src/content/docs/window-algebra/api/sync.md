@@ -23,7 +23,7 @@ Every message carries `(clock, from)`. A tab raises its clock to the highest clo
 
 ### Late joiners
 
-A new tab announces itself (`hello`). A tab that has ever sent or applied a change answers with its current snapshot, which the newcomer applies (it is newer than the newcomer's clock 0). Two tabs that have never changed anything share nothing: seed them identically.
+A new tab announces itself (`hello`). A tab that has ever sent or applied a change answers with its current snapshot, which the newcomer applies (it is newer than the newcomer's clock 0). Either way the tab also answers with a presence reply (a `hello` with `reply: true`, which is not answered in turn), so the newcomer's `peers()` lists every tab that was already open even when none has anything to share. Two tabs that have never changed anything share no state: seed them identically.
 
 ### Undo and redo
 
@@ -53,8 +53,9 @@ const sync = attachSync({ wm, channel: "my-app" });
 | `schedule` | How a **gesture** (a drag's stream of `window/move`) is coalesced before broadcasting; default `createFrameScheduler()`, one snapshot per frame. Every other command is broadcast synchronously. |
 | `onSync({ direction, clock, from, applied })` | Called for every snapshot sent (`"out"`) or received (`"in"`; `applied` is false when it lost). |
 | `onError(error)` | A snapshot that could not be posted (for example state holding something uncloneable) or applied. The local change still happened. |
+| `lifecycle` | Where `pagehide` and `pageshow` fire; default `globalThis` when it is an event target (a window). A tab that is closed or navigated away announces `bye` on `pagehide`, so its peers stop counting it without anyone calling `detach()`; a `pageshow` that restores the page from the back/forward cache announces it again (`hello`). The channel stays open in between. Pass `false` to do this yourself. |
 
-Returns `{ id, clock, peers(), flush(), detach() }`: `peers()` lists the tab ids heard from since attach (and not yet `bye`); `flush()` sends a pending gesture snapshot now; `detach()` flushes, announces `bye`, stops listening and closes a channel it created.
+Returns `{ id, clock, peers(), flush(), detach() }`: `peers()` lists the tab ids heard from since attach (and not yet `bye`); `flush()` sends a pending gesture snapshot now; `detach()` flushes, announces `bye`, stops listening (including the `lifecycle` events) and closes a channel it created.
 
 `toSnapshot(state)` and `fromSnapshot(snapshot, localState)` are the (pure) wire transforms: popped-out windows become `minimized`, and a function layout spec (which cannot be cloned) becomes `null` and is restored from the receiving tab's own state, or `{ type: "columns" }` if it has none.
 

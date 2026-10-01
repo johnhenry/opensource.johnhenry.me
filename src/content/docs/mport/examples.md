@@ -1,6 +1,6 @@
 ---
 title: "Examples"
-description: "Sixteen self-verifying Node examples, one behaviour each, plus three browser pages against the real CDNs, and the cross-browser tests and benchmarks."
+description: "Twenty self-verifying Node examples, one behaviour each, plus three browser pages against the real CDNs, and the cross-browser tests and benchmarks."
 sidebar:
   order: 10
 ---
@@ -31,6 +31,10 @@ network. The browser pages under the second table talk to the real CDNs.
 | `14-whole-graph-integrity-in-the-lockfile.mjs` | `build({ graph: true })` follows an esm.sh-style stub into the files it re-exports, hashes every one into the import map's `integrity` and the lockfile's `files`, refuses a later build when one file's bytes changed, and reports a walk cut short by `maxFiles` as a `truncated` event. |
 | `15-outdated-and-update-keep-the-lockfile-current.mjs` | `outdated()` (what `mport outdated` prints) reports `current`, `wanted` (newest the range allows) and `latest`, skipping what it can't judge; the `mport update` CLI re-resolves only the named entry, rewrites the lockfile, and `--json` reports what moved. |
 | `16-rollup-plugin-routes-bare-imports.mjs` | A real Rollup build with `@johnhenry/mport/rollup`: `external` mode turns `import "react"` into the CDN URL; `importmap` mode keeps it bare and emits the import map. Needs the `rollup` dev dependency (installed by `npm ci`). |
+| `17-local-serves-a-package-that-is-not-on-npm.mjs` | `local()` alone 404s on a package installed from git (the registry has never heard of it); with `registry: installedRegistry({ root })` from `@johnhenry/mport/node` the version and entry come from the installed `package.json`, the lockfile records the installed version, nothing touches the network, and a range the installed copy does not satisfy is a `ResolutionError`. |
+| `18-csp-hash-for-a-static-sites-import-map.mjs` | A static site can't use a CSP nonce, so the inline import map is allowed by hash: `renderImportMapCsp()` returns the `<script>` HTML and its `'sha256-…'` from the same string, equal byte for byte to `node:crypto`'s hash of the text between the tags (and to what real browsers compute under a strict policy, in `test/browser/csp.spec.mjs`); `importMapHash()` alone, other algorithms. |
+| `19-dependencies-of-a-raw-cdn-package-join-the-map.mjs` | `build(specs, { dependencies: true })` reads each raw-CDN package's manifest and routes its `dependencies` too (`safe-fragment` → `dompurify` → `trusted-types`), reporting what it added, what it skipped (a `file:` range) and what `dependencyDepth` cut off; the added entries are locked; esm.sh, which rewrites imports itself, is not expanded. |
+| `20-app-owned-prefix-needs-no-registry.mjs` | The app-owned prefix recipe: `"components/*": custom("/components/{path}", { name: "app", build: "app" })` maps your own directory (files and the `components/` prefix) with no registry lookup, beside CDN packages; the lockfile records build `app`. |
 
 Browser pages, demos and support files (not part of `npm run examples`):
 
@@ -57,7 +61,7 @@ npm run demo          # 1.x calls against the real CDNs (Deno)
 
 ## Browser tests and benchmarks
 
-`npm run test:browser` runs [Playwright](https://playwright.dev) tests on **Chromium, Firefox and WebKit** (`npx playwright install --with-deps` once; CI does this on all three, one job per engine). Pages are served from the repo by a small static server Playwright starts (port 8731, `MPORT_TEST_PORT` to change it), and every CDN and registry request is answered by `page.route` stubs, so the suite makes no network requests. It covers the playground (all ten scenarios must pass their own checks), `app.html` in both modes with esm.sh up, down and broken, `compat.html`, import-map scopes and integrity as each engine enforces them, and the Firefox late-import-map behaviour described under [Limitations](/mport/limitations/#in-the-browser-and-the-v1-api).
+`npm run test:browser` runs [Playwright](https://playwright.dev) tests on **Chromium, Firefox and WebKit** (`npx playwright install --with-deps` once; CI does this on all three, one job per engine). Pages are served from the repo by a small static server Playwright starts (port 8731, `MPORT_TEST_PORT` to change it), and every CDN and registry request is answered by `page.route` stubs, so the suite makes no network requests. It covers the playground (all ten scenarios must pass their own checks), `app.html` in both modes with esm.sh up, down and broken, `compat.html`, a strict Content-Security-Policy enforced against the import-map hash, the import map placed before `modulepreload`, import-map scopes and integrity as each engine enforces them, and the Firefox late-import-map behaviour described under [Limitations](/mport/limitations/#in-the-browser-and-the-v1-api).
 
 `npm run bench` (non-gating, also a `continue-on-error` CI job) measures mport's own work against a fake `fetch`, so it shows overhead, not network speed. On an Apple M-series laptop (Node 24):
 

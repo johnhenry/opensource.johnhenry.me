@@ -29,6 +29,17 @@ createRouter([
 ]);
 ```
 
+**An app-owned prefix** (your own `/components/` directory) is routed like any package, with no registry lookup: a `custom()` template that has neither `{version}` nor `{entry}` asks the registry nothing.
+
+```js
+createRouter({
+  "components/*": custom("/components/{path}", { name: "app", build: "app" }),   // components/button.js → /components/button.js
+  "*": [esmSh(), jsDelivr()],
+});
+```
+
+`components/` as a specifier gives the prefix mapping `"components/": "/components/"` (a directory specifier is matched as written too, so a `"components/*"` route captures it). Set `name` and `build` explicitly (a path-only template has no host to default them from); `build: "app"` keeps the lockfile from handing the path to a CDN. [API › Recipe: an app-owned prefix](/mport/api/router/#recipe-an-app-owned-prefix-no-registry); [example 20](/mport/examples/).
+
 What each route value means:
 - An array is shorthand for `fallback(...)`.
 - A string is shorthand for `custom(url)`.

@@ -68,7 +68,8 @@ module script. Because it goes through `build()`, `build: { conflicts: "scope" }
 entry pages get the injection: a Vite library or SSR build has none.
 
 `plugin.api` exposes the instance: `api.specifiers()` (what has been routed) and
-`api.importMap()` (the `build()` result).
+`api.importMap()` (the `build()` result) and `api.importMapHash({ algorithm? })`, the
+[CSP hash](/mport/api/lockfiles-and-import-maps/#importmaphash-importmaptext-csphash-renderimportmapcsp) of the exact text the Vite plugin injects, for a static site's `script-src`.
 
 **Limits.** Only imports the bundler reports are seen: `import(expr)` with a computed
 specifier is not (list it in `specifiers`). Vite's dev server is untouched by default

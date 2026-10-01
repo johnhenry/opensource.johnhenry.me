@@ -60,6 +60,32 @@ const { importMap, lock, graph } = await router.build(["react@^19"], { graph: { 
 
 It is a build-time download of everything, a tokenizer-level parser and same-origin only: [API › Whole-graph integrity](/mport/api/router/#whole-graph-integrity-graph).
 
+### Packages that import their own dependencies: `dependencies`
+
+A raw file CDN (jsDelivr, unpkg) or `local()` serves a package's files as published, so a package that does `import("dompurify")` keeps that bare specifier, and the browser resolves it through **your** import map, which holds only what you listed. `build(specifiers, { dependencies: true })` reads each resolved package's manifest and routes its `dependencies` as entries of their own:
+
+```js
+const { importMap, dependencies } = await router.build(["safe-fragment@1"], { dependencies: true });
+// importMap.imports: safe-fragment, dompurify (at a version satisfying safe-fragment's range), …
+// dependencies: { added: [{ specifier, from, range, depth, url, … }], skipped: [...], truncated: [...] }
+```
+
+Ranges are respected and a range an existing entry does not satisfy meets the normal `conflicts` handling; it follows dependencies of dependencies up to `dependencyDepth` (default 5) and reports what it added, skipped (a `file:` or `github:` range, a dependency a raw CDN cannot serve) and cut off. **esm.sh and jsDelivr `+esm` are not expanded**: they rewrite a module's imports to URLs themselves, so the map needs nothing more for them. Only `dependencies` count, not dev, peer or optional ones. CLI: `mport build --dependencies [--dependency-depth N]`. Details: [API › Including dependencies](/mport/api/router/#including-dependencies-dependencies); [example 19](/mport/examples/).
+
+### Content-Security-Policy for the inline import map
+
+A server that renders each response can put a nonce on the import map (`renderImportMap(map, { nonce })`). A **static site** cannot, and can allow the inline `<script type="importmap">` only by the hash of its exact text. mport owns that text, so it computes the hash:
+
+```js
+import { renderImportMapCsp } from "@johnhenry/mport";
+const { html, hash } = await renderImportMapCsp(importMap);   // hash is "'sha256-…'", quotes included
+// <meta http-equiv="Content-Security-Policy" content="script-src 'self' ${hash}">  …then `html` before your module scripts
+```
+
+`importMapHash(map)` returns just the hash. `injectImportMap()` and the Vite plugin emit the same text, so the same hash allows them too (`plugin.api.importMapHash()`). Write `html` out unchanged and recompute the hash whenever the map changes; details in [API › importMapHash(), importMapText(), cspHash(), renderImportMapCsp()](/mport/api/lockfiles-and-import-maps/#importmaphash-importmaptext-csphash-renderimportmapcsp). Real browsers enforce it in the browser tests (see [Examples](/mport/examples/#browser-tests-and-benchmarks)); example 18 is the offline version.
+
+**Put the import map before any `modulepreload` link.** Firefox ignores an import map that follows a `modulepreload` (the same rule as for a late map), so every bare import fails there; Chromium and WebKit accept either order. `renderImportMap(map)` first, then `renderModulePreload(map)`.
+
 ## Bundler plugins
 
 Resolve bare imports through a router while bundling, with the same routes, lockfile and strategies:
@@ -95,7 +121,7 @@ export default {
 };
 ```
 
-Flags: `--config`, `--out importmap.json`, `--lock mport.lock.json`, `--relock`, `--conflicts error|scope`, `--graph` (`--max-files`, `--max-depth`), `--trace`, `--json`. A function config receives the parsed lockfile (`undefined` with `--relock` or when there is none): `export default ({ lock }) => createRouter(routes, { lock })`. A prebuilt router can't take a lockfile, so `--lock`/`--relock` with one is an error and `build` leaves the lock file alone. Details: [API › The CLI](/mport/api/cli/).
+Flags: `--config`, `--out importmap.json`, `--lock mport.lock.json`, `--relock`, `--conflicts error|scope`, `--graph` (`--max-files`, `--max-depth`), `--dependencies` (`--dependency-depth`), `--trace`, `--json`. A function config receives the parsed lockfile (`undefined` with `--relock` or when there is none): `export default ({ lock }) => createRouter(routes, { lock })`. A prebuilt router can't take a lockfile, so `--lock`/`--relock` with one is an error and `build` leaves the lock file alone. Details: [API › The CLI](/mport/api/cli/).
 
 ### Keeping a lockfile current: `mport outdated` and `mport update`
 

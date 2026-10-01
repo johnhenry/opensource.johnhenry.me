@@ -20,7 +20,11 @@ Every visual value in the library's own CSS (`BASE_CSS`, the drag ghost and drop
 </style>
 ```
 
-`BASE_CSS` is `THEME_CSS` (the default theme) followed by `RULES_CSS` (the rules that read the tokens). Use `RULES_CSS` alone to supply every token yourself. The defaults are declared inside `:where()`, so they have zero specificity and a plain `:root { --wa-color-accent: hotpink }` wins wherever it appears.
+`BASE_CSS` is `THEME_CSS` (the default theme) followed by `RULES_CSS` (the rules that read the tokens, including `CHROME_CSS` for the opt-in [window chrome](/window-algebra/window-chrome/)). Use `RULES_CSS` alone to supply every token yourself. The defaults are declared inside `:where()`, so they have zero specificity and a plain `:root { --wa-color-accent: hotpink }` wins wherever it appears.
+
+## Under a strict Content-Security-Policy
+
+Setting `BASE_CSS` as a `<style>`'s `textContent` (the snippet above), and the `<style data-wm-palette-style>` that `createPalette` injects, are inline styles, which `style-src 'self'` blocks. Everything else the library does to the DOM goes through the CSSOM (`element.style.setProperty`), which a CSP allows, so the fix is only about these two sheets: write `BASE_CSS` and `PALETTE_CSS` (both exported; `PALETTE_CSS` from `@johnhenry/window-algebra/browser`) to a `.css` file at build time, link it, and pass `injectStyles: false` to `createPalette` (or to `<wa-palette>`'s `configure`). Nothing else needs `'unsafe-inline'`. The [workbench](https://github.com/johnhenry/workbench) app does exactly this under `require-trusted-types-for 'script'`.
 
 :::caution[Breaking change from the first draft]
 The `--wm-*` custom properties are gone and `--wa-*` replaces them: `--wm-focus-ring` is `--wa-focus-ring-color`, `--wm-ghost-radius` is `--wa-radius-md`, `--wm-transition-duration` is `--wa-transition-duration`, and so on. Nothing was published with the old names. `anchor-name: --wm-<id>` is a different thing (a CSS dashed ident for anchor positioning) and is unchanged.
@@ -37,6 +41,6 @@ The defaults are checked in `test/theme.test.mjs` against WCAG contrast ratios (
 
 ## The token groups
 
-Colours (`--wa-color-*`, `--wa-border-width`), radii (`--wa-radius-*`), spacing (`--wa-space-*`), the focus ring (`--wa-focus-ring-*`), splitters (`--wa-splitter-*`), the title bar (`--wa-titlebar-*`), shadows (`--wa-shadow-*`), the drag preview (`--wa-ghost-*`, `--wa-zone-*`), type (`--wa-font*`) and motion (`--wa-transition-*`). `THEME_TOKENS` is the whole table as data (`{ [name]: { description, light, dark, hc? } }`) for a theme editor. The values for each token are in [Theming](/window-algebra/api/theming/#the-tokens).
+Colours (`--wa-color-*`, `--wa-border-width`), radii (`--wa-radius-*`), spacing (`--wa-space-*`), the focus ring (`--wa-focus-ring-*`), splitters (`--wa-splitter-*`), the title bar (`--wa-titlebar-*`, used by the tab strip and the built-in [window chrome](/window-algebra/window-chrome/)), the window chrome's sizes (`--wa-chrome-*`: bar height, button size, touch target, grip sizes), shadows (`--wa-shadow-*`), the drag preview (`--wa-ghost-*`, `--wa-zone-*`), type (`--wa-font*`) and motion (`--wa-transition-*`). `THEME_TOKENS` is the whole table as data (`{ [name]: { description, light, dark, hc? } }`) for a theme editor. The values for each token are in [Theming](/window-algebra/api/theming/#the-tokens).
 
 The compiled render tree carries only layout in its inline styles, so theming never needs a re-render. Try it in `demo/theming.html`.

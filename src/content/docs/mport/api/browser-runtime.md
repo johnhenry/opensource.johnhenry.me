@@ -12,10 +12,10 @@ import map, there is no hook to try another. So there are two runtime modes.
 ## injectImportMap()
 
 ```ts
-injectImportMap(map: ImportMap, { document? = globalThis.document }?): HTMLScriptElement
+injectImportMap(map: ImportMap, { document? = globalThis.document, nonce? }?): HTMLScriptElement
 ```
 
-Creates `<script type="importmap">` with `JSON.stringify(map)` and inserts it before the
+Creates `<script type="importmap">` whose text is [`importMapText(map)`](/mport/api/lockfiles-and-import-maps/#importmaphash-importmaptext-csphash-renderimportmapcsp) (`JSON.stringify` with `<`, U+2028, U+2029 escaped, the same text `renderImportMap()` emits, so one CSP hash covers both; `nonce` sets the element's nonce) and inserts it before the
 first `script[type="module"]` or existing `script[type="importmap"]`, or at the end of
 `<head>`. Throws `Error("mport: injectImportMap needs a document")` without one. It has
 to run before the first module import that uses the map resolves.

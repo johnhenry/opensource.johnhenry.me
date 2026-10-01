@@ -53,6 +53,44 @@ The string and array shorthands work only at the top level of a route value (and
 its arrays). Inside `fallback()`, `race()` and the other strategies, a string throws
 `TypeError: wrap URL strings with custom() inside strategies`.
 
+**A directory specifier is matched as written too.** `components/` (a prefix mapping) has the match
+text `components`, and is also tested as `components/`, so a `"components/*"` route captures it;
+an exact `"components"` route still does. (Before, `components/` skipped a `"components/*"` route
+and was looked up on the registry.)
+
+#### Recipe: an app-owned prefix, no registry
+
+Your own modules can be routed like packages, so one import map covers your code and your
+dependencies, and a lockfile or `verified()` strategy can treat them uniformly:
+
+```js
+const router = createRouter({
+  "components/*": custom("/components/{path}", { name: "app", build: "app" }),
+  "*": [esmSh(), jsDelivr()],
+});
+await router.build(["components/button.js", "components/", "react@^19"]);
+// "components/button.js" → "/components/button.js", "components/" → "/components/", react → esm.sh
+```
+
+Why it needs no registry: a [`custom()`](/mport/api/providers/#custom) template needs a version lookup only if it contains
+`{version}`, and an entry lookup only if it contains `{entry}`; `{path}` alone is just the part of the
+specifier after the package name (`components/forms/input.js` → `forms/input.js`), so the router never asks npm about a
+package called `components`. Choices that matter:
+
+- **Give it an explicit `name` and `build`.** Without them both default to the template's host, and a
+  path-only template has none (the template string itself becomes the name). `name` is the identity in traces,
+  health and `exclude`; `build: "app"` is what the lockfile pins, so a lock-pinned `components/…` can only be
+  served by another provider of build `"app"` (say a `custom("https://static.example.com/components/{path}", { build: "app" })` mirror), never by a CDN
+  that happens to have a package of that name.
+- **A directory specifier (`components/`) gives a prefix mapping** (`"components/": "/components/"`), so any
+  `import "components/x.js"` resolves without listing each file. Listing files gives you `modulepreload` and
+  `integrity` candidates; the prefix does not.
+- **Route on the first path segment.** The route pattern is matched against the specifier without a version, so
+  `"components/*"` (or `/^components(\/|$)/` in the array form) captures it. A package of the same name on
+  npm is shadowed by the route, which is the point.
+- The lockfile records `{ provider: "app", build: "app", url }` and **no `version`**; there is nothing to pin.
+  Files are not hashed (`graph` skips origin-relative URLs).
+
 #### route()
 
 ```ts
@@ -165,7 +203,7 @@ at runtime only works when the page's import map already covers those.
 ### router.build()
 
 ```ts
-router.build(specifiers: string[], options?: { scopes?, signal?, conflicts?, graph? }): Promise<{ importMap: ImportMap, lock: Lockfile, conflicts: ConflictReport[], graph?: GraphReport }>
+router.build(specifiers: string[], options?: { scopes?, signal?, conflicts?, graph?, dependencies?, dependencyDepth? }): Promise<{ importMap: ImportMap, lock: Lockfile, conflicts: ConflictReport[], dependencies?: DependencyReport, graph?: GraphReport }>
 ```
 
 Resolves every specifier concurrently and compiles an [import map](/mport/api/lockfiles-and-import-maps/#import-maps).
@@ -183,11 +221,80 @@ Any other value is a `TypeError`. The result's `conflicts` array holds one
 `graph` (default off) is `true` or [`GraphOptions`](#whole-graph-integrity-graph); the result then
 has a `graph` report.
 
+`dependencies` (default `false`) is `true` or `"prod"` and `dependencyDepth` (default `5`) a
+non-negative integer; see [Including dependencies](/mport/api/router/#including-dependencies-dependencies). Any other
+value is a `TypeError`. The result then has a `dependencies` report.
+
 `lock` is `router.lock.toJSON()`: every resolution this router has made itself so far,
 including earlier `resolve()` and `import()` calls, not only this build's specifiers. It
 starts **empty**: entries of the `lock` option are read-only pins, never copied across, so
 specifiers you no longer build are pruned from the written lockfile. Use a fresh router
 per build if the lockfile should contain exactly one build's inputs.
+
+#### Including dependencies (`dependencies`)
+
+A raw file CDN (jsDelivr, unpkg) or `local()` serves a package's files exactly as published. A
+file that says `import("dompurify")` or `import "preact"` keeps that bare specifier, which the
+browser resolves through **your** import map, and the map holds only what you asked `build()` for.
+You can list every dependency by hand, or let the build read each resolved package's manifest:
+
+```js
+const { importMap, dependencies } = await router.build(["safe-fragment@1"], { dependencies: true });
+// importMap.imports: { "safe-fragment": ".../safe-fragment@1.0.0/index.js", "dompurify": ".../dompurify@3.2.0/purify.es.mjs" }
+```
+
+| Option | Meaning |
+|---|---|
+| `dependencies: true` or `"prod"` | the two are the same: add the package's manifest **`dependencies`**. Dev, peer and optional dependencies are not added (a peer is the app's choice; list it yourself). Default `false`. |
+| `dependencyDepth` | levels to follow, the specifiers you list being level 0 (default `5`; `0` adds nothing and reports every direct dependency as truncated). Dependencies of dependencies are followed, each `name@version`'s manifest is read once, and cycles end. |
+
+How each dependency is handled:
+
+- **It is routed like any specifier**, `<name>@<range>` through the router's own routes (so a
+  dependency can land on a different provider than its dependent), resolved to an exact version by the
+  usual rules and **locked** in `result.lock` as `<name>@<range>`. A lockfile therefore reproduces the
+  expanded build. The import-map key is the package name; a sub-path an entry imports
+  (`dompurify/purify.js`) is not added, list it as a specifier.
+- **Ranges are respected.** A dependency already in the build (listed, or added earlier) whose
+  resolved version satisfies the dependent's range is left alone. If it does not satisfy it, the
+  dependency is resolved at the dependent's range too and meets the existing
+  [`conflicts`](/mport/api/router/#conflicting-versions-conflicts-scope) handling: the default `"error"` throws
+  (`conflicting resolutions for "dompurify"…`), `"scope"` keeps the first and gives the dependent a scope with its own version.
+  The expansion runs before `conflicts` and `graph`, so scopes cover added packages and `graph` hashes their files.
+- **Only packages on raw-file providers are expanded**: those with the `raw` capability
+  (`jsDelivr()`, `unpkg()`, `local()`, and a `custom()` / `provider()` you declare `capabilities: ["raw"]`
+  for) from the npm registry. **esm.sh and `jsDelivr({ esm: true })` rewrite a module's imports
+  themselves** (the bare `"dompurify"` in the source becomes a URL to the dependency, which they
+  serve). Adding the same packages to the map would only duplicate them, at the risk of a different
+  version than the one the CDN wired in. jspm is also a transforming provider (build `jspm`, no `raw`
+  capability), so it is treated the same way. They are reported in `skipped` as `rewrites its own imports`
+  and no manifest is fetched.
+  GitHub and JSR packages have no npm manifest and are not expanded.
+- **A dependency that cannot be added is reported, not thrown**: a range that is not a registry
+  range (`github:…`, `file:…`, `workspace:…`, `npm:` aliases), no matching route, or a
+  resolution error (not published, CommonJS-only on a raw CDN) goes to `skipped` with its reason, and
+  everything else is still added. Aborting (`signal`) does throw.
+
+`result.dependencies`:
+
+```ts
+{
+  added: [{ specifier, key, version, url, provider, from, range, depth }],   // from: "<name>@<version>" of the dependent
+  skipped: [{ from, provider?, name?, range?, reason }],                      // name + range: a dependency; else a package not expanded
+  truncated: [{ name, range, from, depth, limit }],                           // beyond dependencyDepth
+  maxDepth,
+}
+```
+
+Each addition is also an `onEvent` event, `{ type: "dependency", phase: "dependencies", provider: "build", reason }`
+(`truncated` and `fail` likewise). From the CLI: `mport build --dependencies [--dependency-depth N]`, or
+`dependencies` / `dependencyDepth` in the config; it prints each added dependency and a warning for
+each skipped or truncated one. `registry.manifest()` is required: the default client and
+[`installedRegistry()`](/mport/api/registry-and-semver/#installedregistry) have it. `mport update` also honours `config.dependencies`.
+
+Limits: manifests describe what a package *declares*; a module that imports something it does
+not declare is not helped, and a package that imports a Node built-in or a CommonJS dependency is not made browser-ready by
+this (the dependency lands in `skipped`). Nested `node_modules` layouts are not modelled with `local()` + `installedRegistry()`: one version per name, from `root`.
 
 #### Conflicting versions (`conflicts: "scope"`)
 
@@ -285,6 +392,9 @@ error in CI, or raise the bound.
 found inside files (raw CDN files import their dependencies by name, so they depend on
 your import map; they are **not** followed), `skipped` the imports left alone (other
 origins, non-HTTP schemes).
+A module that a provider maps to an origin-relative URL (`local()`: `/node_modules/…`) has nothing to be fetched
+from at build time: it is left out of the walk, listed in `skipped` (`{ url, from: <its specifier>, reason }`) and gets no
+`integrity`, so one `build({ graph: true })` can mix local and CDN packages. (It used to throw `TypeError: Invalid URL`.)
 
 **Limits:**
 
@@ -348,4 +458,8 @@ paths are used as written. A lockfile `entry` is used without a lookup and is tr
 be ESM.
 
 `local()` needs no version for its URL but still needs one to look up the entry, so it
-still reads the registry unless the lockfile pins the entry.
+still reads the registry unless the lockfile pins the entry. A package that is not on npm
+is then a `ResolutionError` ("not found in the registry"), and a published one resolves to
+the registry's `latest`, not to the copy you serve. Give the router an
+[`installedRegistry({ root })`](/mport/api/registry-and-semver/#installedregistry) (`createRouter(routes, { registry })`) and
+the version, the entry and the manifest all come from the installed `package.json`.

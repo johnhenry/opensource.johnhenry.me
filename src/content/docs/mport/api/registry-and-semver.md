@@ -25,6 +25,58 @@ createRegistry({ fetch? = globalThis.fetch, npm? = "https://registry.npmjs.org",
 All memoized per client; failures are evicted. Errors are `ResolutionError`s as listed
 under [Errors](/mport/api/trace-and-errors/#errors).
 
+### installedRegistry()
+
+```ts
+import { installedRegistry } from "@johnhenry/mport/node";
+installedRegistry({ root, fallback? = false }): RegistryClient & { root: string }
+```
+
+A registry client that answers from packages **installed on disk**, for
+`createRouter(routes, { registry: installedRegistry({ root }) })`. It is the fix for
+`local()` with a package that is not on npm (installed from git, `file:` or a workspace link),
+and for a published package whose *installed* version must be the one served.
+
+| Option | Meaning |
+|---|---|
+| `root` | the directory holding the packages, normally `<project>/node_modules`: `<root>/<name>/package.json` is read (scoped names are nested). A path or a `file:` URL. Required. |
+| `fallback` | a registry client, e.g. `createRegistry()`, asked about packages that are **not** installed under `root` (`false`, the default, makes them a `ResolutionError`). Installed packages never reach it. |
+
+| Method | Answer |
+|---|---|
+| `version({ registry, name, range })` | the installed `version`. A dist-tag (`latest`) or no range means "whatever is installed"; a range the installed version does not satisfy is a `ResolutionError` (`react@18.3.1 is installed … does not satisfy "^19"`). Only npm: JSR and GitHub requests go to `fallback` or fail. |
+| `info(registry, name)` | `{ versions: [installed], tags: { latest: installed }, deprecated: Set{} }` |
+| `manifest(name, version)` | the installed `package.json`; asking for another version (a lockfile pin that no longer matches what is installed) is a `ResolutionError`, or goes to `fallback` |
+| `entryInfo(name, version, subpath?)`, `entry(...)` | [`entryInfo()`](/mport/api/registry-and-semver/#entryinfo) of that manifest: `exports` → `module` → `main`, with the same CommonJS judgement |
+
+Each manifest is read once per client. A missing package is `not installed under <root>`; a
+`package.json` that is not JSON or has no valid `version` is a `ResolutionError` naming the
+file. The lockfile then records the installed version (`local()` has `needsVersion: false`,
+so the import-map URL carries none).
+
+```js
+import { createRouter, local } from "@johnhenry/mport";
+import { installedRegistry } from "@johnhenry/mport/node";
+
+const router = createRouter(
+  { "*": local({ base: "/node_modules/" }) },
+  { registry: installedRegistry({ root: "node_modules" }), probe: "none" },
+);
+await router.build(["@scope/unpublished"]); // /node_modules/@scope/unpublished/<entry from its package.json>
+```
+
+**Why a registry client and not a `local({ packageRoot })` option.** A provider only turns an
+artifact into a URL and has to run in a browser; reading `package.json` from disk is a *lookup*,
+which is what the router's `registry` already abstracts (it also feeds `conflicts: "scope"` and
+[`dependencies`](/mport/api/router/#including-dependencies-dependencies) the manifests they need). One client therefore fixes every
+consumer at once, any provider (`jsDelivr()` in a build that is checked against local files, `custom()`) can use it, and `src/`
+stays free of `node:` imports.
+
+What it does not do: it does not read the files it serves, so a vendored copy has no `integrity`
+(`graph` skips origin-relative URLs, see [Whole-graph integrity](/mport/api/router/#whole-graph-integrity-graph)); it does not walk up
+parent `node_modules` directories (give the `root` that holds the package); and it does not follow
+symlinks specially (a workspace link is read through the link).
+
 ### pickVersion()
 
 ```ts

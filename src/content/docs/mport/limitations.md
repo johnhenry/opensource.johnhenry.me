@@ -137,6 +137,27 @@ limitations, the ones that follow from what CDNs and import maps are, come after
   `createImporter()`, which needs no map. Permanent until Firefox ships late or multiple
   import maps; a browser test fails the day it does.
 
+- **The import map must come before any `modulepreload` link.** Firefox (155) ignores an
+  import map that follows a `modulepreload` (the same rule as a late map), so every bare
+  import fails there; Chromium and WebKit accept either order. Docs and example 12 print
+  `renderImportMap()` first, then `renderModulePreload()`; a browser test pins it per engine.
+- **`local()` asks the registry unless you give it `installedRegistry()`.** A package that is
+  not on npm is a `ResolutionError`, and a published one resolves to the registry's `latest`,
+  not the copy you serve. `installedRegistry({ root })` (Node only, from
+  `@johnhenry/mport/node`) reads `<root>/<name>/package.json` instead; it does not walk up
+  parent `node_modules`, and a vendored copy has no `integrity` (`graph` skips origin-relative
+  URLs, listing them in `graph.skipped`).
+- **A CSP hash covers the map's exact text.** Re-serialising the page (a minifier, CRLF
+  conversion) changes the text and the browser blocks the map: write `renderImportMapCsp()`'s
+  `html` out unchanged and recompute the hash whenever the map changes. The hash functions are
+  async (Web Crypto, a secure context in browsers), and under `require-trusted-types-for
+  'script'` an `injectImportMap()` map is refused, so put it in the HTML.
+- **`dependencies` expands only declared, raw-CDN dependencies.** esm.sh, jsDelivr `+esm` and
+  jspm are not expanded; a module that imports something it does not declare, a Node built-in
+  or a CommonJS dependency is not helped (the dependency lands in `skipped`); only
+  `dependencies` count, not dev, peer or optional ones; nested `node_modules` layouts are not
+  modelled by `local()` + `installedRegistry()`.
+
 - **`startup()` has to win the race with your modules.** The import map must be in the
   document before the first module that uses it resolves: put the startup code in its
   own `<script type="module">` before the rest, or generate the map at build time.
@@ -165,7 +186,8 @@ These follow from what raw CDNs, import maps and the npm registry are, not from 
   `package.json` (file extension, `type`, `module`, export conditions, naming
   conventions): a `.js` ES module with none of those signals is skipped, and a CommonJS
   file that looks like ESM is served. Raw ES modules also keep their own bare imports
-  (`import "preact"`), which only resolve if the page's import map covers them;
+  (`import "preact"`), which only resolve if the page's import map covers them
+  (`build(…, { dependencies: true })` adds the ones a manifest declares);
   ESM-transforming CDNs (esm.sh, jsDelivr `+esm`) rewrite those. The exact rules:
   [CommonJS detection](/mport/api/registry-and-semver/#commonjs-detection).
 - **Import maps have no runtime fallback.** The platform lets a specifier map to one URL
