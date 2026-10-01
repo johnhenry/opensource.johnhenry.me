@@ -95,7 +95,7 @@ from the custom elements platform, come after. What the library does and does no
   copy's shadow roots. Map `@johnhenry/html-modules/runtime` to the same file the
   bootstrap uses (see [Getting started](/html-modules/getting-started/)).
 - **Relative URLs in a template resolve against the page.** A module's `<style>` resolves `url(...)` against the
-  module (constructed stylesheets get `baseURL`), but its `<template>` is stamped into the page, so
+  module (html-modules rewrites relative `url()`s to absolute ones against the module's URL), but its `<template>` is stamped into the page, so
   `<img src="./logo.png">` is relative to the page, not the module, and html-modules does not rewrite it. Use
   absolute URLs for assets of a module served from elsewhere. `@import` in a `<style>` is rejected (constructed
   stylesheets drop it silently).
