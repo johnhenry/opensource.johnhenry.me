@@ -1,8 +1,8 @@
 ---
 title: "Settings and lazy loading"
-description: "<html-import-settings> and <html-module-settings>, their lexical scope and precedence, and load=\"lazy\"."
+description: "<html-import-settings> and <html-module-settings>, their lexical scope and precedence, load=\"lazy\", and registry=\"scoped\"."
 sidebar:
-  order: 4
+  order: 5
 ---
 
 ## Settings
@@ -81,3 +81,23 @@ place.
 - **The compiler does not lazy-load**: compiled dependencies are static `import`s.
 
 Full detail: [Lazy loading](/html-modules/api/javascript/#lazy-loading).
+
+## Scoped registries
+
+Where the browser has scoped custom element registries (`new CustomElementRegistry()` and
+`attachShadow({ customElementRegistry })`), a module's own imports can register into a
+registry of their own instead of the global one, so two versions of a library that both use `<icon--star>` inside their
+components coexist on one page:
+
+```html
+<!-- lib.html: its imports are private to the registry its components' shadow roots use -->
+<html-import-settings registry="scoped"></html-import-settings>
+<html-import src="./icons.html" as="icon"></html-import>
+```
+
+`registry="scoped"` works on a module's `<html-import>` or `<html-import-settings>` (never on a page: a page's tags live
+in the document's registry). Where it is unsupported, `supportsScopedRegistries(window)` says so, and a scoped import
+falls back to the global registry with one console warning. The cross-browser CI found Chromium 153 and macOS WebKit 26.6
+supporting scoped registries and Firefox 155 and the Linux WebKit build (26.6) not, so on those the page reports
+"unsupported" instead of failing. Details: [HTML syntax](/html-modules/api/html-syntax/#scoped-registries);
+live: `examples/scoped.html`.

@@ -2,7 +2,7 @@
 title: "PRD coverage and extensions"
 description: "The gap analysis: each section of the Declarative HTML Modules PRD mapped onto the code, the deliberate extensions, and what is deferred and why."
 sidebar:
-  order: 12
+  order: 14
 ---
 
 The authoritative spec is the PRD **"Declarative HTML Modules"** (and the conversation that produced it).
@@ -193,6 +193,42 @@ reference.
 | `renderDeclarative()`, and keeping a server-rendered root | Declarative shadow DOM is how a server renders a component; the runtime kept the root but skipped its styles, and could not see a closed one. |
 | `unadoptStylesheet()`, `HTMLModules.unload()`, `type` / `integrity` on `<html-export src>` | Counterparts: what can be adopted can be un-adopted, what can be loaded can be evicted, and a re-export can be typed like an import. Custom elements remain impossible to undefine. |
 
+## Extension beyond the PRD: data binding
+
+The PRD's templates are static. `{{attribute}}` in a template's text and attribute values, and `props="name count:number"`
+on an export, are an extension designed to stay declarative: a binding is only an attribute name (no expressions,
+no `eval`), text is never parsed as markup, URL attributes refuse script URLs, `on*` / `style` / `srcdoc` are never
+bound, and an update patches only the bound nodes. No loops, conditionals or two-way binding, deliberately: they
+would need an expression language. See [HTML syntax](/html-modules/api/html-syntax/#data-binding-in-templates).
+
+## Extension beyond the PRD: form-associated components
+
+`form-associated` (and `form-control="selector"`) on an export: the registered class is `static formAssociated` with
+`ElementInternals`, supplying a form value (a control in the template, or `el.value`), validity, disabled, reset and
+restore. `attachInternals()` is memoized so the closed-declarative-root lookup and subclasses share the one call the
+platform allows. See [HTML syntax](/html-modules/api/html-syntax/#form-associated-components).
+
+## Extension beyond the PRD: dev server, hot reload and Vite
+
+`html-module dev [dir]` serves and watches a directory and hot reloads open pages; `HTMLModules.hotReload()` swaps a
+re-fetched module's components and styles under live elements (registered classes delegate to a swappable definition,
+because custom element definitions cannot be replaced); `@johnhenry/html-modules/vite` compiles HTML modules imported
+from JavaScript and gives them the same HMR. These are development tools: the dev server is not a bundler or a custom
+module loader (the PRD's non-goals), only a static server with a change feed. See
+[Dev server, hot reload and Vite](/html-modules/api/dev/).
+
+## Extension beyond the PRD: scoped custom element registries
+
+`registry="scoped"` on a module's import (or `<html-import-settings>`): its tags are registered in a per-component-definition
+`CustomElementRegistry` that the component's shadow roots are created with, so two versions of a library that share inner tag
+names coexist. Feature-detected (`supportsScopedRegistries()`), with a warned fallback to the global registry; page-level
+use is rejected because a page's tags live in the document's registry. See [HTML syntax](/html-modules/api/html-syntax/#scoped-registries).
+
+## Extension beyond the PRD: TypeScript declarations
+
+Declarations for every entry point, generated from JSDoc (`tsc --declaration --allowJs --emitDeclarationOnly`) and checked
+by compiling a typed consumer in strict mode. See [TypeScript](/html-modules/api/#typescript).
+
 ## Deferred
 
 | Item | Why |
@@ -200,6 +236,5 @@ reference.
 | **HTML Include** (§7, optional sixth concept; `<html-include src="./layout.html#header">`) | The PRD marks it optional and "may later be provided"; it composes DOM rather than defining components, and deserves its own design pass (slot projection, re-rendering, fragments). |
 | **Further export metadata** (§9.3: registration behaviour, version, hydration hints, lifecycle modules) | §9.3 forbids adding metadata before it has concrete semantics. |
 | **Compiler `--format bundle`** (conversation §7) | Mentioned as a possibility; a bundle needs a dependency walk over the file system and adds nothing to semantics. Dependencies compile file by file today (the CLI accepts several inputs). |
-| **Scoped custom-element registries** | Not in the PRD; native support is still arriving. The runtime takes a `registry` option so a scoped registry can be passed in later. |
 | **Rewriting relative URLs in templates** | A template is stamped into the page, so `<img src="./x.png">` resolves against the page, not the module. A correct rewrite is an HTML-aware pass over every URL-bearing attribute (`src`, `href`, `srcset`, `poster`, `<use href>`, inline `style`), and it would break URLs meant for the page. Documented instead; a module's `<style>` already resolves against the module (`baseURL`). |
 | **Hybrid script semantics** (a `<script>` inside an export that supplies the class) | The conversation explicitly leaves it out of V1. JS behaviour attaches by extending a definition's `.element` in a JS module instead. |

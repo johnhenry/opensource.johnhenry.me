@@ -114,3 +114,9 @@ await HTMLModules.import('./ui.html', { as: 'admin' });   // = <html-import src=
 Runnable, self-verifying versions of all of this are in [`examples/`](/html-modules/examples/) (`npm run examples`), and
 a browser demo site with live checks on every page is at `/examples/` when you serve the package root
 (`python3 -m http.server`).
+
+## Where next
+
+- Make templates dynamic with `{{attribute}}` and `props`, or build form controls: [Data binding and forms](/html-modules/data-binding/).
+- Edit modules with live updates: `npx html-module dev ./site` ([Dev server, hot reload and Vite](/html-modules/dev-server/)).
+- Types ship for every entry point ([TypeScript](/html-modules/javascript/#typescript)).

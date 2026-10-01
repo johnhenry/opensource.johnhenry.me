@@ -40,7 +40,8 @@ modules.
 It implements the PRD *Declarative HTML Modules*;
 [PRD coverage and extensions](/html-modules/prd-coverage/) maps each PRD section onto the
 code and records the deliberate extensions (`<html-binding>`, a configurable delimiter,
-the settings elements, lazy loading). Plain JavaScript ES modules, no runtime
+the settings elements, lazy loading, data binding, form-associated components, a dev server
+with hot reload and a Vite plugin, scoped registries, and TypeScript declarations). Plain JavaScript ES modules, no runtime
 dependencies.
 
 > **Provenance:** a new package. It was developed locally as `web-module-graph` and
@@ -59,15 +60,21 @@ dependencies.
   exports, and modules that import modules.
 - [Importing, namespaces and bindings](/html-modules/importing/): `<html-import as>`,
   delimiters, `<html-binding>`, and identity vs registration name.
+- [Data binding and forms](/html-modules/data-binding/): `{{attribute}}` and `props` in
+  templates, escaping, and form-associated components.
 - [Settings and lazy loading](/html-modules/settings-and-lazy-loading/):
-  `<html-import-settings>`, `<html-module-settings>`, precedence, and `load="lazy"`.
+  `<html-import-settings>`, `<html-module-settings>`, precedence, `load="lazy"`, and
+  `registry="scoped"`.
 - [JavaScript API and JS components](/html-modules/javascript/): `HTMLModules.load()`,
-  `import()`, `bind()`, definitions, and JavaScript-authored components.
+  `import()`, `bind()`, definitions, JavaScript-authored components, and the TypeScript
+  declarations.
 - [The compiler](/html-modules/compiler/): HTML modules to plain ES modules, from the
   CLI or from code.
+- [Dev server, hot reload and Vite](/html-modules/dev-server/): `html-module dev`,
+  `HTMLModules.hotReload()` and the `@johnhenry/html-modules/vite` plugin.
 - [Resolution, caching and errors](/html-modules/resolution-and-errors/).
-- [Examples](/html-modules/examples/): six self-verifying Node examples and a browser
-  demo site with live checks.
+- [Examples](/html-modules/examples/): seven self-verifying Node examples, a browser
+  demo site with live checks, and the cross-browser tests and benchmark.
 - [Limitations and traps](/html-modules/limitations/): read this before shipping.
 - [Security model](/html-modules/security/): what the library guarantees (inert parsing,
   `integrity`, Trusted Types and CSP) and what stays yours.
@@ -81,8 +88,8 @@ dependencies.
 [the JavaScript API](/html-modules/api/javascript/),
 [the runtime](/html-modules/api/runtime/),
 [module records and settings](/html-modules/api/records/),
-[names](/html-modules/api/names/), [the compiler and CLI](/html-modules/api/compiler/)
-and [errors](/html-modules/api/errors/).
+[names](/html-modules/api/names/), [the compiler and CLI](/html-modules/api/compiler/),
+[the dev server and Vite plugin](/html-modules/api/dev/) and [errors](/html-modules/api/errors/).
 
 Source: [github.com/johnhenry/html-modules](https://github.com/johnhenry/html-modules). MIT licensed.
 

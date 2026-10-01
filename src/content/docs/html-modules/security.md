@@ -2,7 +2,7 @@
 title: "Security model"
 description: "What html-modules guarantees (inert parsing, JSON as data, integrity pinning, Trusted Types and CSP) and what stays yours: a module URL is as trusted as a script src."
 sidebar:
-  order: 10
+  order: 12
 ---
 
 html-modules is a loader and a registrar, not a sandbox. It fetches markup you point it at, validates its shape, and
@@ -25,6 +25,9 @@ done with your page's authority.
 - **Requests carry what you configure.** `credentials` and `mode` (`createHTMLModules()` options, overridable per
   `load()`) are passed to `fetch()` for HTML modules; by default html-modules adds nothing to the platform's
   defaults.
+- **Data binding cannot inject.** A `{{attribute}}` binding is only an attribute name: no expression is evaluated, text
+  is set as a text node's `data` (never parsed as markup), URL attributes drop `javascript:` / `vbscript:` / HTML `data:`
+  values, and `on*`, `style` and `srcdoc` are never bound. See [Data binding](/html-modules/data-binding/#data-binding).
 - **Registration is all or nothing and never silent.** Tags are checked before any is registered, an existing tag is
   never redefined, and every failure is an `error` event, a rejection or a throw
   ([Errors](/html-modules/resolution-and-errors/#errors)).

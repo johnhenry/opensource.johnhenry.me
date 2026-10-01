@@ -1,8 +1,8 @@
 ---
 title: "Limitations and traps"
-description: "What html-modules does not do, traps first: accidental default exports, bare specifiers, late settings, one runtime copy, permanent tag names, lazy loading's blind spots, and the non-goals."
+description: "What html-modules does not do, traps first: accidental default exports, bare specifiers, late settings, one runtime copy, permanent tag names (and where scoped registries help), lazy loading's blind spots, and the non-goals."
 sidebar:
-  order: 9
+  order: 11
 ---
 
 Traps first: behaviour that is deliberate and documented in the reference, but easy to
@@ -67,15 +67,12 @@ from the custom elements platform, come after. What the library does and does no
 
 ## Limitations
 
-- **Custom element names are global and permanent, and scoped registries are not
-  supported yet.** Once a tag is defined in a window it cannot be undefined or
-  redefined: removing an `<html-import>` unregisters nothing (it only un-adopts the stylesheets its `adopt` bindings adopted), and a second version of a
-  library needs its own namespace (or `conflict="reuse"`, which keeps the first). The
-  runtime takes a `registry` option, but a component's shadow root is attached without
-  one, so the tags inside its template resolve against the global registry. Scoped
-  custom element registries are deferred until native support settles (see
-  [Deferred](/html-modules/prd-coverage/#deferred)); selective `<html-binding>` imports
-  are the way to keep the global registry small meanwhile.
+- **Custom element names are global and permanent; scoped registries only help inside modules, where supported.** Once a
+  tag is defined in a window it cannot be undefined or redefined: removing an `<html-import>` unregisters nothing (it only
+  un-adopts the stylesheets its `adopt` bindings adopted), and a second version of a library needs its own namespace
+  (or `conflict="reuse"`, which keeps the first). `registry="scoped"` in a module lets two versions use the same *inner*
+  tags (see [Scoped registries](/html-modules/settings-and-lazy-loading/#scoped-registries)), but the tags a page uses are always global, and the option needs
+  a browser with scoped registries (it falls back, with a warning, elsewhere).
 - **Lazy loading only sees trees it can observe.** It watches the document and the
   shadow roots html-modules itself creates (open or closed). A tag used inside a shadow
   root made by other code (a JS component's own `attachShadow()`), in another document
@@ -104,7 +101,7 @@ from the custom elements platform, come after. What the library does and does no
   included) to put inside its host tag; when the element upgrades, the runtime keeps that shadow root (open or
   closed), adopts the component's sheets and does not stamp the template again. It does not render nested
   components or run any script. A `shadow="closed"` component's base class calls `attachInternals()` (to see a closed
-  declarative root), so a subclass of one cannot call it again; use `shadow="open"` for those.
+  declarative root); the call is memoized, so a subclass can call `this.attachInternals()` and gets the same object.
 - **The `.` (and `_`) delimiter cannot name one-word exports.** `.` is a legal custom
   element name character, but `ui.card` has no hyphen, so binding a one-word export
   under `delimiter="."` is a `SyntaxError` naming the tag; a namespace import checks
@@ -122,6 +119,5 @@ for HTML. Package and CDN routing (version ranges, mirrors, lockfiles) is out of
 use [mport](/mport/), and point a page import map at what it
 resolves.
 
-Deferred PRD items (HTML Include, further export metadata, a `bundle` compiler format,
-scoped registries) are listed with reasons in
+Deferred PRD items (HTML Include, further export metadata, a `bundle` compiler format) are listed with reasons in
 [PRD coverage and extensions](/html-modules/prd-coverage/#deferred).

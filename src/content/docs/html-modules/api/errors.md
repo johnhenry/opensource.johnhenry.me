@@ -43,6 +43,47 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | `SyntaxError` | `<html-export name="<n>">: invalid JSON in <url>: <JSON.parse message>` |
 | `SyntaxError` | `<html-export name="<n>">: @import is not supported in a <style>: a constructed stylesheet ignores @import rules, so it would silently do nothing; link the stylesheet from the page, or inline its rules in <url>` (a component's `<style>` or a stylesheet export; `@import` in a comment or string is fine) |
 
+### `props` and data binding
+
+`props` is validated with the record (both readers, the compiler, thrown as `SyntaxError`); a malformed template
+binding is thrown when the component is **registered** (`define()`, an import's registration), before anything is.
+
+| Error | Message |
+| --- | --- |
+| `SyntaxError` | `<html-export name="<n>">: props="" declares no props; write props="title count:number open:boolean" in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: "<item>" in props is not "<name>" or "<name>:<type>"; a name is a lower-case attribute name such as "count" or "aria-label" in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: props type "<type>" for "<name>" must be "string", "number", "boolean" or omitted in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: prop "<name>" is declared twice in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: "<name>" cannot be a prop: bindings never write on* attributes` / `"<property>" is a member of the element itself in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: "props" only applies to an export with a <template> in <url>` |
+| `SyntaxError` (at registration) | `"<name>" from <url>: <tag attr="…">: "onclick" is an event handler attribute; bindings never write on* attributes (listen for the event in script instead)` |
+| `SyntaxError` (at registration) | `…: "style" cannot be bound: it would inject CSS` / `"srcdoc" cannot be bound: it would inject HTML` |
+| `SyntaxError` (at registration) | `…: Invalid binding "{{ a + b }}": a binding is the name of a host attribute, {{attribute-name}}. There are no expressions, filters or calls; write \{{ for a literal "{{"` |
+| `SyntaxError` (at registration) | `…: Unterminated binding "{{name": a binding is {{attribute-name}}; write \{{ for a literal "{{"` |
+
+### `form-associated`
+
+| Error | Message |
+| --- | --- |
+| `SyntaxError` | `Invalid form-associated="<value>" on <html-export name="<n>"> in <url>: it is a boolean attribute; write form-associated, form-associated="true" or form-associated="false"` |
+| `SyntaxError` | `<html-export name="<n>">: form-control="" is empty; write a selector for the control inside the template, e.g. form-control="input" in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: form-control="<selector>" needs form-associated: the component must take part in forms for its control's value to be the form value in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: "<name>" cannot be a prop of a form-associated component: it is a built-in property (name, value, …) in <url>` |
+| `SyntaxError` | `<html-export name="<n>">: "form-associated" only applies to an export with a <template> in <url>` (same for `"form-control"`) |
+| `SyntaxError` (at registration) | `"<name>" from <url>: form-control="<selector>" matches nothing in the template` / `is not a valid selector` / `matches <p>, which is not a form control (use an <input>, <textarea> or <select>)` |
+| `TypeError` (on construction) | `This environment has no ElementInternals (attachInternals())` |
+
+A bound URL attribute that would run script (`javascript:`, `vbscript:`, an HTML `data:` document) is not an error:
+the attribute is removed.
+
+### `registry`
+
+| Error | Message |
+| --- | --- |
+| `SyntaxError` | `Invalid registry="<value>" on <html-import> in <url>: use "global" or "scoped"` (also `on <html-import-settings>`) |
+| `SyntaxError` (page element, `HTMLModules.import()`) | `"registry" cannot be set on <html-import>: it applies to the imports of an HTML module's own components (the registry their shadow roots use), so write it in the module; a page's tags always live in the document's registry` (also `<html-import-settings>`; `"registry" cannot be set in HTMLModules.import(): …`) |
+| `console.warn` (not an error), once per window | `html-modules: "<name>" from <url> has an import with registry="scoped", but this browser does not support scoped custom element registries (…): its tags are registered in the global registry instead, so two versions of the same tag will conflict` |
+
 ## Module source (defaults and re-exports)
 
 | Error | Message |
@@ -78,7 +119,7 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | `SyntaxError` | `<html-import src="<src>"> is lazy but adopts a stylesheet in <url>: a module's components need their stylesheets when they render, so write load="eager" on this import` |
 | `SyntaxError` | `More than one <html-import-settings> in <url>: a module has at most one` (same for `<html-module-settings>`) |
 | `SyntaxError` | `<html-import-settings> must come before any <html-import> in <url>` / `<html-module-settings> must come before any <html-export> in <url>` |
-| `SyntaxError` | `Unknown attribute "<x>" on <html-import-settings> in <url>: use "delimiter", "base", "conflict", "load", "errors"` / `… on <html-module-settings> in <url>: use "shadow", "delegates-focus"` |
+| `SyntaxError` | `Unknown attribute "<x>" on <html-import-settings> in <url>: use "delimiter", "base", "conflict", "load", "errors", "registry"` (on a page the list has no `"registry"`) / `… on <html-module-settings> in <url>: use "shadow", "delegates-focus"` |
 | `SyntaxError` | `Invalid <option>="<value>" on <html-import-settings> in <url>: use "<a>" or "<b>"`, `Invalid shadow="<value>" on <html-module-settings> in <url>: use "open" or "closed"`, `Invalid delegates-focus="<value>" on <html-module-settings> in <url>: it is a boolean attribute; …` |
 | `SyntaxError` | `Invalid base "<value>" on <html-import-settings> in <url>: use a URL, relative to the document, e.g. "./vendor/ui@2/"` (a blank `base`) |
 
@@ -143,6 +184,15 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 Functions that return a status instead of throwing: `parseBindingName()` (`null`), `elementNameProblem()` (a reason
 or `null`), and the `is*` predicates.
 
+### Hot reload
+
+| Situation | Result |
+| --- | --- |
+| `HTMLModules.hotReload(src)` for a module never loaded by this instance | resolves `{ reload: false, skipped: true, … }` |
+| The new source is invalid, or its fetch fails | rejects with the `SyntaxError` / `Error: Failed to fetch HTML module …`; the old module stays cached and live |
+| The change cannot be applied under live elements | resolves `{ reload: true, reasons: [...] }` (nothing swapped), e.g. `exports changed (+added)`, `<hot-card>: shadow changed ("open" → "closed"): it is fixed when an element is created`, `new attribute "x" cannot be observed on elements that are already defined …`, `props "x" changed or are new …`, `the component's own imports changed`, `export "cfg" changed and is not a component or stylesheet` |
+| `hotReplaceStylesheet(a, b)` with a non-stylesheet | `TypeError: hotReplaceStylesheet: both must be HTMLStylesheets` |
+
 ## Compiler and CLI
 
 | Where | Error and message |
@@ -150,3 +200,6 @@ or `null`), and the `is*` predicates.
 | `compileHTMLModule()`, `compileRecord()` | every module `SyntaxError` above; `TypeError: Unknown format "<f>": use "esm" or "register"`; `SyntaxError: Invalid namespace …` (bad `as`); `Invalid delimiter …`; `Invalid conflict="<v>": use "error" or "reuse"`; for `register` with `as`, the `bindingName()` error for a component's tag |
 | A compiled `register` module, when imported | the registration errors of `registerComponents()` (for example `"star" is not a valid custom element name: it has no hyphen` without `--as`, or a tag conflict) |
 | `html-module` | exit `1` with `<input>: <ErrorName>: <message>` on stderr for a read or compile failure (stops at the first); exit `2` with the usage for a usage error |
+
+`html-module dev`: `html-module dev: <dir> is not a directory` (exit 1) or a listen error such as `EADDRINUSE`; bad arguments print the usage (exit 2).
+The Vite plugin throws the compiler's `SyntaxError` from `load()`, so `vite build` fails with it and `vite dev` shows it in its overlay.

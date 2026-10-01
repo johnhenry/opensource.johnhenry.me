@@ -1,8 +1,8 @@
 ---
 title: "JavaScript API and JS components"
-description: "HTMLModules.load(), import() and bind(), the API at a glance, definitions, and JavaScript-authored components."
+description: "HTMLModules.load(), import() and bind(), the API at a glance, definitions, JavaScript-authored components, and the TypeScript declarations."
 sidebar:
-  order: 5
+  order: 6
 ---
 
 ## JavaScript API
@@ -32,19 +32,21 @@ A loaded namespace is frozen and has a null prototype. Named exports are camelCa
 `fancyButton`), `default` is present when the module has one, and `components` maps export names to component
 definitions.
 
-The API at a glance; every entry links to its reference:
+The root entry point exports exactly 56 names (the full list is on the [API reference](/html-modules/api/#entry-points)). The API at a glance; every entry links to its reference:
 
 | Area | Exports | Reference |
 | --- | --- | --- |
 | Instances | `createHTMLModules(options)`, the instance's `load`, `unload`, `import`, `bind`, `resolve`, `cache`, `options`, `base`; `defineHTMLModuleElements()` | [JavaScript API](/html-modules/api/javascript/) |
 | Elements | `HTMLImport`, `HTMLBinding`, `HTMLExport`, `HTMLImportSettings`, `HTMLModuleSettings` (from `/browser`) | [Elements](/html-modules/api/elements/) |
 | Definitions | `defineHTMLComponent`, `HTMLComponent`, `defineHTMLStylesheet`, `HTMLStylesheet`, `isHTMLComponent`, `isHTMLStylesheet`, `isStylesheet`, `isElementLike` | [Runtime](/html-modules/api/runtime/) |
-| Binding and registration | `bindModule`, `applyBinding`, `registerComponents`, `defineElement`, `toComponent`, `lookupExport`, `componentsOf`, `manifest`, `adoptStylesheet` | [Runtime](/html-modules/api/runtime/) |
+| Binding and registration | `bindModule`, `applyBinding`, `registerComponents`, `defineElement`, `toComponent`, `lookupExport`, `componentsOf`, `manifest`, `adoptStylesheet`, `unadoptStylesheet`, `configureRuntime`, `renderDeclarative` | [Runtime](/html-modules/api/runtime/) |
 | Module records | `readHTMLModule`, `scanHTMLModule`, `recordFromRaw`, `moduleImportOptions` | [Records](/html-modules/api/records/) |
 | Settings | `IMPORT_DEFAULTS`, `EXPORT_DEFAULTS`, `readImportSettings`, `readModuleSettings`, `readImportOptions`, `resolveImportOptions` | [Records](/html-modules/api/records/#settings-vocabulary) |
 | Names | `DELIMITER`, `bindingName`, `parseBindingName`, `isValidDelimiter`, `isValidElementName`, `elementNameProblem`, `isKebabName`, `camelCase`, `kebabCase` | [Names](/html-modules/api/names/) |
 | Lazy loading | `lazyTargets`, `watchLazy`, `componentRoot` | [JavaScript API](/html-modules/api/javascript/#lazy-loading) |
 | Loader | `createLoader`, `linkHTMLModule`, `createNamespace` | [JavaScript API](/html-modules/api/javascript/#createloaderoptions) |
+| Hot replacement | `hotReplaceComponent`, `hotReplaceStylesheet`, `hotReplaceModule`, and `HTMLModules.hotReload(src)` | [Dev server, hot reload and Vite](/html-modules/api/dev/) |
+| Scoped registries | `supportsScopedRegistries` | [HTML syntax](/html-modules/api/html-syntax/#scoped-registries) |
 | Compiler | `compileHTMLModule`, `compileRecord`, `rewriteSpecifier`, `rebaseSpecifier`, the `html-module` CLI | [Compiler](/html-modules/api/compiler/) |
 
 **Definitions** (`src/runtime.js`, also `@johnhenry/html-modules/runtime`) are the shared representation. The loader
@@ -92,3 +94,17 @@ export const components = { 'like-button': defineHTMLComponent({ element: LikeBu
 ```
 
 HTML modules can re-export JS components too: `<html-export src="./widgets.js" name="counter" import="Counter">`.
+
+## TypeScript
+
+Declarations ship for every entry point (`.`, `./browser`, `./runtime`, `./compiler`, `./dev`, `./vite`), generated from the
+source's JSDoc, with a `types` condition in `package.json`'s `exports`. They include the record types
+(`ModuleRecord`, `ImportRecord`, `ExportRecord`), module namespaces, the `HTMLModules` instance and the element classes:
+
+```ts
+import { scanHTMLModule, type ModuleRecord } from '@johnhenry/html-modules';
+import { HTMLModules, type HTMLImportElement } from '@johnhenry/html-modules/browser';
+```
+
+A strict typed consumer of every entry point is compiled by `npm run types:check` (in `npm test` and CI); `npm run types`
+regenerates `types/`. See [TypeScript in the API reference](/html-modules/api/#typescript).

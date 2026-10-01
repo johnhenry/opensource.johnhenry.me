@@ -2,7 +2,7 @@
 title: "Adding a new export kind"
 description: "The library's real extension point: what an <html-export> can hold, decided in one function and consumed by two back ends. Plus the project layout."
 sidebar:
-  order: 11
+  order: 13
 ---
 
 An HTML module has four export kinds: **component** (a `<template>`), **stylesheet** (only `<style>`), **data**
@@ -57,6 +57,11 @@ src/
   settings.js      the settings vocabulary, validation and precedence
   runtime.js       HTML Component Definitions → custom elements; binding (shared by runtime and compiled code)
   record.js        module records; readHTMLModule() from a DOM
+  types.js         JSDoc typedefs (type definitions only)
+  template.js      data binding: {{attribute}} sites, props, URL escaping
+  form.js          form-associated components (ElementInternals)
+  dev-server.js    html-module dev: static server, fs.watch, SSE (and dev-client.js, the page half)
+  vite.js          the Vite plugin
   scan.js          scanHTMLModule() from source text
   loader.js        resolve, fetch, parse, cache, link dependencies
   lazy.js          lazy loading: what an import waits for, and the watcher
@@ -65,6 +70,7 @@ src/
   compiler.js      compileHTMLModule()
   index.js         the side-effect-free root entry point
   browser.js       the one-script bootstrap
+types/             generated .d.ts files (npm run types), shipped
 bin/html-module.js the compiler CLI
 examples/          numbered Node examples (npm run examples) and the browser demo site (open /examples/)
 test/              node:test suites (npm test), with linkedom as the test DOM
@@ -77,4 +83,7 @@ npm test                    # node:test, with linkedom as the test DOM
 npm run check               # every source file parses; entry points import
 npm run examples            # the numbered Node examples, each self-verifying
 npm run examples:compile    # regenerate examples/compiled/
+npm run test:browser        # Playwright: Chromium, Firefox, WebKit
+npm run types               # regenerate the .d.ts files; npm run types:check compiles a typed consumer
+npm run bench               # non-gating benchmark
 ```

@@ -2,7 +2,7 @@
 title: "The compiler"
 description: "Turn an HTML module into an ordinary ES module that imports only the runtime, from the CLI or from JavaScript."
 sidebar:
-  order: 6
+  order: 7
 ---
 
 Browsers cannot `import` an `.html` file, and this library does not try to make them (no service worker, no custom
@@ -54,4 +54,4 @@ export { $x_card as card, $components as components };
   use a DOM parser instead.
 - Runtime-loaded and compiled modules render identically; the test suite and the compiler example check this.
 
-Every option, the CLI flags and exit codes, and a full generated module: [Compiler and CLI](/html-modules/api/compiler/).
+Every option, the CLI flags and exit codes, and a full generated module: [Compiler and CLI](/html-modules/api/compiler/). To edit HTML modules with hot reload, see [Dev server, hot reload and Vite](/html-modules/dev-server/).

@@ -31,6 +31,9 @@ new HTMLComponent(spec?: {
   shadow?: 'open' | 'closed',           // = "open"
   delegatesFocus?: boolean,             // = false
   styles?: string[],                    // = []: CSS texts, adopted into every shadow root (one sheet per definition)
+  formAssociated?: boolean,             // = false: static formAssociated + ElementInternals (see html-syntax.md)
+  formControl?: string,                 // a selector for the control in the template that supplies the form value
+  props?: Array<{ name: string, type?: 'string' | 'number' | 'boolean' }>,  // = []: attributes that are also properties (observed, reflected)
   imports?: Array<{                     // = []: modules this component uses, bound before it is registered
     module?: object, from: string, as?: string, bindings?: Array<{ export, element?, adopt? }>,
     delimiter?: string, conflict?: 'error' | 'reuse', errors?: 'event' | 'throw', load?: 'eager' | 'lazy',
@@ -50,6 +53,8 @@ defineHTMLComponent(spec | Class | HTMLComponent): HTMLComponent
 | --- | --- |
 | `name` | The identity (`string` or `null`). For an `element` class without a `name`, the class name kebab-cased (`FancyButton` → `fancy-button`). |
 | `template` | The template HTML, or `null` for a class-backed definition. |
+| `props` | The declared props, frozen, each `{ name, type }` (type defaults to `"string"`). Every one is an observed attribute and a reflected property of the registered class; every attribute the template binds with `{{…}}` is observed too. See [Data binding](/html-modules/api/html-syntax/#data-binding-in-templates). Registering a definition whose template has an invalid binding (an `on*`, `style` or `srcdoc` target, an expression, an unterminated `{{`) throws a `SyntaxError` before anything is registered. |
+| `formAssociated`, `formControl` | As given (`formControl` is present only when given, and needs `formAssociated`). See [Form-associated components](/html-modules/api/html-syntax/#form-associated-components). Every template-backed class memoizes `attachInternals()`. |
 | `shadow`, `delegatesFocus`, `styles`, `imports` | As given (normalized; `styles` and `imports` frozen, each import and its `bindings` frozen). |
 | `url` | Present only when given. The runtime loader sets the module URL; compiled output sets `import.meta.url`. |
 | `isClass` | `true` for a JS-authored (`element`) definition. |
@@ -345,3 +350,34 @@ The manifest entries a namespace re-export (`<html-export src="./icons.html" nam
 each of `ns`'s components (per [`componentsOf`](#componentsofns-from)) keyed `<name>--<export>`, e.g.
 `{ 'icon--star': … }`. Returns `{}` when `ns` offers no components instead of throwing. Spread into the `locals` of
 [`manifest`](#manifestlocals-stars) by the loader and by compiled output.
+
+## Hot replacement
+
+Template-backed classes delegate to a swappable definition, so live elements can be updated when a module is edited. See
+[Dev server, hot reload and Vite](/html-modules/api/dev/#hot-replacement) for what is swapped and what needs a reload.
+
+```ts
+hotReplaceComponent(previous: HTMLComponent, next: HTMLComponent): { ok: true, elements: number } | { ok: false, reason: string }
+hotReplaceStylesheet(previous: HTMLStylesheet, next: HTMLStylesheet): number   // roots swapped
+hotReplaceModule(previous: Namespace, next: Namespace): { reload: boolean, reasons: string[], updated: string[], elements: number }
+```
+
+- `hotReplaceComponent`: re-stamps (template changed) or restyles (styles changed) every live element of `previous`; elements
+  created later use `next`, and `next.define(tag)` for a tag `previous` holds is the same component, not a conflict. Returns
+  `{ ok: false, reason }` and changes nothing for a change that needs a reload.
+- `hotReplaceStylesheet`: swaps the adopted sheet in every root that adopted `previous`, and later `adoptStylesheet(root,
+  previous)` adopts `next`.
+- `hotReplaceModule`: all-or-nothing over a whole module's exports (components, stylesheets; data must be equal). This is
+  what `HTMLModules.hotReload()` and the Vite plugin's HMR code call.
+
+## `supportsScopedRegistries(window)`
+
+```ts
+supportsScopedRegistries(window = globalThis): boolean
+```
+
+True when the window supports scoped custom element registries: it tries `new window.CustomElementRegistry()` and
+`attachShadow({ customElementRegistry })` and checks that the shadow root reports that registry (feature-detecting only
+the constructor would claim support in an engine that has the interface but ignores the option). Cached per window. Used by the
+runtime for `registry="scoped"` imports (see [Scoped registries](/html-modules/api/html-syntax/#scoped-registries)), which fall back to
+the registry the component is registered in, with one warning, where this is false.

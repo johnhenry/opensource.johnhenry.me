@@ -1,6 +1,6 @@
 ---
 title: "API reference"
-description: "The complete reference for @johnhenry/html-modules: its pages, entry points, the 52 root exports, and the conventions used throughout."
+description: "The complete reference for @johnhenry/html-modules: its pages, entry points, the 56 root exports, and the conventions used throughout."
 sidebar:
   label: "Overview"
   order: 100
@@ -18,6 +18,7 @@ The [guide pages](/html-modules/getting-started/) are the guided tour; this is t
 | [Module records and settings](/html-modules/api/records/) | The module record JSON shape, `readHTMLModule` / `scanHTMLModule` / `recordFromRaw` / `moduleImportOptions`, and the settings vocabulary (`IMPORT_DEFAULTS`, `EXPORT_DEFAULTS`, `readImportSettings`, `readModuleSettings`, `readImportOptions`, `resolveImportOptions`). |
 | [Names](/html-modules/api/names/) | `DELIMITER`, `bindingName`, `parseBindingName`, `isValidDelimiter`, `isValidElementName`, `elementNameProblem`, `isKebabName`, `camelCase`, `kebabCase`: the naming rules for exports, namespaces, delimiters and tags. |
 | [Compiler and CLI](/html-modules/api/compiler/) | `compileHTMLModule`, `compileRecord`, `rewriteSpecifier`, `rebaseSpecifier`, the `html-module` CLI and its flags, and the `esm` and `register` output formats with a full generated example. |
+| [Dev server, hot reload and Vite](/html-modules/api/dev/) | `html-module dev [dir]` (static server, file watching, hot reload over SSE), `HTMLModules.hotReload()`, what hot replacement swaps and what makes the page reload, the `@johnhenry/html-modules/vite` plugin and `createDevServer()`. |
 | [Errors](/html-modules/api/errors/) | Every error the library raises: its type, its message, and where it is reported (thrown, a rejection, or an `error` event on which element). |
 
 ## Entry points
@@ -28,26 +29,50 @@ The package is plain ES modules with no runtime dependencies. `package.json` `ex
 | --- | --- | --- |
 | `@johnhenry/html-modules` | `src/index.js` | Everything below except the browser bootstrap. **Side-effect free**: importing it defines no elements and registers nothing. |
 | `@johnhenry/html-modules/browser` | `src/browser.js` | The one-script bootstrap. **Has side effects**: creates the shared instance `HTMLModules` (bare specifiers resolved with `import.meta.resolve`, so through the page's import map), defines the five elements on `customElements`, and sets `globalThis.HTMLModules` if it is not already set. Exports `HTMLModules`, `HTMLImport`, `HTMLBinding`, `HTMLExport`, `HTMLImportSettings`, `HTMLModuleSettings`. |
-| `@johnhenry/html-modules/runtime` | `src/runtime.js` | Only the runtime: what compiled modules import. Exports `HTMLComponent`, `HTMLStylesheet`, `defineHTMLComponent`, `defineHTMLStylesheet`, `isHTMLComponent`, `isHTMLStylesheet`, `isStylesheet`, `isElementLike`, `toComponent`, `defineElement`, `adoptStylesheet`, `lookupExport`, `componentsOf`, `applyBinding`, `bindModule`, `registerComponents`, `manifest`, `namespaceComponents`, `configureRuntime`, `renderDeclarative`, `unadoptStylesheet`. |
+| `@johnhenry/html-modules/runtime` | `src/runtime.js` | Only the runtime: what compiled modules import. Exports `HTMLComponent`, `HTMLStylesheet`, `defineHTMLComponent`, `defineHTMLStylesheet`, `isHTMLComponent`, `isHTMLStylesheet`, `isStylesheet`, `isElementLike`, `toComponent`, `defineElement`, `adoptStylesheet`, `lookupExport`, `componentsOf`, `applyBinding`, `bindModule`, `registerComponents`, `manifest`, `namespaceComponents`, `configureRuntime`, `renderDeclarative`, `unadoptStylesheet`, `hotReplaceComponent`, `hotReplaceStylesheet`, `hotReplaceModule`, `supportsScopedRegistries`. |
 | `@johnhenry/html-modules/compiler` | `src/compiler.js` | `compileHTMLModule`, `compileRecord`, `rewriteSpecifier`, `rebaseSpecifier`. Runs anywhere (Node, a dev server, a browser): no DOM needed. |
+| `@johnhenry/html-modules/dev` | `src/dev-server.js` | `createDevServer()` and `injectClient()`: the server behind `html-module dev`. Node only. |
+| `@johnhenry/html-modules/vite` | `src/vite.js` | The Vite plugin (default export). Node only. |
 | `@johnhenry/html-modules/package.json` | `package.json` | For tools that read the version. |
 
 The bin is `html-module` (`bin/html-module.js`); see [Compiler and CLI](/html-modules/api/compiler/#the-html-module-cli).
 
-The root entry point exports exactly these 52 names (`npm run check` prints the count):
+The root entry point exports exactly these 56 names (`npm run check` prints the count):
 
 ```
 DELIMITER EXPORT_DEFAULTS HTMLComponent HTMLStylesheet IMPORT_DEFAULTS adoptStylesheet applyBinding bindModule
 bindingName camelCase compileHTMLModule compileRecord componentRoot componentsOf configureRuntime createHTMLModules createLoader
 createNamespace defineElement defineHTMLComponent defineHTMLModuleElements defineHTMLStylesheet elementNameProblem
-isElementLike isHTMLComponent isHTMLStylesheet isKebabName isStylesheet isValidDelimiter isValidElementName
+hotReplaceComponent hotReplaceModule hotReplaceStylesheet isElementLike isHTMLComponent isHTMLStylesheet isKebabName isStylesheet isValidDelimiter isValidElementName
 kebabCase lazyTargets linkHTMLModule lookupExport manifest moduleImportOptions namespaceComponents parseBindingName
 readHTMLModule readImportOptions readImportSettings readModuleSettings rebaseSpecifier recordFromRaw
-registerComponents renderDeclarative resolveImportOptions rewriteSpecifier scanHTMLModule toComponent unadoptStylesheet watchLazy
+registerComponents renderDeclarative resolveImportOptions rewriteSpecifier scanHTMLModule supportsScopedRegistries toComponent
+unadoptStylesheet watchLazy
 ```
 
 Everything else in `src/` (for example `assertDelimiter`, `bindingRecord`, `scanRawElements`, `reportLoudly`,
 `componentRootCreated`) is internal: not exported from any entry point, and not reachable through `exports`.
+
+## TypeScript
+
+Every entry point ships declarations (`types/`, generated from the JSDoc in `src/` by `npm run types`, and exposed through a
+`"types"` condition in each `exports` entry): the record types (`ModuleRecord`, `ImportRecord`, `ExportRecord`,
+`BindingRecord`), `ModuleNamespace`, the `HTMLModulesInstance` returned by `createHTMLModules()`, the element classes
+(`HTMLImportElement`, …), `ComponentSpec`, `CompileOptions` and the option and result types of the API. The root,
+`/browser`, `/runtime` and `/compiler` re-export the types they use, so `import type { ModuleRecord } from
+'@johnhenry/html-modules'` works; `/dev` and `/vite` are typed too (`/vite` refers to Vite's own `Plugin` type).
+`tsc --noEmit` over a strict typed consumer of every entry point (`test/types/usage.ts`) runs in `npm test` and in CI, and
+`test/types.test.js` fails when `types/` is stale (run `npm run types`).
+
+```ts
+import { scanHTMLModule, type ModuleRecord, type ExportRecord } from '@johnhenry/html-modules';
+import { HTMLModules, type HTMLImportElement } from '@johnhenry/html-modules/browser';
+
+const record: ModuleRecord = scanHTMLModule(source, 'ui.html');
+const ui = await HTMLModules.load('./ui.html');          // ModuleNamespace
+const imp = document.querySelector('html-import') as HTMLImportElement;
+const { tags } = await imp.ready;
+```
 
 ## Conventions used in this reference
 

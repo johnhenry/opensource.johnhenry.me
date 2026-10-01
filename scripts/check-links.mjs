@@ -27,7 +27,8 @@ const routes = new Set(
 );
 const broken = new Map();
 for (const page of pages) {
-  const html = fs.readFileSync(page, 'utf8');
+  // Inline <code> is display text: a documented `href="/users/{{name}}"` is not a link.
+  const html = fs.readFileSync(page, 'utf8').replace(/<code(?:\s[^>]*)?>[\s\S]*?<\/code>/g, '');
   const from = '/' + path.relative(DIST, page).replace(/index\.html$/, '').replace(/\/+$/, '');
 
   for (const [, href] of html.matchAll(/href="(\/[^"#?]*)/g)) {

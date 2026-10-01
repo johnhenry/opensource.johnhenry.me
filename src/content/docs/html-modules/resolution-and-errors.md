@@ -2,7 +2,7 @@
 title: "Resolution, caching and errors"
 description: "How src resolves (import maps included), how modules are cached, and how failures are reported: nothing fails silently."
 sidebar:
-  order: 7
+  order: 9
 ---
 
 ## Resolution and caching
@@ -35,6 +35,9 @@ the module is loaded or compiled. Some common ones:
 | Circular dependency | `Error: Circular HTML module dependency: a -> b -> a` |
 | Tag already bound to a different component | `Error: Cannot bind <ui--card>: it is already defined by "card" from … (conflict="reuse" keeps the existing definition instead)` |
 | Missing export | `SyntaxError: The requested module '…' does not provide an export named '…'` |
+| A malformed binding in a template (`{{ a + b }}`), or an `on*`, `style` or `srcdoc` binding, at registration | `SyntaxError: …: Invalid binding "{{ a + b }}": a binding is the name of a host attribute, {{attribute-name}}. There are no expressions, filters or calls; write \{{ for a literal "{{"` |
+| `form-control` without `form-associated` | `SyntaxError: <html-export name="<n>">: form-control="<selector>" needs form-associated: the component must take part in forms for its control's value to be the form value in <url>` |
+| An unknown `registry` value | `SyntaxError: Invalid registry="<value>" on <html-import> in <url>: use "global" or "scoped"` |
 | `<html-import-settings>` after an `<html-import>` | `SyntaxError: <html-import-settings> must come before any <html-import> …` |
 
 Every error, its exact message and where it is reported: [Errors](/html-modules/api/errors/).
