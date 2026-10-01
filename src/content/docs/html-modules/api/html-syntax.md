@@ -45,6 +45,21 @@ Only **direct children** count.
 Anything else is a `SyntaxError`: no template/style/JSON, two templates, a JSON script next to a `<style>`, two
 scripts, a non-JSON script with no template, invalid JSON.
 
+### Relative URLs
+
+- **In a `<style>` (components and stylesheets):** `url(...)` resolves against the **module's URL**, because each
+  constructed stylesheet is created with `{ baseURL: <module url> }` (a compiled module uses `import.meta.url`).
+  Where constructable stylesheets are unavailable, the fallback `<style>` element is in the page, so `url(...)`
+  there resolves against the page.
+- **`@import` is not supported** in a `<style>`: `replaceSync()` silently drops `@import` rules, so it is a
+  `SyntaxError` naming the export (identical in both readers) rather than a stylesheet that quietly does nothing. Link the
+  stylesheet from the page, or inline its rules.
+- **In a `<template>`:** the content is stamped into the page, so `<img src="./logo.png">`, `<a href>`, `<use href>`,
+  `srcset` and inline `style="background:url(…)"` resolve against the **page's base URL**, not the module's. The
+  library does not rewrite them (a correct rewrite needs a full HTML-aware pass over every URL-bearing attribute,
+  and would break templates whose URLs are meant for the page). For a module served from another directory or
+  origin, write absolute URLs, or put the image in a `<style>` as a `url(...)` of the stylesheet.
+
 ### Attributes
 
 | Attribute | Applies to | Values | Meaning |
@@ -55,6 +70,8 @@ scripts, a non-JSON script with no template, invalid JSON.
 | `delegates-focus` | component only | [boolean](#boolean-attributes): present, `"true"`, `"false"` | `delegatesFocus` for `attachShadow()`. Overrides `<html-module-settings delegates-focus>`; `delegates-focus="false"` turns a module default off. On a non-component export it is an error. |
 | `src` | re-export | a module specifier | Makes this a re-export of another module (HTML or JS), resolved like an `<html-import src>` of this module (including its `<html-import-settings base>`). |
 | `import` | re-export with `name` | an export name of the source module, `default`, or `*` | The export to take from `src`, when it differs from `name`. `import="*"` takes the whole namespace (`export * as ns from`). |
+| `type` | re-export | `html`, `js` | As on `<html-import>`: load `src` as an HTML module or as JavaScript, whatever its extension (`<html-export src="./part.tpl" type="html">`). The compiler ignores it (compiled dependencies are static imports). On an export without `src` it is an error. |
+| `integrity` | re-export | Subresource Integrity metadata | As on `<html-import>`: pins the re-exported HTML module. On an export without `src` it is an error. |
 | `names` | re-export | a comma-separated list of `<export>` or `<export> as <name>` | Re-export several names in one element (`export { a, b as c } from`). Replaces `name`, `import` and `default`, which it cannot be combined with. |
 
 ### Default exports
@@ -139,7 +156,8 @@ data exports are not elements and are not registered by `as` (bind them with `<h
 | --- | --- | --- | --- |
 | `src` | a module specifier | (required) | Relative (`./`, `../`, `/`: against the document's [`base`](#html-import-settings) if set, else the importing page's base URL, or the importing module's URL), absolute (`https:`, `file:`, `blob:`, …), or bare (`@acme/ui/kit.html`: resolved by the host, in the browser `import.meta.resolve`, i.e. the page's `<script type="importmap">`). |
 | `as` | a kebab name | none | The namespace. Without `as` and without bindings, the import only loads the module. |
-| `type` | `html`, `js` | by extension | `html` loads the URL as an HTML module; any other value loads it as JavaScript (native `import()`). Without `type`, `.html` / `.htm` (before any `?` or `#`) are HTML and everything else is JavaScript. The cache is by URL: the first load of a URL decides its kind. |
+| `type` | `html`, `js` | by extension | `html` loads the URL as an HTML module; any other value loads it as JavaScript (native `import()`). Without `type`, `.html` / `.htm` (before any `?` or `#`) are HTML and everything else is JavaScript. The loader's cache is keyed by kind and URL, so one URL can be loaded both ways. |
+| `integrity` | Subresource Integrity metadata | none | Pins the fetched HTML: `sha384-<base64>` (sha256, sha384 or sha512; several tokens separated by spaces). The bytes are checked with SubtleCrypto; a mismatch is an error. HTML modules only (a JavaScript module cannot be verified). Also valid on a module's own `<html-import>`; the compiler ignores it, since compiled dependencies are static imports. |
 | `delimiter` | a [delimiter](/html-modules/api/names/#isvaliddelimiterdelimiter) | `--` | Namespace delimiter for this import's tags. |
 | `conflict` | `error`, `reuse` | `error` | When a tag this import wants is already defined by a *different* definition: `error` fails the binding (naming the tag and who defined it); `reuse` keeps the existing definition and records the binding with `reused: true`. The same definition under the same tag again is always a no-op. |
 | `load` | `eager`, `lazy` | `eager` | `lazy`: fetch nothing until one of the import's tags is used; see [Lazy loading](/html-modules/api/javascript/#lazy-loading). |
@@ -153,7 +171,9 @@ data exports are not elements and are not registered by `as` (bind them with `<h
 - Empty `as`, `type` or `src` values count as absent.
 - In a page, `delimiter`, `conflict`, `load` and `errors` are resolved once, when the import starts (on
   connection, or on first access of `.ready` / `.module` / `.load()`); `src` and `type` are read when loading
-  begins, and `as` when the module is bound. Changing attributes after that has no effect.
+  begins, and `as` when the module is bound. Changing attributes after that has no effect, except that changing `src`
+  after loading has started fires an `error` event (the module is not reloaded; create a new `<html-import>`). The
+  element also has properties for these attributes: see [Elements](/html-modules/api/elements/#htmlimport-html-import).
 
 ### What gets bound
 
@@ -183,7 +203,11 @@ An `<html-import>` in an HTML module is a dependency of that module:
 
 ## `<html-binding>`
 
-A direct child of an `<html-import>` (anywhere else it does nothing). With any `<html-binding>` children, only
+A direct child of an `<html-import>`: anywhere else it is an error (a `SyntaxError` in a module, an `error` event on the
+binding in a page), because HTML has no self-closing tags. `<html-binding export="a" />` does **not** close the
+element, so the binding that follows it is parsed as its **child**, and used to be dropped silently. Write
+`<html-binding export="a"></html-binding>`. Any other element child of an `<html-import>` is an error in a module too
+(only whitespace, comments and `<html-binding>` belong there). With any `<html-binding>` children, only
 those exports are bound. The same export may be bound several times (two `element=` tags).
 
 | Attribute | Values | Meaning |
@@ -292,9 +316,11 @@ elements only; `import()` is lazy only when the call says `load: 'lazy'`.
 - **`<html-export>` and `<html-import>` are top-level declarations and must not be nested inside one another.** A
   nested one is a `SyntaxError` naming both elements, e.g. `<html-export name="b"> is nested inside <html-export
   name="a">`, raised identically by the runtime loader and the compiler. (Inside a `<template>` they are inert
-  template content, which is allowed.)
-- `<html-binding>` counts only as a direct child of `<html-import>`, and template/style/script count only as direct
-  children of `<html-export>`.
+  template content, which is allowed.) The message also says that `/>` does not close an element in HTML, the usual
+  cause (`<html-import … />` swallows what follows).
+- `<html-binding>` must be a direct child of `<html-import>` (anywhere else is a `SyntaxError`, see above), an
+  `<html-import>` has no element children but bindings, and template/style/script count only as direct children of
+  `<html-export>`.
 
 ## Boolean attributes
 

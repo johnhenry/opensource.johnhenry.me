@@ -30,7 +30,10 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | `SyntaxError` | `Invalid export name "<name>" in <url>: use lower-case words joined by single hyphens, e.g. "custom-card"` |
 | `SyntaxError` | `"components" is reserved and cannot be used as an export name in <url>` |
 | `SyntaxError` | `Duplicate export "<name>" in <url>` |
-| `SyntaxError` | `<html-export name="<b>"> is nested inside <html-export name="<a>"> in <url>: <html-export> and <html-import> must not be nested` (also for `<html-import>` in either position) |
+| `SyntaxError` | `<html-export name="<b>"> is nested inside <html-export name="<a>"> in <url>: <html-export> and <html-import> must not be nested. "/>" does not close an element in HTML, so a self-closed <html-binding … />, <html-import … /> or <html-export … /> swallows everything that follows it as its children: write the end tag` (also for `<html-import>` in either position) |
+| `SyntaxError` | `<html-binding export="<b>"> is nested inside <html-binding export="<a>"> in <url>: an <html-binding> must be a direct child of <html-import>. "/>" does not close an element in HTML, …: <html-binding …></html-binding>` (a self-closed binding swallowed the next one) |
+| `SyntaxError` | `<html-binding export="<b>"> is not a direct child of <html-import> in <url>: it is outside any <html-import>` / `it is inside <<tag>>, and an <html-binding> only means something as a direct child of <html-import>. "/>" does not close …` |
+| `SyntaxError` | `<html-import src="<src>"> has a <<tag>> child in <url>: only <html-binding> elements may be children of <html-import>. "/>" does not close …` |
 | `SyntaxError` | `<html-export name="<n>"> needs a <template> (a component), <style> (a stylesheet) or <script type="application/json"> (data) in <url>` |
 | `SyntaxError` | `<html-export name="<n>"> has <N> <template> elements; an export has one in <url>` |
 | `SyntaxError` | `<html-export name="<n>">: shadow="<value>" must be "open" or "closed" in <url>` |
@@ -38,6 +41,7 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | `SyntaxError` | `<html-export name="<n>">: "shadow" only applies to an export with a <template> in <url>` (same for `"delegates-focus"`) |
 | `SyntaxError` | `<html-export name="<n>">: a data export has exactly one <script type="application/json"> and nothing else in <url>` |
 | `SyntaxError` | `<html-export name="<n>">: invalid JSON in <url>: <JSON.parse message>` |
+| `SyntaxError` | `<html-export name="<n>">: @import is not supported in a <style>: a constructed stylesheet ignores @import rules, so it would silently do nothing; link the stylesheet from the page, or inline its rules in <url>` (a component's `<style>` or a stylesheet export; `@import` in a comment or string is fine) |
 
 ## Module source (defaults and re-exports)
 
@@ -53,7 +57,8 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | `SyntaxError` | `<html-export src="<src>" names="…">: "<entry>" in names is not "<export>" or "<export> as <name>" in <url>` |
 | `SyntaxError` | `<html-export src="<src>" names="…">: "*" cannot appear in names; write name="<ns>" import="*" for a namespace re-export in <url>` |
 | `SyntaxError` | `<html-export … names="…">: "names" lists every re-exported name; it cannot be combined with "name" (or "import" / "default") in <url>` |
-| `SyntaxError` | `<html-export name="<n>" import="<x>">: "import" only applies to a re-export (an <html-export> with "src") in <url>` (same for `"names"`) |
+| `SyntaxError` | `<html-export name="<n>" import="<x>">: "import" only applies to a re-export (an <html-export> with "src") in <url>` (same for `"names"`, `"type"` and `"integrity"`) |
+| `SyntaxError` | `Invalid integrity "<value>" on <html-export src="<src>"> in <url>: use Subresource Integrity metadata …` |
 | `SyntaxError` | `The requested module '<src>' does not provide an export named '<name>'` (a named, listed or default re-export, when the dependency loads) |
 | `SyntaxError` | `Conflicting star exports for '<name>' from '<a>' and '<b>'` (two star sources with different components of one name) |
 | `Error` | `Circular HTML module dependency: <url> -> <url> -> …` (imports or re-exports; including a module re-exporting itself) |
@@ -67,7 +72,9 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | `SyntaxError` | `Invalid delimiter "<d>": use one or more characters allowed in custom element names (lower-case letters, digits, "-", ".", "_", …), e.g. "--" or "-" on <html-import> in <url>` |
 | `SyntaxError` | `Invalid <conflict\|load\|errors>="<value>" on <html-import> in <url>: use "<a>" or "<b>"` |
 | `SyntaxError` | `"base" cannot be set on <html-import> in <url>: it is document-level only; use <html-import-settings base="…">, or write the full path in src` |
+| `SyntaxError` | `Invalid integrity "<value>" on <html-import src="<src>"> in <url>: use Subresource Integrity metadata such as "sha384-<base64 digest>" (sha256, sha384 or sha512; several may be separated by spaces)` |
 | `SyntaxError` | `<html-binding> requires an "export" attribute in <url>` |
+| `SyntaxError` | `<html-import src="<src>"> is lazy but has no tag to wait for in <url>: it would never load. A lazy import loads when one of its tags is first used, so it needs "as" (every component as a tag) or an <html-binding> that registers a tag (element="…", or a component export under "as"); adopt, data and default-without-element bindings register none. Write load="eager" to load it at once` (also for a module-wide `<html-import-settings load="lazy">`) |
 | `SyntaxError` | `<html-import src="<src>"> is lazy but adopts a stylesheet in <url>: a module's components need their stylesheets when they render, so write load="eager" on this import` |
 | `SyntaxError` | `More than one <html-import-settings> in <url>: a module has at most one` (same for `<html-module-settings>`) |
 | `SyntaxError` | `<html-import-settings> must come before any <html-import> in <url>` / `<html-module-settings> must come before any <html-export> in <url>` |
@@ -89,12 +96,17 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 | Unknown attribute or bad value on `<html-import-settings>` | `SyntaxError: Unknown attribute "<x>" on <html-import-settings>: use …` / `Invalid load="soon" on <html-import-settings>: use "eager" or "lazy"` | the settings element, **and every `<html-import>` of that document** |
 | `base` that does not resolve | `SyntaxError: Invalid base "<b>" on <html-import-settings>: it does not resolve to a URL against <document URL>` | every `<html-import>` of that document |
 | `<html-module-settings>` in a page | `SyntaxError: <html-module-settings> only applies inside an HTML module (a file loaded with <html-import>); in a page it has no exports to configure. For this page's imports, use <html-import-settings>` | the element |
+| Lazy import with no tag to wait for | `SyntaxError: <html-import src="<src>"> is lazy but has no tag to wait for: it would never load. …` (also for a lazy `<html-binding>` with no `export`: that binding's error, reported at once) | `<html-import>` |
+| `src` changed after loading started | `Error: <html-import src> was changed from "<a>" to "<b>" after loading started: an import's src is read once and the module is not reloaded; create a new <html-import> to import another module` | `<html-import>` (the import keeps what it loaded) |
 | Module fetch fails | `Error: Failed to fetch HTML module <url>: <status>` | `<html-import>` |
+| `integrity` does not match | `Error: Integrity check failed for HTML module <url>: its <alg> digest is <alg>-<digest>, which matches none of integrity="<metadata>"` | `<html-import>` |
+| Malformed `integrity` | `SyntaxError: Invalid integrity "<value>" …: use Subresource Integrity metadata such as "sha384-<base64 digest>" …` | `<html-import>` |
 | Unresolvable bare `src` | `TypeError: Unable to resolve bare specifier "<s>" from <referrer>` | `<html-import>` |
 | JS module with no components, imported with `as` | `` TypeError: The module '<src>' does not export any HTML components: export a `components` manifest or definitions made with defineHTMLComponent(), or bind exports explicitly with <html-binding> `` | `<html-import>` |
 | A tag the delimiter makes invalid (namespace import) | `SyntaxError: Cannot bind '<export>' under namespace "<as>" with delimiter "<d>": <<tag>> is not a valid custom element name (<reason>)` (checked for every tag before any is registered) | `<html-import>` |
 | Tag already defined by a different definition (`conflict="error"`) | `Error: Cannot bind <<tag>>: it is already defined by "<name>" from <url> (conflict="reuse" keeps the existing definition instead)` | `<html-import>` (namespace) or `<html-binding>` |
 | Missing export | `SyntaxError: The requested module '<src>' does not provide an export named '<name>'` | `<html-binding>` |
+| `<html-binding>` whose parent is not an `<html-import>` | `SyntaxError: <html-binding export="<b>"> is nested inside <html-binding export="<a>">: an <html-binding> must be a direct child of <html-import>. "/>" does not close …` / `… is not a direct child of <html-import>: it is outside any <html-import>` / `… it is inside <<tag>> …` (it is not applied) | that `<html-binding>` |
 | No `export` attribute | `SyntaxError: <html-binding> requires an "export" attribute` | `<html-binding>` |
 | Invalid `element=` | `SyntaxError: "<tag>" is not a valid custom element name: <reason>` | `<html-binding>` |
 | Stylesheet or data with `element=` | `TypeError: Cannot register '<export>' from '<src>' as <<tag>>: it is a stylesheet, not a component` (or `data (an object)`, …) | `<html-binding>` |
@@ -107,14 +119,18 @@ Nothing is silently ignored: a mistake is an exception, a rejection, or an `erro
 
 | Where | Error and message |
 | --- | --- |
-| `createHTMLModules()` | `SyntaxError: Invalid delimiter "<d>": … in createHTMLModules()`, `Invalid <option>="<v>" in createHTMLModules(): use "<a>" or "<b>"`, `Invalid base "<v>" in createHTMLModules(): …` (thrown) |
-| `HTMLModules.import()` | the same, ending ` in HTMLModules.import()` (a rejected promise), plus everything `load()` and `bind()` raise |
-| `HTMLModules.load()`, `createLoader().load()` | `Error: Failed to fetch HTML module <url>: <status>`; `TypeError: Unable to resolve bare specifier "<s>" from <referrer>`; `TypeError: Cannot resolve "<s>" without a base URL`; `` TypeError: No DOMParser available; pass `parseHTML` to createLoader() ``; every module `SyntaxError`; `Error: Circular HTML module dependency: …`; a JS module's own import error (rejected) |
+| `createHTMLModules()` | `TypeError: Invalid trustedTypes: pass a Trusted Types policy (an object with createHTML(html)), or false to never use Trusted Types`; `TypeError: Invalid nonce "<v>": pass the page's CSP nonce as a non-empty string`; `SyntaxError: Invalid credentials="<v>" in createLoader(): …` / `Invalid mode="<v>" …` (from the loader it builds); `SyntaxError: Invalid delimiter "<d>": … in createHTMLModules()`, `Invalid <option>="<v>" in createHTMLModules(): use "<a>" or "<b>"`, `Invalid base "<v>" in createHTMLModules(): …` (thrown) |
+| `HTMLModules.import()` | the same, ending ` in HTMLModules.import()` (a rejected promise), plus everything `load()` and `bind()` raise; with `load: 'lazy'` and no tag to wait for, a handle in state `"error"` whose `ready` (and `load()`) rejects with the `is lazy but has no tag to wait for` `SyntaxError` |
+| `HTMLModules.load()`, `createLoader().load()` | `Error: Integrity check failed for HTML module <url>: …`; `TypeError: integrity applies to HTML modules only: <url> is loaded with import(), which cannot verify it (…)`; `TypeError: Cannot verify the integrity of <url>: this environment has no crypto.subtle (…)`; `SyntaxError: Invalid integrity "<v>" in load(): …`, `Invalid credentials="<v>" in load(): use "omit" or "same-origin" or "include"`, `Invalid mode="<v>" …`; `Error: Failed to fetch HTML module <url>: <status>`; `TypeError: Unable to resolve bare specifier "<s>" from <referrer>`; `TypeError: Cannot resolve "<s>" without a base URL`; `` TypeError: No DOMParser available; pass `parseHTML` to createLoader() ``; every module `SyntaxError`; `Error: Circular HTML module dependency: …`; a JS module's own import error (rejected) |
 | `bind()`, `bindModule()` | `SyntaxError: Invalid namespace …`, `Invalid delimiter …`, `Invalid conflict="<v>": use "error" or "reuse"`, and everything `applyBinding()` / `registerComponents()` raise (thrown) |
 | `applyBinding()` | `SyntaxError: <html-binding> requires an "export" attribute`; missing export; invalid tag; `Binding the default export of '<from>' needs element="…"`; the `adopt` / `element` `TypeError`s; the conflict `Error` |
 | `registerComponents()` | as `bindModule()` with `as`; without `as`, `SyntaxError: "<name>" is not a valid custom element name: <reason>` for an export name that is not a valid tag |
 | `defineElement()`, `definition.define()` | `SyntaxError: "<tag>" is not a valid custom element name: <reason>`; `SyntaxError: Invalid conflict="<v>": …`; `TypeError: Cannot register <<tag>> as a custom element: it is <kind>, not a component`; the conflict `Error`; any failure binding the definition's own imports |
 | `defineHTMLComponent()`, `new HTMLComponent()` | `` TypeError: defineHTMLComponent: pass a `template` string or an `element` class ``; `` TypeError: defineHTMLComponent: `element` must be a class extending HTMLElement ``; `SyntaxError: Invalid shadow mode "<s>": use "open" or "closed"` |
+| `renderDeclarative()` | `TypeError: renderDeclarative: pass a component definition (from defineHTMLComponent() or a loaded module)`; `TypeError: renderDeclarative: <definition> is a JavaScript-authored class, not a template; there is no template to render` |
+| An element of a template-backed component, when constructed with a server-rendered shadow root of the other mode | `Error: <<tag>> already has an open shadow root (server-rendered?), but "<name>" is shadow="closed": render it with shadowrootmode="closed" (renderDeclarative() does), or set shadow="open" on the export` (thrown from the constructor, so reported by the browser as an uncaught error on upgrade) |
+| `configureRuntime()` | the two `TypeError`s above (`Invalid trustedTypes …`, `Invalid nonce …`) |
+| `unadoptStylesheet()` | `TypeError: unadoptStylesheet: not a stylesheet` |
 | `adoptStylesheet()`, `stylesheet.adopt()` | `TypeError: adoptStylesheet: not a stylesheet`; `TypeError: This document cannot adopt a CSSStyleSheet` |
 | `lookupExport()` | `SyntaxError: The requested module '<from>' does not provide an export named '<name>'` |
 | `componentsOf()` | `TypeError: The module '<from>' does not export any HTML components: …` |

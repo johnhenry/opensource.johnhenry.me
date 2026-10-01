@@ -24,7 +24,8 @@ const lazy = HTMLModules.import('./ui.html', { as: 'ui', load: 'lazy' });       
 await HTMLModules.import('./ui.html', { bindings: [{ export: 'card', element: 'x-card' }] });
 HTMLModules.bind(ui, { as: 'admin' });                                                  // bind a loaded module
 HTMLModules.resolve('./ui.html');                                                       // → absolute URL
-HTMLModules.cache;                                                                      // Map<URL, Promise<namespace>>
+HTMLModules.cache;                                                                      // Map<`<kind>:<URL>`, Promise<namespace>>
+HTMLModules.unload('./ui.html');                                                        // evict it from the cache: the next load fetches again
 ```
 
 A loaded namespace is frozen and has a null prototype. Named exports are camelCase (`fancy-button` →
@@ -35,7 +36,7 @@ The API at a glance; every entry links to its reference:
 
 | Area | Exports | Reference |
 | --- | --- | --- |
-| Instances | `createHTMLModules(options)`, the instance's `load`, `import`, `bind`, `resolve`, `cache`, `options`, `base`; `defineHTMLModuleElements()` | [JavaScript API](/html-modules/api/javascript/) |
+| Instances | `createHTMLModules(options)`, the instance's `load`, `unload`, `import`, `bind`, `resolve`, `cache`, `options`, `base`; `defineHTMLModuleElements()` | [JavaScript API](/html-modules/api/javascript/) |
 | Elements | `HTMLImport`, `HTMLBinding`, `HTMLExport`, `HTMLImportSettings`, `HTMLModuleSettings` (from `/browser`) | [Elements](/html-modules/api/elements/) |
 | Definitions | `defineHTMLComponent`, `HTMLComponent`, `defineHTMLStylesheet`, `HTMLStylesheet`, `isHTMLComponent`, `isHTMLStylesheet`, `isStylesheet`, `isElementLike` | [Runtime](/html-modules/api/runtime/) |
 | Binding and registration | `bindModule`, `applyBinding`, `registerComponents`, `defineElement`, `toComponent`, `lookupExport`, `componentsOf`, `manifest`, `adoptStylesheet` | [Runtime](/html-modules/api/runtime/) |

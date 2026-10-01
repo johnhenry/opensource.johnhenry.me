@@ -13,13 +13,13 @@ exports it as `HTMLModules` (also `globalThis.HTMLModules`). Anywhere else, or f
 
 - [`createHTMLModules(options)`](#createhtmlmodulesoptions)
 - [The instance](#the-instance): [`load`](#load), [`import`](#import), [`bind`](#bind), [`resolve`](#resolve),
-  [`cache`](#cache), [`options` / `delimiter` / `base`](#options-delimiter-base), [`loader`](#loader)
+  [`cache`](#cache), [`unload`](#unload), [`options` / `delimiter` / `base`](#options-delimiter-base), [`loader`](#loader)
 - [Lazy loading](#lazy-loading) and [the lazy handle](#the-lazy-handle)
 - [Resolution](#resolution), [caching and cycles](#caching-and-cycles), [the namespace shape](#the-namespace-shape)
 - [`defineHTMLModuleElements()`](#definehtmlmoduleelements)
 - Lower level: [`createLoader`](#createloaderoptions), [`linkHTMLModule`](#linkhtmlmodulerecord-modules-options),
   [`createNamespace`](#createnamespaceentries), [`lazyTargets`](#lazytargetsspec),
-  [`watchLazy`](#watchlazywindow-targets-fire), [`componentRoot`](#componentroothost)
+  [`watchLazy`](#watchlazywindow-targets-fire-options), [`componentRoot`](#componentroothost)
 
 ```js
 import { HTMLModules } from '@johnhenry/html-modules/browser';
@@ -30,7 +30,8 @@ await HTMLModules.import('./ui.html', { bindings: [{ export: 'card', element: 'x
 const lazy = HTMLModules.import('./ui.html', { as: 'ui', load: 'lazy' });  // a handle, not a promise
 HTMLModules.bind(ui, { as: 'admin', delimiter: '-' });              // bind a namespace you already have
 HTMLModules.resolve('./ui.html');                                   // → "https://example.com/ui.html"
-HTMLModules.cache;                                                  // Map<URL, Promise<namespace>>
+HTMLModules.cache;                                                  // Map<`<kind>:<URL>`, Promise<namespace>>
+HTMLModules.unload('./ui.html');                                    // evict it: the next load fetches again
 ```
 
 ## `createHTMLModules(options)`
@@ -49,6 +50,10 @@ createHTMLModules(options?: {
   baseURL?: string;                      // = document.baseURI ?? location.href
   hostResolve?: (specifier: string) => string | URL | null | undefined;
   fetch?: typeof fetch;                  // = globalThis.fetch
+  credentials?: 'omit' | 'same-origin' | 'include';   // fetch option for HTML modules; = the platform's default
+  mode?: 'cors' | 'same-origin' | 'no-cors';          // fetch option for HTML modules; = the platform's default
+  trustedTypes?: { createHTML(html: string): unknown } | false;  // = a policy named "html-modules" where window.trustedTypes exists
+  nonce?: string;                        // CSP nonce for the <style> fallback; no default
   parseHTML?: (html: string, url: string) => Document;   // = new window.DOMParser().parseFromString(html, 'text/html')
   importModule?: (url: string) => Promise<object>;       // = (url) => import(url)
   onEvent?: (event: { type: 'fetch' | 'load' | 'error', url: string, kind?: 'html' | 'js', error?: unknown }) => void;
@@ -66,7 +71,11 @@ createHTMLModules(options?: {
 | `errors` | `"event"` | `throw` also passes failures to `reportError()`. |
 | `baseURL` | `document.baseURI`, else `location.href` | The referrer for top-level relative specifiers. |
 | `hostResolve` | none | Resolves bare specifiers. `/browser` passes `(s) => import.meta.resolve(s)`, which applies the page's import map. Return a falsy value for "unresolvable". |
-| `fetch` | `globalThis.fetch` | Fetches HTML modules. Only `ok`, `status` and `text()` of the response are used. |
+| `fetch` | `globalThis.fetch` | Fetches HTML modules, called as `fetch(url)` or, when `credentials` / `mode` are set, `fetch(url, { credentials, mode })`. Only `ok`, `status` and `text()` of the response are used, plus `arrayBuffer()` when an `integrity` is checked. |
+| `credentials` | the platform's | The `credentials` passed to `fetch()` for HTML modules (JavaScript modules go through `import()`, which has no such option). Overridable per `load()` / `import()`. See [Security model](/html-modules/security/). |
+| `mode` | the platform's | The `mode` passed to `fetch()` for HTML modules. `navigate` is not allowed, and `no-cors` gives an opaque response a module cannot be read from, so it is only useful with a custom `fetch`. |
+| `trustedTypes` | `"html-modules"` policy, if `window.trustedTypes` exists | A Trusted Types policy object (`{ createHTML(html) }`) used for the HTML the library parses and stamps in this window; `false` never uses Trusted Types. See [Trusted Types and CSP](#trusted-types-and-csp). |
+| `nonce` | none | The CSP nonce set on the `<style>` elements used where constructable stylesheets are unavailable. |
 | `parseHTML` | the window's `DOMParser` | Parses fetched HTML into a `Document`. Without either, loading an HTML module throws `` TypeError: No DOMParser available; pass `parseHTML` to createLoader() ``. |
 | `importModule` | native `import()` | Loads JavaScript modules. |
 | `onEvent` | no-op | Observes the loader: `{ type: 'fetch', url }` before an HTML module is fetched; `{ type: 'load', url, kind }` and `{ type: 'error', url, kind, error }` when any module (HTML or JS) settles. |
@@ -83,7 +92,10 @@ createHTMLModules()` in the message: `Invalid load="soon" in createHTMLModules()
 ### `load`
 
 ```ts
-instance.load(src: string, options?: { base?: string, type?: 'html' | 'js' }): Promise<namespace>
+instance.load(src: string, options?: {
+  base?: string, type?: 'html' | 'js',
+  integrity?: string, credentials?: 'omit' | 'same-origin' | 'include', mode?: 'cors' | 'same-origin' | 'no-cors',
+}): Promise<namespace>
 ```
 
 Resolve, fetch, parse and link a module, and resolve with its namespace, **without registering anything**. HTML
@@ -91,6 +103,17 @@ modules (`.html` / `.htm`, or `type: 'html'`) are fetched and read; anything els
 `base` overrides the instance `base` as the referrer for a relative `src`. Cached by resolved URL (see
 [caching](#caching-and-cycles)). Rejects on a fetch failure (`Error: Failed to fetch HTML module <url>: <status>`),
 any module `SyntaxError`, a dependency failure, or a cycle.
+
+`integrity` is [Subresource Integrity](https://developer.mozilla.org/docs/Web/Security/Subresource_Integrity) metadata
+(`"sha384-<base64>"`, several tokens separated by spaces; sha256, sha384 and sha512): the response is read with
+`arrayBuffer()` and checked with `crypto.subtle.digest`. As for `<script integrity>`, the strongest algorithm listed
+decides and any digest of it may match. A mismatch rejects with `Error: Integrity check failed for HTML module <url>:
+its <alg> digest is <alg>-<digest>, which matches none of integrity="<metadata>"`; malformed metadata is a
+`SyntaxError`; a JavaScript module (`import()` cannot verify) is a `TypeError`; no `crypto.subtle` (an insecure
+context) is a `TypeError`, because the check fails closed. A load with `integrity` is cached apart from one without
+it, so an unverified copy never satisfies it (and a failed check is evicted like any failed load). `credentials` and
+`mode` apply to this module's fetch only; the module's own dependencies use the instance defaults and their own
+`integrity` attribute.
 
 A loaded HTML module's dependencies are loaded too (eager ones), but its components are only registered, and their
 dependencies bound, when something registers them: `ns.card.define('my-card')`, `bind()`, `import()`, or an
@@ -103,6 +126,7 @@ instance.import(src: string, options?: {
   as?: string, delimiter?: string, bindings?: Array<{ export: string, element?: string, adopt?: boolean }>,
   base?: string, type?: 'html' | 'js', root?: Document | ShadowRoot,
   conflict?: 'error' | 'reuse', load?: 'eager' | 'lazy', errors?: 'event' | 'throw',
+  integrity?: string, credentials?: string, mode?: string,   // as for load()
 }): Promise<{ module, elements, values, tags }> | LazyHandle
 ```
 
@@ -144,9 +168,24 @@ See [Resolution](#resolution). Throws `TypeError` for an unresolvable bare speci
 
 ### `cache`
 
-`Map<string, Promise<namespace>>`: resolved URL → the load promise. Shared with every `<html-import>` of the
-instance. A failed load is removed so it can be retried. Deleting an entry forces the next load to fetch again (it
-does not unregister anything already registered).
+`Map<string, Promise<namespace>>`: `<kind>:<resolved URL>` (`html:https://…/ui.html`, `js:https://…/x.js`) → the load
+promise. Shared with every `<html-import>` of the instance. The kind is part of the key, so one URL loaded as HTML and
+as JavaScript (`type`) is two entries. A load with `integrity` has its own key (`…#integrity=<metadata>`). A failed
+load is removed so it can be retried. Deleting an entry forces the next load to fetch again (it does not unregister
+anything already registered); [`unload()`](#unload) does that by specifier.
+
+### `unload`
+
+```ts
+instance.unload(src: string, options?: { base?: string, type?: 'html' | 'js' }): boolean
+```
+
+The counterpart of `load()`: resolve `src` as `load()` does and evict its cache entry, so the next `load()` or
+`import()` fetches it again. Without `type`, every kind of that URL (and every `integrity` variant) is evicted; with
+it, only that kind. Returns `true` if anything was evicted. Namespaces already loaded are unchanged and keep working,
+registered tags stay registered (custom elements cannot be undefined), and a JavaScript module stays in the browser's own
+module map, so `import()` of it returns the same module: only html-modules' entry goes. Throws `TypeError` for an
+unresolvable bare specifier.
 
 ### `options`, `delimiter`, `base`
 
@@ -156,7 +195,29 @@ does not unregister anything already registered).
 
 ### `loader`
 
-The underlying [`createLoader()`](#createloaderoptions) object: `{ load, resolve, cache, baseURL }`.
+The underlying [`createLoader()`](#createloaderoptions) object: `{ load, unload, resolve, cache, baseURL }`.
+
+## Trusted Types and CSP
+
+Under `Content-Security-Policy: require-trusted-types-for 'script'`, assigning a string to `template.innerHTML` or
+passing one to `DOMParser.parseFromString` throws. The two places html-modules does this (the loader parsing a
+fetched module, and a component stamping its template) wrap the HTML first:
+
+- With the **`trustedTypes`** option (a policy object with `createHTML(html)`), through your policy. `false` opts out.
+- Otherwise, where `window.trustedTypes` exists, through a policy named **`html-modules`**, created on first use. It is a
+  pass-through (the markup is the module source you chose to load), so allow it with
+  `trusted-types html-modules`; add `'allow-duplicates'` if two copies of the library may create it. If the name is
+  not allowed, or the policy exists already, creating it fails quietly and the HTML is passed as a string, so a page
+  that enforces Trusted Types and has not allowed the name fails on the browser's own `TrustedHTML` error: pass
+  `trustedTypes: yourPolicy`.
+- Without `window.trustedTypes`, as a plain string.
+
+A custom `parseHTML` is yours and is not wrapped. For compiled modules (which never call `createHTMLModules`) use
+[`configureRuntime(window, { trustedTypes, nonce })`](/html-modules/api/runtime/#configureruntimewindow-options).
+
+`nonce` is put on the `<style data-html-module>` elements inserted where constructable stylesheets are unavailable
+(adopted sheets are not subject to `style-src` nonces). A `<style>` in a module's source is never inserted into the
+page, so no other `nonce` is needed. `script-src` is not involved: html-modules inserts no `<script>`.
 
 ## Lazy loading
 
@@ -166,8 +227,9 @@ With `load="lazy"` (or `load: 'lazy'`), nothing is fetched until one of the impo
   `<as><delimiter>`** (the export names are unknown before loading, so the prefix is matched: with
   `delimiter="-"`, `ui-` also matches `ui-kit-card`). With bindings, it waits for **exactly** the tags they bind
   (`element=`, or `<as><delimiter><export>`); bindings that register no tag (`adopt`, data, `export="default"`
-  without `element=`) add nothing. An import with nothing to wait for (no `as`, no element-producing binding) loads
-  only when `load()` is called.
+  without `element=`) add nothing. An import with nothing to wait for (no `as`, no element-producing binding) can never be
+  triggered, so it **fails** (a `SyntaxError`, below) rather than waiting forever: write `load="eager"`, or load it with
+  `HTMLModules.load()`. For `HTMLModules.import()` that is a handle already in state `"error"` whose `ready` rejects.
 - **Where it looks**: one `MutationObserver` per window (`childList` + `subtree`) on the document, plus a scan of
   what is already there when a watcher is added; and every shadow root created by an html-modules component, open or
   **closed** (the runtime reports each one as it stamps it). The observer runs only while some lazy import is
@@ -179,7 +241,9 @@ With `load="lazy"` (or `load: 'lazy'`), nothing is fetched until one of the impo
   until then. Disconnecting a waiting import cancels the watching (`idle`); reconnecting resumes it.
 - **Inside modules**: a module's own lazy import loads when one of its tags first appears (usually inside one of the
   module's components' shadow roots). A failure fires `error` (bubbling, composed, `detail.lazy === true`) on the
-  element that used the tag. A lazy module import may not `adopt`.
+  element that used the tag, and the import is armed again: the next element that uses one of its tags retries
+  (the failed load was evicted from the cache). The element that failed is not retried by itself, so an outage does
+  not turn into a request loop. A lazy module import may not `adopt`.
 - **Compiled code is never lazy**: compiled dependencies are static `import`s. `load` is carried in `$imports` for
   fidelity only.
 - Throws `TypeError: load="lazy" needs MutationObserver, which this window does not have` when a lazy import has
@@ -220,10 +284,10 @@ Note that `ui.html` (no `./`) is a **bare** specifier, exactly as in JavaScript:
 
 ## Caching and cycles
 
-- Modules are cached by resolved URL as promises, so repeated and concurrent loads share one fetch and one parse,
+- Modules are cached by kind (HTML or JavaScript) and resolved URL as promises, so repeated and concurrent loads share one fetch and one parse,
   and every `<html-import>` of the same URL gets the same namespace (and the same definitions: identity is
   preserved).
-- A failed load is evicted; the next import retries.
+- A failed load is evicted; the next import retries. `unload(src)` evicts one on purpose.
 - Circular dependencies between HTML modules (imports or re-exports, including self-references) are rejected with
   the cycle in the message (`Error: Circular HTML module dependency: …/a.html -> …/b.html -> …/a.html`), whether the
   modules load one after another or concurrently. Detection uses a wait graph, so concurrent loads of a cycle reject
@@ -272,9 +336,9 @@ defineHTMLModuleElements({ modules });
 ## `createLoader(options)`
 
 ```ts
-createLoader(options?: { baseURL?, hostResolve?, fetch?, parseHTML?, importModule?, window?, onEvent? }):
-  { load(specifier, referrer?, { type? }?): Promise<namespace>, resolve(specifier, referrer?): string,
-    cache: Map<string, Promise<namespace>>, baseURL: string | undefined }
+createLoader(options?: { baseURL?, hostResolve?, fetch?, credentials?, mode?, trustedTypes?, nonce?, parseHTML?, importModule?, window?, onEvent? }):
+  { load(specifier, referrer?, { type?, integrity?, credentials?, mode? }?): Promise<namespace>, resolve(specifier, referrer?): string,
+    unload(specifier, referrer?, { type? }?): boolean, cache: Map<string, Promise<namespace>>, baseURL: string | undefined }
 ```
 
 The loader alone: resolve → fetch → parse → read the record → load dependencies → link. Options as in
@@ -321,16 +385,17 @@ lazyTargets({ as: 'ui', bindings: [{ export: 'card' }, { export: 'x', element: '
 lazyTargets({});                                                    // { tags: [], prefixes: [] }: only load() loads it
 ```
 
-## `watchLazy(window, targets, fire)`
+## `watchLazy(window, targets, fire, options)`
 
 ```ts
-watchLazy(window: Window, targets: { tags?: string[], prefixes?: string[] }, fire: (element: Element) => void):
-  { cancel(): void, readonly active: boolean }
+watchLazy(window: Window, targets: { tags?: string[], prefixes?: string[] }, fire: (element: Element) => void,
+          options?: { skip?: (element: Element) => boolean }): { cancel(): void, readonly active: boolean }
 ```
 
 Call `fire(element)` **once**, the first time an element whose tag is in `tags` or starts with one of `prefixes`
 is present in the window's document or in an html-modules component's shadow root, now or later. With no targets,
-nothing is watched, `fire` is never called and `active` is `false`. `cancel()` stops watching. Throws the
+nothing is watched, `fire` is never called and `active` is `false`. `cancel()` stops watching. `options.skip(element)`
+excludes elements that must not fire it (the runtime uses it to not retry an element whose lazy import already failed). Throws the
 `MutationObserver` `TypeError` above when needed and missing.
 
 ## `componentRoot(host)`

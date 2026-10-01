@@ -9,7 +9,8 @@ Traps first: behaviour that is deliberate and documented in the reference, but e
 trip over because the mistake looks like ordinary HTML. Nothing in html-modules fails
 silently (a mistake is an exception, a rejection or an `error` event), but several of
 these fail somewhere you might not be looking. The permanent limitations, which follow
-from the custom elements platform, come after.
+from the custom elements platform, come after. What the library does and does not protect you from is on
+[Security model](/html-modules/security/).
 
 ## Traps
 
@@ -68,7 +69,7 @@ from the custom elements platform, come after.
 
 - **Custom element names are global and permanent, and scoped registries are not
   supported yet.** Once a tag is defined in a window it cannot be undefined or
-  redefined: removing an `<html-import>` unregisters nothing, and a second version of a
+  redefined: removing an `<html-import>` unregisters nothing (it only un-adopts the stylesheets its `adopt` bindings adopted), and a second version of a
   library needs its own namespace (or `conflict="reuse"`, which keeps the first). The
   runtime takes a `registry` option, but a component's shadow root is attached without
   one, so the tags inside its template resolve against the global registry. Scoped
@@ -93,6 +94,17 @@ from the custom elements platform, come after.
   conflict messages lose the "defined by" detail and lazy imports stop seeing the other
   copy's shadow roots. Map `@johnhenry/html-modules/runtime` to the same file the
   bootstrap uses (see [Getting started](/html-modules/getting-started/)).
+- **Relative URLs in a template resolve against the page.** A module's `<style>` resolves `url(...)` against the
+  module (constructed stylesheets get `baseURL`), but its `<template>` is stamped into the page, so
+  `<img src="./logo.png">` is relative to the page, not the module, and html-modules does not rewrite it. Use
+  absolute URLs for assets of a module served from elsewhere. `@import` in a `<style>` is rejected (constructed
+  stylesheets drop it silently).
+- **Server-side rendering is supported by declarative shadow DOM, not by running the library on the server.**
+  `renderDeclarative(def, innerHTML)` returns the `<template shadowrootmode>` markup for a component (styles
+  included) to put inside its host tag; when the element upgrades, the runtime keeps that shadow root (open or
+  closed), adopts the component's sheets and does not stamp the template again. It does not render nested
+  components or run any script. A `shadow="closed"` component's base class calls `attachInternals()` (to see a closed
+  declarative root), so a subclass of one cannot call it again; use `shadow="open"` for those.
 - **The `.` (and `_`) delimiter cannot name one-word exports.** `.` is a legal custom
   element name character, but `ui.card` has no hyphen, so binding a one-word export
   under `delimiter="."` is a `SyntaxError` naming the tag; a namespace import checks

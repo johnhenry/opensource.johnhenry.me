@@ -37,6 +37,7 @@ An import with no `as` and no bindings only loads the module, for its side effec
 | `el.state` | `idle`, `waiting`, `loading`, `loaded` or `error` |
 | `el.elements` / `el.bindings` / `el.tags` | registered tags → classes; bound export names → values; tags → `{ tag, namespace, export, reused? }` |
 | `el.settings` / `el.delimiter` | the options in use, after precedence |
+| `el.src` / `as` / `type` / `integrity`, `el.delimiter` / `conflict` / `loadMode` / `errors` | properties for the attributes (`loadMode` is `load`, whose name the method has); a script can `createElement`, `append`, then set `src`: it starts after the script. Changing `src` after loading started fires an `error` event |
 | `load` / `error` events | on the import; `error` has `detail.error` and bubbles |
 
 Full detail: [Elements (DOM API)](/html-modules/api/elements/).
@@ -92,6 +93,9 @@ registry free of components the page never uses.
 </html-import>
 ```
 
+- **Always write the end tag.** HTML has no self-closing tags: `<html-binding export="card" />` does not close the
+  element, so the binding after it becomes its child. That is an error (a `SyntaxError` in a module, an `error` event in
+  a page), not a silent drop, and so is any other element child of an `<html-import>`.
 - `element=` sets the tag, overriding `<as>--<export>`. It is the markup form of `definition.define(tag)`.
 - `adopt` adopts a stylesheet export into the root that contains the import: the document, or a shadow root.
 - A binding can be added at any time, before or after its module loads; it fires `load` (with `detail.tag`,

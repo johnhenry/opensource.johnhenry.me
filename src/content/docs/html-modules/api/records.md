@@ -46,7 +46,7 @@ type ExportRecord =
       shadow: 'open' | 'closed', delegatesFocus: boolean, styles: string[] }
   | { kind: 'stylesheet', name: string | null, default?: true, css: string }
   | { kind: 'data', name: string | null, default?: true, value: unknown }
-  | { kind: 'reexport', src: string, name?: string | null, default?: true, import?: string };
+  | { kind: 'reexport', src: string, type?: string, integrity?: string, name?: string | null, default?: true, import?: string };
 ```
 
 - Optional keys are present **only when written** in the source. An import's `delimiter`, `conflict`, `load` and
@@ -127,23 +127,55 @@ scanHTMLModule(source: string, url?: string /* = "" */): ModuleRecord
 ```
 
 Read HTML **source text** into the same record, with a small dependency-free scanner (this is what the compiler
-uses). It follows the HTML parsing rules that matter here: comments and `<!…>` / `<?…>` constructs are skipped;
-raw-text elements (`script`, `style`, `textarea`, `title`, `xmp`, `iframe`, `noembed`, `noframes`) end only at
-their own end tag; attribute names are lower-cased, values may be double-quoted, single-quoted or unquoted, the first
-of duplicate attributes wins, and character references in values are decoded (numeric ones, and `&amp;` `&lt;`
-`&gt;` `&quot;` `&apos;` `&nbsp;`); void elements have no content; self-closing syntax is ignored on normal
-elements; `<template>` content is kept verbatim (nested templates included) and is not part of the document.
+uses). It follows the HTML tokenizer where it matters here:
 
-The test suite checks that the scanner and the DOM reader produce the same record for every example module and for
-tricky source. Known differences: the scanner decodes only the named character references listed above. Both
-readers record a nested `<html-export>` / `<html-import>` with its enclosing element (`nestedIn`), and
+- The input is preprocessed as a browser does: CRLF and lone CR become LF, so a Windows-edited file records the same
+  CSS and template text as it does at runtime; NUL becomes U+FFFD in `<style>` / `<script>` text and attribute values.
+- Comments end at `-->` or `--!>`, and `<!-->` and `<!--->` are complete (empty) comments. `<!…>`, `<?…>` and
+  `<![CDATA[…>` are bogus comments that end at the first `>`; `</` followed by anything but a letter is too (`</>`
+  vanishes, and `</` at the very end is text).
+- Raw-text elements (`script`, `style`, `textarea`, `title`, `xmp`, `iframe`, `noembed`, `noframes`) end only at
+  their own end tag, which may carry attributes (a `>` inside a quoted value does not end it). `<script>` follows the
+  script-data escape states (`<!--` … `<script>` … `</script>` … `-->`), and `<plaintext>` never ends.
+- A tag the source ends inside (an unterminated `<html-export name="a"` or an unclosed quote) is dropped, and a
+  `<template>` that is never closed runs to the end of the source, as in a browser.
+- Attribute names are ASCII-lower-cased; values may be double-quoted, single-quoted or unquoted; the first of
+  duplicate attributes wins; character references in values are decoded (see
+  [Character references](#character-references)).
+- Void elements have no content; self-closing syntax is ignored on normal elements; `<template>` content is kept
+  verbatim (nested templates included) and is not part of the document.
+- Enough tree construction to know which elements are *direct children* of an `<html-export>`: `<p>` closes an open
+  `<p>`, an end tag for a non-"special" element does not close past a special one (an unclosed `<div>` keeps
+  `</html-export>` from closing the export, as in a browser), `<html>`/`<head>`/`<body>` tags are ignored, and a
+  `<frameset>` that replaces the body (nothing but neutral content before it) leaves the module empty.
+
+The test suite checks that the scanner and a **spec parser** (parse5, reading through the same
+[`readHTMLModule`](#readhtmlmoduledoc-url)) produce the same record for every example module, for a table of tokenizer
+edge cases, and for 4,000 seeded random tag-soup documents (`test/scan-spec.test.js`). Not modelled, so the two can
+disagree: foreign content (`<svg>` / `<math>`, whose `<style>` and `<script>` are not raw text there and whose
+self-closing tags are honoured), tables and other foster parenting, formatting elements and the adoption agency
+(`<a>`, `<b>`, …), and `<li>`/`<dd>`/`<option>`-style implied end tags. Put an export's children directly inside it, as
+every example does, and none of this matters. The same goes for `<select>`: a current browser parses an
+`<html-export>` inside a `<select>` (customizable select), as the scanner does; older parsers drop it. Both readers
+record a nested `<html-export>` / `<html-import>` with its nearest enclosing export or import (`nestedIn`), and
 `recordFromRaw` rejects it (see [Placement and nesting rules](/html-modules/api/html-syntax/#placement-and-nesting-rules)).
+
+### Character references
+
+Attribute values are decoded exactly as the tokenizer does it, with the **full WHATWG named table** (2,125 names,
+vendored as `src/entities.js`, generated by `scripts/generate-entities.js`; it is loaded by the scanner and the
+compiler, never by the browser runtime). Numeric references follow the spec's replacements: `&#0;`, anything above
+U+10FFFF and the surrogates become U+FFFD (never a `RangeError`), and `&#128;`–`&#159;` become the Windows-1252
+characters. Legacy names work without the `;` (`&copy`, `&amp`), but in an attribute value a legacy reference that is
+followed by `=` or a letter or digit is left as written, so `?a=1&copy=2` and `&notit;` survive. A name the table does
+not know stays as written. Template, `<style>` and `<script>` text is not decoded here: it is kept verbatim.
 
 ## `recordFromRaw(raw, url)`
 
 ```ts
 recordFromRaw(raw: {
   imports: RawElement[], exports: RawElement[], importSettings?: RawElement[], moduleSettings?: RawElement[],
+  bindings?: Array<{ tag: 'html-binding', order?: number, attrs, parent: { tag: string, attrs } | null }>,
 }, url?: string): ModuleRecord
 
 type RawElement = {
@@ -157,7 +189,11 @@ position among all collected elements, used for the placement rules (a settings 
 or export). A child's `html` is a `<template>`'s content; `text` is any other child's text content. Useful for
 writing another front end (an HTML parser of your choice, a build tool's AST).
 
-Checks, in order: settings count and placement; `<html-import-settings>` and `<html-module-settings>` attributes;
+`bindings` lists **every** `<html-binding>` of the document (outside templates) with its nearest enclosing element, so one that
+is not a direct child of an `<html-import>` (typically swallowed by a self-closed `<html-binding />`) is rejected. A
+raw `<html-import>`'s `children` must hold only `<html-binding>`s. Both readers fill these in.
+
+Checks, in order: nesting; misplaced bindings; settings count and placement; `<html-import-settings>` and `<html-module-settings>` attributes;
 each import (`src`, namespace, per-import options, bindings); lazy imports that `adopt`; each export (name, default,
 kind, attributes, JSON); duplicate names; more than one default.
 

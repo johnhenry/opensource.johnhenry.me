@@ -13,8 +13,9 @@ sidebar:
   JavaScript, `ui.html` without `./` is a bare specifier.
 - A document's `<html-import-settings base>` replaces the document (or module) URL as the base for its relative
   specifiers.
-- Modules are cached by resolved URL as promises, so repeated and concurrent imports share one fetch and parse.
-  Failed loads are evicted and can be retried.
+- Modules are cached by kind (HTML or JavaScript) and resolved URL as promises, so repeated and concurrent imports
+  share one fetch and parse. Failed loads are evicted and can be retried; `HTMLModules.unload(src)` evicts one on
+  purpose (registered tags stay registered, and a JavaScript module stays in the browser's module map).
 - Circular dependencies between HTML modules are rejected with the cycle in the message, whether the modules load
   one after another or concurrently.
 

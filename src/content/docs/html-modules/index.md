@@ -69,6 +69,8 @@ dependencies.
 - [Examples](/html-modules/examples/): six self-verifying Node examples and a browser
   demo site with live checks.
 - [Limitations and traps](/html-modules/limitations/): read this before shipping.
+- [Security model](/html-modules/security/): what the library guarantees (inert parsing,
+  `integrity`, Trusted Types and CSP) and what stays yours.
 - [Adding a new export kind](/html-modules/adding-an-export-kind/), and the project
   layout.
 - [PRD coverage and extensions](/html-modules/prd-coverage/).

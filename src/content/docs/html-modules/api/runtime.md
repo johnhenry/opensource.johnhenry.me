@@ -12,7 +12,9 @@ so the two paths cannot drift apart. A definition is inert: **nothing registers 
 tag.**
 
 - Definitions: [`HTMLComponent` / `defineHTMLComponent`](#htmlcomponent), [`isHTMLComponent`](#ishtmlcomponentvalue)
-- Stylesheets: [`HTMLStylesheet` / `defineHTMLStylesheet`](#htmlstylesheet), [`adoptStylesheet`](#adoptstylesheetroot-value-options), [`isHTMLStylesheet`, `isStylesheet`](#ishtmlstylesheetvalue-isstylesheetvalue)
+- Stylesheets: [`HTMLStylesheet` / `defineHTMLStylesheet`](#htmlstylesheet), [`adoptStylesheet`](#adoptstylesheetroot-value-options), [`unadoptStylesheet`](#unadoptstylesheetroot-value-options), [`isHTMLStylesheet`, `isStylesheet`](#ishtmlstylesheetvalue-isstylesheetvalue)
+- Server-side rendering: [`renderDeclarative`](#renderdeclarativedef-innerhtml)
+- Page security: [`configureRuntime`](#configureruntimewindow-options)
 - Registration: [`defineElement`](#defineelementtag-value-options), [`toComponent`](#tocomponentvalue-options), [`isElementLike`](#iselementlikevalue-window)
 - Binding: [`bindModule`](#bindmodule), [`applyBinding`](#applybinding), [`registerComponents`](#registercomponentsns-options)
 - Namespaces: [`lookupExport`](#lookupexportns-name-from), [`componentsOf`](#componentsofns-from), [`manifest`](#manifestlocals-stars), [`namespaceComponents`](#namespacecomponentsname-ns)
@@ -60,12 +62,19 @@ The instance is frozen.
 
 **What an instance of a template-backed element does** when constructed:
 
-1. If it already has a shadow root with content (declarative shadow DOM, server-rendered), it keeps it and does not
-   re-stamp.
-2. Otherwise it attaches a shadow root (`{ mode: shadow, delegatesFocus }`, or reuses an empty existing one), adopts
-   the component's stylesheets (its own `styles` as one shared constructed sheet per window, then any stylesheet its
-   module's imports `adopt`), and appends a clone of the template content (parsed once per window, on first use).
-3. It reports the shadow root to lazy loading (so lazily imported tags inside it are seen, even when `closed`).
+1. It looks for a shadow root it already has: `this.shadowRoot`, and for a `shadow="closed"` component also
+   `attachInternals().shadowRoot`, the only way to see a closed **declarative** shadow root (a server-rendered
+   `<template shadowrootmode="closed">`). Because `attachInternals()` can be called once per element, a closed
+   component's base class calls it itself: a subclass of one that needs its own `ElementInternals` should be
+   `shadow="open"`. If the root's mode is not the component's `shadow`, it throws `Error: <tag> already has an open|a closed shadow root
+   (server-rendered?), but "<name>" is shadow="<mode>": render it with shadowrootmode="<mode>" (renderDeclarative() does), …`.
+2. Otherwise it attaches a shadow root (`{ mode: shadow, delegatesFocus }`).
+3. Either way it adopts the component's stylesheets (its own `styles` as one shared constructed sheet per window,
+   created with the module's URL as `baseURL`, then any stylesheet its module's imports `adopt`), so a server-rendered
+   root is styled like a stamped one. If the root already has content (server-rendered) it is kept and the template is
+   **not** stamped again; if it is empty, a clone of the template content (parsed once per window, on first use) is
+   appended.
+4. It reports the shadow root to lazy loading (so lazily imported tags inside it are seen, even when `closed`).
 
 The base class is named after the identity in PascalCase (`custom-card` → `CustomCard`, `HTMLModuleElement` when the
 name is `null`), and has a static `component` getter returning the definition, so
@@ -128,8 +137,57 @@ adoptStylesheet(root: Document | ShadowRoot, value: HTMLStylesheet | CSSStyleShe
 Adopt a stylesheet into a document or shadow root. Adopting the same sheet into the same root again is a no-op.
 Where `adoptedStyleSheets` is available, the window's constructed sheet is appended to it. Otherwise (for an
 `HTMLStylesheet`) a `<style data-html-module="<name>">` is appended once to `document.head` (for a document) or the
-shadow root. `window` defaults to the root's window. Throws `TypeError: adoptStylesheet: not a stylesheet`, or
+shadow root. `window` defaults to the root's window; the fallback `<style>` gets the window's configured `nonce`. Throws `TypeError: adoptStylesheet: not a stylesheet`, or
 `TypeError: This document cannot adopt a CSSStyleSheet` for a raw `CSSStyleSheet` where adoption is unsupported.
+
+## `renderDeclarative(def, innerHTML)`
+
+```ts
+renderDeclarative(def: HTMLComponent, innerHTML?: string): string
+```
+
+Declarative shadow DOM markup for one server-rendered instance of a template-backed component, to put **inside** its
+host tag, followed by the host's light DOM (`innerHTML`, inserted as written: escape untrusted text yourself):
+
+```js
+const html = `<ui--card>${renderDeclarative(ui.card, '<h2>Title</h2>')}</ui--card>`;
+// <ui--card><template shadowrootmode="open"><style>…</style><article>…</article></template><h2>Title</h2></ui--card>
+```
+
+`shadowrootmode` and `shadowrootdelegatesfocus` come from the definition. Its styles, and those its imports `adopt`,
+are written as `<style>` elements in the template so the first paint is styled before any script runs; when the
+element upgrades the component adopts its constructed sheets as well, so the rules are listed twice (harmless). `</style`
+inside the CSS is escaped. It is pure string work: it runs in Node, on definitions from `HTMLModules.load()` or from a
+compiled module. Throws `TypeError: renderDeclarative: pass a component definition …`, or `… is a JavaScript-authored
+class, not a template; there is no template to render`. It does not render the module's *nested* components (a
+template that uses `<ui--icon>` gets the declarative markup of that one from you), and it does not set the page's
+Trusted Types policy: server-rendered markup goes through the HTML parser, not `innerHTML`.
+
+## `configureRuntime(window, options)`
+
+```ts
+configureRuntime(window, options: { trustedTypes?: { createHTML(html: string): unknown } | false, nonce?: string }): void
+```
+
+Per-window page-security settings (only the keys given change). `trustedTypes` is the policy wrapping the template HTML
+the runtime stamps (`false`: never; default: a policy named `html-modules` where `window.trustedTypes` exists);
+`nonce` goes on the fallback `<style>` elements `adoptStylesheet` inserts. `createHTMLModules({ trustedTypes, nonce })`
+calls this for its window; call it yourself when only compiled modules run in the page. Throws `TypeError: Invalid
+trustedTypes: pass a Trusted Types policy (an object with createHTML(html)), or false to never use Trusted Types` /
+`TypeError: Invalid nonce "<v>": pass the page's CSP nonce as a non-empty string`. See
+[Trusted Types and CSP](/html-modules/api/javascript/#trusted-types-and-csp).
+
+## `unadoptStylesheet(root, value, options)`
+
+```ts
+unadoptStylesheet(root: Document | ShadowRoot, value: HTMLStylesheet | CSSStyleSheet, options?: { window? }): void
+```
+
+The counterpart of `adoptStylesheet()`: remove the window's constructed sheet from `root.adoptedStyleSheets`, or remove
+the fallback `<style data-html-module>` element it inserted. A no-op if the sheet was not adopted there, and it can be
+adopted again afterwards. Adoption is not reference-counted: two adopters of one sheet in one root lose it together.
+`<html-binding adopt>` calls this when the binding is removed from the page (and adopts again when it is put back).
+Throws `TypeError: unadoptStylesheet: not a stylesheet`.
 
 ## `isHTMLStylesheet(value)`, `isStylesheet(value)`
 
@@ -190,11 +248,17 @@ bindModule(ns: object, options?: {
 
 Bind a module namespace (runtime-loaded HTML, compiled, or plain JS) the way `<html-import>` does:
 
-- with `bindings`: only those, each via [`applyBinding`](#applybinding), in order (the first failure throws;
-  earlier bindings stay applied);
+- with `bindings`: only those, each as [`applyBinding`](#applybinding) does it, in order, **every binding checked
+  before any is applied**: a missing export, an invalid tag, a non-component `element`, a tag that is already defined
+  (or that two bindings of the list both want) throws and leaves nothing registered or adopted;
 - otherwise, with `as`: every component of [`componentsOf(ns)`](#componentsofns-from) as
-  `<as><delimiter><export>`, **every tag checked before any is registered**;
+  `<as><delimiter><export>`, **every tag checked before any is registered** (invalid names and tags already defined
+  alike, so a conflict on the last tag does not leave `<ui--a>` and `<ui--b>` registered; `conflict: 'reuse'` keeps
+  the existing ones and registers the rest). The same holds for [`registerComponents`](#registercomponentsns-options);
 - otherwise: nothing (`{ elements: {}, values: {}, tags: {} }`).
+
+What the check cannot see in advance: a component's **own** module imports are bound when that component registers
+(they may load and register more tags), so a failure there can still leave earlier tags of the batch registered.
 
 `as`, `delimiter` and `conflict` are validated first (`SyntaxError`). `root` is where `adopt` bindings adopt; without
 it they are applied (validated) but not adopted. `tags` records what each tag was made from, so nothing needs to

@@ -2,7 +2,7 @@
 title: "Adding a new export kind"
 description: "The library's real extension point: what an <html-export> can hold, decided in one function and consumed by two back ends. Plus the project layout."
 sidebar:
-  order: 10
+  order: 11
 ---
 
 An HTML module has four export kinds: **component** (a `<template>`), **stylesheet** (only `<style>`), **data**
