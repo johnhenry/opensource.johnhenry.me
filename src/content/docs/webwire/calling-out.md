@@ -81,8 +81,10 @@ argument. A Node `Readable` is accepted directly, so you can hand over `nodeRes`
 const response = toWebResponse(nodeRes, nodeRes);   // streams; nothing is buffered
 ```
 
-Do this only for statuses that may have a body. For `204` and `304` the `Response`
-constructor throws if any body is passed, even an empty one, so branch:
+Do this only for statuses that may have a body. In 0.0.0, for `204` and `304` the
+`Response` constructor threw if any body was passed, even an empty one, so branch (from
+0.0.1, once published, `toWebResponse()` does this for 204, 205 and 304 itself, and the
+branch is harmless):
 
 ```js
 const noBody = nodeRes.statusCode === 204 || nodeRes.statusCode === 304;

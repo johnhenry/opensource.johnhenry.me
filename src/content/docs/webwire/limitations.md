@@ -1,30 +1,39 @@
 ---
 title: "Limitations and traps"
-description: "What fails quietly in webwire, traps first: always-http URLs, header handling, trailers, 204/304 bodies, IPv6 hosts, hop-by-hop headers, streaming errors and the one-way body."
+description: "What fails quietly in webwire, traps first: https URLs, header handling, trailers, 204/304 bodies, IPv6 hosts, hop-by-hop headers, streaming errors and the one-way body. Several are fixed in 0.0.1."
 sidebar:
   order: 5
 ---
 
 Traps first: behaviour that is deliberate or inherited from Node and the Fetch classes,
 that you will not guess from the type signatures, and that tends to fail quietly. Each was
-checked against the source and run on Node 24. The
-[package](/webwire/) targets Node 26.
+checked against the source, with direct scripts on Node 24. The
+[package](/webwire/) targets Node 26 (family policy); its own `npm test`
+(`node --test test/`) does not start on Node 24.9, so use Node 26 to run the suite.
+
+Several traps below were fixed in **0.0.1**. Those entries are marked "fixed in 0.0.1
+(once published)": 0.0.1 is prepared in the repository but not yet on npm, so the
+published `0.0.0` still behaves as described under "In 0.0.0".
 
 ## Traps
 
 ### Server side
 
-#### `request.url` is always `http://`
+#### `request.url` was always `http://` (fixed in 0.0.1, once published)
 
-`toWebRequest()` builds the URL on `http://` whether the connection was TLS or not,
-and does not look at `X-Forwarded-Proto`. Code that branches on `new URL(request.url).protocol`
-or builds redirects from it is wrong behind TLS. Track the scheme yourself.
+In 0.0.0, `toWebRequest()` built the URL on `http://` whether the connection was TLS or
+not. From 0.0.1 it uses `https://` when `req.socket.encrypted` is true (a request
+received by a real `https.createServer()`). It still does **not** look at
+`X-Forwarded-Proto`: behind a TLS-terminating proxy the connection to your server is
+plain, so `request.url` is `http://`. Code that branches on `new URL(request.url).protocol`
+or builds redirects from it is wrong in that setup. Track the scheme yourself.
 
-#### `hostHeaders` is case-sensitive and takes the header verbatim
+#### `hostHeaders` was case-sensitive (fixed in 0.0.1, once published)
 
-Node lower-cases incoming header names, and `hostHeaders` is looked up as written, so
-`["X-Forwarded-Host"]` never matches and silently falls back to `localhost`. Write
-lower-case names. The value is used as is: a comma-separated list such as
+In 0.0.0 Node lower-cased incoming header names but `hostHeaders` was looked up as
+written, so `["X-Forwarded-Host"]` never matched and silently fell back to `localhost`.
+From 0.0.1 the configured names are lower-cased, so any case works. The value is still
+used as is: a comma-separated list such as
 `X-Forwarded-Host: a.com, b.com` (a chain of proxies each appending) is not valid as a
 host, so `toWebRequest()` throws the tagged 400. A client-controlled header you list here
 is a client-controlled host.
@@ -56,10 +65,12 @@ read the body inside the handler).
 
 ### Response side
 
-#### `statusText` is not written
+#### `statusText` was not written (fixed in 0.0.1, once published)
 
-`writeWebResponse()` sets the status code only. A `new Response("x", { statusText: "Custom" })`
-goes out with Node's standard reason phrase for the code.
+In 0.0.0, `writeWebResponse()` set the status code only, so
+`new Response("x", { statusText: "Custom" })` went out with Node's standard reason
+phrase. From 0.0.1 a non-empty `statusText` is written as the reason phrase; an empty one
+still leaves Node's default.
 
 #### Trailers are silently dropped if the response has a `content-length`
 
@@ -106,24 +117,27 @@ Pass `Object.freeze({ status: 101 })`.
 does not carry an `AbortSignal`, and drops URL credentials (`user:pass@`) and the hash.
 Use the `Request` you already have for those.
 
-#### IPv6 literals do not connect
+#### IPv6 literals did not connect (fixed in 0.0.1, once published)
 
-`hostname` is `url.hostname`, which keeps the brackets (`"[::1]"`). `http.request()`
-then fails with `ENOTFOUND getaddrinfo ENOTFOUND [::1]`. Strip the brackets yourself:
+In 0.0.0, `hostname` was `url.hostname`, which keeps the brackets (`"[::1]"`), and
+`http.request()` then failed with `ENOTFOUND getaddrinfo ENOTFOUND [::1]`. From 0.0.1 the
+brackets are stripped (`"::1"`). On 0.0.0 strip them yourself:
 `requestOptions.hostname = requestOptions.hostname.replace(/^\[|\]$/g, "")`.
 
-#### Repeated headers collapse in `requestOptions.headers`
+#### Repeated `set-cookie` headers collapsed in `requestOptions.headers` (fixed in 0.0.1, once published)
 
-The headers object is built with one value per name. Most repeated headers arrive
-comma-joined (`accept: "x, y"`), which is right for them. `Set-Cookie` is the exception:
-iterating `Headers` yields each cookie separately and the last one wins, so a `Request`
-with several `set-cookie` headers keeps only one. (A request would not normally have
-those; a copied response header set might.)
+In 0.0.0 the headers object had one string per name. Most repeated headers arrive
+comma-joined (`accept: "x, y"`), which is right for them, but `Set-Cookie` is the
+exception: the cookies were comma-joined, which corrupts them. From 0.0.1 repeated
+`set-cookie` headers are emitted as an array (via `Headers#getSetCookie()`), one element
+per header, and `requestOptions.headers` is typed `Record<string, string | string[]>`.
+(A request would not normally have those; a copied response header set might.)
 
-#### `port` is a string when the URL has one
+#### `port` was a string when the URL had one (fixed in 0.0.1, once published)
 
-Typed `number`, but `"8080"` for `http://a.com:8080/` and `80`/`443` (numbers) for the
-defaults. `http.request()` accepts both; do arithmetic only after `Number()`.
+In 0.0.0 it was typed `number` but was `"8080"` for `http://a.com:8080/` (and `80`/`443`
+numbers for the defaults). From 0.0.1 it is always a number. On 0.0.0 do arithmetic
+only after `Number()`.
 
 #### `method` is not normalized when you pass a URL
 
@@ -141,11 +155,12 @@ another realm, is treated as a URL and fails in `new URL()`.
 
 ### `toWebResponse()`
 
-#### 204 and 304 reject any body
+#### 204, 205 and 304 rejected any body (fixed in 0.0.1, once published)
 
-`toWebResponse(nodeRes, anything)` for status 204 or 304 throws `TypeError` from the
-`Response` constructor, even with an empty `Buffer`. Pass `null`. A `1xx` status throws
-`RangeError`.
+In 0.0.0, `toWebResponse(nodeRes, anything)` for status 204 or 304 threw `TypeError` from
+the `Response` constructor, even with an empty `Buffer`; on 0.0.0, pass `null`. From
+0.0.1 the body is ignored (passed as `null`) for 204, 205 and 304. A `1xx` status still
+throws `RangeError`.
 
 #### Hop-by-hop headers pass through
 
@@ -166,7 +181,7 @@ are whatever you pass. Decompress before wrapping, or forward both untouched.
 - **No request building beyond options.** It will not issue a request, follow redirects,
   retry, pool connections, or enforce timeouts.
 - **No body parsing**, content negotiation or compression.
-- **No hop-by-hop or forwarding-header policy.** Everything is copied; policy is yours.
+- **No hop-by-hop or forwarding-header policy.** Everything is copied; policy is yours (still true in 0.0.1).
 - **Node 26 or newer** by `engines`. The package is untranspiled ESM.
 
 See [API](/webwire/api/) for exact behaviour of each function and

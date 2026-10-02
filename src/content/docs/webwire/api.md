@@ -37,14 +37,17 @@ Synchronous.
 - `hostHeaders` (`string[]`, default `["host"]`): header names to read the host from,
   in priority order. The first one present with a non-empty value wins; if none is
   present the host is `localhost`. A reverse proxy usually wants
-  `["x-forwarded-host", "host"]`. Names are looked up as given in `req.headers`, which
-  Node lower-cases, so write them lower-case (see [Limitations](/webwire/limitations/#hostheaders-is-case-sensitive-and-takes-the-header-verbatim)).
+  `["x-forwarded-host", "host"]`. Names are matched case-insensitively (they are lower-cased
+  internally, because Node lower-cases incoming header names). That is **0.0.1**
+  behaviour (once published); in 0.0.0 you must write them lower-case (see
+  [Limitations](/webwire/limitations/#hostheaders-was-case-sensitive-fixed-in-001-once-published)).
 
 **How the `Request` is built**
 
-- The URL is `new URL(req.url, "http://" + host)`, so it is always `http://`, whatever
-  the connection used. An absolute-form request target (`GET http://other/x`) replaces
-  the host.
+- The URL is `new URL(req.url, scheme + "://" + host)`. From 0.0.1 (once published)
+  the scheme is `https` when `req.socket.encrypted` is true and `http` otherwise;
+  0.0.0 always used `http`. `X-Forwarded-Proto` is never consulted. An absolute-form
+  request target (`GET http://other/x`) or a `//host/path` target replaces the host.
 - The method and all headers are copied from `req`.
 - For any method other than `GET` and `HEAD`, the body is `req` itself (with
   `duplex: "half"`), so it is streamed, not buffered, and reading it consumes `req`. `GET`
@@ -82,8 +85,9 @@ cookie; other headers are set as given.
 **Errors**: none of its own, but the `Response` constructor is strict and its errors
 pass straight through:
 
-- A `204` or `304` status with any body, including an empty `Buffer`, throws `TypeError`.
-  Pass no body for those statuses.
+- In 0.0.0, a `204` or `304` status with any body, including an empty `Buffer`, threw
+  `TypeError`. From 0.0.1 (once published) the body is ignored (passed as `null`) for
+  204, 205 and 304.
 - A status outside 200 to 599 (a `1xx`) throws `RangeError`.
 - A body the `Response` constructor does not accept throws `TypeError`. A Node
   `Readable` is accepted (it is an async iterable); a web `ReadableStream` must yield
@@ -102,8 +106,9 @@ function writeWebResponse(
 Writes a `Response` out through a `ServerResponse`: status, headers, body, trailers,
 then `res.end()`. Resolves when the response has been written. Call it once per `res`.
 
-**Status.** `res.statusCode` is set from `response.status`. `response.statusText` is
-**not** written; Node's default reason phrase for the code is used.
+**Status.** `res.statusCode` is set from `response.status`. From 0.0.1 (once published)
+a non-empty `response.statusText` is also written as the reason phrase; 0.0.0 never
+wrote it, and an empty one always uses Node's default phrase for the code.
 
 **Headers.** Same-named headers are collected and passed to `res.setHeader()` as an
 array, so repeated `Set-Cookie` headers go out as separate header lines instead of one
@@ -147,10 +152,10 @@ function toNodeRequestOptions(
   isHTTPS: boolean;
   requestOptions: {
     hostname: string;
-    port: number; // actually number | string, see below
+    port: number;
     path: string;
     method: string;
-    headers: Record<string, string>;
+    headers: Record<string, string | string[]>;
   };
 };
 ```
@@ -168,15 +173,18 @@ not a live request**, so you choose when and how to issue it.
 
 - `url`: the parsed `URL`.
 - `isHTTPS`: `url.protocol === "https:"`. Any other protocol (`ws:`, `ftp:`) is `false`.
-- `requestOptions.hostname`: `url.hostname`.
-- `requestOptions.port`: `url.port` if the URL has an explicit port, else `443` or `80`.
-  The explicit port is a **string** (`"8080"`) and the default is a **number**, although
-  `index.d.ts` types it as `number`. Both work with `http.request()`.
+- `requestOptions.hostname`: `url.hostname` with IPv6 brackets stripped (`[::1]` becomes
+  `::1`). In 0.0.0 the brackets were kept and `http.request()` failed with `ENOTFOUND`.
+- `requestOptions.port`: always a number: the URL's explicit port, else `443` or `80`.
+  In 0.0.0 an explicit port was the string `"8080"`, although `index.d.ts` typed it as
+  `number`.
 - `requestOptions.path`: pathname plus search. The hash is dropped.
 - `requestOptions.method`: as given. It is **not** upper-cased when you pass lower-case
   to `options.method`.
 - `requestOptions.headers`: a plain object with lower-case keys. A `Headers` instance is
   not accepted by `http.request()` as it is, which is why this conversion exists.
+  Repeated `set-cookie` headers are an array (one element per header) from 0.0.1;
+  0.0.0 collapsed them.
 
 **Errors**: `new URL()` throws `TypeError` (`ERR_INVALID_URL`) for a relative or
 unparseable URL. Nothing is validated beyond that.
