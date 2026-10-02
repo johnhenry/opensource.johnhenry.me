@@ -5,10 +5,11 @@ sidebar:
   order: 8
 ---
 
-:::caution[Pending independent review]
-This was built end-to-end by AI agents against specifications and audits, and passes its own test suite, but has **not** had
-independent human security review ([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)). Do not release or
-rely on it for hostile content before that review.
+:::note[Security review: signed off]
+This was built end-to-end by AI agents against specifications and audits, and passes its own test suite in three engines,
+including a differential mXSS fuzzer. Its security review was **signed off by the maintainer on 2026-10-01**
+([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1); reviewer packet in the repository's `docs/review/`).
+New findings are filed as new issues.
 :::
 
 ## Security model
@@ -71,7 +72,7 @@ rely on it for hostile content before that review.
   content in Safari.
 - **Content-level risks this library cannot see:** a syntactically valid phishing link is not a code-execution bug. See
   [What this package does not protect against](#what-this-package-does-not-protect-against) below.
-- **The pending independent review** ([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)), `email-v1`
+- `email-v1`
   ([#2](https://github.com/johnhenry/safe-fragment/issues/2)), SVG/MathML
   ([#3](https://github.com/johnhenry/safe-fragment/issues/3)) and the moving native Sanitizer spec
   ([#4](https://github.com/johnhenry/safe-fragment/issues/4)).

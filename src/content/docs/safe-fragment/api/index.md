@@ -11,7 +11,7 @@ is the lookup table. There is a single entry point, `@johnhenry/safe-fragment` (
 Importing it never touches `window`, `document`, `HTMLElement` or `customElements`.
 
 :::caution[Unpublished]
-The package is not yet on npm and is pending independent security review
+The package is not yet on npm. Its security review was signed off by the maintainer on 2026-10-01
 ([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)).
 :::
 

@@ -6,9 +6,9 @@ sidebar:
 ---
 
 :::caution[Status: not yet on npm]
-`@johnhenry/safe-fragment` is **not yet on npm** and is **pending independent security review**
+`@johnhenry/safe-fragment` is **not yet on npm**. Its security review was **signed off by the maintainer on 2026-10-01**
 ([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)). `version` is pinned at `0.0.0`, and there is no npm
-release and no GitHub release tag. Do not rely on it for hostile content until the review is done, and read
+release and no GitHub release tag. Read
 [Limitations and traps](/safe-fragment/limitations/) before using it for anything beyond experimentation. To report a suspected
 sanitizer bypass, see the repository's
 [SECURITY.md](https://github.com/johnhenry/safe-fragment/blob/main/SECURITY.md).

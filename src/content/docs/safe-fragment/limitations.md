@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Traps first: the gaps and surprises a reader cannot recover from the API alone. Each known gap has an issue. The package is
-**unpublished and pending independent review**, so read this page before relying on it. The positive guarantees are on
+**not yet published** (its security review was signed off by the maintainer on 2026-10-01, [safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)), so read this page before relying on it. The positive guarantees are on
 [Security model](/safe-fragment/security/).
 
 ## Known gaps
