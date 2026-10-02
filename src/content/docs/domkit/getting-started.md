@@ -42,12 +42,14 @@ Notice what you *didn't* write: no ids, no `role`s, no script.
 
 ## 2. Style it with ordinary CSS
 
-Add domkit's optional stylesheet, and adjust it with a custom property:
+Add domkit's optional stylesheets (the shared theme, and the element's
+own), and adjust them with a custom property:
 
 ```html
+<link rel="stylesheet" href="https://esm.sh/@johnhenry/domkit/theme.css" />
 <link rel="stylesheet" href="https://esm.sh/@johnhenry/domkit/tabbed-ui/index.css" />
 <style>
-  tabbed-ui { --domkit-tab-accent: rebeccapurple; }
+  tabbed-ui { --domkit-accent: rebeccapurple; }
 </style>
 ```
 

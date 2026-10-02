@@ -53,25 +53,24 @@ autocomplete data (`vscode.html-custom-data.json`).
 |---|---|
 | [`<tabbed-ui>`](https://github.com/johnhenry/domkit/tree/main/src/tabbed-ui) | Accessible tabs from plain children |
 | [`<stylable-select>`](https://github.com/johnhenry/domkit/tree/main/src/stylable-select) | A listbox you can fully style, with a native `<select>`'s API, forms, and keyboard |
-| [`<combo-box>`](https://github.com/johnhenry/domkit/tree/main/src/combo-box) | Autocomplete: filters its own options, or searches a URL or function as you type |
+| [`<infinite-combo-box>`](https://github.com/johnhenry/domkit/tree/main/src/infinite-combo-box) | Autocomplete: filters its own options, or searches a URL or function as you type, paging in more results as you scroll |
 | [`<hotkey-dialog>`](https://github.com/johnhenry/domkit/tree/main/src/hotkey-dialog) | Toggle a native `<dialog>` with a keyboard shortcut |
 | [`<drill-menu>`](https://github.com/johnhenry/domkit/tree/main/src/drill-menu) | A list that drills into sub-screens and back, optionally synced to the URL |
 | [`<code-color>`](https://github.com/johnhenry/domkit/tree/main/src/code-color) | Syntax highlighting that never changes your markup |
 
-### Responding to screen size
+### Responding to screen and container size
 
 | Element | What it's for |
 |---|---|
-| [`<query-container>`](https://github.com/johnhenry/domkit/tree/main/src/matchable/query-container) | Change the element that wraps content (`ul` → `ol`) by media query |
-| [`<attribute-provider>`](https://github.com/johnhenry/domkit/tree/main/src/matchable/attribute-provider) | Add classes, styles, and attributes to children by media query, and restore them |
+| [`<query-container>`](https://github.com/johnhenry/domkit/tree/main/src/matchable/query-container) | Change the element that wraps content (`ul` → `ol`) by media query, or by its container's size |
+| [`<attribute-provider>`](https://github.com/johnhenry/domkit/tree/main/src/matchable/attribute-provider) | Add classes, styles, and attributes to children by media or container query, and restore them |
 
 ### State, loading, and timing
 
 | Element | What it's for |
 |---|---|
 | [`<class-cycler>`](https://github.com/johnhenry/domkit/tree/main/src/cyclable/class-cycler) | Theme and density switches: buttons that cycle a persisted class, synced across tabs |
-| [`<define-component>`](https://github.com/johnhenry/domkit/tree/main/src/definable/define-component) | Register a custom element from a module URL, in HTML |
-| [`<define-component-by-content>`](https://github.com/johnhenry/domkit/tree/main/src/definable/define-component-by-content) | Register a markup-only element from a `<template>` |
+| [`<define-component>`](https://github.com/johnhenry/domkit/tree/main/src/definable/define-component) | Register a custom element in HTML, from a module's export or from a `<template>` |
 | [`<polyfill-window>`](https://github.com/johnhenry/domkit/tree/main/src/definable/polyfill-window) | Load a module onto `window` unless it's already there |
 | [`<frame-timer>`](https://github.com/johnhenry/domkit/tree/main/src/frame-timer) | A clock: steady `tick` events with `play()`/`pause()` |
 
