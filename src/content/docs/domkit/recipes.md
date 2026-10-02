@@ -17,12 +17,12 @@ clone of the repo, then open `http://localhost:4719/examples/`.
 across tabs. [Full page](https://github.com/johnhenry/domkit/blob/main/examples/theme-switcher.html)
 
 ```html
-<class-cycler id="theme" target="html" classes="system,light,dark" storage-key="theme">
+<attribute-cycler id="theme" target="html" values="system,light,dark" storage-key="theme">
   <button type="button" value="system">System</button>
   <button type="button" value="light">Light</button>
   <button type="button" value="dark">Dark</button>
   <p>Current: <output></output></p>
-</class-cycler>
+</attribute-cycler>
 <!-- anywhere else on the page -->
 <button commandfor="theme" command="--next">Next theme</button>
 ```
@@ -42,15 +42,15 @@ commands let any button drive the switch.
 [Full page](https://github.com/johnhenry/domkit/blob/main/examples/command-palette.html)
 
 ```html
-<hotkey-dialog hotkey="mod+k /">
+<hot-key hotkey="mod+k /">
   <dialog id="palette-dialog" closedby="any" aria-label="Command palette">
-    <combo-box id="palette" aria-label="Command">
+    <infinite-combo-box id="palette" aria-label="Command" inline>
       <input autofocus placeholder="Type a command…" />
       <option value="top">Scroll to top</option>
       <option value="dark">Switch to dark theme</option>
-    </combo-box>
+    </infinite-combo-box>
   </dialog>
-</hotkey-dialog>
+</hot-key>
 ```
 
 ```js
@@ -63,7 +63,8 @@ palette.addEventListener("change", () => {
 
 The dialog stays native (focus trap, `::backdrop`, Esc). `closedby="any"`
 gives light dismiss, polyfilled where needed. `mod` means ⌘ on Apple
-platforms and Ctrl elsewhere.
+platforms and Ctrl elsewhere. `inline` keeps the results in the dialog's
+flow; without it, the list floats above the page like a native picker.
 
 ## Settings panel across screens
 
@@ -90,10 +91,10 @@ submits, resets, and validates like a native one.
         <option value="fr">Français</option>
       </stylable-select>
       <label for="tz">Time zone</label>
-      <combo-box id="tz" name="timezone" value="Europe/London">
+      <infinite-combo-box id="tz" name="timezone" value="Europe/London">
         <option>Europe/London</option>
         <option>Asia/Tokyo</option>
-      </combo-box>
+      </infinite-combo-box>
       <button type="button" data-back>‹ Back</button>
     </section>
   </drill-menu>

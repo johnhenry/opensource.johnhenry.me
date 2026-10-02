@@ -40,8 +40,8 @@ than inventing one.
 | Visibility | Hidden content gets the `hidden` attribute, never `style.display`, so author CSS stays in control and `[hidden]` rules keep working |
 | Events | Native names and semantics: `input` for continuous change, `change` for a committed change, `toggle` for open/closed state, `select`/`invalid`/`reset` where those apply. All of them bubble. State is read from the element (`event.target.value`), and `detail` is a convenience, never the only source |
 | Script-triggered changes | Setting a property or attribute from script does **not** fire `input`/`change`, just like `input.value = …` doesn't. Only user interaction does |
-| Inline handlers | An `on<event>` attribute behaves like a native event-handler attribute, with the body run as a function of `event` and `this` as the element, and a matching `.on<event>` property. For CSP, every inline-code attribute has a non-string alternative (a property or an event) |
-| Disabled | `disabled` blocks interaction, removes the element from the tab order, matches `:disabled`, and is inherited from an enclosing `<fieldset disabled>` when the element is form-associated |
+| Inline handlers | Events use native names wherever one fits (`change`, `input`, `toggle`, `play`, `pause`, `load`, `error`), so the browser's own handler attributes work on domkit elements with no extra code: `<tabbed-ui onchange="…">`, `<frame-timer onplay="…">`. An event with no native equivalent (`tick`, `push`, `pop`) gets a plain lowercase name and is used with `addEventListener`. No element evaluates attribute strings itself, so everything works under a strict Content-Security-Policy. Every inline-code feature has a script alternative |
+| Disabled | Every interactive element supports `disabled`, with one meaning: no user interaction, out of the tab order, no events, still announced (`aria-disabled`), and styleable as `[disabled]`. Form-associated elements also match `:disabled` and inherit it from a `<fieldset disabled>`. Content the element shows (a tab panel) stays readable |
 
 ## 3. Forms just work
 
@@ -66,8 +66,19 @@ Any element that holds a value is **form-associated**
   the parts it manages), not only through `ElementInternals`, so every
   assistive technology, auditing tool, and test runner sees them. A role
   the author wrote is never overwritten.
+- Arrow keys follow the reading direction: in right-to-left text, ←/→ swap
+  meaning for every horizontal widget.
 - Keyboard handlers only claim the keys they use and only `preventDefault`
   what they handle. They never stop propagation of keys they don't handle.
+
+## 4½. Speaks the user's language
+
+- Text an element shows or announces is replaceable (a `strings`
+  property, or an inert `<script type="application/json" data-strings>`
+  child), with plural forms (`Intl.PluralRules`) and number formatting
+  (`Intl.NumberFormat`) for the element's `lang`.
+- Validation messages are the browser's own localized ones, borrowed from
+  native controls, never hard-coded.
 
 ## 5. Styled with ordinary CSS
 
@@ -75,8 +86,14 @@ Any element that holds a value is **form-associated**
   Where shadow DOM is necessary, generated parts are exposed with `part`,
   and theming uses CSS custom properties (`--domkit-…`).
 - No hard-coded colors, fonts, or sizes in JavaScript. An optional
-  `index.css` per module provides sensible defaults that use
-  `currentColor`, `system-ui`, `light-dark()`, and custom properties.
+  `index.css` per module provides sensible defaults.
+- **One set of shared tokens themes everything**: `--domkit-accent`,
+  `--domkit-highlight`, `--domkit-border`, `--domkit-radius`,
+  `--domkit-focus-ring`, `--domkit-surface`/`--domkit-surface-text`, and
+  `--domkit-disabled-opacity`, defined in `theme.css`. Every `index.css`
+  reads them, with `currentColor`-based fallbacks so it also works alone.
+  An element only adds its own custom property for something no other
+  element has (`--domkit-tab-gap`, `--domkit-select-size`).
 - Internal state is also exposed as custom states (`:state(…)`) where
   attributes would be noisy.
 - **Stylesheets never defeat `hidden`.** Any author rule that sets
@@ -92,7 +109,9 @@ Any element that holds a value is **form-associated**
   `role="option"`) elements, with the same option-value rules, the same
   `options`/`value` members as `HTMLSelectElement`, the same
   `[data-active]`/`aria-selected` styling hooks, and the same
-  `input`/`change` timing. `stylable-select` and `combo-box` are
+  `input`/`change` timing, and the same members (`value`, `options`,
+  `selectedOption`, `selectedOptions`, `selectedIndex`, `length`,
+  `item()`). `stylable-select` and `infinite-combo-box` are
   interchangeable for code that reads a value or styles options, and
   either can stand in for a native `<select>`.
 - Elements nest and coexist: no globals unless documented, no fixed IDs,
