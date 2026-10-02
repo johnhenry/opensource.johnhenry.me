@@ -267,6 +267,33 @@ A frame-paced ticking clock with play/pause. [Guide](https://github.com/johnhenr
 | `pause` | The timer paused. Invoker commands: `--play`, `--pause`, and `--toggle` (`<button commandfor="clock" command="--toggle">`). |
 | `tick` | Once per period while playing. Read `ticks` for the count. |
 
+## `<gamepad-input>`
+
+Game controller buttons that send invoker commands. [Guide](https://github.com/johnhenry/domkit/blob/main/src/gamepad-input/readme.md) · module `@johnhenry/domkit/gamepad-input`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `commandfor` |  | `string` | The id of the element to send commands to. |
+| `index` |  | `number` | Which controller (0 is the first connected). Default: any. |
+| `up` |  | `string` | The command for the d-pad (or left stick) up. Likewise `down`, `left`, and `right`. |
+| `a` |  | `string` | The command for the bottom face button. Likewise `b` (right), `x` (left), `y` (top), `lb`, `rb`, `lt`, `rt`, `select`, `start`, `ls`, `rs`, and `home`. |
+| `disabled` | `disabled` | `boolean` | Button presses do nothing. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `disabled` | `boolean` | Mirrors the `disabled` attribute. |
+| `commandForElement` (read-only) | `Element \| null` | The element `commandfor` names. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `gamepadpress` | A button went down, before its command is sent. `detail` is `{ button, gamepad }`; cancel it to skip the command. Fired even when that button has no command. |
+
 ## `<hot-key>`
 
 Toggle a native dialog or popover, or run an invoker command, with a keyboard shortcut. [Guide](https://github.com/johnhenry/domkit/blob/main/src/hot-key/readme.md) · module `@johnhenry/domkit/hot-key`
@@ -414,7 +441,7 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 |---|---|---|
 | `time` (read-only) | `number` | Seconds on the clock that effects animate by. It runs while the element is connected and not paused (and, for visitors who prefer reduced motion, only once `play()` is called). |
 | `paused` (read-only) | `boolean` | Whether the clock is paused. |
-| `source` (read-only) | `Element \| null` | The image, video, canvas, or `<pixel-sprite>` being drawn: the first one inside. |
+| `source` (read-only) | `Element \| null` | What's being drawn: the first element inside that's an `<img>`, `<video>`, or `<canvas>`, or that exposes a `canvas` property (like `<pixel-sprite>`). |
 | `effectElements` (read-only) | `Element[]` | The effect elements wrapped around the source, in the order they run (innermost first). Disabled ones are included. |
 | `effects` | `string` | Mirrors the `effects` attribute. |
 | `swatches` | `number` | How many swatches to publish. Mirrors the `swatches` attribute. |
@@ -491,7 +518,7 @@ A pixel effect: grid lines between cells. [Guide](https://github.com/johnhenry/d
 | Attribute | Property | Type | Description |
 |---|---|---|---|
 | `size` |  | `number` | Cell size, in the working image's pixels. Default 8. |
-| `color` |  | `string` | Line color, any CSS color (transparency blends). Default `rgb(0 0 0 / 0.35)`. |
+| `color` |  | `string` | Line color, any CSS color (transparency blends). `transparent` cuts gaps instead of drawing lines. Default `rgb(0 0 0 / 0.35)`. |
 | `line` |  | `number` | Line thickness in pixels. Default 1. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
@@ -781,6 +808,36 @@ A fully stylable listbox that works like a native select. [Guide](https://github
 | `--domkit-select-size` | Visible rows, from the `size` attribute. |
 | `--domkit-highlight` | Background of selected options (shared token; see theme.css). |
 | `--domkit-focus-ring` | Focus outline (shared token). |
+
+## `<swipe-input>`
+
+Swipe gestures that send invoker commands. [Guide](https://github.com/johnhenry/domkit/blob/main/src/swipe-input/readme.md) · module `@johnhenry/domkit/swipe-input`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `commandfor` |  | `string` | The id of the element to send commands to. |
+| `up` |  | `string` | The command for a swipe up (for example `--up`, or a built-in like `show-popover`). |
+| `down` |  | `string` | The command for a swipe down. |
+| `left` |  | `string` | The command for a swipe left. |
+| `right` |  | `string` | The command for a swipe right. |
+| `threshold` |  | `number` | How far, in CSS pixels, a pointer must travel to count as a swipe. Default 30. |
+| `pointers` |  | `string` | Which pointers swipe: `touch`, `pen`, `mouse`, or a space-separated mix. Default: all of them. |
+| `disabled` | `disabled` | `boolean` | Swipes do nothing. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `disabled` | `boolean` | Mirrors the `disabled` attribute. |
+| `commandForElement` (read-only) | `Element \| null` | The element `commandfor` names. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `swipe` | A swipe was recognized, before its command is sent. `detail` is `{ direction, distance }`; cancel it to skip the command. Fired even when that direction has no command. |
 
 ## `<tabbed-ui>`
 
