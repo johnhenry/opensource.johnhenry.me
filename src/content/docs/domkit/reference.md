@@ -9,29 +9,17 @@ sidebar:
 
 Every stable element's attributes, properties, methods, events, and CSS custom properties, generated from the code. Each element's guide (linked) explains how to use it.
 
-## `<attribute-provider>`
+## `<attribute-cycler>`
 
-Add classes, styles, and attributes to children by media query. [Guide](https://github.com/johnhenry/domkit/blob/main/src/matchable/attribute-provider/readme.md) · module `@johnhenry/domkit/matchable/attribute-provider`
-
-**Attributes**
-
-| Attribute | Property | Type | Description |
-|---|---|---|---|
-| `classes` |  | `string` | `[media query] class class \| …` sections. Bracket-less sections always apply. |
-| `styles` |  | `string` | `[media query] property: value; … \| …` sections. |
-| `attributes` |  | `string` | `[media query] name=value; name; name=null \| …` sections. `null` removes the attribute while the query matches. |
-| `container` |  | `string` | Container mode: evaluate the queries against an element's size instead of the viewport. Empty = the parent element; otherwise a selector for the closest matching ancestor. |
-
-## `<class-cycler>`
-
-A persisted class switch (e.g. a theme toggle) driven by buttons. [Guide](https://github.com/johnhenry/domkit/blob/main/src/cyclable/class-cycler/readme.md) · module `@johnhenry/domkit/cyclable/class-cycler`
+A persisted attribute or class switch (e.g. a theme toggle) driven by buttons. [Guide](https://github.com/johnhenry/domkit/blob/main/src/cyclable/attribute-cycler/readme.md) · module `@johnhenry/domkit/cyclable/attribute-cycler`
 
 **Attributes**
 
 | Attribute | Property | Type | Description |
 |---|---|---|---|
-| `classes` |  | `string` | Comma-separated values to cycle through. An empty entry means "no class". |
-| `target` |  | `string` | Selector for the element(s) whose class is set. Default `html`. |
+| `values` | `values` | `string` | Comma-separated values to cycle through. An empty entry means "none": no class, or no attribute. |
+| `attribute` | `attribute` | `string` | The attribute to set on the targets. Default `class`, where the value is one class among the target's others; any other attribute gets the value as its whole value. |
+| `target` |  | `string` | Selector for the element(s) whose attribute is set. Default `html`. |
 | `storage-key` | `storageKey` | `string` | localStorage key to persist under. Without it, the value isn't persisted. |
 | `value` | `value` | `string` | The current value. Reflects; set it to choose the initial value when nothing is stored. |
 | `disabled` | `disabled` | `boolean` | Its buttons are disabled, and invoker commands are ignored. |
@@ -41,8 +29,9 @@ A persisted class switch (e.g. a theme toggle) driven by buttons. [Guide](https:
 | Property | Type | Description |
 |---|---|---|
 | `values` (read-only) | `string[]` | The values to cycle through, in order. |
+| `attribute` | `string` | The attribute set on the targets. Mirrors the `attribute` attribute. |
 | `value` | `string` | The current value. Setting it applies and persists it, without an event. |
-| `targets` (read-only) | `Element[]` | The elements whose class is set. |
+| `targets` (read-only) | `Element[]` | The elements whose attribute is set. |
 | `disabled` | `boolean` | Mirrors the `disabled` attribute. |
 | `storageKey` | `string` | Mirrors the `storage-key` attribute. |
 
@@ -58,6 +47,19 @@ A persisted class switch (e.g. a theme toggle) driven by buttons. [Guide](https:
 | Event | Description |
 |---|---|
 | `change` | The user changed the value with a button or command. |
+
+## `<attribute-provider>`
+
+Add classes, styles, and attributes to children by media query. [Guide](https://github.com/johnhenry/domkit/blob/main/src/matchable/attribute-provider/readme.md) · module `@johnhenry/domkit/matchable/attribute-provider`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `classes` |  | `string` | `[media query] class class \| …` sections. Bracket-less sections always apply. |
+| `styles` |  | `string` | `[media query] property: value; … \| …` sections. |
+| `attributes` |  | `string` | `[media query] name=value; name; name=null \| …` sections. `null` removes the attribute while the query matches. |
+| `container` |  | `string` | Container mode: evaluate the queries against an element's size instead of the viewport. Empty = the parent element; otherwise a selector for the closest matching ancestor. |
 
 ## `<code-color>`
 
@@ -178,34 +180,41 @@ A frame-paced ticking clock with play/pause. [Guide](https://github.com/johnhenr
 | `pause` | The timer paused. |
 | `tick` | Once per period while playing. Read `ticks` for the count. |
 
-## `<hotkey-dialog>`
+## `<hot-key>`
 
-Toggle a native dialog with a keyboard shortcut. [Guide](https://github.com/johnhenry/domkit/blob/main/src/hotkey-dialog/readme.md) · module `@johnhenry/domkit/hotkey-dialog`
+Toggle a native dialog or popover, or run an invoker command, with a keyboard shortcut. [Guide](https://github.com/johnhenry/domkit/blob/main/src/hot-key/readme.md) · module `@johnhenry/domkit/hot-key`
 
 **Attributes**
 
 | Attribute | Property | Type | Description |
 |---|---|---|---|
 | `hotkey` | `hotkey` | `string` | One or more space-separated shortcuts, e.g. `mod+k /`. `mod` is ⌘ on Apple platforms and Ctrl elsewhere. |
-| `non-modal` | `nonModal` | `boolean` | Open with `show()` instead of `showModal()`. |
-| `disabled` | `disabled` | `boolean` | The shortcut does nothing. The dialog itself is unaffected. |
+| `commandfor` |  | `string` | The id of an element to send `command` to, as on a `<button>`. Without it, the shortcut toggles the `<dialog>` or popover inside. |
+| `command` | `command` | `string` | With `commandfor`: the command to run, a built-in one (`show-modal`, `close`, `request-close`, `show-popover`, `hide-popover`, `toggle-popover`) or a custom `--name` (dispatched as a `command` event). |
+| `non-modal` | `nonModal` | `boolean` | Open a dialog with `show()` instead of `showModal()`. |
+| `disabled` | `disabled` | `boolean` | The shortcut does nothing. The dialog or popover itself is unaffected. |
 
 **Properties**
 
 | Property | Type | Description |
 |---|---|---|
-| `dialog` (read-only) | `HTMLDialogElement \| null` | The `<dialog>` this element controls: its first `<dialog>` descendant. |
+| `target` (read-only) | `HTMLElement \| null` | The `<dialog>` or popover this element opens and closes: its first `<dialog>` or `[popover]` descendant. |
+| `dialog` (read-only) | `HTMLDialogElement \| null` | The `<dialog>` this element controls, if its target is one. |
+| `command` | `string` | Mirrors the `command` attribute. |
+| `commandForElement` | `Element \| null` | The element `commandfor` names, like a button's `commandForElement`. |
 | `hotkey` | `string` | Mirrors the `hotkey` attribute. |
 | `disabled` | `boolean` | Mirrors the `disabled` attribute. |
 | `nonModal` | `boolean` | Mirrors the `non-modal` attribute. |
+| `open` (read-only) | `boolean` | Whether the dialog or popover is open. |
 
 **Methods**
 
 | Method | Description |
 |---|---|
-| `show()` | Open the dialog (modally, unless `non-modal`). |
-| `close(returnValue)` | Close the dialog. |
-| `toggle()` | Open the dialog if it's closed, close it if it's open. |
+| `show()` | Open the dialog (modally, unless `non-modal`) or popover. |
+| `close(returnValue)` | Close the dialog or popover. |
+| `toggle()` | Open the dialog or popover if it's closed, close it if it's open. |
+| `runCommand()` | Run `command` on the `commandfor` element, as a button would. Returns false if there's no such element or command. |
 
 ## `<infinite-combo-box>`
 

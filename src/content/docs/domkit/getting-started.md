@@ -116,18 +116,18 @@ for example `option:checked { font-weight: bold }`.
 One more element, and no script at all:
 
 ```html
-<script type="module" src="https://esm.sh/@johnhenry/domkit/cyclable/class-cycler/global.mjs"></script>
+<script type="module" src="https://esm.sh/@johnhenry/domkit/cyclable/attribute-cycler/global.mjs"></script>
 <style>
   :root { color-scheme: light dark; }
   html.light { color-scheme: light; }
   html.dark { color-scheme: dark; }
 </style>
 
-<class-cycler target="html" classes="system,light,dark" storage-key="theme">
+<attribute-cycler target="html" values="system,light,dark" storage-key="theme">
   <button value="system">System</button>
   <button value="light">Light</button>
   <button value="dark">Dark</button>
-</class-cycler>
+</attribute-cycler>
 ```
 
 Pick Dark and reload: the choice is remembered. Open the page in a second

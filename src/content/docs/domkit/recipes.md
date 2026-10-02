@@ -17,12 +17,12 @@ clone of the repo, then open `http://localhost:4719/examples/`.
 across tabs. [Full page](https://github.com/johnhenry/domkit/blob/main/examples/theme-switcher.html)
 
 ```html
-<class-cycler id="theme" target="html" classes="system,light,dark" storage-key="theme">
+<attribute-cycler id="theme" target="html" values="system,light,dark" storage-key="theme">
   <button type="button" value="system">System</button>
   <button type="button" value="light">Light</button>
   <button type="button" value="dark">Dark</button>
   <p>Current: <output></output></p>
-</class-cycler>
+</attribute-cycler>
 <!-- anywhere else on the page -->
 <button commandfor="theme" command="--next">Next theme</button>
 ```
@@ -42,7 +42,7 @@ commands let any button drive the switch.
 [Full page](https://github.com/johnhenry/domkit/blob/main/examples/command-palette.html)
 
 ```html
-<hotkey-dialog hotkey="mod+k /">
+<hot-key hotkey="mod+k /">
   <dialog id="palette-dialog" closedby="any" aria-label="Command palette">
     <infinite-combo-box id="palette" aria-label="Command" inline>
       <input autofocus placeholder="Type a command…" />
@@ -50,7 +50,7 @@ commands let any button drive the switch.
       <option value="dark">Switch to dark theme</option>
     </infinite-combo-box>
   </dialog>
-</hotkey-dialog>
+</hot-key>
 ```
 
 ```js
