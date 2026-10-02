@@ -1,0 +1,84 @@
+---
+title: "webwire"
+description: "Convert between Node.js's raw http/https objects and the standard Web Fetch API (Request/Response), in both directions, request and response."
+sidebar:
+  order: 0
+---
+
+**`@johnhenry/webwire`** converts between Node's raw `http`/`https` objects
+(`IncomingMessage`, `ServerResponse`, `http.request()`) and the Web Fetch API
+(`Request`, `Response`). Four small functions, no dependencies, no build step.
+
+Node's HTTP API predates Fetch and does not speak it. Code that works in
+`Request`/`Response` terms (a router, a proxy, a test harness) still has to touch
+Node's sockets in exactly four places, and this package is those four places and
+nothing else:
+
+| You have | You want | Function |
+|---|---|---|
+| A server-side `IncomingMessage` | A Web `Request` | [`toWebRequest()`](/webwire/api/#towebrequestreq-options) |
+| A Web `Response` | Bytes written to a `ServerResponse` | [`writeWebResponse()`](/webwire/api/#writewebresponseresponse-res-options) |
+| A `Request` (or a URL) | Options for `http.request()` | [`toNodeRequestOptions()`](/webwire/api/#tonoderequestoptionsrequestorurl-options) |
+| A client-side `IncomingMessage` | A Web `Response` | [`toWebResponse()`](/webwire/api/#towebresponsenoderes-body) |
+
+A fifth pair, [`setTrailers()` / `getTrailers()`](/webwire/api/#settrailersresponse-trailers--gettrailersresponse),
+lets a `Response` carry HTTP trailers, which Fetch has no way to express.
+
+## Install
+
+```sh
+npm install @johnhenry/webwire
+```
+
+Requires Node 26 or newer (`engines.node` is `>=26.0.0`). Types ship in the
+package (`index.d.ts`). See [Getting started](/webwire/getting-started/).
+
+## The pages here
+
+- [Getting started](/webwire/getting-started/): install, a server that answers with a `Response`, an outbound call that returns one
+- [API](/webwire/api/): every export, with signatures, options, return values and errors
+- [Serving](/webwire/serving/): `IncomingMessage` in, `Response` out; reverse-proxy hosts, streaming, cookies, trailers, WebSocket upgrades
+- [Calling out](/webwire/calling-out/): `Request` in, `http.request()` options out, `Response` back; buffered and streamed bodies, proxying
+- [Limitations and traps](/webwire/limitations/): what fails quietly, traps first
+
+## What it deliberately is not
+
+It does not route, parse bodies, or make requests. `toNodeRequestOptions()`
+returns plain data and leaves issuing the request to you, and `toWebResponse()`
+does not read the response it is given. If you want a server built on this
+conversion, see [leserve](/leserve/).
+
+## Family
+
+webwire was extracted from the code its siblings had each grown a copy of. Some
+depend on it; the others share a theme.
+
+- **[leserve](/leserve/)**: a `serve()` that takes a plain `(Request) => Response`
+  handler. Its published `0.1.0` has a hard dependency on `@johnhenry/webwire`; `serve()`
+  uses `toWebRequest()` and `writeWebResponse()`, and leserve keeps the old
+  `leserve/node-request` and `leserve/node-to-web` subpaths as re-exports of
+  `toWebRequest()` and `toWebResponse()`.
+- **[servant](/servant/)**: depends on leserve, for `toWebRequest()` via
+  `leserve/node-request`, so it reaches webwire only transitively. That dependency is
+  the evidence the conversion was useful apart from running a server.
+- **[dialback](/dialback/)**: its `Server` had reimplemented both server-side
+  conversions. The dialback repository's `main` now declares `@johnhenry/webwire` as a
+  dependency; the published `0.0.3` does not.
+- **[prism](https://github.com/johnhenry/prism)**: an HTTP inspector whose
+  `timed-fetch.mjs` calls `toNodeRequestOptions()` for connection details and keeps its
+  own socket-timing hooks. Its `main` declares the dependency; it has no docs section
+  here and is not on npm.
+- **[http-converter](/http-converter/)** and **[http-fields](/http-fields/)**: no
+  dependency in either direction; neighbours by topic only. http-converter turns HTTP
+  *text formats* (raw HTTP, HAR, cURL) into `Request`/`Response`; webwire connects
+  those objects to Node's sockets. http-fields parses the structured values inside
+  headers.
+
+## License
+
+MIT
+
+## Source
+
+[github.com/johnhenry/webwire](https://github.com/johnhenry/webwire) ·
+[npm](https://www.npmjs.com/package/@johnhenry/webwire)

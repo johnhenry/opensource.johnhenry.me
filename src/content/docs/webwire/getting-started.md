@@ -1,0 +1,89 @@
+---
+title: "Getting started"
+description: "Install @johnhenry/webwire, answer a Node request with a Web Response, and make an outbound call that returns one."
+sidebar:
+  order: 1
+---
+
+## Install
+
+```sh
+npm install @johnhenry/webwire
+```
+
+Node 26 or newer. The package is ESM only (`"type": "module"`), with no
+dependencies.
+
+```js
+import {
+  toWebRequest, toWebResponse, writeWebResponse,
+  toNodeRequestOptions, setTrailers, getTrailers,
+} from "@johnhenry/webwire";
+```
+
+Each function also has its own subpath: `@johnhenry/webwire/to-web-request`,
+`/to-web-response`, `/write-web-response`, `/to-node-request-options`, and
+`/trailers`. Each of those modules exports its function both by name and as the
+default export.
+
+## First conversion: a server
+
+Convert the incoming request, build a `Response`, write it back:
+
+```js
+import http from "node:http";
+import { toWebRequest, writeWebResponse } from "@johnhenry/webwire";
+
+const server = http.createServer(async (req, res) => {
+  const request = toWebRequest(req);
+  const { pathname } = new URL(request.url);
+  await writeWebResponse(new Response(`Hello from ${pathname}`), res);
+});
+server.listen(8000);
+```
+
+`toWebRequest()` builds an absolute URL from `req.url` and the `Host` header, so
+`request.url` is `http://localhost:8000/...` here, not just a path. A non-GET/HEAD
+request carries `req` itself as its streamed body, so `await request.json()` or
+`request.text()` works as usual.
+
+Two things this example leaves out, both covered in [Serving](/webwire/serving/):
+`toWebRequest()` can throw (an unparseable request target is tagged `.status = 400`),
+and `writeWebResponse()` never throws about a streamed body failing midway; it calls
+`onError` instead.
+
+## First conversion: a client
+
+`toNodeRequestOptions()` turns a `Request` into the options for `http.request()`;
+`toWebResponse()` turns the response Node hands back into a `Response`:
+
+```js
+import http from "node:http";
+import https from "node:https";
+import { toNodeRequestOptions, toWebResponse } from "@johnhenry/webwire";
+
+function nodeFetch(request) {
+  const { isHTTPS, requestOptions } = toNodeRequestOptions(request);
+  const doRequest = isHTTPS ? https.request : http.request;
+  return new Promise((resolve, reject) => {
+    const req = doRequest(requestOptions, async (nodeRes) => {
+      const chunks = [];
+      for await (const chunk of nodeRes) chunks.push(chunk);
+      resolve(toWebResponse(nodeRes, Buffer.concat(chunks)));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+const res = await nodeFetch(new Request("http://localhost:8000/hi"));
+console.log(res.status, await res.text());
+```
+
+This sends no body. `toNodeRequestOptions()` returns plain data and leaves the
+request body to you; see [Calling out](/webwire/calling-out/).
+
+## Next
+
+- [API](/webwire/api/) for every option and error.
+- [Limitations and traps](/webwire/limitations/) before you put this in front of real traffic.

@@ -260,3 +260,15 @@ header.header {
 .only-dark { display: none; }
 [data-theme='dark'] .only-dark { display: inline; }
 [data-theme='dark'] .only-light { display: none; }
+/* webwire (2026-10): hue-shares leserve's stop (208), with letterpress and
+   servant. Genuine package-level link, not a thematic one, verified against
+   the registry and npm: @johnhenry/leserve@0.1.0 on the registry has a hard
+   dependency on @johnhenry/webwire ^0.0.0 (its serve.mjs imports
+   toWebRequest and writeWebResponse from it, and its node-request /
+   node-to-web subpaths re-export webwire's functions); servant reaches it
+   through leserve. Not shared with http-converter or http-fields: neither has
+   any dependency on webwire in either direction (they handle HTTP text
+   formats and Structured Field Values, not Node sockets), so the closeness
+   is thematic only. This also avoids a 23rd fallback stop while every gap is
+   20 degrees or less. */
+:root[data-tool='webwire']          { --hue: 208; }

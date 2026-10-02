@@ -89,6 +89,7 @@ export default defineConfig({
           { label: 'html-modules', directory: 'html-modules' },
           { label: 'safe-fragment', directory: 'safe-fragment' },
           { label: 'domkit', directory: 'domkit' },
+          { label: 'webwire', directory: 'webwire' },
         ].map(({ label, directory }) => ({
           label,
           collapsed: true,
