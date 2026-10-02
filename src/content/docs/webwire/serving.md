@@ -56,8 +56,10 @@ const request = toWebRequest(req, { hostHeaders: ["x-forwarded-host", "host"] })
 Only do this when a proxy you control sets that header and strips the client's copy.
 The first header present wins, with no checks, so a client that can send
 `X-Forwarded-Host` directly chooses `request.url`'s host. The scheme is not derived from
-`X-Forwarded-Proto`; it is always `http:`. Read the forwarded protocol yourself if you
-need it.
+`X-Forwarded-Proto`. It is `https:` only when the connection to your server is itself TLS
+(`req.socket.encrypted`, from 0.0.1; 0.0.0 always used `http:`). Behind a TLS-terminating
+proxy it is `http:`, so read the forwarded protocol yourself if you need it. Header names
+in `hostHeaders` are case-insensitive from 0.0.1.
 
 ## Streaming bodies
 
