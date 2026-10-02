@@ -54,6 +54,8 @@ autocomplete data (`vscode.html-custom-data.json`).
 | [`<tabbed-ui>`](https://github.com/johnhenry/domkit/tree/main/src/tabbed-ui) | Accessible tabs from plain children |
 | [`<stylable-select>`](https://github.com/johnhenry/domkit/tree/main/src/stylable-select) | A listbox you can fully style, with a native `<select>`'s API, forms, and keyboard |
 | [`<infinite-combo-box>`](https://github.com/johnhenry/domkit/tree/main/src/infinite-combo-box) | Autocomplete: filters its own options, or searches a URL or function as you type, paging in more results as you scroll |
+| [`<swipe-input>`](https://github.com/johnhenry/domkit/tree/main/src/swipe-input) | Swipe gestures that send invoker commands, one per direction |
+| [`<gamepad-input>`](https://github.com/johnhenry/domkit/tree/main/src/gamepad-input) | Game controller buttons that send invoker commands |
 | [`<hot-key>`](https://github.com/johnhenry/domkit/tree/main/src/hot-key) | Keyboard shortcuts that toggle a native `<dialog>` or popover, or run any invoker command |
 | [`<drill-menu>`](https://github.com/johnhenry/domkit/tree/main/src/drill-menu) | A list that drills into sub-screens and back, optionally synced to the URL |
 | [`<code-color>`](https://github.com/johnhenry/domkit/tree/main/src/code-color) | Syntax highlighting that never changes your markup |
@@ -119,13 +121,16 @@ in a `<pixel-canvas>` and list effects like CSS `filter`, left to right:
 | `wave(amplitude, wavelength, speed)` | Rows rippling along a moving wave |
 
 Every effect is also an element (`<pixel-mosaic size="4">`, …) to wrap
-around the source. Beyond the built-ins:
+around the source. `grid(8, transparent, 3)` cuts tiles apart instead of
+drawing lines. Beyond the built-ins:
 
 - **Your own effects:** `definePixelEffect(name, fn)` registers both
   forms; [`<pixel-shader>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-shader) and
   `definePixelShader()` run GLSL on the GPU.
 - **Animation:** `fps` on the canvas drives effects that change over
   time, with `play()`/`pause()`; videos and sprites redraw every frame.
+- **Your own sources:** any element with a `canvas` property that fires
+  `framechange` (a game, a visualization) can be the source.
 - **Pixel art as text:** [`<pixel-sprite>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-sprite),
   one character per pixel, with animation frames.
 - **Theme from a picture:** `swatches="3" swatches-target="html"`
