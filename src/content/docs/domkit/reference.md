@@ -394,7 +394,7 @@ A pixel effect: brightness, contrast, saturation, and hue. [Guide](https://githu
 
 ## `<pixel-canvas>`
 
-Pixel effects on any image, video, or canvas, by wrapping it in effect elements. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-canvas/readme.md) · module `@johnhenry/domkit/pixelable/pixel-canvas`
+Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-canvas/readme.md) · module `@johnhenry/domkit/pixelable/pixel-canvas`
 
 **Attributes**
 
@@ -403,14 +403,23 @@ Pixel effects on any image, video, or canvas, by wrapping it in effect elements.
 | `width` | `width` | `number` | Working width in pixels: the source is scaled to it (keeping its aspect ratio) before the effects run. Smaller is faster and chunkier. Default: the source's own width. |
 | `height` | `height` | `number` | Working height, if `width` isn't given. |
 | `effects` | `effects` | `string` | Effects to apply, in order, like CSS `filter`: `mosaic(4) palette(gameboy, ordered) adjust(contrast 1.3)`. They run after any effect elements inside. |
+| `swatches` | `swatches` | `number` | Publish the result's N most common colors as `--pixel-swatch-1` … `--pixel-swatch-N` custom properties (and the `palette` property). Default: none. |
+| `swatches-target` | `swatchesTarget` | `string` | A selector for more elements to set those custom properties on (for example `html`, to theme the page). They're always set on the `<pixel-canvas>` itself. |
+| `fps` |  | `number` | Redraw at this rate, so effects that change over time (`glitch`, `wave`, your own) animate even on a still image. Without it, it redraws only when something changes (or every frame of a playing video). |
+| `paused` | `paused` | `boolean` | Stops the clock effects animate by, and the `fps` redraws. Reflects; write it in markup to start paused. |
 
 **Properties**
 
 | Property | Type | Description |
 |---|---|---|
-| `source` (read-only) | `HTMLImageElement \| HTMLVideoElement \| HTMLCanvasElement \| null` | The image, video, or canvas being drawn: the first one inside. |
+| `time` (read-only) | `number` | Seconds on the clock that effects animate by. It runs while the element is connected and not paused (and, for visitors who prefer reduced motion, only once `play()` is called). |
+| `paused` (read-only) | `boolean` | Whether the clock is paused. |
+| `source` (read-only) | `Element \| null` | The image, video, canvas, or `<pixel-sprite>` being drawn: the first one inside. |
 | `effectElements` (read-only) | `Element[]` | The effect elements wrapped around the source, in the order they run (innermost first). Disabled ones are included. |
 | `effects` | `string` | Mirrors the `effects` attribute. |
+| `swatches` | `number` | How many swatches to publish. Mirrors the `swatches` attribute. |
+| `swatchesTarget` | `string` | Mirrors the `swatches-target` attribute. |
+| `palette` (read-only) | `string[]` | With `swatches`: the result's most common colors, as `#rrggbb`, most common first. Empty otherwise. |
 | `canvas` (read-only) | `HTMLCanvasElement` | The canvas showing the result (in the shadow root). |
 | `width` | `number` | Mirrors the `width` attribute. |
 | `height` | `number` | Mirrors the `height` attribute. |
@@ -419,6 +428,8 @@ Pixel effects on any image, video, or canvas, by wrapping it in effect elements.
 
 | Method | Description |
 |---|---|
+| `play()` | Start or resume the clock (and the `fps` redraws). |
+| `pause()` | Pause the clock where it is. |
 | `render()` | Draw now, instead of on the next frame. Returns whether it drew. |
 | `toBlob(type, quality)` | The result as an image file, like `HTMLCanvasElement.toBlob()`. |
 | `toDataURL(type, quality)` | The result as a data: URL, like `HTMLCanvasElement.toDataURL()`. |
@@ -427,7 +438,10 @@ Pixel effects on any image, video, or canvas, by wrapping it in effect elements.
 
 | Event | Description |
 |---|---|
+| `play` | The clock started or resumed. |
+| `pause` | The clock paused. |
 | `load` | The first frame of a source was drawn. |
+| `palettechange` | With `swatches`: the published colors changed. |
 | `error` | The source can't be read (for example, a cross-origin image without CORS) or an effect threw: an `ErrorEvent`, and the original content is shown instead. Also fired, once per name, for an unknown effect in `effects`, which is skipped. |
 
 ## `<pixel-chroma-key>`
@@ -454,6 +468,18 @@ A pixel effect: an old CRT screen. [Guide](https://github.com/johnhenry/domkit/b
 | `scanlines` |  | `number` | How much alternate rows are darkened, 0–1. Default 0.35. |
 | `mask` |  | `number` | Strength of the color stripe mask, 0–1. Default 0.25. |
 | `glow` |  | `number` | Overall brightness boost. Default 1.15. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+## `<pixel-glitch>`
+
+A pixel effect: animated digital glitches. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-glitch/readme.md) · module `@johnhenry/domkit/pixelable/pixel-glitch`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `amount` |  | `number` | How broken, 0 (none) to 1. Default 0.3. |
+| `rate` |  | `number` | New glitches per second of the canvas clock. Default 8. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<pixel-grid>`
@@ -515,15 +541,96 @@ A pixel effect: limit colors to a palette, with dithering. [Guide](https://githu
 
 | Attribute | Property | Type | Description |
 |---|---|---|---|
-| `colors` |  | `string` | A named palette (`1bit`, `gameboy`, `grayscale`, `cga`, `sepia`, `pico-8`) or space-separated CSS colors. Default `1bit`. |
+| `colors` |  | `string` | A named palette (`1bit`, `gameboy`, `grayscale`, `cga`, `sepia`, `pico-8`), space-separated CSS colors, or `auto` (the image's own dominant colors). Default `1bit`. |
 | `dither` |  | `string` | `none` (default), `floyd-steinberg` (error diffusion), or `ordered` (a 4×4 Bayer pattern). |
+| `count` |  | `number` | With `colors="auto"`: how many colors to pick. Default 8. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 **Properties**
 
 | Property | Type | Description |
 |---|---|---|
-| `palette` (read-only) | `number[][]` | The resolved palette, as `[r, g, b]` triples. |
+| `palette` (read-only) | `number[][]` | The resolved palette, as `[r, g, b]` triples. Empty for `auto`, which depends on the image (see `<pixel-canvas>`'s `palette`). |
+
+## `<pixel-shader>`
+
+A pixel effect written as a GLSL fragment shader, run on the GPU. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-shader/readme.md) · module `@johnhenry/domkit/pixelable/pixel-shader`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `source` (read-only) | `string` | The shader's code: the text of its `<script type="x-shader/x-fragment">` child. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `apply(image, context)` |  |
+
+## `<pixel-sprite>`
+
+Pixel art written as text, with animation frames. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-sprite/readme.md) · module `@johnhenry/domkit/pixelable/pixel-sprite`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `colors` |  | `string` | What each character means: `char color` pairs separated by `;` (`. transparent; # black; o gold`), or a named palette whose colors are numbered `0`–`9` then `a`–`z` (`pico-8`, the default; `gameboy`; `1bit`; …). `.` is transparent unless you say otherwise. |
+| `fps` |  | `number` | Play the frames at this rate. Without it (or with one frame), it's still. |
+| `paused` | `paused` | `boolean` | Whether the animation is paused. Reflects; write it in markup to start paused. |
+| `alt` |  | `string` | A text alternative, as on `<img>`. An empty `alt` marks it decorative. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `canvas` (read-only) | `HTMLCanvasElement` | The canvas it's drawn on (in the shadow root), at one pixel per character. |
+| `frames` (read-only) | `number` | How many frames there are. |
+| `frame` | `number` | The frame showing, from 0. Setting it shows that frame (wrapping). |
+| `paused` (read-only) | `boolean` | Whether the animation is paused. |
+| `width` | `number` |  |
+| `height` | `number` |  |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `play()` | Play the frames (at `fps`). |
+| `pause()` | Pause on the current frame. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `play` | The animation started or resumed. |
+| `pause` | The animation paused. |
+| `framechange` | It was redrawn: the frame advanced, or its pixels or colors changed. |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-sprite-scale` | How many screen pixels each sprite pixel takes. Default 8. |
+
+## `<pixel-wave>`
+
+A pixel effect: an animated wave. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-wave/readme.md) · module `@johnhenry/domkit/pixelable/pixel-wave`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `amplitude` |  | `number` | How far rows move, in pixels. Default 4. |
+| `wavelength` |  | `number` | Rows per wave. Default 32. |
+| `speed` |  | `number` | Waves per second on the canvas clock (negative reverses). Default 0.5. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<polyfill-window>`
 
