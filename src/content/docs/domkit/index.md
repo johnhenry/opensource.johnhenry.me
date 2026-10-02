@@ -1,6 +1,6 @@
 ---
 title: "domkit"
-description: "Custom elements that behave like native HTML — tabs, stylable selects, autocomplete, drill-down menus, media-query containers, theme switches, syntax highlighting. One script tag each, no build step, no dependencies."
+description: "Custom elements that behave like native HTML — tabs, stylable selects, autocomplete, drill-down menus, media-query containers, theme switches, syntax highlighting, charts, and pixel effects. One script tag each, no build step, no dependencies."
 sidebar:
   order: 0
 ---
@@ -86,15 +86,39 @@ autocomplete data (`vscode.html-custom-data.json`).
 [`localstorage-cycler`](https://github.com/johnhenry/domkit/tree/main/src/cyclable/localstorage-cycler)
 engine behind `<attribute-cycler>`.
 
-### Experimental
+### Data and graphics
 
-[`experimental/`](https://github.com/johnhenry/domkit/tree/main/src/experimental)
-holds sketches with no stability promise: a canvas pixel pipeline,
-self-drawing SVG paths, a CSS scatter plot, and Chernoff faces.
+| Element | What it's for |
+|---|---|
+| [`<scatter-plot>`](https://github.com/johnhenry/domkit/tree/main/src/scatter-plot) | A scatter plot of a point you design, styled with ordinary CSS |
+| [`<chernoff-face>`](https://github.com/johnhenry/domkit/tree/main/src/chernoff-face) | A face whose features show data, each a number from 0 to 1 |
+| [`<draw-svg>`](https://github.com/johnhenry/domkit/tree/main/src/draw-svg) | SVG strokes that draw themselves in, CSP-safe and reduced-motion aware |
+
+### Pixel effects
+
+Wrap an image, video, or canvas in effects, inside a `<pixel-canvas>`:
+
+```html
+<pixel-canvas width="160">
+  <pixel-palette colors="gameboy" dither="ordered">
+    <pixel-mosaic size="2"><img src="photo.jpg" alt="Our cat"></pixel-mosaic>
+  </pixel-palette>
+</pixel-canvas>
+```
+
+| Element | What it's for |
+|---|---|
+| [`<pixel-canvas>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-canvas) | Draws its source through the effects around it, every frame for a playing video |
+| [`<pixel-mosaic>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-mosaic) | Pixelate into blocks |
+| [`<pixel-palette>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-palette) | Limit to a palette (Game Boy, PICO-8, 1-bit, any colors), with dithering |
+| [`<pixel-grid>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-grid) | Grid lines between cells |
+
+Write your own effect with `definePixelFilter()`; see the
+[pixelable readme](https://github.com/johnhenry/domkit/blob/main/src/pixelable/readme.md).
 
 ## Stability
 
-Everything outside `experimental/` follows semver from 0.1.0: while the
+Every module follows semver from 0.1.0: while the
 version is `0.x`, breaking changes only land in a minor release, and are
 always listed in the
 [changelog](https://github.com/johnhenry/domkit/blob/main/CHANGELOG.md).

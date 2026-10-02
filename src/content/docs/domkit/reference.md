@@ -41,6 +41,7 @@ A persisted attribute or class switch (e.g. a theme toggle) driven by buttons. [
 |---|---|
 | `next()` | Move to the next value (wrapping), without an event. |
 | `previous()` | Move to the previous value (wrapping), without an event. |
+| `reset()` | Forget the stored value and go back to the default (the `value` attribute as first written, or the first value), without an event. |
 
 **Events**
 
@@ -60,6 +61,50 @@ Add classes, styles, and attributes to children by media query. [Guide](https://
 | `styles` |  | `string` | `[media query] property: value; … \| …` sections. |
 | `attributes` |  | `string` | `[media query] name=value; name; name=null \| …` sections. `null` removes the attribute while the query matches. |
 | `container` |  | `string` | Container mode: evaluate the queries against an element's size instead of the viewport. Empty = the parent element; otherwise a selector for the closest matching ancestor. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `activeQueries` (read-only) | `string[]` | The media (or container) queries that currently match, across `classes`, `styles`, and `attributes`, without duplicates. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `change` | A query started or stopped matching (the viewport or container changed), so `activeQueries` changed and the children were updated. |
+
+## `<chernoff-face>`
+
+A face whose features show data: each is a number from 0 to 1. [Guide](https://github.com/johnhenry/domkit/blob/main/src/chernoff-face/readme.md) · module `@johnhenry/domkit/chernoff-face`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `face-width` |  | `number` | 0 narrow … 1 wide. Default 0.5, like every feature. |
+| `eye-size` |  | `number` | 0 small … 1 large eyes. |
+| `eye-spacing` |  | `number` | 0 close … 1 far-apart eyes. |
+| `pupil-size` |  | `number` | 0 small … 1 large pupils. |
+| `gaze` |  | `number` | 0 looking left … 1 looking right. |
+| `brow-slant` |  | `number` | 0 angry … 1 worried brows. |
+| `nose-length` |  | `number` | 0 short … 1 long nose. |
+| `mouth-width` |  | `number` | 0 narrow … 1 wide mouth. |
+| `smile` |  | `number` | 0 frown … 1 smile. |
+| `mouth-open` |  | `number` | 0 closed … 1 open mouth. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `features` | `Record<string, number>` | Every feature's current value (0–1), keyed in camelCase (`{ eyeSize: 0.5, smile: 0.9, … }`). Setting it writes the matching attributes; keys you leave out are unchanged. |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-face-fill` | Fill of the face (index.css). |
+| `--domkit-face-stroke` | Line color (index.css; defaults to currentColor). |
 
 ## `<code-color>`
 
@@ -110,6 +155,48 @@ Register a custom element in HTML, from a module or from inline markup. [Guide](
 |---|---|
 | `load` | The element is registered (or the name already was). |
 | `error` | No source or two sources, an invalid name or mode, or (with `src`) the module failed to load, lacked the export, or the export isn't a class. An `ErrorEvent`. |
+
+## `<draw-svg>`
+
+Self-drawing SVG strokes, CSP-safe and reduced-motion aware. [Guide](https://github.com/johnhenry/domkit/blob/main/src/draw-svg/readme.md) · module `@johnhenry/domkit/draw-svg`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `duration` |  | `string` | How long each shape takes to draw: `2s`, `400ms`, or milliseconds. Default `2s`. |
+| `delay` |  | `string` | Wait before the first shape starts. Default `0`. |
+| `stagger` |  | `string` | Extra delay for each next shape, so they draw one after another. Default `0` (together). |
+| `easing` |  | `string` | A CSS easing function. Default `ease-in-out`. |
+| `iterations` |  | `string` | How many times to draw: a number or `infinite`. Default `1`. |
+| `direction` |  | `string` | `normal`, `reverse`, `alternate`, or `alternate-reverse`, as in CSS animations. |
+| `erase` |  | `boolean` | After drawing in, keep going until the stroke has wiped itself out from its start. |
+| `select` |  | `string` | Which shapes to animate, as a selector. Default: every path, line, polyline, polygon, circle, ellipse, and rect. |
+| `paused` | `paused` | `boolean` | Whether it's paused. Reflects; write it in markup to start paused (strokes hidden). |
+| `start` |  | `string` | `visible`: wait to play until the drawing scrolls into view. Default: play on connect. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `paused` (read-only) | `boolean` | Whether it's paused. |
+| `shapes` (read-only) | `SVGGeometryElement[]` | The shapes being animated. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `play()` | Start or resume drawing. |
+| `pause()` | Pause where it is. |
+| `restart()` | Draw again from the start (and play, unless paused). |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `play` | It started or resumed. |
+| `pause` | It paused. |
+| `ended` | Every shape finished drawing (not for `iterations="infinite"`). Invoker commands: `--play`, `--pause`, `--toggle`, and `--restart` (`<button commandfor="logo" command="--restart">`). |
 
 ## `<drill-menu>`
 
@@ -177,7 +264,7 @@ A frame-paced ticking clock with play/pause. [Guide](https://github.com/johnhenr
 | Event | Description |
 |---|---|
 | `play` | The timer started (or resumed). |
-| `pause` | The timer paused. |
+| `pause` | The timer paused. Invoker commands: `--play`, `--pause`, and `--toggle` (`<button commandfor="clock" command="--toggle">`). |
 | `tick` | Once per period while playing. Read `ticks` for the count. |
 
 ## `<hot-key>`
@@ -291,6 +378,114 @@ An accessible autocomplete with paged ("infinite") results. [Guide](https://gith
 | `--domkit-highlight` | Background of the active option (shared token; see theme.css). |
 | `--domkit-surface` | Background of the popup list (shared token). |
 
+## `<pixel-canvas>`
+
+Pixel effects on any image, video, or canvas, by wrapping it in effect elements. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-canvas/readme.md) · module `@johnhenry/domkit/pixelable/pixel-canvas`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `width` | `width` | `number` | Working width in pixels: the source is scaled to it (keeping its aspect ratio) before the effects run. Smaller is faster and chunkier. Default: the source's own width. |
+| `height` | `height` | `number` | Working height, if `width` isn't given. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `source` (read-only) | `HTMLImageElement \| HTMLVideoElement \| HTMLCanvasElement \| null` | The image, video, or canvas being drawn: the first one inside. |
+| `effects` (read-only) | `Element[]` | The effect elements applied to the source, in the order they run (innermost first). Disabled ones are included. |
+| `canvas` (read-only) | `HTMLCanvasElement` | The canvas showing the result (in the shadow root). |
+| `width` | `number` | Mirrors the `width` attribute. |
+| `height` | `number` | Mirrors the `height` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `render()` | Draw now, instead of on the next frame. Returns whether it drew. |
+| `toBlob(type, quality)` | The result as an image file, like `HTMLCanvasElement.toBlob()`. |
+| `toDataURL(type, quality)` | The result as a data: URL, like `HTMLCanvasElement.toDataURL()`. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `load` | The first frame of a source was drawn. |
+| `error` | The source can't be read (for example, a cross-origin image without CORS) or an effect threw. An `ErrorEvent`; the original content is shown instead. |
+
+## `<pixel-grid>`
+
+A pixel effect: grid lines between cells. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-grid/readme.md) · module `@johnhenry/domkit/pixelable/pixel-grid`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `size` | `size` | `number` | Cell size, in the working image's pixels. Default 8. |
+| `color` |  | `string` | Line color, any CSS color (transparency blends). Default `rgb(0 0 0 / 0.35)`. |
+| `line` |  | `number` | Line thickness in pixels. Default 1. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `size` | `number` | Cell size. Mirrors the `size` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `apply(image)` |  |
+
+## `<pixel-mosaic>`
+
+A pixel effect: pixelate into blocks of one color. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-mosaic/readme.md) · module `@johnhenry/domkit/pixelable/pixel-mosaic`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `size` | `size` | `number` | Block size, in the working image's pixels. Default 8. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `size` | `number` | Block size. Mirrors the `size` attribute. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `apply(image)` |  |
+
+## `<pixel-palette>`
+
+A pixel effect: limit colors to a palette, with dithering. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-palette/readme.md) · module `@johnhenry/domkit/pixelable/pixel-palette`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `colors` |  | `string` | A named palette (`1bit`, `gameboy`, `grayscale`, `cga`, `sepia`, `pico-8`) or space-separated CSS colors. Default `1bit`. |
+| `dither` |  | `string` | `none` (default), `floyd-steinberg` (error diffusion), or `ordered` (a 4×4 Bayer pattern). |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `palette` (read-only) | `number[][]` | The resolved palette, as `[r, g, b]` triples. |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `apply(image)` |  |
+
 ## `<polyfill-window>`
 
 Load a module's export onto window, in HTML. [Guide](https://github.com/johnhenry/domkit/blob/main/src/definable/polyfill-window/readme.md) · module `@johnhenry/domkit/definable/polyfill-window`
@@ -324,18 +519,59 @@ Swap the element wrapping some content by media query. [Guide](https://github.co
 
 | Attribute | Property | Type | Description |
 |---|---|---|---|
-| `default` |  | `string` | Wrapper when no query matches, as a simple selector (`ul`, `ol.steps`, `div#x[data-y=z]`). Defaults to the first section's. |
-| `query` |  | `string` | `[media query] selector` sections separated by `\|`. The last matching section wins. |
+| `default` | `default` | `string` | Wrapper when no query matches, as a simple selector (`ul`, `ol.steps`, `div#x[data-y=z]`). Defaults to the first section's. |
+| `query` | `query` | `string` | `[media query] selector` sections separated by `\|`. The last matching section wins. |
 | `container` |  | `string` | Container mode: evaluate the queries against an element's size instead of the viewport. Empty = the parent element; otherwise a selector for the closest matching ancestor. |
 
-**Methods**
+**Properties**
 
-| Method | Description |
+| Property | Type | Description |
+|---|---|---|
+| `default` | `string` | Mirrors the `default` attribute. |
+| `query` | `string` | Mirrors the `query` attribute. |
+| `activeQueries` (read-only) | `string[]` | The media (or container) queries that currently match, in the order they're written. |
+| `wrapper` (read-only) | `Element \| null` | The element currently wrapping the children. |
+
+**Events**
+
+| Event | Description |
 |---|---|
-| `setInitial(selector)` |  |
-| `setQueries(queries)` |  |
-| `triggerQuery()` |  |
-| `update()` |  |
+| `change` | A query started or stopped matching (the viewport or container changed), so `activeQueries` changed. The wrapper may have been swapped. |
+
+## `<scatter-plot>`
+
+A scatter plot of a point template, styled with ordinary CSS. [Guide](https://github.com/johnhenry/domkit/blob/main/src/scatter-plot/readme.md) · module `@johnhenry/domkit/scatter-plot`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `data` | `data` | `string` | JSON array of points: `[x, y]` pairs, or `{ x, y, … }` objects whose other keys become attributes on that point. |
+| `x-min` |  | `number` | The x value at the left edge. Default: the smallest x, or 0 if that's positive. |
+| `x-max` |  | `number` | The x value at the right edge. Default: the largest x. |
+| `y-min` |  | `number` | The y value at the bottom edge. Default: the smallest y, or 0 if that's positive. |
+| `y-max` |  | `number` | The y value at the top edge. Default: the largest y. |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `data` | `Array<[number, number] \| { x: number, y: number, [attribute: string]: unknown }>` | The points. Setting it replots (and doesn't touch the `data` attribute, so it can hold values JSON can't). |
+| `domain` (read-only) | `{ xMin: number, xMax: number, yMin: number, yMax: number }` | The plotted range, after defaults: `{ xMin, xMax, yMin, yMax }`. |
+| `points` (read-only) | `Element[]` | The point elements now plotted, in data order. |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `error` | The `data` attribute isn't a JSON array. An `ErrorEvent`; the previous data stays plotted. |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-point-size` | Size of the default point (index.css). |
+| `--domkit-accent` | Color of the default point (shared token; see theme.css). |
 
 ## `<stylable-select>`
 
@@ -378,6 +614,9 @@ A fully stylable listbox that works like a native select. [Guide](https://github
 | Method | Description |
 |---|---|
 | `item(index)` | The option at `index`. |
+| `namedItem(name)` | The first option whose `id` or `name` is `name`, like a select's. |
+| `add(element, before)` | Add an option or optgroup, like a select's `add()`: before `before` (an option element or an index), or at the end. Throws a `NotFoundError` if `before` is an element that isn't in this list. |
+| `remove(index)` | With an index, remove that option, like a select's `remove(index)`. With no argument, remove this element itself, as on any element. |
 | `checkValidity()` |  |
 | `reportValidity()` |  |
 | `setCustomValidity(message)` |  |
@@ -407,7 +646,7 @@ Accessible tabs and panels from plain children. [Guide](https://github.com/johnh
 |---|---|---|---|
 | `selected-index` | `selectedIndex` | `number` | Index of the selected tab. Reflects the current selection. |
 | `manual` | `manual` | `boolean` | Arrow keys move focus only; Enter/Space selects (manual activation). |
-| `disabled` | `disabled` | `boolean` | No tab can be selected by the user, and the tabs leave the tab order. Panels stay as they are. |
+| `disabled` | `disabled` | `boolean` | No tab can be selected by the user (or by commands), and the tabs leave the tab order. Panels stay as they are. |
 
 **Properties**
 
@@ -420,11 +659,18 @@ Accessible tabs and panels from plain children. [Guide](https://github.com/johnh
 | `selectedIndex` | `number` | Index of the selected tab. Setting it does not fire `change`. |
 | `manual` | `boolean` | With `manual`, arrow keys move focus and Enter/Space selects. |
 
+**Methods**
+
+| Method | Description |
+|---|---|
+| `next()` | Select the next enabled tab (wrapping), without an event. |
+| `previous()` | Select the previous enabled tab (wrapping), without an event. |
+
 **Events**
 
 | Event | Description |
 |---|---|
-| `change` | The user selected a different tab (click or keyboard). Not fired for script changes. |
+| `change` | The user selected a different tab (click, keyboard, or an invoker command). Not fired for script changes. |
 
 **CSS custom properties**
 
