@@ -3,7 +3,7 @@ title: "Security model"
 description: "generateWorkerCode() does not parse, sandbox, or validate its input in any way — it is plain string interpolation into a JS source string, equivalent to eval() with a Worker/Blob indirection on top."
 ---
 
-`generateWorkerCode(signalCode, name?)` (in `signalle/broadcast`) does not
+`generateWorkerCode(signalCode, name?)` (in `@johnhenry/signalle/broadcast`) does not
 parse, sandbox, or validate `signalCode` in any way. It is plain string
 interpolation into a JS source string:
 

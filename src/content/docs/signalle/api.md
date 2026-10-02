@@ -106,8 +106,8 @@ createEffect(() => {
 ## DOM integration
 
 ```javascript
-import { signal } from 'signalle';
-import { bind, bindAttribute, bindClass } from 'signalle/dom';
+import { signal } from '@johnhenry/signalle';
+import { bind, bindAttribute, bindClass } from '@johnhenry/signalle/dom';
 
 // Create a two-way binding with an input element
 const nameInput = document.querySelector('#name-input');
@@ -141,8 +141,8 @@ Available bindings:
 ## Server-side streaming
 
 ```js
-import { signal } from 'signalle';
-import { toSSEResponse } from 'signalle/stream';
+import { signal } from '@johnhenry/signalle';
+import { toSSEResponse } from '@johnhenry/signalle/stream';
 
 const feed = signal({ count: 0 });
 
@@ -177,7 +177,7 @@ need the stream itself rather than a full `Response`.
 ## Scoped signals
 
 ```js
-import { createScope } from 'signalle/scope';
+import { createScope } from '@johnhenry/signalle/scope';
 
 const scope = createScope();
 
@@ -236,7 +236,7 @@ Signals that stay in sync across browser tabs, iframes, or workers via
 `BroadcastChannel`.
 
 ```js
-import { createBroadcastSignal } from 'signalle/broadcast';
+import { createBroadcastSignal } from '@johnhenry/signalle/broadcast';
 
 // Every `createBroadcastSignal(initial, channelName)` call that shares the
 // same channel name — in any tab, iframe, or worker — stays in sync.
@@ -277,7 +277,7 @@ factory (bound to `name`, default `'createBroadcastSignal'`), so it can be
 dropped into a `Worker`/`Blob` URL without a bundler:
 
 ```js
-import { generateWorkerCode } from 'signalle/broadcast';
+import { generateWorkerCode } from '@johnhenry/signalle/broadcast';
 
 const workerCode = generateWorkerCode(`
   const sharedCount = createBroadcastSignal(0, 'shared-count');
