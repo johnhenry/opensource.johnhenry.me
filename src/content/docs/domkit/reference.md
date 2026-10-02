@@ -378,6 +378,20 @@ An accessible autocomplete with paged ("infinite") results. [Guide](https://gith
 | `--domkit-highlight` | Background of the active option (shared token; see theme.css). |
 | `--domkit-surface` | Background of the popup list (shared token). |
 
+## `<pixel-adjust>`
+
+A pixel effect: brightness, contrast, saturation, and hue. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-adjust/readme.md) · module `@johnhenry/domkit/pixelable/pixel-adjust`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `brightness` |  | `number` | Multiplier: 1 is unchanged, 0 is black. Default 1. |
+| `contrast` |  | `number` | Multiplier around mid-gray: 1 is unchanged, 0 is flat gray. Default 1. |
+| `saturation` |  | `number` | Multiplier: 1 is unchanged, 0 is grayscale. Default 1. |
+| `hue` |  | `number` | Rotation in degrees. Default 0. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
 ## `<pixel-canvas>`
 
 Pixel effects on any image, video, or canvas, by wrapping it in effect elements. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-canvas/readme.md) · module `@johnhenry/domkit/pixelable/pixel-canvas`
@@ -388,13 +402,15 @@ Pixel effects on any image, video, or canvas, by wrapping it in effect elements.
 |---|---|---|---|
 | `width` | `width` | `number` | Working width in pixels: the source is scaled to it (keeping its aspect ratio) before the effects run. Smaller is faster and chunkier. Default: the source's own width. |
 | `height` | `height` | `number` | Working height, if `width` isn't given. |
+| `effects` | `effects` | `string` | Effects to apply, in order, like CSS `filter`: `mosaic(4) palette(gameboy, ordered) adjust(contrast 1.3)`. They run after any effect elements inside. |
 
 **Properties**
 
 | Property | Type | Description |
 |---|---|---|
 | `source` (read-only) | `HTMLImageElement \| HTMLVideoElement \| HTMLCanvasElement \| null` | The image, video, or canvas being drawn: the first one inside. |
-| `effects` (read-only) | `Element[]` | The effect elements applied to the source, in the order they run (innermost first). Disabled ones are included. |
+| `effectElements` (read-only) | `Element[]` | The effect elements wrapped around the source, in the order they run (innermost first). Disabled ones are included. |
+| `effects` | `string` | Mirrors the `effects` attribute. |
 | `canvas` (read-only) | `HTMLCanvasElement` | The canvas showing the result (in the shadow root). |
 | `width` | `number` | Mirrors the `width` attribute. |
 | `height` | `number` | Mirrors the `height` attribute. |
@@ -412,7 +428,33 @@ Pixel effects on any image, video, or canvas, by wrapping it in effect elements.
 | Event | Description |
 |---|---|
 | `load` | The first frame of a source was drawn. |
-| `error` | The source can't be read (for example, a cross-origin image without CORS) or an effect threw. An `ErrorEvent`; the original content is shown instead. |
+| `error` | The source can't be read (for example, a cross-origin image without CORS) or an effect threw: an `ErrorEvent`, and the original content is shown instead. Also fired, once per name, for an unknown effect in `effects`, which is skipped. |
+
+## `<pixel-chroma-key>`
+
+A pixel effect: make a color transparent (green screen). [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-chroma-key/readme.md) · module `@johnhenry/domkit/pixelable/pixel-chroma-key`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `color` |  | `string` | The color to remove, any CSS color. Default `lime`. |
+| `tolerance` |  | `number` | How different a color can be and still be removed, 0–1. Default 0.3. |
+| `softness` |  | `number` | A fade beyond the tolerance, 0–1, for smooth edges. Default 0.1. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+## `<pixel-crt>`
+
+A pixel effect: an old CRT screen. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-crt/readme.md) · module `@johnhenry/domkit/pixelable/pixel-crt`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `scanlines` |  | `number` | How much alternate rows are darkened, 0–1. Default 0.35. |
+| `mask` |  | `number` | Strength of the color stripe mask, 0–1. Default 0.25. |
+| `glow` |  | `number` | Overall brightness boost. Default 1.15. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<pixel-grid>`
 
@@ -422,22 +464,24 @@ A pixel effect: grid lines between cells. [Guide](https://github.com/johnhenry/d
 
 | Attribute | Property | Type | Description |
 |---|---|---|---|
-| `size` | `size` | `number` | Cell size, in the working image's pixels. Default 8. |
+| `size` |  | `number` | Cell size, in the working image's pixels. Default 8. |
 | `color` |  | `string` | Line color, any CSS color (transparency blends). Default `rgb(0 0 0 / 0.35)`. |
 | `line` |  | `number` | Line thickness in pixels. Default 1. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
-**Properties**
+## `<pixel-halftone>`
 
-| Property | Type | Description |
-|---|---|---|
-| `size` | `number` | Cell size. Mirrors the `size` attribute. |
+A pixel effect: halftone dots, like print. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-halftone/readme.md) · module `@johnhenry/domkit/pixelable/pixel-halftone`
 
-**Methods**
+**Attributes**
 
-| Method | Description |
-|---|---|
-| `apply(image)` |  |
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `size` |  | `number` | Cell size in pixels. Default 6. |
+| `angle` |  | `number` | Grid angle in degrees. Default 45. |
+| `ink` |  | `string` | Dot color, any CSS color, or `auto` for each cell's own color. Default black. |
+| `paper` |  | `string` | Background color. Default white. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<pixel-mosaic>`
 
@@ -447,20 +491,21 @@ A pixel effect: pixelate into blocks of one color. [Guide](https://github.com/jo
 
 | Attribute | Property | Type | Description |
 |---|---|---|---|
-| `size` | `size` | `number` | Block size, in the working image's pixels. Default 8. |
+| `size` |  | `number` | Block size, in the working image's pixels. Default 8. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
-**Properties**
+## `<pixel-outline>`
 
-| Property | Type | Description |
-|---|---|---|
-| `size` | `number` | Block size. Mirrors the `size` attribute. |
+A pixel effect: line art from edges. [Guide](https://github.com/johnhenry/domkit/blob/main/src/pixelable/pixel-outline/readme.md) · module `@johnhenry/domkit/pixelable/pixel-outline`
 
-**Methods**
+**Attributes**
 
-| Method | Description |
-|---|---|
-| `apply(image)` |  |
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `threshold` |  | `number` | Edge strength needed for a line, 0–1. Lower draws more lines. Default 0.2. |
+| `ink` |  | `string` | Line color. Default black. |
+| `paper` |  | `string` | Background color, or `none` to draw the lines over the image. Default white. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<pixel-palette>`
 
@@ -479,12 +524,6 @@ A pixel effect: limit colors to a palette, with dithering. [Guide](https://githu
 | Property | Type | Description |
 |---|---|---|
 | `palette` (read-only) | `number[][]` | The resolved palette, as `[r, g, b]` triples. |
-
-**Methods**
-
-| Method | Description |
-|---|---|
-| `apply(image)` |  |
 
 ## `<polyfill-window>`
 
