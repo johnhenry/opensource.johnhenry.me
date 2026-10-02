@@ -96,25 +96,31 @@ engine behind `<attribute-cycler>`.
 
 ### Pixel effects
 
-Wrap an image, video, or canvas in effects, inside a `<pixel-canvas>`:
+Put an image, video, or canvas in a `<pixel-canvas>` and list effects
+like CSS `filter`, left to right:
 
 ```html
-<pixel-canvas width="160">
-  <pixel-palette colors="gameboy" dither="ordered">
-    <pixel-mosaic size="2"><img src="photo.jpg" alt="Our cat"></pixel-mosaic>
-  </pixel-palette>
+<pixel-canvas width="160" effects="adjust(contrast 1.3) palette(gameboy, ordered)">
+  <img src="photo.jpg" alt="Our cat">
 </pixel-canvas>
 ```
 
-| Element | What it's for |
+| Effect | What it does |
 |---|---|
-| [`<pixel-canvas>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-canvas) | Draws its source through the effects around it, every frame for a playing video |
-| [`<pixel-mosaic>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-mosaic) | Pixelate into blocks |
-| [`<pixel-palette>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-palette) | Limit to a palette (Game Boy, PICO-8, 1-bit, any colors), with dithering |
-| [`<pixel-grid>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-grid) | Grid lines between cells |
+| `mosaic(size)` | Pixelate into blocks |
+| `palette(colors, dither)` | Limit to a palette (Game Boy, PICO-8, 1-bit, any colors), with dithering |
+| `grid(size, color, line)` | Grid lines between cells |
+| `adjust(brightness, contrast, saturation, hue)` | Tone and color, like the CSS filter functions |
+| `halftone(size, angle, ink, paper)` | Printed dots |
+| `outline(threshold, ink, paper)` | Line art from edges |
+| `crt(scanlines, mask, glow)` | An old screen |
+| `chroma-key(color, tolerance, softness)` | Make a color transparent (green screen) |
 
-Write your own effect with `definePixelFilter()`; see the
-[pixelable readme](https://github.com/johnhenry/domkit/blob/main/src/pixelable/readme.md).
+Every effect is also an element (`<pixel-mosaic size="4">`, …) to wrap
+around the source, handy for switching one on and off. Write your own
+with `definePixelEffect()`, which registers both forms. See the
+[pixelable readme](https://github.com/johnhenry/domkit/blob/main/src/pixelable/readme.md) and
+[`<pixel-canvas>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-canvas).
 
 ## Stability
 
