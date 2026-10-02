@@ -96,8 +96,8 @@ engine behind `<attribute-cycler>`.
 
 ### Pixel effects
 
-Put an image, video, or canvas in a `<pixel-canvas>` and list effects
-like CSS `filter`, left to right:
+Put an image, video, canvas, or [`<pixel-sprite>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-sprite)
+in a `<pixel-canvas>` and list effects like CSS `filter`, left to right:
 
 ```html
 <pixel-canvas width="160" effects="adjust(contrast 1.3) palette(gameboy, ordered)">
@@ -108,19 +108,30 @@ like CSS `filter`, left to right:
 | Effect | What it does |
 |---|---|
 | `mosaic(size)` | Pixelate into blocks |
-| `palette(colors, dither)` | Limit to a palette (Game Boy, PICO-8, 1-bit, any colors), with dithering |
+| `palette(colors, dither, count)` | Limit to a palette (Game Boy, PICO-8, 1-bit, any colors, or `auto` from the image), with dithering |
 | `grid(size, color, line)` | Grid lines between cells |
 | `adjust(brightness, contrast, saturation, hue)` | Tone and color, like the CSS filter functions |
 | `halftone(size, angle, ink, paper)` | Printed dots |
 | `outline(threshold, ink, paper)` | Line art from edges |
 | `crt(scanlines, mask, glow)` | An old screen |
 | `chroma-key(color, tolerance, softness)` | Make a color transparent (green screen) |
+| `glitch(amount, rate)` | Animated digital breakup |
+| `wave(amplitude, wavelength, speed)` | Rows rippling along a moving wave |
 
 Every effect is also an element (`<pixel-mosaic size="4">`, …) to wrap
-around the source, handy for switching one on and off. Write your own
-with `definePixelEffect()`, which registers both forms. See the
-[pixelable readme](https://github.com/johnhenry/domkit/blob/main/src/pixelable/readme.md) and
-[`<pixel-canvas>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-canvas).
+around the source. Beyond the built-ins:
+
+- **Your own effects:** `definePixelEffect(name, fn)` registers both
+  forms; [`<pixel-shader>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-shader) and
+  `definePixelShader()` run GLSL on the GPU.
+- **Animation:** `fps` on the canvas drives effects that change over
+  time, with `play()`/`pause()`; videos and sprites redraw every frame.
+- **Pixel art as text:** [`<pixel-sprite>`](https://github.com/johnhenry/domkit/tree/main/src/pixelable/pixel-sprite),
+  one character per pixel, with animation frames.
+- **Theme from a picture:** `swatches="3" swatches-target="html"`
+  publishes the result's most common colors as `--pixel-swatch-1…3`.
+
+See the [pixelable readme](https://github.com/johnhenry/domkit/blob/main/src/pixelable/readme.md).
 
 ## Stability
 
