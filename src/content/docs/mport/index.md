@@ -45,8 +45,8 @@ const { default: _ } = await mport("lodash-es@4.17.21/lodash.js");
 > **Provenance:** previously published as the unscoped `mport`, last version 1.0.0.
 > `@johnhenry/mport` restarts at `0.0.0` because it is a new address, not because the
 > code is new: `0.0.0` is the first release of the router API (developed as mport 2.0,
-> which never reached npm under the old name), and it keeps the 1.x API working. The
-> scoped package is not on npm yet; see [Getting started](/mport/getting-started/).
+> which never reached npm under the old name), and it keeps the 1.x API working.
+> `@johnhenry/mport@0.0.0` was published on 2026-10-03; see [Getting started](/mport/getting-started/).
 
 ## The one rule
 

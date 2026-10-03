@@ -11,10 +11,6 @@ sidebar:
 npm install @johnhenry/html-modules
 ```
 
-:::note[Not on npm yet]
-`@johnhenry/html-modules` `0.0.0` is prepared but not yet published, so the install commands (and any `node_modules` or CDN paths) on these pages will not resolve until it is. Its source is at [github.com/johnhenry/html-modules](https://github.com/johnhenry/html-modules).
-:::
-
 **Provenance.** `@johnhenry/html-modules` is a new package: it was developed locally as `web-module-graph` and
 renamed before it was ever published, so `0.0.0` is the first version under any name. The **unscoped**
 `html-modules` on npm is an unrelated package by another author; install the scoped name. (Pre-1.0, `^0.0.0` matches

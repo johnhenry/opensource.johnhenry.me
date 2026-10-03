@@ -40,7 +40,7 @@ const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0
 ```
 
 > **Provenance:** a new package, never published under another name. `0.0.0` is its
-> first version under any name, not a sign of immaturity. It is not on npm yet; the
+> first version under any name, not a sign of immaturity. Published on 2026-10-03; the
 > source is at [github.com/johnhenry/window-algebra](https://github.com/johnhenry/window-algebra).
 
 ## What's here

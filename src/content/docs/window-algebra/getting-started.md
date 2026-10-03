@@ -11,10 +11,6 @@ sidebar:
 npm install @johnhenry/window-algebra
 ```
 
-:::note[Not on npm yet]
-`@johnhenry/window-algebra` `0.0.0` is prepared but not yet published, so the install commands (and any `node_modules` or CDN paths) on these pages will not resolve until it is. Its source is at [github.com/johnhenry/window-algebra](https://github.com/johnhenry/window-algebra).
-:::
-
 **Provenance:** a new package, never published under another name. `0.0.0` is its first version under any name, not a sign of immaturity. Under npm's caret rules `^0.0.0` matches only `0.0.0`, so pin the exact version until a deliberate `0.1.0`.
 
 Node ≥ 26 (`engines.node`) for the pure core in Node. In the browser, use it through a bundler, or with no build step through an import map. Import maps don't read `package.json` `exports`, so map each entry point you use to its file:

@@ -11,10 +11,6 @@ sidebar:
 npm install @johnhenry/mport
 ```
 
-:::note[Not on npm yet]
-`@johnhenry/mport` `0.0.0` is prepared but not yet published, so the install commands (and any `node_modules` or CDN paths) on these pages will not resolve until it is. Until then, the unscoped `mport@1.0.0` on npm is the 1.x API only (no router).
-:::
-
 Previously published as `mport`, last unscoped version 1.0.0. `@johnhenry/mport` restarts at `0.0.0` because it is a new address, not because the code is new: `0.0.0` is the first release of the router API (developed as mport 2.0, which never reached npm under the old name), and it keeps the 1.x API working. Before 1.0, `^0.0.0` matches only `0.0.0`, so pin exact versions until a deliberate `0.1.0`.
 
 The package is plain ES modules with no dependencies. It runs in browsers and Deno as well as Node; the Node floor for the package, its CLI and its tests is 26 (`engines.node >=26.0.0`). To load it straight from a CDN:
