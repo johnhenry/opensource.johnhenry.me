@@ -11,15 +11,14 @@ checked against the source, with direct scripts on Node 24. The
 [package](/webwire/) targets Node 26 (family policy); its own `npm test`
 (`node --test test/`) does not start on Node 24.9, so use Node 26 to run the suite.
 
-Several traps below were fixed in **0.0.1**. Those entries are marked "fixed in 0.0.1
-(once published)": 0.0.1 is prepared in the repository but not yet on npm, so the
-published `0.0.0` still behaves as described under "In 0.0.0".
+Several traps below were fixed in **0.0.1** (published 2026-10-03). Those entries are marked
+"fixed in 0.0.1"; `0.0.0` still behaves as described under "In 0.0.0", so upgrade.
 
 ## Traps
 
 ### Server side
 
-#### `request.url` was always `http://` (fixed in 0.0.1, once published)
+#### `request.url` was always `http://` (fixed in 0.0.1)
 
 In 0.0.0, `toWebRequest()` built the URL on `http://` whether the connection was TLS or
 not. From 0.0.1 it uses `https://` when `req.socket.encrypted` is true (a request
@@ -28,7 +27,7 @@ received by a real `https.createServer()`). It still does **not** look at
 plain, so `request.url` is `http://`. Code that branches on `new URL(request.url).protocol`
 or builds redirects from it is wrong in that setup. Track the scheme yourself.
 
-#### `hostHeaders` was case-sensitive (fixed in 0.0.1, once published)
+#### `hostHeaders` was case-sensitive (fixed in 0.0.1)
 
 In 0.0.0 Node lower-cased incoming header names but `hostHeaders` was looked up as
 written, so `["X-Forwarded-Host"]` never matched and silently fell back to `localhost`.
@@ -65,7 +64,7 @@ read the body inside the handler).
 
 ### Response side
 
-#### `statusText` was not written (fixed in 0.0.1, once published)
+#### `statusText` was not written (fixed in 0.0.1)
 
 In 0.0.0, `writeWebResponse()` set the status code only, so
 `new Response("x", { statusText: "Custom" })` went out with Node's standard reason
@@ -117,14 +116,14 @@ Pass `Object.freeze({ status: 101 })`.
 does not carry an `AbortSignal`, and drops URL credentials (`user:pass@`) and the hash.
 Use the `Request` you already have for those.
 
-#### IPv6 literals did not connect (fixed in 0.0.1, once published)
+#### IPv6 literals did not connect (fixed in 0.0.1)
 
 In 0.0.0, `hostname` was `url.hostname`, which keeps the brackets (`"[::1]"`), and
 `http.request()` then failed with `ENOTFOUND getaddrinfo ENOTFOUND [::1]`. From 0.0.1 the
 brackets are stripped (`"::1"`). On 0.0.0 strip them yourself:
 `requestOptions.hostname = requestOptions.hostname.replace(/^\[|\]$/g, "")`.
 
-#### Repeated `set-cookie` headers collapsed in `requestOptions.headers` (fixed in 0.0.1, once published)
+#### Repeated `set-cookie` headers collapsed in `requestOptions.headers` (fixed in 0.0.1)
 
 In 0.0.0 the headers object had one string per name. Most repeated headers arrive
 comma-joined (`accept: "x, y"`), which is right for them, but `Set-Cookie` is the
@@ -133,7 +132,7 @@ exception: the cookies were comma-joined, which corrupts them. From 0.0.1 repeat
 per header, and `requestOptions.headers` is typed `Record<string, string | string[]>`.
 (A request would not normally have those; a copied response header set might.)
 
-#### `port` was a string when the URL had one (fixed in 0.0.1, once published)
+#### `port` was a string when the URL had one (fixed in 0.0.1)
 
 In 0.0.0 it was typed `number` but was `"8080"` for `http://a.com:8080/` (and `80`/`443`
 numbers for the defaults). From 0.0.1 it is always a number. On 0.0.0 do arithmetic
@@ -155,7 +154,7 @@ another realm, is treated as a URL and fails in `new URL()`.
 
 ### `toWebResponse()`
 
-#### 204, 205 and 304 rejected any body (fixed in 0.0.1, once published)
+#### 204, 205 and 304 rejected any body (fixed in 0.0.1)
 
 In 0.0.0, `toWebResponse(nodeRes, anything)` for status 204 or 304 threw `TypeError` from
 the `Response` constructor, even with an empty `Buffer`; on 0.0.0, pass `null`. From

@@ -39,12 +39,12 @@ Synchronous.
   present the host is `localhost`. A reverse proxy usually wants
   `["x-forwarded-host", "host"]`. Names are matched case-insensitively (they are lower-cased
   internally, because Node lower-cases incoming header names). That is **0.0.1**
-  behaviour (once published); in 0.0.0 you must write them lower-case (see
-  [Limitations](/webwire/limitations/#hostheaders-was-case-sensitive-fixed-in-001-once-published)).
+  behaviour; in 0.0.0 you must write them lower-case (see
+  [Limitations](/webwire/limitations/#hostheaders-was-case-sensitive-fixed-in-001)).
 
 **How the `Request` is built**
 
-- The URL is `new URL(req.url, scheme + "://" + host)`. From 0.0.1 (once published)
+- The URL is `new URL(req.url, scheme + "://" + host)`. From 0.0.1
   the scheme is `https` when `req.socket.encrypted` is true and `http` otherwise;
   0.0.0 always used `http`. `X-Forwarded-Proto` is never consulted. An absolute-form
   request target (`GET http://other/x`) or a `//host/path` target replaces the host.
@@ -86,7 +86,7 @@ cookie; other headers are set as given.
 pass straight through:
 
 - In 0.0.0, a `204` or `304` status with any body, including an empty `Buffer`, threw
-  `TypeError`. From 0.0.1 (once published) the body is ignored (passed as `null`) for
+  `TypeError`. From 0.0.1 the body is ignored (passed as `null`) for
   204, 205 and 304.
 - A status outside 200 to 599 (a `1xx`) throws `RangeError`.
 - A body the `Response` constructor does not accept throws `TypeError`. A Node
@@ -106,7 +106,7 @@ function writeWebResponse(
 Writes a `Response` out through a `ServerResponse`: status, headers, body, trailers,
 then `res.end()`. Resolves when the response has been written. Call it once per `res`.
 
-**Status.** `res.statusCode` is set from `response.status`. From 0.0.1 (once published)
+**Status.** `res.statusCode` is set from `response.status`. From 0.0.1
 a non-empty `response.statusText` is also written as the reason phrase; 0.0.0 never
 wrote it, and an empty one always uses Node's default phrase for the code.
 

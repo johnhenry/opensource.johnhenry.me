@@ -83,7 +83,7 @@ const response = toWebResponse(nodeRes, nodeRes);   // streams; nothing is buffe
 
 Do this only for statuses that may have a body. In 0.0.0, for `204` and `304` the
 `Response` constructor threw if any body was passed, even an empty one, so branch (from
-0.0.1, once published, `toWebResponse()` does this for 204, 205 and 304 itself, and the
+0.0.1, `toWebResponse()` does this for 204, 205 and 304 itself, and the
 branch is harmless):
 
 ```js

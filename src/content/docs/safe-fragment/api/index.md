@@ -10,8 +10,8 @@ The complete reference for `@johnhenry/safe-fragment`, checked against `src/inde
 is the lookup table. There is a single entry point, `@johnhenry/safe-fragment` (plus `./package.json`), shipped as ESM and CJS.
 Importing it never touches `window`, `document`, `HTMLElement` or `customElements`.
 
-:::caution[Unpublished]
-The package is not yet on npm. Its security review was signed off by the maintainer on 2026-10-01
+:::note[Published]
+`0.0.0` is on npm (2026-10-03). Its security review was signed off by the maintainer on 2026-10-01
 ([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)).
 :::
 

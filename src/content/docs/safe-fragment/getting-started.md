@@ -5,10 +5,9 @@ sidebar:
   order: 1
 ---
 
-:::caution[Not yet on npm]
-The package is unpublished and awaiting independent security review
-([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)). Until a release exists, work from a clone of the
-[repository](https://github.com/johnhenry/safe-fragment). The commands below are what installation will look like once it is published.
+:::note[Published]
+`@johnhenry/safe-fragment@0.0.0` is on npm (2026-10-03); its security review was signed off by the maintainer
+([safe-fragment#1](https://github.com/johnhenry/safe-fragment/issues/1)).
 :::
 
 ## Install
