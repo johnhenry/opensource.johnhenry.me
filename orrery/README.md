@@ -33,6 +33,7 @@ npm run build    # static output in dist/
 | Raijin Ledger | `@johnhenry/raijin-*` | 4–7 in-page PBFT validators, fee-ordered mempool, leader crashes, partitions and recovery. |
 | Jujutsu Timeline | `@johnhenry/isomorphic-jj` | Change IDs survive rewrites on an animated DAG; op-log time travel; conflicts as data. |
 | JSX Studio | `@johnhenry/fileable`, `servable`, `hostable` | JSX → file tree with hashes, → request dispatcher, → multi-host gateway. Run requests in-page. |
+| Workbench Desk | `@johnhenry/window-algebra`, `html-modules`, `safe-fragment`, `mport` | A tiling desk: windows, in-page HTML-module components, sanitized untrusted notes (paste an XSS payload), and the live-built import map with its CSP hash. The standalone no-bundler app is linked. |
 | Agent Query | `@johnhenry/mcp-query`, `mcp-gate` | In-page MCP server, reactive cache inspector, policy gate with approvals, wire timeline. |
 | Laya Playground | `@johnhenry/laya` | Typed questions answered by an on-device model on WebGPU. Laya plays Snake. Demo mode if no model. |
 | Circuit Gallery | `@erisera-code/circuit` | Spin the hue dial: accent moves, neutrals/semantic/syntax hold. Every token, both themes, contrast. |

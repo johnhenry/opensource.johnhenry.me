@@ -10,6 +10,7 @@ that runs on Chromium, Firefox and WebKit.
 
 - **Live:** [johnhenry.github.io/workbench](https://johnhenry.github.io/workbench/) (GitHub Pages, deployed from CI)
 - **Source:** [github.com/johnhenry/workbench](https://github.com/johnhenry/workbench)
+- **In the Orrery:** [Workbench Desk](/orrery/#/workbench), the same four libraries as a live planet (bundled by Vite; the standalone above is the no-bundler, strict-CSP proof).
 - **What it found:** [FINDINGS.md](https://github.com/johnhenry/workbench/blob/main/FINDINGS.md): every bug, gap and awkward
   API met while building it, each with a minimal repro, the library commit that fixed it or the issue that tracks it.
 
