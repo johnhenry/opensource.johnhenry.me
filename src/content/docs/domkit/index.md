@@ -42,8 +42,10 @@ import TabbedUI from "@johnhenry/domkit/tabbed-ui"; // or just the class
 ```
 
 domkit has no dependencies, so no import map is needed. It ships
-TypeScript declarations, a `custom-elements.json` manifest, and VS Code
-autocomplete data (`vscode.html-custom-data.json`).
+TypeScript declarations, a `custom-elements.json` manifest (which also
+says which module registers each tag, so page builders can load just the
+elements a page uses), and VS Code autocomplete data
+(`vscode.html-custom-data.json`).
 
 ## Elements
 
@@ -54,9 +56,9 @@ autocomplete data (`vscode.html-custom-data.json`).
 | [`<tabbed-ui>`](https://github.com/johnhenry/domkit/tree/main/src/tabbed-ui) | Accessible tabs from plain children |
 | [`<stylable-select>`](https://github.com/johnhenry/domkit/tree/main/src/stylable-select) | A listbox you can fully style, with a native `<select>`'s API, forms, and keyboard |
 | [`<infinite-combo-box>`](https://github.com/johnhenry/domkit/tree/main/src/infinite-combo-box) | Autocomplete: filters its own options, or searches a URL or function as you type, paging in more results as you scroll |
-| [`<swipe-input>`](https://github.com/johnhenry/domkit/tree/main/src/swipe-input) | Swipe gestures that send invoker commands, one per direction |
-| [`<gamepad-input>`](https://github.com/johnhenry/domkit/tree/main/src/gamepad-input) | Game controller buttons that send invoker commands |
-| [`<hot-key>`](https://github.com/johnhenry/domkit/tree/main/src/hot-key) | Keyboard shortcuts that toggle a native `<dialog>` or popover, or run any invoker command |
+| [`<swipe-input>`](https://github.com/johnhenry/domkit/tree/main/src/swipe-input) | Swipe gestures that send invoker commands, one per direction (to `commandfor`, or bubbling up to the element it's inside) |
+| [`<gamepad-input>`](https://github.com/johnhenry/domkit/tree/main/src/gamepad-input) | Game controller buttons that send invoker commands (to `commandfor`, or bubbling up to the element it's inside) |
+| [`<hot-key>`](https://github.com/johnhenry/domkit/tree/main/src/hot-key) | Keyboard shortcuts that toggle a native `<dialog>` or popover, or run any invoker command (to `commandfor`, or bubbling up to the element it's inside) |
 | [`<drill-menu>`](https://github.com/johnhenry/domkit/tree/main/src/drill-menu) | A list that drills into sub-screens and back, optionally synced to the URL |
 | [`<code-color>`](https://github.com/johnhenry/domkit/tree/main/src/code-color) | Syntax highlighting that never changes your markup |
 
