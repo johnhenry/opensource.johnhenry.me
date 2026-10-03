@@ -83,3 +83,33 @@
 .pg-workbench .wb-explain-body { color: var(--ink-2); font-size: 14px; line-height: 1.6; max-width: 110ch; }
 .pg-workbench .wb-explain-body li { margin: 6px 0; }
 .pg-workbench .wb-explain-body b { color: var(--ink); }
+
+/* ---- mode switch + shell ---- */
+.pg-workbench.wb-shell { gap: 14px; }
+.pg-workbench .wb-modebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.pg-workbench .wb-content { display: grid; gap: 14px; min-width: 0; }
+.pg-workbench .wb-inpage, .pg-workbench .wb-real { display: grid; gap: 14px; min-width: 0; }
+.pg-workbench .wb-tabs { font-variant-numeric: tabular-nums; }
+
+/* ---- real-app mode: the frame and what it proves ---- */
+.pg-workbench .wb-real-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+.pg-workbench .wb-frame-wrap { display: grid; gap: 8px; min-width: 0; }
+.pg-workbench .wb-frame-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); }
+.pg-workbench .wb-frame-url { overflow-wrap: anywhere; }
+.pg-workbench .wb-frame-status { margin-left: auto; }
+.pg-workbench .wb-frame-fail { display: grid; gap: 4px; border-color: var(--error); font-size: 13px; }
+.pg-workbench .wb-frame-fail[hidden] { display: none; }
+.pg-workbench iframe.wb-frame {
+  display: block; width: 100%; height: clamp(560px, 78vh, 760px); border: 1px solid var(--line); border-radius: 12px; background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent), 0 18px 50px -30px var(--accent);
+}
+.pg-workbench .wb-claims { display: grid; gap: 10px; min-width: 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+.pg-workbench .wb-claims-src { margin: 0; font-size: 12px; color: var(--ink-3); }
+.pg-workbench .wb-claim { padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--bg-panel); min-width: 0; }
+.pg-workbench .wb-claim h4 { margin: 0 0 4px; font-size: 13.5px; color: var(--ink); font-family: var(--f-display); }
+.pg-workbench .wb-claim p { margin: 4px 0; }
+.pg-workbench .wb-claim b { color: var(--ink); }
+.pg-workbench .wb-claim pre.code { margin: 6px 0 0; max-height: 190px; overflow: auto; font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pg-workbench .wb-warn-text { color: var(--error); }
+@media (max-width: 900px) { .pg-workbench .wb-real-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) { .pg-workbench iframe.wb-frame { height: 640px; } }

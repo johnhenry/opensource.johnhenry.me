@@ -1,0 +1,29 @@
+<!-- A module from a less-trusted origin: a clip card that somebody else wrote. It is loaded through html-modules'
+     sanitize hook, so the template below is cleaned before the component is defined. The hostile bits are the point:
+     every one of them must be gone from the rendered card, and the good parts (the heading binding, the https link,
+     the formatting) must stay. -->
+<html-export name="card" props="heading">
+  <!-- Stylesheets are NOT sanitized (safe-fragment cannot carry <style>): this one is the desk's own. -->
+  <style>
+    :host { display: block; }
+    article { padding: 8px 10px; border: var(--wa-border-width, 1px) dashed var(--wa-color-border); border-radius: var(--wa-radius-md, 8px); font-size: 13px; color: var(--wa-color-fg); }
+    h3 { margin: 0 0 6px; font-size: 14px; border-bottom: 1px dashed currentColor; }
+    p { margin: 6px 0 0; }
+    a { color: var(--wa-color-accent); }
+    img { max-width: 2rem; height: auto; vertical-align: middle; }
+  </style>
+  <template>
+    <article>
+      <h3>{{heading}}</h3>
+      <p>Hello from a module you do not fully trust. It has <strong>bold</strong>, <em>italic</em> and
+         <a href="https://opensource.johnhenry.me/html-modules/" target="_blank">a link</a>.</p>
+      <p><img src="https://johnhenry.github.io/workbench/favicon.svg" alt="the workbench icon" onerror="window.__orreryWorkbenchPwned = (window.__orreryWorkbenchPwned || []).concat('clip: img onerror')">
+         <a href="javascript:window.__orreryWorkbenchPwned = (window.__orreryWorkbenchPwned || []).concat('clip: javascript: href')">a javascript: link</a></p>
+      <script>window.__orreryWorkbenchPwned = (window.__orreryWorkbenchPwned || []).concat('clip: script')</script>
+      <iframe srcdoc="<script>parent.__orreryWorkbenchPwned = (parent.__orreryWorkbenchPwned || []).concat('clip: iframe srcdoc')</script>"></iframe>
+      <svg onload="window.__orreryWorkbenchPwned = (window.__orreryWorkbenchPwned || []).concat('clip: svg onload')" width="10" height="10"><circle r="4"/></svg>
+      <form action="javascript:window.__orreryWorkbenchPwned = 1"><input name="x" onfocus="window.__orreryWorkbenchPwned = 2" autofocus></form>
+      <p onclick="window.__orreryWorkbenchPwned = (window.__orreryWorkbenchPwned || []).concat('clip: onclick')">Clickable text.</p>
+    </article>
+  </template>
+</html-export>

@@ -1,0 +1,22 @@
+<!-- Clips: a tool whose card comes from a module the desk does not fully trust (untrusted/clip.html).
+     The glue loads that module through html-modules' sanitize hook and lists what the sanitizer removed. -->
+<html-import src="@workbench/ui/kit.html" as="kit"></html-import>
+
+<html-export name="clips-tool" props="removed:number">
+  <style>
+    :host { display: block; padding: var(--wa-space-md, 12px); font-family: var(--f-body, system-ui); color: var(--wa-color-fg); }
+    h3 { margin: 14px 0 6px; font-size: 13px; }
+    p { margin: 0; font-size: 13px; color: var(--wa-color-fg-muted); }
+    code { font-family: var(--f-mono, monospace); color: var(--wa-color-accent); font-size: 12px; }
+    .stage { margin-top: 8px; }
+    .rows { display: grid; gap: 2px; }
+    .empty { margin: 0; font-size: 12px; color: var(--wa-color-fg-muted); }
+  </style>
+  <template>
+    <p>This card is defined by a module from a less-trusted origin. Its template was sanitized by safe-fragment
+       (<code>safeFragmentSanitizer</code>) <em>before</em> the component existed.</p>
+    <section class="stage" aria-label="The less-trusted card"><slot name="card"><p class="empty">Loading the module…</p></slot></section>
+    <h3 id="removed-heading">Removed by the sanitizer: <kit--badge tone="danger">{{removed}}</kit--badge></h3>
+    <section class="rows" aria-labelledby="removed-heading"><slot name="removed"><p class="empty">Nothing removed yet.</p></slot></section>
+  </template>
+</html-export>

@@ -1,0 +1,107 @@
+<!-- The shared component module. Every tool module imports this one: modules importing modules. -->
+
+<html-export name="button" delegates-focus props="variant label pressed">
+  <style>
+    :host { display: inline-block; }
+    .btn {
+      font: inherit; font-size: 13px; line-height: 1.2; cursor: pointer;
+      padding: 6px 12px; border-radius: var(--wa-radius-sm, 4px);
+      border: var(--wa-border-width, 1px) solid var(--wa-color-border);
+      background: var(--wa-color-surface-raised); color: var(--wa-color-fg);
+    }
+    .btn:hover { background: var(--wa-color-accent-soft); }
+    .btn:focus-visible { outline: var(--wa-focus-ring-width, 3px) solid var(--wa-focus-ring-color); outline-offset: var(--wa-focus-ring-offset, 2px); }
+    .btn[aria-pressed="true"] { border-color: var(--wa-color-accent); background: var(--wa-color-accent-soft); font-weight: 600; }
+    :host([variant="icon"]) .btn { padding: 2px 8px; font-size: 12px; }
+    :host([variant="danger"]) .btn { color: var(--wa-color-danger); }
+  </style>
+  <template>
+    <button part="button" class="btn" type="button" aria-label="{{label}}" aria-pressed="{{pressed}}"><slot></slot></button>
+  </template>
+</html-export>
+
+<!-- A real submit button: form-associated with form-role="submit". Click, Enter and Space submit the form; it is the
+     form's default button and the submit event's submitter. -->
+<html-export name="submit-button" form-associated form-role="submit" delegates-focus props="variant">
+  <style>
+    :host { display: inline-block; }
+    .btn {
+      font: inherit; font-size: 13px; line-height: 1.2; cursor: pointer;
+      padding: 6px 12px; border-radius: var(--wa-radius-sm, 4px);
+      border: var(--wa-border-width, 1px) solid var(--wa-color-border);
+      background: var(--wa-color-surface-raised); color: var(--wa-color-fg);
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn:focus-visible { outline: var(--wa-focus-ring-width, 3px) solid var(--wa-focus-ring-color); outline-offset: var(--wa-focus-ring-offset, 2px); }
+    :host([variant="primary"]) .btn { background: var(--wa-color-accent); color: var(--wa-color-accent-fg); border-color: transparent; font-weight: 600; }
+  </style>
+  <template><button part="button" class="btn" type="button"><slot></slot></button></template>
+</html-export>
+
+<!-- Form-associated: a real form control. It takes part in FormData, :invalid, reset and required. -->
+<html-export name="field" form-associated form-control="input" props="placeholder">
+  <style>
+    :host { display: block; }
+    label { display: grid; gap: 4px; font-size: 12px; color: var(--wa-color-fg-muted); }
+    input {
+      font: inherit; font-size: 14px; padding: 7px 9px; box-sizing: border-box; width: 100%;
+      border-radius: var(--wa-radius-sm, 4px); border: var(--wa-border-width, 1px) solid var(--wa-color-border);
+      background: var(--wa-color-bg); color: var(--wa-color-fg);
+    }
+    input:focus-visible { outline: var(--wa-focus-ring-width, 3px) solid var(--wa-focus-ring-color); outline-offset: 1px; }
+    :host(:user-invalid) input { border-color: var(--wa-color-danger); }
+  </style>
+  <template><label><span><slot></slot></span><input autocomplete="off" placeholder="{{placeholder}}"></label></template>
+</html-export>
+
+<html-export name="area" form-associated form-control="textarea" props="placeholder">
+  <style>
+    :host { display: block; }
+    label { display: grid; gap: 4px; font-size: 12px; color: var(--wa-color-fg-muted); }
+    textarea {
+      font: inherit; font-family: var(--f-mono, ui-monospace, monospace); font-size: 12.5px; padding: 7px 9px; box-sizing: border-box; width: 100%;
+      min-height: 4.5rem; resize: vertical;
+      border-radius: var(--wa-radius-sm, 4px); border: var(--wa-border-width, 1px) solid var(--wa-color-border);
+      background: var(--wa-color-bg); color: var(--wa-color-fg);
+    }
+    textarea:focus-visible { outline: var(--wa-focus-ring-width, 3px) solid var(--wa-focus-ring-color); outline-offset: 1px; }
+  </style>
+  <template><label><span><slot></slot></span><textarea placeholder="{{placeholder}}"></textarea></label></template>
+</html-export>
+
+<html-export name="badge" props="tone">
+  <style>
+    :host { display: inline-block; }
+    span {
+      font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: var(--wa-radius-pill, 999px);
+      background: var(--wa-color-accent-soft); color: var(--wa-color-fg);
+      border: var(--wa-border-width, 1px) solid var(--wa-color-border);
+    }
+    span[data-tone="danger"] { color: var(--wa-color-danger); border-color: currentColor; background: transparent; }
+    span[data-tone="ok"] { color: var(--wb-ok, #3fb68b); border-color: currentColor; background: transparent; }
+  </style>
+  <template><span data-tone="{{tone}}"><slot></slot></span></template>
+</html-export>
+
+<!-- Data binding: {{attr}} reads the host's attribute; props="value:number" makes it a typed property. -->
+<html-export name="stat" props="label value:number tone">
+  <style>
+    :host { display: block; }
+    div { display: grid; gap: 2px; padding: 6px 10px; border: var(--wa-border-width, 1px) solid var(--wa-color-border); border-radius: var(--wa-radius-md, 8px); background: var(--wa-color-bg); }
+    .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .label { font-size: 11px; color: var(--wa-color-fg-muted); }
+    div[data-tone="ok"] .value { color: var(--wb-ok, #3fb68b); }
+    div[data-tone="danger"] .value { color: var(--wa-color-danger); }
+  </style>
+  <template><div data-tone="{{tone}}"><span class="value">{{value}}</span><span class="label">{{label}}</span></div></template>
+</html-export>
+
+<html-export name="removal" props="name detail">
+  <style>
+    :host { display: block; }
+    div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: 12px; padding: 3px 0; border-bottom: var(--wa-border-width, 1px) solid var(--wa-color-border); }
+    .name { font-family: var(--f-mono, monospace); overflow-wrap: anywhere; color: var(--wa-color-danger); }
+    .detail { color: var(--wa-color-fg-muted); text-align: end; overflow-wrap: anywhere; }
+  </style>
+  <template><div><span class="name">{{name}}</span><span class="detail">{{detail}}</span></div></template>
+</html-export>

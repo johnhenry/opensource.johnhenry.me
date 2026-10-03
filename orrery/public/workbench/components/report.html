@@ -1,0 +1,48 @@
+<!-- The sanitizer report for one note: data-bound stats (props="x:number" + {{x}} passed down to kit--stat),
+     the removed elements and attributes, the raw input and the rendered DOM side by side. -->
+<html-import src="@workbench/ui/kit.html" as="kit"></html-import>
+
+<html-export name="report-tool" props="heading profile engine els:number attrs:number urls:number executed:number ms">
+  <style>
+    :host { display: block; padding: var(--wa-space-md, 12px); font-family: var(--f-body, system-ui); color: var(--wa-color-fg); }
+    header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+    h3 { margin: 0; font-size: 14px; flex: 1 1 auto; overflow-wrap: anywhere; }
+    h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--wa-color-fg-muted); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
+    .rows { display: grid; gap: 2px; }
+    .empty { margin: 0; font-size: 12px; color: var(--wa-color-fg-muted); }
+    ::slotted(pre) {
+      margin: 0; padding: 8px 10px; max-height: 150px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+      font: 11.5px/1.5 var(--f-mono, monospace); background: var(--wa-color-bg); color: var(--wa-color-fg);
+      border: var(--wa-border-width, 1px) solid var(--wa-color-border); border-radius: var(--wa-radius-sm, 4px);
+    }
+    .ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    ::slotted([slot="control"]) { font-size: 12px; color: var(--wa-color-fg-muted); }
+  </style>
+  <template>
+    <header>
+      <h3>{{heading}}</h3>
+      <kit--badge>{{profile}}</kit--badge>
+      <kit--badge>engine: {{engine}}</kit--badge>
+      <kit--badge>{{ms}} ms</kit--badge>
+    </header>
+    <section class="stats" aria-label="Report totals">
+      <kit--stat label="elements removed" value="{{els}}"></kit--stat>
+      <kit--stat label="attributes removed" value="{{attrs}}"></kit--stat>
+      <kit--stat label="URLs rewritten" value="{{urls}}"></kit--stat>
+      <kit--stat label="handlers that ran" value="{{executed}}" tone="ok"></kit--stat>
+    </section>
+    <h4>Listed in the report</h4>
+    <section class="rows" aria-label="Removed by the sanitizer"><slot name="removed"><p class="empty">Nothing listed for this note.</p></slot></section>
+    <h4>Independent check: hazards in the input, then in the live DOM</h4>
+    <section class="rows" aria-label="Hazards before and after"><slot name="audit"><p class="empty">No hazards in this note's input.</p></slot></section>
+    <h4>What was pasted (raw)</h4>
+    <slot name="raw"></slot>
+    <h4>What is in the DOM (serialised from the live render)</h4>
+    <slot name="rendered"></slot>
+    <div class="ctl">
+      <kit--button data-action="control">Control: run the raw note with no sanitizer</kit--button>
+      <slot name="control"></slot>
+    </div>
+  </template>
+</html-export>

@@ -1,13 +1,14 @@
 import type { Playground } from '../registry';
 import { readState, writeState, copyLink } from '../state';
 import './workbench.css';
-import { FILES, XSS_PAYLOAD, XSS_TITLE } from './workbench-modules';
+import { XSS_PAYLOAD, XSS_TITLE } from './workbench-modules';
+import { STANDALONE, mountReal } from './workbench-real';
 
 // window-algebra: the shell (state, layouts, <wa-stage>, window chrome, palette, keyboard input).
 import { createState, createWindowManager, THEME_CSS, RULES_CSS, type WindowManager } from '@johnhenry/window-algebra';
 import { lazySurface, PALETTE_CSS } from '@johnhenry/window-algebra/browser';
 import { defineWindowAlgebraElement, type WindowAlgebraElement } from '@johnhenry/window-algebra/element';
-// html-modules: the components inside the windows, defined in-page from source strings via the loader + a fetch stub.
+// html-modules: the components inside the windows, defined from real .html files fetched over HTTP by the loader.
 import { createHTMLModules } from '@johnhenry/html-modules';
 // ... and its adapter for safe-fragment: the `sanitize` hook for the less-trusted module.
 import { safeFragmentSanitizer } from '@johnhenry/html-modules/safe-fragment';
@@ -35,7 +36,6 @@ import relCore from './workbench-cdn/relativeTime-core.mjs?raw';
  * composition under Vite. The "What's happening" text says exactly where they differ.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const STANDALONE = 'https://johnhenry.github.io/workbench/';
 const NS = '__orreryWorkbenchPwned';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -98,7 +98,10 @@ const SPECIFIERS = [
 ];
 // The standalone's deployed site serves the libraries from /workbench/vendor/ and the components from /workbench/components/.
 const LIB_BASE = '/workbench/vendor/';
-const UI_BASE = '/workbench/components/';
+// The components are real static files (Vite public dir: public/workbench/components/), so the prefix carries the site's base
+// ("/" in dev, "/orrery/" in the docs build). html-modules fetches them over HTTP, as the standalone does.
+const UI_BASE = `${import.meta.env.BASE_URL}workbench/components/`;
+const FILE_NAMES = ['kit.html', 'notes.html', 'clips.html', 'untrusted/clip.html', 'report.html'];
 
 /** The registry stand-in: answers version/entry questions from the three installed manifests (as installedRegistry() does from disk). */
 const MANIFESTS: Record<string, any> = {
@@ -210,17 +213,16 @@ function boot(): Promise<Boot> {
       return undefined;
     };
     const fetched: string[] = [];
-    const stubFetch = (async (input: RequestInfo | URL) => {
+    // The platform's own fetch, only logged: every module is a real GET to /workbench/components/<file>.
+    const loggedFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const rel = new URL(url, location.href).pathname.replace(/^.*\/workbench\/components\//, '');
-      const src = FILES[rel];
-      fetched.push(rel);
-      return src === undefined ? new Response('not found', { status: 404 }) : new Response(src, { status: 200, headers: { 'content-type': 'text/html' } });
+      fetched.push(new URL(url, location.href).pathname.replace(/^.*\/workbench\/components\//, ''));
+      return fetch(input, init);
     }) as typeof fetch;
 
     const hm = createHTMLModules({
       hostResolve,
-      fetch: stubFetch,
+      fetch: loggedFetch,
       onEvent(event: any) {
         if (event.type === 'error') console.warn('[workbench] html-modules', event);
         if (event.type !== 'sanitize') return;
@@ -311,15 +313,37 @@ type ToolId = 'notes' | 'clips' | 'report' | 'map' | 'source';
 const TOOL_IDS: ToolId[] = ['notes', 'clips', 'report', 'map', 'source'];
 const TITLES: Record<ToolId, string> = { notes: 'Notes', clips: 'Clips (less trusted)', report: 'Sanitizer report', map: 'Import map (mport)', source: 'Module source' };
 
-const DEFAULTS = { l: 'master-stack', w: 'notes,clips,map', p: '' };
+const DEFAULTS = { mode: 'inpage', l: 'master-stack', w: 'notes,clips,map', p: '' };
+type Mode = 'inpage' | 'real';
+
+/* ---- persistence: window-algebra's own serialize()/load() for the layout, localStorage for the notes, a BroadcastChannel for tabs ----
+ * Planet-specific names, so no other planet's storage or channel is touched. Window state crosses tabs through the stage's `sync`
+ * option (attachSync); notes are app data, which attachSync does not carry, so they cross through the `storage` event, as in the standalone. */
+const WM_KEY = 'orrery:workbench:wm';
+const DATA_KEY = 'orrery:workbench:data';
+const CHANNEL = 'orrery-workbench';
+const store = {
+  read: (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } },
+  write: (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { /* private mode or quota: the desk still works for this session */ } },
+  remove: (key: string) => { try { localStorage.removeItem(key); } catch { /* ignore */ } },
+};
+const readNotes = (raw: string | null): Note[] | null => {
+  try {
+    const data = JSON.parse(raw ?? 'null');
+    if (!data || !Array.isArray(data.notes)) return null;
+    return data.notes.filter((n: any) => n && typeof n.id === 'string' && typeof n.title === 'string' && typeof n.body === 'string').map((n: any) => ({ id: n.id, title: n.title, body: n.body, at: Number(n.at) || Date.now() }));
+  } catch { return null; }
+};
+const newId = () => `n${(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/-/g, '').slice(0, 10)}`;
 
 interface Ctx {
   notes: Note[];
   selected: string | null;
   rendered: Map<string, Rendered>;
-  seq: number;
   onChange: Set<() => void>;
   emit(): void;
+  /** A timer that is dropped when the planet unmounts. */
+  later(fn: () => void, ms: number): void;
   addNote(title: string, body: string): Note;
   removeNote(id: string): void;
   boot: Boot;
@@ -360,7 +384,7 @@ async function renderBody(card: HTMLElement, note: Note, ctx: Ctx) {
       ctx.rendered.set(card.dataset.id!, { report, html: fragment.getRenderedRoot()?.innerHTML ?? '', el: fragment.getRenderedRoot() ?? null, raw: prev?.raw ?? '', profile: report.profile, at: Date.now() });
       setAttr(card, 'report', summarize(report));
       ctx.emit();
-      setTimeout(ctx.emit, 450); // an onerror that would have fired has fired by now: refresh the "handlers that ran" count
+      ctx.later(ctx.emit, 450); // an onerror that would have fired has fired by now: refresh the "handlers that ran" count
     });
     fragment.addEventListener('safe-fragment:reject', (event: CustomEvent) => setAttr(card, 'report', `Not rendered: ${event.detail.code}`));
   }
@@ -584,25 +608,47 @@ const mapTool: Mount = (body, ctx) => {
 };
 
 /* ---- Module source ---- */
+/** The module sources, fetched from the same URLs html-modules fetched them from (the browser's HTTP cache serves the second GET). */
+const sourceCache = new Map<string, Promise<{ text: string; url: string; status: number }>>();
+const fetchSource = (name: string) => {
+  let p = sourceCache.get(name);
+  if (!p) {
+    const url = new URL(`${UI_BASE}${name}`, location.href).href;
+    p = fetch(url).then(async (res) => ({ text: await res.text(), url, status: res.status }));
+    p.catch(() => sourceCache.delete(name));
+    sourceCache.set(name, p);
+  }
+  return p;
+};
+
 const sourceTool: Mount = (body) => {
   const box = h('div', { class: 'wb-src' });
-  const names = Object.keys(FILES);
-  let cur = names[1];
-  box.innerHTML = `<div class="wb-map-bar" role="group" aria-label="Module sources">${names.map((n) => `<button class="wb-chip" data-src="${esc(n)}" aria-pressed="false">${esc(n)}</button>`).join('')}</div>
+  let cur = FILE_NAMES[1];
+  let disposed = false;
+  box.innerHTML = `<div class="wb-map-bar" role="group" aria-label="Module sources">${FILE_NAMES.map((n) => `<button class="wb-chip" data-src="${esc(n)}" aria-pressed="false">${esc(n)}</button>`).join('')}</div>
     <div class="wb-map-meta"></div><pre class="code wb-map-pre"></pre>`;
   body.append(box);
   const pre = box.querySelector('pre') as HTMLElement;
   const meta = box.querySelector('.wb-map-meta') as HTMLElement;
-  const show = () => {
-    for (const b of box.querySelectorAll<HTMLElement>('[data-src]')) b.setAttribute('aria-pressed', String(b.dataset.src === cur));
-    const src = FILES[cur];
-    meta.innerHTML = `<code>/workbench/components/${esc(cur)}</code>: ${src.split('\n').length} lines, served by a stub <code>fetch</code>, defined by html-modules' loader.`;
-    pre.textContent = src;
+  const show = async () => {
+    const name = cur;
+    for (const b of box.querySelectorAll<HTMLElement>('[data-src]')) b.setAttribute('aria-pressed', String(b.dataset.src === name));
+    meta.textContent = 'fetching…';
+    try {
+      const { text, url, status } = await fetchSource(name);
+      if (disposed || cur !== name) return;
+      meta.innerHTML = `<code>GET ${esc(new URL(url).pathname)}</code> → ${status}: ${text.split('\n').length} lines, a real static file, fetched over HTTP by html-modules' loader and defined as custom elements.`;
+      pre.textContent = text;
+    } catch (err) {
+      if (disposed || cur !== name) return;
+      meta.textContent = `Could not fetch ${name}: ${(err as Error).message}`;
+      pre.textContent = '';
+    }
   };
-  const onClick = (e: Event) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-src]'); if (t) { cur = t.dataset.src!; show(); } };
+  const onClick = (e: Event) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-src]'); if (t) { cur = t.dataset.src!; void show(); } };
   box.addEventListener('click', onClick);
-  show();
-  return () => { box.removeEventListener('click', onClick); box.remove(); };
+  void show();
+  return () => { disposed = true; box.removeEventListener('click', onClick); box.remove(); };
 };
 
 type Placement = { x: number; y: number; width: number; height: number };
@@ -623,25 +669,35 @@ const EXPLAIN = `
   <li><b>window-algebra</b> is the shell. <code>&lt;wa-stage&gt;</code> draws the windows from an immutable state: <code>wm.setLayout()</code> swaps the whole arrangement without remounting a window, the chrome (title bar, buttons, eight resize grips) is its built-in <code>chrome: true</code>, and the palette (<kbd>Ctrl/Cmd+Shift+P</kbd>) lists whichever commands make sense right now. Drag a title bar, dock it, press <kbd>Alt+Shift+Arrows</kbd> on a floating one.</li>
   <li><b>html-modules</b> defines every component inside a window from <code>.html</code> source: <code>{{heading}}</code> and <code>props="value:number"</code> data binding, a form-associated <code>&lt;kit--field&gt;</code> and a real <code>form-role="submit"</code> button (Enter submits; the preset presses it), and <code>notes.html</code> importing <code>kit.html</code> (modules importing modules). Open the <em>Module source</em> window to read them.</li>
   <li><b>safe-fragment</b> renders each note body, which is untrusted, through <code>&lt;safe-fragment profile="article-v1"&gt;</code>; text with no markup goes through <code>plain-text-v1</code>. The <em>Clips</em> window is a module "from somewhere else": html-modules' <code>sanitize</code> hook, wired to safe-fragment through <code>@johnhenry/html-modules/safe-fragment</code>, cleaned its template before the component existed. The report is on every card, in the <em>Sanitizer report</em> window and in the removed list under the clip. The "handlers that ran" counter watches a canary the payloads try to set; the control button renders the same note with <em>no</em> sanitizer in a sandboxed iframe so you can see it fire.</li>
-  <li><b>mport</b> built the import map in the <em>Import map</em> window, live, for exactly this composition: <code>router.build()</code> with a stand-in registry and recorded esm.sh bytes, so no network. Note the <code>integrity</code> entries (a SHA-384 for every file of dayjs's graph), <code>dompurify</code> added by <code>dependencies: true</code>, and the CSP hash from <code>renderImportMapCsp()</code>.</li>
+  <li><b>mport</b> built the import map in the <em>Import map</em> window, live, for exactly this composition: <code>router.build()</code> with a stand-in registry and recorded esm.sh bytes, so no network. Its UI prefix points at the real files under <code>/workbench/components/</code>. Note the <code>integrity</code> entries (a SHA-384 for every file of dayjs's graph), <code>dompurify</code> added by <code>dependencies: true</code>, and the CSP hash from <code>renderImportMapCsp()</code>.</li>
 </ul>
-<p><b>What is different from the standalone, honestly.</b> In the orrery, <b>Vite bundles all four libraries</b> into this page, so the browser is not using that import map to load them; and this site has no strict CSP or Trusted Types. What is real here: mport really produces the map (the CSP hash above is the one the standalone's live page carries), html-modules really resolves <code>@workbench/ui/kit.html</code> <em>through that map</em> (the loader is handed it as <code>hostResolve</code>, because this page has no <code>&lt;script type="importmap"&gt;</code>), and the components, windows and sanitizer are the real packages. The standalone loads that exact map with <b>no bundler</b>, copies the libraries into <code>vendor/</code>, runs under <code>require-trusted-types-for 'script'</code> with <code>style-src 'self'</code>, enforces the integrity entries in the engine, and is tested on Chromium, Firefox and WebKit. That is the proof the planet cannot be: <a href="${STANDALONE}" target="_blank" rel="noopener">open the standalone workbench</a>.</p>`;
+<p><b>What is different from the standalone, honestly.</b> In the orrery, <b>Vite bundles all four libraries</b> into this page, so the browser is not using that import map to load them; and this site has no strict CSP or Trusted Types. What is real here: mport really produces the map (the same build the standalone's page runs, here pointed at this site's paths), html-modules really fetches the <code>.html</code> modules <em>over HTTP</em> from <code>public/workbench/components/</code> (as the standalone does) and resolves <code>@workbench/ui/kit.html</code> <em>through that map</em> (the loader is handed it as <code>hostResolve</code>, because this page has no <code>&lt;script type="importmap"&gt;</code>), and the components, windows and sanitizer are the real packages. The standalone loads that exact map with <b>no bundler</b>, copies the libraries into <code>vendor/</code>, runs under <code>require-trusted-types-for 'script'</code> with <code>style-src 'self'</code>, enforces the integrity entries in the engine, and is tested on Chromium, Firefox and WebKit. That is the proof this mode cannot be, so the planet has a second mode: <b>Real app (no bundler)</b> frames the standalone itself and lists what the browser is doing inside it. <a href="${STANDALONE}" target="_blank" rel="noopener">Or open it full screen</a>.</p>
+<p><b>Persistence and tabs.</b> The windows (<code>wm.serialize()</code> / <code>wm.load()</code>) and the notes survive a reload, under this planet's own keys (<code>orrery:workbench:*</code>). Open the planet in a second tab: the layout follows through <code>&lt;wa-stage&gt;</code>'s <code>sync</code> option (<code>attachSync</code> on a <code>BroadcastChannel</code> named <code>orrery-workbench</code>), and notes follow through the <code>storage</code> event, because <code>attachSync</code> carries window state only. <em>Reset desk</em> clears both.</p>`;
 
-function mount(host: HTMLElement, boot: Boot): () => void {
+function mountInPage(host: HTMLElement, boot: Boot): () => void {
   const defaults = DEFAULTS;
   const init = readState(defaults);
   const narrow = matchMedia('(max-width: 720px)').matches;
   const wanted = String(init.w).split(',').filter((id): id is ToolId => (TOOL_IDS as string[]).includes(id));
   // A phone gets rows (windows stacked) unless the link names a layout.
   const named = /[?&]l=/.test(location.hash);
+  const namedWindows = /[?&]w=/.test(location.hash);
   const startLayout = (LAYOUTS.find((l) => l.id === (named ? init.l : narrow ? 'rows' : defaults.l)) ?? LAYOUTS[0]) as (typeof LAYOUTS)[number];
+  let disposed = false;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const later = (fn: () => void, ms: number) => { const t = setTimeout(() => { timers.delete(t); if (!disposed) fn(); }, ms); timers.add(t); return t; };
 
+  // The notes: the saved set if there is one (another visit, another tab), else the seed, which is saved at once so a second tab agrees on it.
+  const savedNotes = readNotes(store.read(DATA_KEY));
+  const saveNotes = () => store.write(DATA_KEY, JSON.stringify({ v: 1, notes: ctx.notes }));
   const ctx: Ctx = {
-    notes: SEED_NOTES(), selected: null, rendered: new Map(), seq: 3, onChange: new Set(), boot,
-    emit() { ctx.onChange.forEach((fn) => fn()); refresh(); },
-    addNote(title, body) { const n: Note = { id: `n${++ctx.seq}`, title, body, at: Date.now() }; ctx.notes = [n, ...ctx.notes]; ctx.emit(); return n; },
-    removeNote(id) { ctx.notes = ctx.notes.filter((n) => n.id !== id); ctx.rendered.delete(id); if (ctx.selected === id) ctx.selected = null; ctx.emit(); },
+    notes: savedNotes ?? SEED_NOTES(), selected: null, rendered: new Map(), onChange: new Set(), boot,
+    emit() { if (disposed) return; ctx.onChange.forEach((fn) => fn()); refresh(); },
+    later: (fn, ms) => void later(fn, ms),
+    addNote(title, body) { const n: Note = { id: newId(), title, body, at: Date.now() }; ctx.notes = [n, ...ctx.notes]; saveNotes(); ctx.emit(); return n; },
+    removeNote(id) { ctx.notes = ctx.notes.filter((n) => n.id !== id); ctx.rendered.delete(id); if (ctx.selected === id) ctx.selected = null; saveNotes(); ctx.emit(); },
   };
+  if (!savedNotes) saveNotes();
   (window as any)[NS] = [];
 
   // window-algebra's CSS: injected here (and removed on leave) because it is not part of the page's stylesheet.
@@ -650,21 +706,22 @@ function mount(host: HTMLElement, boot: Boot): () => void {
   style.textContent = `${THEME_CSS}\n${RULES_CSS}\n${PALETTE_CSS}`;
   document.head.append(style);
 
-  const root = h('div', { class: 'pg-workbench' });
+  const root = h('div', { class: 'wb-inpage' });
   root.innerHTML = `
     <section class="panel wb-callout">
       <a class="btn primary" href="${STANDALONE}" target="_blank" rel="noopener">Open the standalone johnhenry/workbench ↗</a>
-      <p><b>The standalone app stays.</b> It is the proof: these four libraries meet at <em>one import map</em> with no bundler, a strict CSP and Trusted Types, tested on three engines. This planet is the same desk under Vite: see "What's happening" for exactly what differs.</p>
+      <p><b>The standalone app stays.</b> It is the proof: these four libraries meet at <em>one import map</em> with no bundler, a strict CSP and Trusted Types, tested on three engines. This mode is the same desk under Vite: see "What's happening" for exactly what differs, or switch to <b>Real app (no bundler)</b> above to run the standalone itself.</p>
     </section>
     <div class="wb-pipeline" aria-label="How the four libraries line up"></div>
     <div class="wb-controls">
       <div class="wb-row" role="group" aria-label="Presets">
         <span class="wb-label">Presets</span>
-        <button class="btn" data-preset="desk">Default desk</button>
         <button class="btn primary" data-preset="xss">Paste an XSS payload</button>
         <button class="btn" data-preset="layout">Switch layout</button>
-        <button class="btn" data-act="palette" title="Ctrl/Cmd+Shift+P">Command palette</button>
+        <button class="btn" data-act="palette" title="Ctrl/Cmd+Shift+P (some browsers reserve Ctrl+Shift+P for a private window: this button always works)">Command palette</button>
+        <button class="btn" data-act="reset" title="Back to the default desk and the three seed notes; clears what this planet saved">Reset desk</button>
         <button class="btn" data-act="copy">Copy link</button>
+        <span class="stat wb-tabs" data-tabs title="Tabs of this planet on this browser, counted by window-algebra's attachSync">1 tab</span>
         <span class="stat wb-status" role="status"></span>
       </div>
       <div class="wb-row" role="group" aria-label="Layout">
@@ -680,7 +737,12 @@ function mount(host: HTMLElement, boot: Boot): () => void {
   const stage = $<WindowAlgebraElement>('wa-stage');
   const pipeline = $('.wb-pipeline');
   const statusEl = $('.wb-status');
+  const tabsEl = $('[data-tabs]');
 
+  function layoutNow(): LayoutId {
+    const s = wm.getState() as any;
+    return (s.workspaces[s.activeWorkspace]?.layout?.type ?? 'master-stack') as LayoutId;
+  }
   // --- the window manager: state is data; the stage renders it ---
   const wm: WindowManager = createWindowManager({
     state: createState({ layout: startLayout.spec as any, config: { gap: 8, inset: 8 } }),
@@ -694,8 +756,23 @@ function mount(host: HTMLElement, boot: Boot): () => void {
     wm.create({ id, title: TITLES[id], ...(t.floating ? { mode: 'floating', placement: t.floating(stage) } : {}) } as any);
   };
   const closeTool = (id: ToolId) => { if ((wm.getState().windows as Record<string, any>)[id]) wm.close(id); };
-  for (const id of wanted) openTool(id);
-  wm.focus(wanted[0] ?? 'notes');
+  // Restore the saved desk (wm.load validates and migrates it; null means it was unusable), else open what the link asks for.
+  const savedWm = store.read(WM_KEY);
+  const restored = !!savedWm && !!wm.load(savedWm);
+  const openNowIds = () => TOOL_IDS.filter((id) => (wm.getState().windows as Record<string, any>)[id]);
+  if (!restored) {
+    for (const id of wanted) openTool(id);
+    wm.focus(wanted[0] ?? 'notes');
+  } else {
+    // A link that names a layout or windows wins over the saved desk (the saved one is otherwise what the URL already says).
+    if (named && layoutNow() !== startLayout.id) wm.setLayout(startLayout.spec as any);
+    if (namedWindows) {
+      for (const id of openNowIds()) if (!wanted.includes(id)) closeTool(id);
+      for (const id of wanted) if (!openNowIds().includes(id)) openTool(id);
+    }
+  }
+  store.write(WM_KEY, wm.serialize());
+  const saveWm = () => store.write(WM_KEY, wm.serialize());
 
   const surfaces = new Map<string, ReturnType<typeof lazySurface>>();
   const surfaceFor = (id: string) => {
@@ -711,15 +788,13 @@ function mount(host: HTMLElement, boot: Boot): () => void {
     surfaceFor,
     chrome: true, // title bar, buttons and resize grips: window-algebra's, themed by --wa-* tokens
     palette: { host: root, injectStyles: false }, // Ctrl/Cmd+Shift+P; mounted inside the room so it inherits the tokens
+    // attachSync on a BroadcastChannel of this planet's own: the layout follows across tabs. onSync repaints the tab counter.
+    sync: { channel: CHANNEL, onSync: () => showTabs(), onError: (e: Error) => console.warn('[workbench] sync', e) },
     input: { keyboard: true, announce: true, touch: { pinch: true, swipe: { tabs: true } } },
   } as any);
 
   // --- UI state ---
-  const layoutNow = (): LayoutId => {
-    const s = wm.getState() as any;
-    return (s.workspaces[s.activeWorkspace]?.layout?.type ?? 'master-stack') as LayoutId;
-  };
-  const openNow = () => TOOL_IDS.filter((id) => (wm.getState().windows as Record<string, any>)[id]);
+  const openNow = openNowIds;
   let preset = String(init.p ?? '');
   const syncUrl = () => writeState({ l: layoutNow(), w: openNow().join(','), p: preset }, defaults);
 
@@ -737,24 +812,29 @@ function mount(host: HTMLElement, boot: Boot): () => void {
       <span class="wb-stage-chip"><b>safe-fragment</b> ${esc(boot.engine)} engine · ${removed} removed · <span class="${executed() ? 'bad' : 'ok'}">${executed()} ran</span></span><span class="wb-arrow">→</span>
       <span class="wb-stage-chip"><b>window-algebra</b> ${open.length} windows · ${esc(layout)}</span>`;
   }
-  const unsubscribe = wm.subscribe(() => { refresh(); syncUrl(); });
+  const unsubscribe = wm.subscribe(() => { saveWm(); refresh(); syncUrl(); });
   sanitizeListeners.add(refresh);
   refresh();
   syncUrl();
 
   // --- presets ---
   const say = (t: string) => { statusEl.textContent = t; };
+  /** Back to the default desk and the seed notes, and forget what this planet saved. The cleared state is written straight back, so a reload shows the default desk. */
+  function resetDesk() {
+    preset = '';
+    store.remove(DATA_KEY); store.remove(WM_KEY);
+    for (const id of TOOL_IDS) closeTool(id);
+    ctx.notes = SEED_NOTES(); ctx.selected = null; ctx.rendered.clear(); (window as any)[NS] = [];
+    saveNotes();
+    wm.setLayout(LAYOUTS[0].spec as any);
+    for (const id of ['notes', 'clips', 'map'] as ToolId[]) openTool(id);
+    wm.focus('notes');
+    ctx.emit();
+    saveWm();
+    say('desk reset: default windows, seed notes, saved state cleared');
+  }
   async function applyPreset(name: string) {
-    if (name === 'desk') {
-      preset = '';
-      for (const id of TOOL_IDS) closeTool(id);
-      ctx.notes = SEED_NOTES(); ctx.selected = null; ctx.rendered.clear(); ctx.seq = 3; (window as any)[NS] = [];
-      wm.setLayout(LAYOUTS[0].spec as any);
-      for (const id of ['notes', 'clips', 'map'] as ToolId[]) openTool(id);
-      wm.focus('notes');
-      ctx.emit();
-      say('default desk');
-    } else if (name === 'layout') {
+    if (name === 'layout') {
       const i = LAYOUTS.findIndex((l) => l.id === layoutNow());
       const next = LAYOUTS[(i + 1) % LAYOUTS.length];
       wm.setLayout(next.spec as any);
@@ -765,6 +845,7 @@ function mount(host: HTMLElement, boot: Boot): () => void {
       stage.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       await sleep(60);
       for (let i = 0; !ctx.paste && i < 40; i++) await sleep(50); // wait for the notes window to mount
+      if (disposed) return;
       say('pasting the payload and pressing the real submit button…');
       if (!ctx.notes.some((n) => n.title === XSS_TITLE)) {
         if (ctx.paste) await ctx.paste(XSS_TITLE, XSS_PAYLOAD); else ctx.addNote(XSS_TITLE, XSS_PAYLOAD);
@@ -774,6 +855,7 @@ function mount(host: HTMLElement, boot: Boot): () => void {
       ctx.emit();
       wm.focus('report');
       await sleep(600);
+      if (disposed) return;
       say(executed() === 0 ? 'payload neutralised: 0 handlers ran. Open the report for what was removed.' : `WARNING: ${executed()} handler(s) ran`);
       ctx.emit();
       syncUrl();
@@ -790,15 +872,40 @@ function mount(host: HTMLElement, boot: Boot): () => void {
         const id = t.dataset.open as ToolId;
         if (openNow().includes(id)) closeTool(id); else openTool(id);
       } else if (t.dataset.act === 'palette') stage.palette?.open();
+      else if (t.dataset.act === 'reset') resetDesk();
       else if (t.dataset.act === 'copy') { syncUrl(); await sleep(200); await copyLink(); say('link copied'); }
     } catch (err) { say(`error: ${(err as Error).message}`); console.error(err); }
   };
   // Only the room's own controls: window-algebra's views carry data-* attributes of their own (data-layout, ...).
   const controls = $('.wb-controls');
   controls.addEventListener('click', onClick);
-  if (preset === 'xss') setTimeout(() => void applyPreset('xss'), 0);
+
+  // --- cross-tab: notes arrive through the storage event (window state arrives through the stage's sync) ---
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== DATA_KEY || event.newValue == null) return;
+    const next = readNotes(event.newValue);
+    if (!next) return;
+    ctx.notes = next;
+    for (const id of [...ctx.rendered.keys()]) if (!next.some((n) => n.id === id)) ctx.rendered.delete(id);
+    if (ctx.selected && !next.some((n) => n.id === ctx.selected)) ctx.selected = null;
+    ctx.emit();
+  };
+  addEventListener('storage', onStorage);
+  function showTabs() {
+    if (disposed) return;
+    const n = (stage.sync?.peers().length ?? 0) + 1;
+    tabsEl.textContent = `${n} tab${n === 1 ? '' : 's'}`;
+    tabsEl.dataset.tabs = String(n);
+  }
+  const tabsTimer = setInterval(showTabs, 600); // peers() also changes when a tab closes, which fires no onSync
+  showTabs();
+  if (preset === 'xss') later(() => void applyPreset('xss'), 0);
 
   return () => {
+    disposed = true;
+    for (const t of timers) clearTimeout(t);
+    clearInterval(tabsTimer);
+    removeEventListener('storage', onStorage);
     controls.removeEventListener('click', onClick);
     unsubscribe();
     sanitizeListeners.delete(refresh);
@@ -816,19 +923,64 @@ const playground: Playground = {
   hue: 165,
   blurb: 'A tiling desk built from four libraries: window-algebra windows, html-modules components, safe-fragment notes, and the mport import map that joins them.',
   docs: 'https://opensource.johnhenry.me/workbench/',
-  async mount(host) {
-    const loading = h('div', { class: 'loading' }, 'building the import map, defining the modules…');
-    host.append(loading);
-    try {
-      const b = await boot();
-      loading.remove();
-      return mount(host, b);
-    } catch (e) {
-      loading.remove();
-      const pre = errBox(`Workbench Desk failed to start:\n${String((e as Error)?.stack ?? e)}`);
-      host.append(pre);
-      return () => pre.remove();
-    }
+  mount(host) {
+    const defaults = DEFAULTS;
+    let mode: Mode = readState(defaults).mode === 'real' ? 'real' : 'inpage';
+    const shell = h('div', { class: 'pg-workbench wb-shell' });
+    shell.innerHTML = `
+      <div class="wb-modebar" role="group" aria-label="Mode">
+        <span class="wb-label">Mode</span>
+        <button class="wb-chip" data-mode="inpage" aria-pressed="false" title="The four libraries bundled by Vite into this page">In-page (bundled)</button>
+        <button class="wb-chip" data-mode="real" aria-pressed="false" title="The standalone app in an iframe: no bundler, its own origin, its own CSP">Real app (no bundler)</button>
+      </div>
+      <div class="wb-content"></div>`;
+    host.append(shell);
+    const content = shell.querySelector('.wb-content') as HTMLElement;
+    let token = 0;
+    let teardown: (() => void) | undefined;
+    let gone = false;
+
+    const show = async (next: Mode, fromUser = false) => {
+      const mine = ++token;
+      teardown?.(); teardown = undefined;
+      content.replaceChildren();
+      mode = next;
+      shell.dataset.wbMode = next;
+      for (const b of shell.querySelectorAll<HTMLElement>('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === next));
+      if (next === 'real') {
+        // Only `mode` stays in the link: the in-page state (layout, windows, preset) is the other mode's.
+        if (fromUser) writeState({ ...defaults, mode: 'real' }, defaults);
+        teardown = mountReal(content);
+        return;
+      }
+      if (fromUser) writeState({ ...defaults, mode: 'inpage' }, defaults); // an arriving deep link keeps its own l/w/p
+      const loading = h('div', { class: 'loading' }, 'building the import map, defining the modules…');
+      content.append(loading);
+      try {
+        const b = await boot();
+        if (gone || mine !== token) return;
+        loading.remove();
+        teardown = mountInPage(content, b);
+      } catch (e) {
+        if (gone || mine !== token) return;
+        loading.remove();
+        const pre = errBox(`Workbench Desk failed to start:\n${String((e as Error)?.stack ?? e)}`);
+        content.append(pre);
+        teardown = () => pre.remove();
+      }
+    };
+    const onClick = (e: Event) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]');
+      if (t && t.dataset.mode !== mode) void show(t.dataset.mode as Mode, true);
+    };
+    shell.querySelector('.wb-modebar')!.addEventListener('click', onClick);
+    void show(mode);
+    return () => {
+      gone = true;
+      token++;
+      teardown?.();
+      shell.remove();
+    };
   },
 };
 export default playground;

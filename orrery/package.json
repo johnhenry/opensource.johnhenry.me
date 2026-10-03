@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "node": "node server/index.mjs",
     "build:subpath": "ORRERY_BASE=/orrery/ vite build --outDir ../public/orrery --emptyOutDir",
-    "test:headless": "node scripts/run-tests-headless.mjs"
+    "test:headless": "node scripts/run-tests-headless.mjs",
+    "build:e2e": "ORRERY_BASE=/orrery/ vite build --outDir dist/e2e --emptyOutDir",
+    "test:e2e": "npm run build:e2e && playwright test"
   },
   "dependencies": {
     "@dimforge/rapier2d-compat": "0.19.3",
@@ -95,6 +97,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/prismjs": "^1.26.6",
     "@types/three": "^0.186.0",
     "playwright": "^1.63.0",

@@ -1,0 +1,63 @@
+<!-- Notes: a form (two form-associated fields and a submit-button component) and a list of note cards.
+     It imports the shared kit through the import map: a bare specifier, "@workbench/ui/", that mport generated. -->
+<html-import src="@workbench/ui/kit.html" as="kit"></html-import>
+
+<html-export name="notes-tool" props="count:number">
+  <style>
+    :host { display: block; padding: var(--wa-space-md, 12px); font-family: var(--f-body, system-ui); color: var(--wa-color-fg); }
+    form { display: grid; gap: 8px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .count { font-size: 12px; color: var(--wa-color-fg-muted); }
+    .items { display: grid; gap: 8px; margin-top: 14px; }
+    .empty { margin: 0; color: var(--wa-color-fg-muted); font-size: 13px; }
+  </style>
+  <template>
+    <form part="form" aria-label="New note">
+      <kit--field name="title" required placeholder="What is it about?">Title</kit--field>
+      <kit--area name="body" placeholder="Paste HTML or plain text. It is untrusted.">Note body (untrusted)</kit--area>
+      <div class="row">
+        <kit--submit-button variant="primary">Add note</kit--submit-button>
+        <span class="count" role="status">{{count}} saved</span>
+      </div>
+    </form>
+    <section class="items" aria-label="Saved notes"><slot name="items"><p class="empty">No notes yet.</p></slot></section>
+  </template>
+</html-export>
+
+<html-export name="note-card" props="heading profile updated report selected">
+  <style>
+    :host { display: block; }
+    article { padding: 8px 10px; border: var(--wa-border-width, 1px) solid var(--wa-color-border); border-radius: var(--wa-radius-md, 8px); background: var(--wa-color-bg); }
+    :host([selected]) article { border-color: var(--wa-color-accent); box-shadow: 0 0 0 1px var(--wa-color-accent); }
+    header { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+    h3 { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+    .tools { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .body { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 13.5px; }
+    .body safe-fragment { display: block; }
+    .body safe-fragment[profile="plain-text-v1"] { white-space: pre-wrap; }
+    .body :is(p, ul, ol, blockquote, h1, h2, h3, h4, pre, table) { margin: 6px 0 0; }
+    .body :is(h1, h2, h3, h4) { font-size: 14px; }
+    .body img { max-width: 100%; height: auto; }
+    .body a { color: var(--wa-color-accent); }
+    .report:empty { display: none; }
+    .report { margin: 6px 0 0; font-size: 11.5px; color: var(--wa-color-fg-muted); overflow-wrap: anywhere; font-family: var(--f-mono, monospace); }
+    .meta { margin: 4px 0 0; font-size: 11px; color: var(--wa-color-fg-muted); }
+  </style>
+  <template>
+    <article>
+      <header>
+        <h3>{{heading}}</h3>
+        <span class="tools">
+          <kit--badge>{{profile}}</kit--badge>
+          <kit--button variant="icon" data-action="inspect" label="Inspect the sanitizer report for {{heading}}">Report</kit--button>
+          <kit--button variant="icon" data-action="delete" label="Delete note {{heading}}">Delete</kit--button>
+        </span>
+      </header>
+      <!-- The note's body is untrusted rich text. It is never written into this template: the tool's glue hands the
+           string to <safe-fragment> as a property, which renders it through the profile; the report comes back as an event. -->
+      <div class="body"><safe-fragment profile="article-v1" render-mode="replace"></safe-fragment></div>
+      <p class="report" data-report>{{report}}</p>
+      <p class="meta">{{updated}}</p>
+    </article>
+  </template>
+</html-export>

@@ -1,0 +1,90 @@
+name: Orrery e2e
+
+# End-to-end tests for the Orrery's Workbench Desk planet (orrery/e2e), on Chromium, Firefox and WebKit.
+#
+# A separate workflow from Deploy on purpose:
+#   - it runs on push AND pull_request, on GitHub-hosted runners, so a failure is visible on a PR without a deploy, and a
+#     fork's PR never reaches the self-hosted runner that holds the Dokku key (see deploy.yml);
+#   - it only runs when orrery/ changes, so a docs-only push neither waits for it nor is blocked by it;
+#   - Deploy stays a fast build-and-push. Make this a required check in branch protection if a red run should block merging.
+#
+# The tests build the Orrery with the same /orrery/ base the site ships and serve it with `vite preview`. They never depend on
+# the external standalone workbench: real mode is tested against a route-fulfilled copy of its HTML.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'orrery/**'
+      - '.github/workflows/orrery-e2e.yml'
+  pull_request:
+    paths:
+      - 'orrery/**'
+      - '.github/workflows/orrery-e2e.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: orrery-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    defaults:
+      run:
+        working-directory: orrery
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: orrery/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Build the Orrery (production, /orrery/ base)
+        run: npm run build:e2e
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Playwright (${{ matrix.browser }})
+        run: npx playwright test --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            orrery/playwright-report
+            orrery/test-results
+          retention-days: 7
+
+  # The real standalone site over the real network. Informational: the standalone is another repo and another host.
+  live:
+    name: live standalone (non-gating)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: orrery
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: orrery/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:e2e
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=chromium -g "@live"
+        env:
+          WORKBENCH_LIVE: '1'
