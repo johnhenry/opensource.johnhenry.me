@@ -29,7 +29,13 @@ const circuitShikiTheme = {
 export default defineConfig({
   site: 'https://opensource.johnhenry.me',
   // The standalone workbench app was retired on 2026-10-03; its page now points at the Orrery planet that replaced it.
-  redirects: { '/workbench': '/orrery/#/workbench' },
+  redirects: {
+    '/workbench': '/orrery/#/workbench',
+    // pixelable was renamed canvas-fx (2026-10-04).
+    '/pixelable': '/canvas-fx/',
+    '/pixelable/reference': '/canvas-fx/reference/',
+    '/pixelable/live-html': '/canvas-fx/live-html/',
+  },
   integrations: [
     starlight({
       title: 'John Henry · Open Source',
@@ -91,7 +97,7 @@ export default defineConfig({
           { label: 'html-modules', directory: 'html-modules' },
           { label: 'safe-fragment', directory: 'safe-fragment' },
           { label: 'domkit', directory: 'domkit' },
-          { label: 'pixelable', directory: 'pixelable' },
+          { label: 'canvas-fx', directory: 'canvas-fx' },
           { label: 'webwire', directory: 'webwire' },
         ].map(({ label, directory }) => ({
           label,
