@@ -27,7 +27,7 @@ its first release). Until then, load it from jsDelivr's GitHub mirror,
 pinned to a commit:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/johnhenry/pixelable@73c544ab05ccedc3089dfee81a105f8539d5f944/src/global.mjs"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/johnhenry/pixelable@42ebb706bea97aba73a098eab67067a938588dd7/src/global.mjs"></script>
 ```
 
 `global.mjs` registers every element; `pixel-canvas/global.mjs` alone is
@@ -51,6 +51,7 @@ same way.
 | `wave(amplitude, wavelength, speed)` | Rows rippling along a moving wave |
 | `lens(radius, zoom)` | A magnifying glass that follows the pointer |
 | `spotlight(radius, softness, dim)` | Light around the pointer, the rest dimmed |
+| `glyphs(cell, chars, font, mode, color, background)` | The image as text characters (ASCII art), chosen by brightness or by shape from the real font |
 
 Every effect is also an element (`<pixel-mosaic size="4">`, …) to wrap
 around the source; wrapped effects run from the inside out, then the
@@ -77,6 +78,8 @@ attribute's list.
 - **Chaining:** a `<pixel-canvas>` can be another's source.
 - **Saving:** `toBlob()`, `toGIF()` (an animated GIF, exact colors for pixel
   art), `record()` (video), and `captureStream()`.
+- **As text:** `glyphs()` draws the image in characters, and `toText()`
+  gives the result back as a string, one line per row.
 - **Live HTML (experimental):** `<pixel-canvas html>` draws its own HTML
   content through the effects and keeps it interactive. See
   [Live HTML](/pixelable/live-html/).
@@ -97,6 +100,10 @@ attribute's list.
 - **Recording captures what's drawn.** Effects that change over time need
   `fps` (or a playing video) to animate while `toGIF()` or `record()`
   captures.
+- **`glyphs()` measures the font.** Its brightness ramp follows each
+  character's real ink, not the order you list them in; a font that hasn't
+  loaded yet draws in a fallback, then redraws. Quote character sets with
+  spaces or commas: `glyphs(8, ' .,:')`.
 - **Tags are fixed per page.** `definePixelEffect("x", …)` registers
   `<pixel-x>`; defining the same name twice keeps the first.
 
