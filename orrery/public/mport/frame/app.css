@@ -1,0 +1,12 @@
+/* The frame's only stylesheet: an external file, because its policy allows no inline style. */
+:root { color-scheme: dark; --ink: #e6e9f2; --ink-2: #9aa3b8; --line: #2a3142; --accent: hsl(230 90% 66%); }
+html, body { margin: 0; background: #0b0f1a; color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; }
+#app { padding: 14px; }
+.add { display: flex; gap: 8px; margin: 0 0 10px; }
+.add input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: #121829; color: inherit; font: inherit; }
+.add button { padding: 6px 12px; border-radius: 6px; border: 0; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+.todos { list-style: none; margin: 0; padding: 0; }
+.todo label { display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+.todo.done span { text-decoration: line-through; color: var(--ink-2); }
+.status { margin: 10px 0 0; font: 12px ui-monospace, monospace; color: var(--ink-2); }
+.boot { color: var(--ink-2); font: 12px ui-monospace, monospace; }

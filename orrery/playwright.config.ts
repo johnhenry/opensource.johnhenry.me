@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * End-to-end tests for the Workbench Desk planet (e2e/workbench.spec.ts).
+ * End-to-end tests for the Untrusted Desk (e2e/workbench.spec.ts) and Import Router (e2e/mport.spec.ts) planets.
  *
  * They run against a PRODUCTION build served by `vite preview`, built with the same /orrery/ base the docs site ships
  * (`npm run build:e2e`: ORRERY_BASE=/orrery/ into dist/e2e, so it never touches ../public/orrery).

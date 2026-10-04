@@ -1,7 +1,7 @@
 # ORRERY
 
 An interactive, browser-native tour of the [@johnhenry open-source ecosystem](https://opensource.johnhenry.me/).
-Thirty-seven planets, and nothing is a screenshot: every planet imports the real npm package and runs it live in your browser.
+Thirty-eight planets, and nothing is a screenshot: every planet imports the real npm package and runs it live in your browser.
 
 ```bash
 npm install
@@ -33,7 +33,8 @@ npm run build    # static output in dist/
 | Raijin Ledger | `@johnhenry/raijin-*` | 4–7 in-page PBFT validators, fee-ordered mempool, leader crashes, partitions and recovery. |
 | Jujutsu Timeline | `@johnhenry/isomorphic-jj` | Change IDs survive rewrites on an animated DAG; op-log time travel; conflicts as data. |
 | JSX Studio | `@johnhenry/fileable`, `servable`, `hostable` | JSX → file tree with hashes, → request dispatcher, → multi-host gateway. Run requests in-page. |
-| Untrusted Desk | `@johnhenry/window-algebra`, `safe-fragment`, `html-modules` | A tiling desk of untrusted notes: window-algebra windows (undo/redo, keyboard-movable floating windows, pop-out, persistence, two-tab sync), safe-fragment under a switchable profile with an XSS preset, and a strict-CSP, Trusted Types frame; the components are html-modules. The standalone no-bundler app (all four libraries, mport) is linked. |
+| Untrusted Desk | `@johnhenry/window-algebra`, `safe-fragment`, `html-modules` | A tiling desk of untrusted notes: window-algebra windows (undo/redo, keyboard-movable floating windows, pop-out, persistence, two-tab sync), safe-fragment under a switchable profile with an XSS preset, and a strict-CSP, Trusted Types frame; the components are html-modules. The import-map and no-bundler story lives on the Import Router planet. |
+| Import Router | `@johnhenry/mport` | Routing scenarios (outage, race, circuit breaker, lockfile pinning, prefer, tampered mirror, `router.import()` failover) with timelines, health and the compiled import map + lockfile, on a simulated or the real network; a no-bundler Preact + htm app in a strict-CSP frame that allows its import map only by mport's hash, with tamper controls and a CDN up/down/broken switch; mport's examples run in-page as proofs. |
 | Agent Query | `@johnhenry/mcp-query`, `mcp-gate` | In-page MCP server, reactive cache inspector, policy gate with approvals, wire timeline. |
 | Laya Playground | `@johnhenry/laya` | Typed questions answered by an on-device model on WebGPU. Laya plays Snake. Demo mode if no model. |
 | Circuit Gallery | `@erisera-code/circuit` | Spin the hue dial: accent moves, neutrals/semantic/syntax hold. Every token, both themes, contrast. |

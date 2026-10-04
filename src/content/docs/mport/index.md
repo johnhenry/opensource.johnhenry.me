@@ -48,6 +48,8 @@ const { default: _ } = await mport("lodash-es@4.17.21/lodash.js");
 > which never reached npm under the old name), and it keeps the 1.x API working.
 > `@johnhenry/mport@0.0.0` was published on 2026-10-03; see [Getting started](/mport/getting-started/).
 
+**Try it live:** the [Import Router](/orrery/#/mport) planet runs mport in your browser: routing scenarios (outages, races, a circuit breaker, a tampered mirror) against a simulated or the real network, a no-bundler Preact app under a strict CSP that allows its import map only by mport's hash, and mport's examples as a pass/fail list.
+
 ## The one rule
 
 **Resolution is deterministic and transport is adaptive.**

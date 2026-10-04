@@ -544,7 +544,7 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     <wa-stage class="wb-stage" aria-label="Workbench windows"></wa-stage>
     <section class="panel wb-tt" aria-label="Strict CSP and Trusted Types proof">
       <h3>Strict CSP and Trusted Types, with safe-fragment inside</h3>
-      <p class="wb-why">A separate page (<code>workbench/tt.html</code>) with <code>require-trusted-types-for 'script'</code>, <code>trusted-types dompurify</code> and no inline script or style. safe-fragment renders hostile notes in it with zero violations; a raw <code>innerHTML</code> of the same string is refused, and that refusal is the one violation.</p>
+      <p class="wb-why">A separate page (<code>workbench/tt.html</code>) with <code>require-trusted-types-for 'script'</code>, <code>trusted-types dompurify</code> and no inline script or style. safe-fragment renders hostile notes in it with zero violations; a raw <code>innerHTML</code> of the same string is refused, and that refusal is the one violation. The import-map half of the no-bundler story, an inline map allowed only by its hash, is on the <a href="#/mport?tab=frame">Import Router</a> planet.</p>
       <div class="wb-tt-status" data-tt-status role="status">waiting for the frame…</div>
       <iframe class="wb-tt-frame" data-tt-frame title="Strict CSP frame: safe-fragment rendering untrusted notes under Trusted Types" src="${FRAME_URL}"></iframe>
     </section>

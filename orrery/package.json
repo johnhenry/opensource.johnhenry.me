@@ -64,6 +64,7 @@
     "@johnhenry/math-plus-unit": "^0.0.3",
     "@johnhenry/mcp-gate": "^0.2.3",
     "@johnhenry/mcp-query": "^0.1.0",
+    "@johnhenry/mport": "^0.0.0",
     "@johnhenry/oat-protocol": "^0.1.1",
     "@johnhenry/oat-qr-fountain": "^0.1.1",
     "@johnhenry/oat-receiver": "^0.1.1",
