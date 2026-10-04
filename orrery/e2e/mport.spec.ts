@@ -9,10 +9,13 @@ import { test, expect, type Page } from '@playwright/test';
 
 const PLANET = '#/mport';
 
-/** Abort and record every request that leaves the local preview server (Google Fonts included). */
+/** The site under test: the local preview server, or the deployed site when ORRERY_URL points at it. */
+const SITE_HOSTS = ['localhost', '127.0.0.1', ...(process.env.ORRERY_URL ? [new URL(process.env.ORRERY_URL).hostname] : [])];
+
+/** Abort and record every request that leaves the site under test (Google Fonts included). */
 async function offline(page: Page) {
   const external: string[] = [];
-  await page.route((url) => /^https?:$/.test(url.protocol) && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1', (route) => {
+  await page.route((url) => /^https?:$/.test(url.protocol) && !SITE_HOSTS.includes(url.hostname), (route) => {
     external.push(route.request().url());
     return route.abort();
   });
@@ -28,8 +31,9 @@ function watch(page: Page) {
   return errors;
 }
 /** Not counted: the favicon, aborted font requests, and the home page's probe for the optional Node companion
- *  (localhost:7777/orrery.json, which Firefox reports as a CORS error when nothing listens there). */
-const mine = (errors: string[]) => errors.filter((e) => !/favicon|fonts\.g|ERR_FAILED|net::|Failed to load resource|orrery\.json/i.test(e));
+ *  (localhost:7777/orrery.json: Firefox reports a CORS error when nothing listens there, and WebKit on the https site refuses it with
+ *  "Not allowed to request resource"). */
+const mine = (errors: string[]) => errors.filter((e) => !/favicon|fonts\.g|ERR_FAILED|net::|Failed to load resource|orrery\.json|Not allowed to request resource/i.test(e));
 
 async function open(page: Page, hash = PLANET) {
   await page.goto('about:blank');
