@@ -27,7 +27,9 @@ function watch(page: Page) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
   return errors;
 }
-const mine = (errors: string[]) => errors.filter((e) => !/favicon|fonts\.g|ERR_FAILED|net::|Failed to load resource/i.test(e));
+/** Not counted: the favicon, aborted font requests, and the home page's probe for the optional Node companion
+ *  (localhost:7777/orrery.json, which Firefox reports as a CORS error when nothing listens there). */
+const mine = (errors: string[]) => errors.filter((e) => !/favicon|fonts\.g|ERR_FAILED|net::|Failed to load resource|orrery\.json/i.test(e));
 
 async function open(page: Page, hash = PLANET) {
   await page.goto('about:blank');
