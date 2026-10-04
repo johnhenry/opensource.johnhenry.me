@@ -5,6 +5,8 @@ sidebar:
   order: 0
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/canvas-fx`** puts pixel effects on images, video, canvases,
 pixel art you write as text, your own drawing elements (a game, a
 visualization), and, experimentally, live HTML. Put the source in a
@@ -22,18 +24,24 @@ can't be read, the plain `<img>` shows, so nothing is lost.
 
 ## Install
 
-canvas-fx isn't on npm yet (it was split out of domkit and is waiting for
-its first release). Until then, load it from jsDelivr's GitHub mirror,
-pinned to a commit:
+No install is needed: load it from a CDN. One script registers every
+element:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/johnhenry/canvas-fx@6813d7555865f4bf2da2d3928f544f4e33463baf/src/global.mjs"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@johnhenry/canvas-fx/src/global.mjs"></script>
 ```
 
-`global.mjs` registers every element; `pixel-canvas/global.mjs` alone is
-enough for the `effects` attribute. Once published, `npm install
-@johnhenry/canvas-fx` and `@johnhenry/canvas-fx/global.mjs` will work the
-same way.
+`pixel-canvas/global.mjs` alone is enough for the `effects` attribute.
+With npm:
+
+<Install pkg="@johnhenry/canvas-fx" />
+
+```js
+import "@johnhenry/canvas-fx/global.mjs"; // registers every element
+```
+
+canvas-fx has no dependencies, so no import map is needed. It ships
+TypeScript declarations and a `custom-elements.json` manifest.
 
 ## Effects
 
