@@ -240,6 +240,11 @@
    were dropped from domkit 0.0.1 in favor of importing domable directly),
    not a thematic pairing. */
 :root[data-tool='domkit']           { --hue: 13; }
+/* Hue-share: pixelable takes domkit's stop. Real lineage, not a theme:
+   pixelable was domkit's src/pixelable/ family until it was split out into
+   its own package, with its history (the same kind of link servant has to
+   leserve). It no longer imports domkit; the two meet in the page. */
+:root[data-tool='pixelable']        { --hue: 13; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

@@ -1,0 +1,112 @@
+---
+title: "pixelable"
+description: "Pixel effects for images, video, canvases, and live HTML, written as HTML: mosaic, palettes with dithering, CRT, halftone, shaders. Custom elements, no build step, no dependencies."
+sidebar:
+  order: 0
+---
+
+**`@johnhenry/pixelable`** puts pixel effects on images, video, canvases,
+pixel art you write as text, your own drawing elements (a game, a
+visualization), and, experimentally, live HTML. Put the source in a
+`<pixel-canvas>` and list the effects like CSS `filter`:
+
+```html
+<pixel-canvas width="160" effects="adjust(contrast 1.3) palette(gameboy, ordered)">
+  <img src="photo.jpg" alt="Our cat">
+</pixel-canvas>
+```
+
+Effects run left to right: the contrast is raised, then the photo is reduced
+to the Game Boy's four greens. Before the script loads, or if the image
+can't be read, the plain `<img>` shows, so nothing is lost.
+
+## Install
+
+pixelable isn't on npm yet (it was split out of domkit and is waiting for
+its first release). Until then, load it from jsDelivr's GitHub mirror,
+pinned to a commit:
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/gh/johnhenry/pixelable@73c544ab05ccedc3089dfee81a105f8539d5f944/src/global.mjs"></script>
+```
+
+`global.mjs` registers every element; `pixel-canvas/global.mjs` alone is
+enough for the `effects` attribute. Once published, `npm install
+@johnhenry/pixelable` and `@johnhenry/pixelable/global.mjs` will work the
+same way.
+
+## Effects
+
+| Effect | What it does |
+|---|---|
+| `mosaic(size)` | Pixelate into blocks |
+| `palette(colors, dither, count)` | Limit to a palette (Game Boy, PICO-8, 1-bit, any colors, or `auto` from the image), with dithering |
+| `grid(size, color, line)` | Grid lines between cells; a `transparent` color cuts the image into tiles |
+| `adjust(brightness, contrast, saturation, hue)` | Tone and color, like the CSS filter functions |
+| `halftone(size, angle, ink, paper)` | Printed dots |
+| `outline(threshold, ink, paper)` | Line art from edges |
+| `crt(scanlines, mask, glow)` | An old screen |
+| `chroma-key(color, tolerance, softness)` | Make a color transparent (green screen) |
+| `glitch(amount, rate)` | Animated digital breakup |
+| `wave(amplitude, wavelength, speed)` | Rows rippling along a moving wave |
+| `lens(radius, zoom)` | A magnifying glass that follows the pointer |
+| `spotlight(radius, softness, dim)` | Light around the pointer, the rest dimmed |
+
+Every effect is also an element (`<pixel-mosaic size="4">`, …) to wrap
+around the source; wrapped effects run from the inside out, then the
+attribute's list.
+
+- **Your own effects:** `definePixelEffect(name, fn)` registers both forms;
+  `<pixel-shader>` and `definePixelShader()` run GLSL on the GPU.
+- **Animation:** `fps` on the canvas drives effects that change over time,
+  with `play()`/`pause()`; videos and sprites redraw every frame.
+- **Your own sources:** any element with a `canvas` property that fires
+  `framechange` (a game, a visualization) can be the source.
+- **Pixel art as text:** `<pixel-sprite>`, one character per pixel, with
+  animation frames.
+- **Theme from a picture:** `swatches="3" swatches-target="html"` publishes
+  the result's most common colors as `--pixel-swatch-1…3`.
+- **On the GPU:** `gpu` runs the whole chain on WebGL2 when every effect in
+  it can (most built-ins, every shader): uploaded once, a shader per effect,
+  nothing read back. `renderer` says whether it ran there.
+- **Following the pointer:** effects get the pointer, in the image's
+  pixels; `lens()` and `spotlight()` use it, and the canvas redraws as it
+  moves.
+- **Transitions:** `transition="400ms"` animates changes to `effects`,
+  interpolating numbers or cross-fading to a different list.
+- **Chaining:** a `<pixel-canvas>` can be another's source.
+- **Saving:** `toBlob()`, `toGIF()` (an animated GIF, exact colors for pixel
+  art), `record()` (video), and `captureStream()`.
+- **Live HTML (experimental):** `<pixel-canvas html>` draws its own HTML
+  content through the effects and keeps it interactive. See
+  [Live HTML](/pixelable/live-html/).
+
+## Traps
+
+- **A cross-origin image without CORS can't be read.** The canvas taints,
+  the `<pixel-canvas>` fires `error` and shows the original image. Serve
+  images with CORS (`crossorigin` on the `<img>`), or from your own origin.
+- **Effects run on the CPU, once per redraw.** For video, keep the working
+  size small (`width="160"`) and scale up with CSS; the result is drawn
+  with `image-rendering: pixelated`, so it stays crisp.
+- **Randomness must be repeatable.** Write effects with `random(seed)`,
+  not `Math.random()`, or a paused canvas flickers on every redraw.
+- **The GPU path is all or nothing per chain.** One CPU-only step
+  (`glitch`, `palette(auto)`, Floyd–Steinberg, a JavaScript effect) runs the
+  whole chain on the CPU; check `renderer`.
+- **Recording captures what's drawn.** Effects that change over time need
+  `fps` (or a playing video) to animate while `toGIF()` or `record()`
+  captures.
+- **Tags are fixed per page.** `definePixelEffect("x", …)` registers
+  `<pixel-x>`; defining the same name twice keeps the first.
+
+## Family
+
+- **[domkit](/domkit/)**, where pixelable started. Its `<frame-timer>` is the
+  clock animated sources usually run on, and its `<hot-key>`,
+  `<gamepad-input>`, and `<swipe-input>` drive what's drawn. pixelable
+  doesn't import domkit; they meet in the page.
+- **forsnaken**, a snake game made of HTML elements, is a consumer: its
+  game element is a custom source, shown through `effects="grid(…)"`.
+
+Source: [github.com/johnhenry/pixelable](https://github.com/johnhenry/pixelable).
