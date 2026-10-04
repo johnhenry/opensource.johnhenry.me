@@ -3,11 +3,11 @@ title: Kernel
 description: browsermesh-kernel — a capability-secure browser microkernel with resource handles, IPC, tracing, and chaos engineering. Zero dependencies, standalone.
 ---
 
+import Install from '../../../components/Install.astro';
+
 `@johnhenry/browsermesh-kernel` is deliberately the odd one out in this family: a capability-secure browser microkernel — resource handles, byte streams, IPC, a service mesh, structured tracing, chaos engineering, and tenant isolation. It has **zero npm dependencies**, including zero dependency on `@johnhenry/browsermesh-primitives` — it doesn't do mesh networking or peer identity at all. Think of it as a sibling project that happened to come out of the same private monorepo, not a mesh-stack layer.
 
-```sh
-npm install @johnhenry/browsermesh-kernel
-```
+<Install pkg="@johnhenry/browsermesh-kernel" />
 
 ```js
 import { Kernel, KERNEL_CAP } from '@johnhenry/browsermesh-kernel'

@@ -4,6 +4,8 @@ description: "Declaratively describe an API gateway using JSX — routes across 
 planet: studio
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/hostable`** describes an API gateway as JSX — routing across
 multiple domains and backend services by `Host` header, on top of
 [servable](/servable/)'s single-app `(Request) => Response` dispatcher.
@@ -30,9 +32,7 @@ re-exported from servable directly, unchanged.
 
 ## Install
 
-```sh
-npm install @johnhenry/hostable
-```
+<Install pkg="@johnhenry/hostable" />
 
 ## Quick example
 

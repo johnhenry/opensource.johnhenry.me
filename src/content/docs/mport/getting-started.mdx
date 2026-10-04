@@ -5,11 +5,11 @@ sidebar:
   order: 1
 ---
 
+import Install from '../../../components/Install.astro';
+
 ## Install
 
-```bash
-npm install @johnhenry/mport
-```
+<Install pkg="@johnhenry/mport" />
 
 Previously published as `mport`, last unscoped version 1.0.0. `@johnhenry/mport` restarts at `0.0.0` because it is a new address, not because the code is new: `0.0.0` is the first release of the router API (developed as mport 2.0, which never reached npm under the old name), and it keeps the 1.x API working. Before 1.0, `^0.0.0` matches only `0.0.0`, so pin exact versions until a deliberate `0.1.0`.
 

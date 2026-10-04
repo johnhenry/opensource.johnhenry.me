@@ -4,6 +4,8 @@ description: "Combinatorial string generation from {a|b} choice and {1,10} range
 planet: spintax
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/spintax`** expands template strings with `{...}` patterns into
 every possible combination — `{red|green|blue}` choices, `{1,10,2}` numeric
 ranges, and `{$0}` back references — as a lazy iterator, so a million-variant
@@ -17,9 +19,7 @@ zero dependencies.
 
 ## Install
 
-```sh
-npm install @johnhenry/spintax
-```
+<Install pkg="@johnhenry/spintax" />
 
 ## Quick start
 

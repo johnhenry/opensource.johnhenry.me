@@ -5,6 +5,8 @@ sidebar:
   order: 0
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/webwire`** converts between Node's raw `http`/`https` objects
 (`IncomingMessage`, `ServerResponse`, `http.request()`) and the Web Fetch API
 (`Request`, `Response`). Four small functions, no dependencies, no build step.
@@ -26,9 +28,7 @@ lets a `Response` carry HTTP trailers, which Fetch has no way to express.
 
 ## Install
 
-```sh
-npm install @johnhenry/webwire
-```
+<Install pkg="@johnhenry/webwire" />
 
 Requires Node 26 or newer (`engines.node` is `>=26.0.0`). Types ship in the
 package (`index.d.ts`). See [Getting started](/webwire/getting-started/).

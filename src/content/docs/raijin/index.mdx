@@ -4,6 +4,8 @@ description: "Browser-native mesh rollup framework — PBFT consensus, state mac
 planet: raijin
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/raijin-*`** is a browser-native mesh rollup framework: six small TypeScript packages that compose into an L2 where the users visiting your web app *are* the validators. A deterministic state machine, a simplified PBFT consensus engine with leader rotation, a fee-ordered mempool, a pluggable data-availability layer, a validator composition root, and a client SDK — all transport-agnostic, storage-agnostic, and identity-agnostic (you inject signing, storage, and networking; the framework never touches WebRTC or IndexedDB itself). Zero runtime dependencies; runs in browsers and Node.
 
 > Previously published unscoped, with a quirky version history: the initial
@@ -28,9 +30,7 @@ Read this before anything else, because the name "rollup" over-promises:
 
 Install only what you need — packages are independent, all depending only on `raijin-core`:
 
-```sh
-npm install @johnhenry/raijin-sdk @johnhenry/raijin-validator
-```
+<Install pkg="@johnhenry/raijin-sdk @johnhenry/raijin-validator" />
 
 ## Quick start
 

@@ -4,6 +4,8 @@ description: "A stack-based programming language that compiles to JavaScript —
 planet: jth
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/jth`** is the CLI for jth, a stack-based programming language
 that compiles to JavaScript. You push values onto a stack; operators pop their
 arguments, do their work, and push results back. The whole language is that
@@ -20,9 +22,7 @@ installation required in the output.
 
 ## Install
 
-```sh
-npm install -g @johnhenry/jth
-```
+<Install pkg="@johnhenry/jth" global />
 
 The package is `@johnhenry/jth`; the binary it installs is `jth`. Without a
 global install, `npx @johnhenry/jth run file.jth` works — the package has a

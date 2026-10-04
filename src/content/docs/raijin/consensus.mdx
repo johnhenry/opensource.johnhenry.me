@@ -3,11 +3,11 @@ title: "Consensus"
 description: "@johnhenry/raijin-consensus — the PBFT engine and ValidatorSet: quorum math, the message flow, view changes, and what is not verified."
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/raijin-consensus`** implements a simplified PBFT: leader broadcasts PRE-PREPARE with a block, validators answer PREPARE then COMMIT, and finalization happens at `quorumSize()` commits, after which the block is applied to the injected `StateMachine`. Leader rotation is round-robin per view; view changes evict a stalled leader. Transport and time are injected interfaces, which is what makes the engine testable and browser-portable. Every vote the engine acts on is now signature-verified against a required, injected `verify` — see "What's authenticated" below before assuming otherwise.
 
-```sh
-npm install @johnhenry/raijin-consensus
-```
+<Install pkg="@johnhenry/raijin-consensus" />
 
 ## The quorum math — read before choosing n
 

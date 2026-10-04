@@ -4,13 +4,13 @@ description: A browser-native, capability-safe physical transport for signed sta
 planet: oat
 ---
 
+import Install from '../../../components/Install.astro';
+
 `<optical-send>` renders a signed, verified artifact as an animated, fountain-coded sequence of QR frames. `<optical-receive>` points a camera at the screen, reconstructs the artifact even under dropped/duplicated/reordered frames, verifies its digest and signature, and — if the sender proposed one — renders a receiver-sanitized UI for the user to accept, downgrade, or reject.
 
 This is **not** a replacement for AirDrop, Nearby Share, or HTTPS. It targets the case those don't cover: payloads too large for a single QR code where zero-setup handoff, physical locality, air-gap compatibility, or trust bootstrapping between two devices with no prior relationship matter more than raw throughput.
 
-```sh
-npm install @johnhenry/oat-sender @johnhenry/oat-receiver @johnhenry/oat-protocol
-```
+<Install pkg="@johnhenry/oat-sender @johnhenry/oat-receiver @johnhenry/oat-protocol" />
 
 ```html
 <optical-send id="sender" controls frame-rate="12"></optical-send>

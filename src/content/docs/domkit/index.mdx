@@ -5,6 +5,8 @@ sidebar:
   order: 0
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/domkit`** is a set of custom elements and DOM utilities for
 people writing HTML without a build step. Add one `<script>` tag, write
 the element, and it behaves like a native one: attributes, properties,
@@ -32,9 +34,7 @@ every element keeps.
 No install is needed: every module loads from a CDN as
 `https://esm.sh/@johnhenry/domkit/<module>/global.mjs`. With npm:
 
-```sh
-npm install @johnhenry/domkit
-```
+<Install pkg="@johnhenry/domkit" />
 
 ```js
 import "@johnhenry/domkit/tabbed-ui/global.mjs"; // registers <tabbed-ui>

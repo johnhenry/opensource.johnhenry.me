@@ -4,6 +4,8 @@ description: "Turn TypeScript or Python classes into stateful, versioned CLI too
 planet: objectify
 ---
 
+import Install from '../../../components/Install.astro';
+
 Write a class. Drop it in a folder. Every method becomes a shell command. Every call takes JSON arguments. Every write is versioned. State is persistent, optional, and backed by SQLite. The whole thing is a single binary — no server, no SDK, no configuration.
 
 objectify gives LLM agents the easiest possible way to create and use tools. An agent writes a class, and immediately has a stateful, versioned, self-documenting CLI it can call through bash. No boilerplate, no glue code, no infrastructure. Just classes in, tools out.
@@ -32,9 +34,11 @@ objectify log 3fa8
 
 The easiest way, if you have Node.js 18+:
 
+<Install pkg="@johnhenry/objectify" global />
+
+Or run it without installing:
+
 ```sh
-npm install -g @johnhenry/objectify
-# or run it without installing:
 npx @johnhenry/objectify --help
 ```
 

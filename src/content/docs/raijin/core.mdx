@@ -3,11 +3,11 @@ title: "Core"
 description: "@johnhenry/raijin-core — the state machine, transaction/block types, SHA-256 + Merkle hashing, and canonical binary encoding."
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/raijin-core`** is the bottom of the dependency graph: types (`Transaction`, `Block`, `Account`, receipts), the deterministic state transition function (`StateMachine`), a reference `StateStore` (`InMemoryStateStore`), SHA-256/Merkle hashing, and the canonical binary encoding that signatures and hashes are computed over. Zero dependencies; only `globalThis.crypto.subtle`.
 
-```sh
-npm install @johnhenry/raijin-core
-```
+<Install pkg="@johnhenry/raijin-core" />
 
 ## Traps first
 

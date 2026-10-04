@@ -4,6 +4,8 @@ description: "Split text into semantically meaningful chunks by detecting simila
 planet: chunker
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/semantic-chunker`** splits text into chunks that follow topic
 boundaries instead of character counts. It segments a document (sentences,
 paragraphs, or markdown blocks), embeds each segment with a function *you*
@@ -25,9 +27,7 @@ optional peers you install yourself.
 
 ## Install
 
-```sh
-npm install @johnhenry/semantic-chunker
-```
+<Install pkg="@johnhenry/semantic-chunker" />
 
 Requires Node.js >= 20.6.0.
 

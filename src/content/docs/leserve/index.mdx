@@ -4,6 +4,8 @@ description: "A simple HTTP/HTTPS server for Node.js built around one API, serve
 planet: leserve
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/leserve`** ships one API: `serve()` — a plain
 `(Request) => Response` handler, no routing, no middleware stack, no event
 framework attached. If that sounds Deno-flavored, it's deliberate: the shape
@@ -28,9 +30,7 @@ see [letterpress](/letterpress/), which is built specifically to pair with
 
 ## Install
 
-```sh
-npm install @johnhenry/leserve
-```
+<Install pkg="@johnhenry/leserve" />
 
 ## Quick example
 

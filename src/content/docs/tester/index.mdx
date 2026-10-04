@@ -4,6 +4,8 @@ description: "A zero-dependency TAP testing framework that runs unchanged in Nod
 planet: tester
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/tester`** is a [tape](https://github.com/tape-testing/tape)-inspired
 testing framework with a twist: a test is a (possibly async) generator
 function that *yields* assertion results, and the runner prints them as
@@ -23,9 +25,7 @@ browser story work and custom assertions one-liners.
 
 ## Install
 
-```sh
-npm install @johnhenry/tester
-```
+<Install pkg="@johnhenry/tester" />
 
 ## Quick start — including in the browser
 

@@ -3,9 +3,9 @@ title: '@johnhenry/a2a-query-tanstack'
 description: TanStack Query bridge for a2a-query — queryOptions/mutationOptions factories that sync a2a-query's own cache into TanStack's, with zero extra refetches.
 ---
 
-```bash
-npm install @johnhenry/a2a-query-tanstack @johnhenry/a2a-query @tanstack/react-query
-```
+import Install from '../../../components/Install.astro';
+
+<Install pkg="@johnhenry/a2a-query-tanstack" peers="@johnhenry/a2a-query @tanstack/react-query" />
 
 `queryOptions`/`mutationOptions` factories that delegate fetching to [`a2a-query`](/agent-query/a2a-query/) while syncing its own reactive cache into TanStack Query's — same shape as [`mcp-query-tanstack`](/agent-query/mcp-query-tanstack/).
 

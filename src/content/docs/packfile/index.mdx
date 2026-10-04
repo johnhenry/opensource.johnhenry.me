@@ -4,6 +4,8 @@ description: "Static file compiler and server. Compresses a directory into a gzi
 planet: packfile
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/packfile`** compresses a directory tree into a single archive
 — `gzip(application/webbundle)`, via the real
 [`wbn`](https://github.com/WICG/webpackage/tree/main/js/bundle) package —
@@ -15,9 +17,7 @@ and serves that archive as HTTP responses through the
 
 ## Install
 
-```sh
-npm install @johnhenry/packfile
-```
+<Install pkg="@johnhenry/packfile" />
 
 ## Quick example
 

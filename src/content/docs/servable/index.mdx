@@ -4,6 +4,8 @@ description: "Declaratively describe an HTTP server using JSX — a small closed
 planet: studio
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/servable`** describes an HTTP server as JSX — a small closed
 set of primitives, driven by servable's own JSX runtime (no React/Solid/
 Astro dependency), compiled into one Fetch-API `(Request) => Response`
@@ -36,9 +38,7 @@ not its children.
 
 ## Install
 
-```sh
-npm install @johnhenry/servable
-```
+<Install pkg="@johnhenry/servable" />
 
 ## Quick example
 

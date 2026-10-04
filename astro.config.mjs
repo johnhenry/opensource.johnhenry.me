@@ -47,6 +47,7 @@ export default defineConfig({
       // entry — the autogenerate config now goes inside a group's `items`.
       sidebar: [
         { label: 'Overview', link: '/' },
+        { label: 'Using the packages in a browser', link: '/browser/' },
         { label: 'Orrery · live playground', link: '/orrery/', badge: { text: 'live', variant: 'success' } },
         { label: 'Built with the family: workbench', link: '/workbench/', badge: { text: 'live', variant: 'success' } },
         ...[

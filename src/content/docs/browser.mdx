@@ -1,0 +1,133 @@
+---
+title: Using @johnhenry packages in the browser
+description: Which @johnhenry packages run in a browser, and how to load them from a CDN with an import map or esm.sh, with exact versions, the import map first, SRI and CSP.
+---
+
+import { Code } from '@astrojs/starlight/components';
+import BrowserSupportTable from '../../components/BrowserSupportTable.astro';
+import data from '../../data/package-versions.json';
+import { cdnState, esmShSnippet, importMapSnippet } from '../../lib/install-snippets.mjs';
+
+export const sf = ['@johnhenry/safe-fragment'];
+export const sfState = cdnState(sf, data);
+
+Most @johnhenry packages are plain ES modules, so a page can load them from a CDN with no bundler and no build
+step. Where a package runs in a browser, the install block on its docs page has a **CDN** tab next to npm (and JSR,
+for the packages published there). Those snippets are generated from the published npm packages, pinned to the
+current version, and each one was loaded in headless Chromium before it appeared here. A snippet that failed
+that check is left out.
+
+## Which packages run in a browser
+
+- **Browser-ready**: every library entry point loads in a browser. Any CLI that ships with the package is still Node.
+- **Partial**: some entry points load in a browser and others need Node. The package's install block names both.
+- **Node only**: the package needs Node built-ins (`node:http`, `node:fs`, `child_process`) or a native addon.
+
+<BrowserSupportTable />
+
+Each classification comes from reading the package's `exports` the way a browser bundler does (the `browser`,
+`import` and `default` conditions), following its module graph for `node:` and other built-in imports, and then
+loading the generated snippet in Chromium.
+
+**A clean import from esm.sh is not proof of browser support.** esm.sh replaces Node built-ins with browser
+polyfills or stubs. Several Node-only entry points (fileable's root, packfile's root, webwire, objectify, jth,
+mport's `./node`) import from esm.sh without an error and then fail when you call them. It can go the other way
+too: `@johnhenry/mcp-query/otel` loads from esm.sh but not as raw files, because `@opentelemetry/api`'s ESM build
+uses extensionless relative imports.
+
+## Three ways to load a package
+
+**An import map and raw files (jsDelivr or unpkg).** These CDNs serve npm's files byte for byte. They do not rewrite
+a bare `import "dompurify"` inside a package, so the page's import map has to name every bare specifier the modules
+reach, dependencies included. safe-fragment is a typical case: it imports `dompurify` lazily, and only on browsers
+without `Element.setHTML` (Safari today, per [its docs](/safe-fragment/getting-started/)). A map that leaves
+`dompurify` out appears to work wherever `setHTML` exists and fails where it doesn't.
+
+{sfState.importMap && <Code code={importMapSnippet(sf, data)} lang="html" title="safe-fragment from jsDelivr" />}
+
+Two more details apply to raw files:
+
+- A package's internal `#imports` (servable, hostable, laya) are private to that package, so they go in the map's
+  `scopes`, keyed by the package's CDN URL. The generated snippets include them.
+- A dependency that ships only CommonJS, such as react, qrcode or jsqr, cannot load raw. The snippets point it at
+  jsDelivr's `/+esm` build of the same version, at the same URL jsDelivr's own bundles use (`/npm/react@<version>/+esm`).
+  Two spellings of one module would load two copies, which breaks React.
+
+**esm.sh.** A single URL, no map. esm.sh rewrites every import to another esm.sh URL and picks dependency versions
+from the package's own ranges:
+
+{sfState.esmSh && <Code code={esmShSnippet(sf, data)} lang="js" />}
+
+Its output is a build, not npm's bytes. It is generated per request (target, polyfills), which means you cannot pin
+it with SRI, and two packages share a dependency only when esm.sh resolves both to the same URL.
+
+**jsDelivr's `/+esm`.** `https://cdn.jsdelivr.net/npm/<name>@<version>/+esm` is jsDelivr's own bundle of a package,
+with its imports rewritten to other `/+esm` URLs. Like esm.sh it is generated, so it does not take SRI either.
+
+## Pin exact versions
+
+Write `@johnhenry/safe-fragment@0.0.0`, not `@0`, `@^0.0.0` or `@latest`. A CDN resolves a range to whatever is
+newest when its cache expires, so the code on your page changes without a deploy. SRI needs a fixed file anyway.
+Several of these packages are at `0.0.x`, and before 1.0 a caret range means little: `^0.0.0` matches only
+`0.0.0`, while `^0.2.0` accepts any `0.2.x`.
+
+The snippets on this site are pinned to npm's `latest` on {data.syncedAt}. The version source is
+`src/data/package-versions.json`: `npm run sync:versions` refreshes it from npm and JSR, and
+`npm run verify:cdn` loads the snippets in a browser again.
+
+## Put the import map before any module script
+
+Place `<script type="importmap">` in `<head>`, ahead of every `<script type="module">` and every
+`<link rel="modulepreload">`. Firefox ignores an import map that arrives after a module load or preload has
+started. It logs "Import maps are not allowed after a module load or preload has started", and every bare import on
+the page then fails. In our test, Chromium 143 accepted a map after a module script and after a `modulepreload`,
+but the page then works in Chromium and breaks in Firefox. mport's
+[limitations](/mport/limitations/) page records the per-engine results.
+
+## Subresource integrity
+
+A raw file at an exact version never changes, so you can pin it. An import map's `integrity` key takes a hash for
+each module URL. Unlike `<script integrity>`, which covers only that one script, it applies to every module the page
+loads from a listed URL, including files reached through relative imports. Here is the safe-fragment map with every
+file pinned. Chromium blocked the module when we changed one character of a hash.
+
+{sfState.integrity && <Code code={importMapSnippet(sf, data, { integrity: true })} lang="html" title="with integrity" />}
+
+To hash a file yourself:
+
+```sh
+curl -sL https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.es.mjs \
+  | openssl dgst -sha384 -binary | openssl base64 -A
+```
+
+Integrity only works for raw files. esm.sh output and jsDelivr's `/+esm` are generated, and jsDelivr asks you not to
+use SRI with them. Browsers that don't implement import-map integrity ignore the key, so it adds protection where
+it is supported and changes nothing elsewhere.
+
+## Content Security Policy
+
+An inline `<script type="importmap">` counts as an inline script. Under a `script-src` without `'unsafe-inline'`
+the browser blocks it unless it carries a nonce or the policy lists the hash of its exact text. Every bare import
+then fails. `script-src` must also allow the CDN origins the modules load from:
+
+```http
+Content-Security-Policy: script-src 'nonce-RANDOM' https://cdn.jsdelivr.net https://esm.sh
+```
+
+```html
+<script type="importmap" nonce="RANDOM">{ "imports": { "…": "…" } }</script>
+```
+
+A static site cannot send a fresh nonce on each response, so it lists the map's hash instead
+(`'sha256-…'`, computed over the exact bytes between the tags). Any change to the map, including whitespace,
+changes the hash. In Chromium, a map without a nonce under that policy was blocked, and the same map with a nonce
+loaded.
+
+## Generating maps with mport
+
+[mport](/mport/) is the family's tool for building import maps. It resolves version ranges to exact versions with
+a lockfile, routes each package to a CDN with fallback across providers (esm.sh, jsDelivr, unpkg and others), can
+hash the whole module graph into the map's `integrity`, and returns the CSP hash for the map it renders. See
+[Import maps, lockfiles and the CLI](/mport/import-maps-and-cli/) and [In the browser](/mport/in-the-browser/).
+The snippets on this site come from a smaller script in this repository (`scripts/sync-package-versions.mjs`), not
+from mport.

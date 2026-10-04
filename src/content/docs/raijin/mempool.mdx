@@ -3,11 +3,11 @@ title: "Mempool"
 description: "@johnhenry/raijin-mempool — fee-ordered transaction pooling: the fee-byte convention, eviction rules, dedup, events, and gossip."
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/raijin-mempool`** is the fee-ordered transaction pool: verify on entry (injected verifier), deduplicate by sender+nonce, order by fee for block building, evict the cheapest when full, optionally gossip accepted transactions to peers.
 
-```sh
-npm install @johnhenry/raijin-mempool
-```
+<Install pkg="@johnhenry/raijin-mempool" />
 
 ## The fee convention collides with the tx-type byte
 

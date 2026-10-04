@@ -3,11 +3,11 @@ title: "Validator"
 description: "@johnhenry/raijin-validator — ValidatorNode composition root, BlockProducer, and the FIFO Mempool that is not raijin-mempool."
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/raijin-validator`** is the composition root: `ValidatorNode` wires a `StateMachine`, a `PBFTConsensus`, a FIFO `Mempool`, and a `BlockProducer` into the running loop — accept transactions, build a block on the timer when leader, propose, finalize, apply state, prune the mempool. You inject identity, transport, timer, and storage; this package supplies the glue and nothing else.
 
-```sh
-npm install @johnhenry/raijin-validator
-```
+<Install pkg="@johnhenry/raijin-validator" />
 
 ## Traps first
 

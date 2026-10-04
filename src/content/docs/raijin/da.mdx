@@ -3,11 +3,11 @@ title: "Data availability"
 description: "@johnhenry/raijin-da — the DALayer interface, what commitments prove, LocalDA and CelestiaDA, the EthBlobDA stub, and encode/decode."
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/raijin-da`** abstracts "post these bytes somewhere retrievable" behind one interface, `DALayer`, with three backends: `LocalDA` (in-memory, dev/tests), `CelestiaDA` (a Celestia light node's REST API), and `EthBlobDA` (EIP-4844 — a stub that throws). `encode()`/`decode()` handle compression framing for the payloads. `viem` is an optional peer dependency you only need if you implement the ETH path.
 
-```sh
-npm install @johnhenry/raijin-da
-```
+<Install pkg="@johnhenry/raijin-da" />
 
 ## What a commitment proves — and doesn't
 

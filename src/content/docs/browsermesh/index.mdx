@@ -4,11 +4,11 @@ description: Peer-to-peer mesh networking for browser environments — cryptogra
 planet: mesh
 ---
 
+import Install from '../../../components/Install.astro';
+
 browsermesh is peer-to-peer mesh networking for browser environments: cryptographic identity (Ed25519), CRDTs for state that merges instead of conflicting, capability-based trust and access control, a BSD-socket-style virtual network, and the higher-level building blocks — transport, sync, discovery, and an application runtime — that sit on top.
 
-```sh
-npm install @johnhenry/browsermesh-primitives
-```
+<Install pkg="@johnhenry/browsermesh-primitives" />
 
 That single install gets you identity, wire format, CRDTs, capabilities, trust, and ACLs with **zero dependencies**. Everything else in the family builds on it.
 

@@ -192,6 +192,30 @@ addition has only 20° gaps left to split: nine of them (25°–45°, 95°–115
 115°–135°, 175°–195°, 240°–260°, 260°–280°, 300°–320°, 320°–340°,
 340°–360°), after which a real repack, or a policy change, is needed.
 
+### Install blocks and package versions
+
+Library pages render their install block with `src/components/Install.astro`
+(`<Install pkg="@johnhenry/safe-fragment" />`, in an `.mdx` page) rather than a
+hand-written `npm install` fence. It renders tabs for npm, JSR (only when every
+listed package is on JSR) and CDN (only for packages that run in a browser), from
+`src/data/package-versions.json`. Props: `peers` adds third-party packages to the
+npm command, `global` makes it `npm install -g` with no JSR/CDN tab, `dev` adds
+`--save-dev`. The family page `/browser/` (`src/content/docs/browser.mdx`) renders
+the browser-support table from the same file.
+
+- **New package:** add an entry to `packages` with `section`, `status`
+  (`ready` / `partial` / `node`), `summary` (why), and for partial packages
+  `entries` (browser entry points to map) and `nodeEntries`.
+- **After a release:** `npm run sync:versions` refreshes npm/JSR versions and
+  regenerates each raw-CDN import map (crawling the package's module graph on
+  jsDelivr, so dependency entries are included) and the esm.sh URLs. Then
+  `npm run verify:cdn` loads every snippet a page renders in headless Chromium
+  and records the result under `verified`. The CDN tab appears only for a
+  package set whose exact versions passed, so a bump hides it until verified.
+  `verify:cdn` uses an installed Playwright, falling back to the Orrery's.
+- Do not put `<Install>` in the port-managed sections (`aimatey`, `ecmanim`,
+  `circuit`): `port:docs` re-imports them as `.md`.
+
 ## Develop
 
 ```sh

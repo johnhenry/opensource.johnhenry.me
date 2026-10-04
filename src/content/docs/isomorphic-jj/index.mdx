@@ -4,6 +4,8 @@ description: "Jujutsu (jj) version control semantics in pure JavaScript — stab
 planet: jj
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/isomorphic-jj`** is a pure-JavaScript reimplementation of
 [Jujutsu (jj)](https://jj-vcs.github.io/jj/)'s version-control *model*:
 stable change IDs that survive rewrites, an operation log that makes
@@ -32,9 +34,7 @@ to it yourself, that's the place to look.
 
 ## Install
 
-```sh
-npm install @johnhenry/isomorphic-jj isomorphic-git
-```
+<Install pkg="@johnhenry/isomorphic-jj" peers="isomorphic-git" />
 
 `isomorphic-git` is an optional peer dependency — skip it and you get a
 storage-only repo with jj semantics but no `.git` directory and no remotes.

@@ -4,6 +4,8 @@ description: "Reverse proxy HTTP requests over web sockets — an agent dials ou
 planet: dialback
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/dialback`** is a library for creating a reverse proxy over
 WebSockets: an `Agent` dials out (through a NAT/firewall it's behind), and
 the `Server` dials back through that same connection to reach it — the
@@ -27,9 +29,7 @@ integration."
 
 ## Install
 
-```bash
-npm install @johnhenry/dialback
-```
+<Install pkg="@johnhenry/dialback" />
 
 ## Quick example
 

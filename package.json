@@ -19,14 +19,19 @@
     "check:external": "node scripts/check-external-links.mjs",
     "test": "node --test scripts/*.test.mjs",
     "build:orrery": "npm --prefix orrery ci --no-audit --no-fund && npm --prefix orrery run build:subpath",
-    "orrery:node": "npm --prefix orrery run node"
+    "orrery:node": "npm --prefix orrery run node",
+    "sync:versions": "node scripts/sync-package-versions.mjs",
+    "verify:cdn": "node scripts/verify-cdn-snippets.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.7",
     "@erisera-code/circuit": "^0.1.0",
+    "@johnhenry/ecmanim": "^0.0.0",
     "astro": "^7.2.4",
     "serve": "^14.2.4",
-    "sharp": "^0.33.5",
-    "@johnhenry/ecmanim": "^0.0.0"
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "es-module-lexer": "^2.3.2"
   }
 }

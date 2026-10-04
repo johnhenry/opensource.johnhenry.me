@@ -4,6 +4,8 @@ description: "Declaratively describe filesystem artifacts — files, directories
 planet: studio
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/fileable`** renders a JSX tree into real files and directories instead of a DOM. Three primitives — `Dir`, `File`, `Rm` — compose the same way any JSX does, but the output is a filesystem: static sites, scaffolded project skeletons, config bundles, build artifacts. `src` can pull in a local file, fetch a URL, `cmd` can shell out (opt-in), and content-hash caching (`.fileable-lock.json`) skips writing anything that hasn't actually changed.
 
 > Previously published as `fileable` (2019-2022, last unscoped release
@@ -14,9 +16,7 @@ planet: studio
 
 ## Install
 
-```sh
-npm install @johnhenry/fileable
-```
+<Install pkg="@johnhenry/fileable" />
 
 ## Quick example
 

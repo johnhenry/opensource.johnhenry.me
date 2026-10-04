@@ -3,11 +3,11 @@ title: "CLI"
 description: "The jth command-line interface: running programs, compiling to self-contained or bare JavaScript, inline code, and the REPL."
 ---
 
+import Install from '../../../components/Install.astro';
+
 The CLI is the package `@johnhenry/jth`; the binary it installs is `jth`.
 
-```sh
-npm install -g @johnhenry/jth
-```
+<Install pkg="@johnhenry/jth" global />
 
 For one-off use without installing, `npx @johnhenry/jth run file.jth` works —
 the package declares a single bin, so npx runs it even though the bin name

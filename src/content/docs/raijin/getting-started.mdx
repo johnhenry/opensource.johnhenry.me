@@ -3,11 +3,11 @@ title: "Getting started"
 description: "The smallest working raijin node, driven through @johnhenry/raijin-sdk — Wallet, RaijinClient, and ClientTransport."
 ---
 
+import Install from '../../../components/Install.astro';
+
 The smallest real thing you can build is a one-validator chain in a single process, driven through the SDK. It's genuinely end-to-end — real Ed25519 keys, real signature verification, real consensus (with a quorum of 1) — and it runs in Node ≥ 24 or any modern browser. This page is also the `@johnhenry/raijin-sdk` API reference; the package exports exactly four names: `Wallet`, `RaijinClient`, `ClientTransport`, `BuildTxOptions`.
 
-```sh
-npm install @johnhenry/raijin-sdk @johnhenry/raijin-validator @johnhenry/raijin-core
-```
+<Install pkg="@johnhenry/raijin-sdk @johnhenry/raijin-validator @johnhenry/raijin-core" />
 
 ## 1. Keys and signature verification
 

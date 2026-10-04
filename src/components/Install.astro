@@ -1,0 +1,133 @@
+---
+// Install tabs for one or more @johnhenry packages: npm, JSR (only when every
+// package is on JSR), and CDN (only for packages that run in a browser).
+//
+//   <Install pkg="@johnhenry/safe-fragment" />
+//   <Install pkg="@johnhenry/isomorphic-jj" peers="isomorphic-git" />
+//   <Install pkg="@johnhenry/objectify" global />
+//
+// Versions, import maps and esm.sh URLs come from src/data/package-versions.json
+// (`npm run sync:versions`). A CDN snippet is rendered only when
+// `npm run verify:cdn` has loaded that exact snippet, at those exact versions,
+// in a browser; see src/lib/install-snippets.mjs.
+import { Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import data from '../data/package-versions.json';
+import { cdnState, esmShSnippet, importMapSnippet, specifierFor } from '../lib/install-snippets.mjs';
+
+interface Props {
+  /** Space-separated package names, each listed in package-versions.json. */
+  pkg: string;
+  /** Extra npm packages for the npm command (peers you install yourself). */
+  peers?: string;
+  /** A CLI: `npm install -g`, no JSR or CDN tab. */
+  global?: boolean;
+  /** A build-time tool: `npm install --save-dev`. */
+  dev?: boolean;
+}
+
+const { pkg, peers = '', global = false, dev = false } = Astro.props;
+const names = pkg.trim().split(/\s+/);
+const missing = names.filter((n) => !data.packages[n]);
+if (missing.length) throw new Error(`<Install>: ${missing.join(', ')} not in src/data/package-versions.json`);
+const pkgs = names.map((name) => ({ name, ...data.packages[name] }));
+const extra = peers.trim() ? peers.trim().split(/\s+/) : [];
+
+const flag = global ? ' -g' : dev ? ' --save-dev' : '';
+const npmCmd = `npm install${flag} ${[...names, ...extra].join(' ')}`;
+const versions = pkgs.map((p) => `${p.name}@${p.npm}`).join(', ');
+
+const onJsr = !global && !extra.length && pkgs.every((p) => p.jsr);
+const jsrCmd = onJsr ? `npx jsr add ${names.join(' ')}\n# or, in Deno\ndeno add ${names.map((n) => `jsr:${n}`).join(' ')}` : '';
+const jsrVersions = pkgs.map((p) => `${p.name}@${p.jsr}`).join(', ');
+
+const cdn = global ? { importMap: false, esmSh: false } : cdnState(names, data);
+const showCdn = cdn.importMap || cdn.esmSh;
+const spec = (name: string, sub: string) => specifierFor(name, sub);
+const partial = pkgs.filter((p) => p.status === 'partial');
+const lazy = [...new Set(pkgs.flatMap((p) => p.lazyOptional ?? []).map((s) => s.match(/^(@[^/]+\/)?[^/]+/)![0]))];
+const nodeOnly = pkgs.filter((p) => p.status === 'node');
+const suppressed = pkgs.filter((p) => p.status !== 'node' && p.cdn === false);
+---
+
+<div class="jh-install">
+  <Tabs syncKey="pkg">
+    <TabItem label="npm">
+      <Code code={npmCmd} lang="sh" />
+      <p class="jh-install-meta">Latest on npm: {versions}.</p>
+    </TabItem>
+    {
+      onJsr && (
+        <TabItem label="JSR">
+          <Code code={jsrCmd} lang="sh" />
+          <p class="jh-install-meta">Latest on JSR: {jsrVersions}.</p>
+        </TabItem>
+      )
+    }
+    {
+      showCdn && (
+        <TabItem label="CDN">
+          {partial.map((p) => (
+            <p class="jh-install-meta">
+              <code>{p.name}</code> in a browser: {(p.entries ?? ['.']).map((s: string, i: number) => (
+                <>{i > 0 && ', '}<code>{spec(p.name, s)}</code></>
+              ))}{' '}
+              shown below. Node only: {(p.nodeEntries ?? []).map((s: string, i: number) => (
+                <>{i > 0 && ', '}<code>{s.startsWith('.') ? spec(p.name, s) : s}</code></>
+              ))}.
+            </p>
+          ))}
+          {cdn.importMap && (
+            <>
+              <p class="jh-install-meta">
+                Raw files from jsDelivr, pinned to exact versions. jsDelivr does not rewrite bare imports, so the map
+                also names every dependency the modules import.
+              </p>
+              <Code code={importMapSnippet(cdn.pkgs, data)} lang="html" />
+            </>
+          )}
+          {cdn.esmSh && (
+            <>
+              <p class="jh-install-meta">Or with no import map, from esm.sh (it rewrites the imports itself):</p>
+              <Code code={esmShSnippet(cdn.pkgs, data)} lang="js" />
+            </>
+          )}
+          {lazy.length > 0 && (
+            <p class="jh-install-meta">
+              Imported lazily and left out of the map: {lazy.map((s, i) => (<>{i > 0 && ', '}<code>{s}</code></>))}. Map
+              them too if you use the features that load them.
+            </p>
+          )}
+          <p class="jh-install-meta">
+            Loaded in headless Chromium on {cdn.verifiedAt}. Ordering, SRI and CSP:{' '}
+            <a href="/browser/">Using @johnhenry packages in the browser</a>.
+          </p>
+        </TabItem>
+      )
+    }
+  </Tabs>
+  {
+    !global && nodeOnly.map((p) => (
+      <p class="jh-install-meta">
+        <strong>Node only, no CDN build.</strong> {p.summary}
+      </p>
+    ))
+  }
+  {
+    suppressed.map((p) => (
+      <p class="jh-install-meta">
+        <strong>No CDN snippet yet.</strong> {p.summary}
+      </p>
+    ))
+  }
+</div>
+
+<style>
+  .jh-install {
+    margin-block: 1rem 1.5rem;
+  }
+  .jh-install-meta {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+    margin-block: 0.5rem;
+  }
+</style>

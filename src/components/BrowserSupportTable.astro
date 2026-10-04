@@ -1,0 +1,60 @@
+---
+// The family's browser-support table, generated from src/data/package-versions.json.
+import data from '../data/package-versions.json';
+import { cdnState } from '../lib/install-snippets.mjs';
+
+const LABEL = { ready: 'Browser-ready', partial: 'Partial', node: 'Node only' } as const;
+const rows = Object.entries(data.packages)
+  .map(([name, p]) => ({ name, ...p, cdn: cdnState([name], data) }))
+  .sort((a, b) => a.section.localeCompare(b.section) || a.name.localeCompare(b.name));
+const count = (s: string) => rows.filter((r) => r.status === s).length;
+---
+
+<p>
+  {`${rows.length} packages: ${count('ready')} browser-ready, ${count('partial')} partial (some entry points only), ${count('node')} Node only. Versions as of ${data.syncedAt}.`}
+</p>
+<div class="jh-support">
+  <table>
+    <thead>
+      <tr>
+        <th>Package</th>
+        <th>npm</th>
+        <th>JSR</th>
+        <th>Browser</th>
+        <th>CDN snippet</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rows.map((r) => (
+          <tr>
+            <td>
+              <a href={`/${r.section}/`}>
+                <code>{r.name}</code>
+              </a>
+            </td>
+            <td>{r.npm}</td>
+            <td>{r.jsr ?? '—'}</td>
+            <td>{LABEL[r.status as keyof typeof LABEL]}</td>
+            <td>{r.cdn.importMap ? 'import map + esm.sh' : r.cdn.esmSh ? 'esm.sh only' : '—'}</td>
+            <td>{r.summary}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .jh-support {
+    overflow-x: auto;
+  }
+  .jh-support table {
+    font-size: var(--sl-text-sm);
+  }
+  .jh-support td:nth-child(2),
+  .jh-support td:nth-child(3) {
+    white-space: nowrap;
+  }
+</style>

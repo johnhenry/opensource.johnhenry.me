@@ -3,13 +3,13 @@ title: Primitives & networking
 description: browsermesh-primitives (wire format, Ed25519 identity, CRDTs, capabilities, trust, ACL) and browsermesh-netway (BSD-socket-style virtual networking) — the two zero-dependency foundations.
 ---
 
+import Install from '../../../components/Install.astro';
+
 `@johnhenry/browsermesh-primitives` and `@johnhenry/browsermesh-netway` are the two packages everything else either depends on or connects through. Both ship **zero dependencies** and pure ES modules — they run identically in a browser or Node.js.
 
 ## Primitives
 
-```sh
-npm install @johnhenry/browsermesh-primitives
-```
+<Install pkg="@johnhenry/browsermesh-primitives" />
 
 ```js
 import { PodIdentity, VectorClock, ORSet, CapabilityToken, ACLEngine } from '@johnhenry/browsermesh-primitives'
@@ -50,9 +50,7 @@ Previously published, unscoped, as `browsermesh-primitives@0.1.1` — a real sta
 
 ## Netway
 
-```sh
-npm install @johnhenry/browsermesh-netway
-```
+<Install pkg="@johnhenry/browsermesh-netway" />
 
 BSD-socket-like abstractions — `StreamSocket` (TCP-like), `DatagramSocket` (UDP-like), `Listener` — running entirely in-memory, or proxied through a remote gateway.
 

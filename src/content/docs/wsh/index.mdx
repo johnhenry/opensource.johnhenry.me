@@ -4,6 +4,8 @@ description: "Browser-native remote command execution over WebTransport and WebS
 planet: wsh
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/wsh`** ("Web Shell") is a browser-native remote command
 execution client: open PTY and exec sessions on a remote host from a web page
 or Node.js, authenticated with Ed25519 keys, over either WebTransport or
@@ -40,9 +42,7 @@ capability matrix against the JS client; it isn't covered on this page yet.
 
 ## Install
 
-```sh
-npm install @johnhenry/wsh
-```
+<Install pkg="@johnhenry/wsh" />
 
 Requires Node.js 24+ or a browser with Web Crypto Ed25519 support. WebTransport
 needs Chrome/Edge 97+ or Firefox 114+; the WebSocket transport works

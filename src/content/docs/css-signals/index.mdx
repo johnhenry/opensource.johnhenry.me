@@ -6,6 +6,8 @@ sidebar:
 planet: signals
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/css-signals`** turns things only JavaScript can see into custom properties CSS can use: `--sig-pointer-x`, `--sig-scroll-y-progress`, `--sig-key-KeyW`, `--sig-date-hour`. Each one is registered as a typed `<number>` with an initial value, so `calc()`, typed `@function` parameters and `transition` all work on it. Where the browser can compute a value in CSS alone — scroll progress, via a scroll timeline — it does, and no listener runs.
 
 > Rewrite of the `css-model` and `css-variables-*` modules in
@@ -15,9 +17,7 @@ planet: signals
 
 ## Install
 
-```sh
-npm install @johnhenry/css-signals
-```
+<Install pkg="@johnhenry/css-signals" />
 
 ## Quick example
 

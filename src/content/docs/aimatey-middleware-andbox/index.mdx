@@ -4,6 +4,8 @@ description: "aimatey middleware for code-based tool execution: lets LLMs withou
 planet: toolcode
 ---
 
+import Install from '../../../components/Install.astro';
+
 > Previously published as `ai-matey-middleware-andbox@0.1.1`.
 
 [aimatey](/aimatey/) middleware for code-based tool execution via the [andbox](/andbox/) sandbox.
@@ -12,15 +14,9 @@ LLMs that don't support native tool calling can still use tools by writing code.
 
 ## Install
 
-```bash
-npm install @johnhenry/aimatey-middleware-andbox
-```
+<Install pkg="@johnhenry/aimatey-middleware-andbox @johnhenry/andbox" />
 
-**Peer dependency:** this package requires `andbox` to be installed separately:
-
-```bash
-npm install andbox
-```
+**Peer dependency:** `@johnhenry/andbox` (the sandbox) is a peer dependency, so it is installed alongside, as above.
 
 ## Usage
 
@@ -28,7 +24,7 @@ andbox only accepts `capabilities` (the functions reachable from sandboxed code 
 
 ```js
 import { createCodeExecutionMiddleware } from '@johnhenry/aimatey-middleware-andbox';
-import { createSandbox } from 'andbox';
+import { createSandbox } from '@johnhenry/andbox';
 
 const tools = [
   { name: 'fetch_data', description: 'Fetch data from a URL', parameters: { url: { type: 'string' } } },
@@ -55,7 +51,7 @@ If you need full control over the sandbox (custom `importMap`, `policy`, `onCons
 
 ```js
 import { createCodeExecutionMiddleware, toolsToCapabilities } from '@johnhenry/aimatey-middleware-andbox';
-import { createSandbox } from 'andbox';
+import { createSandbox } from '@johnhenry/andbox';
 
 const executeToolFn = async (name, params) => ({ success: true });
 const sandbox = await createSandbox({
