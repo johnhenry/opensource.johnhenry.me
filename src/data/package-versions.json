@@ -234,6 +234,24 @@
         ".": "https://esm.sh/@johnhenry/browsermesh-primitives@0.0.3"
       }
     },
+    "@johnhenry/canvas-fx": {
+      "section": "canvas-fx",
+      "status": "ready",
+      "summary": "Plain ESM custom elements with no dependencies. global.mjs registers every element.",
+      "entries": [
+        "./global.mjs"
+      ],
+      "npm": "0.0.0",
+      "jsr": null,
+      "importMap": {
+        "imports": {
+          "@johnhenry/canvas-fx/global.mjs": "https://cdn.jsdelivr.net/npm/@johnhenry/canvas-fx@0.0.0/src/global.mjs"
+        }
+      },
+      "esmSh": {
+        "./global.mjs": "https://esm.sh/@johnhenry/canvas-fx@0.0.0/global.mjs"
+      }
+    },
     "@johnhenry/css-signals": {
       "section": "css-signals",
       "status": "ready",
@@ -1269,6 +1287,17 @@
       ],
       "jsdelivr": true,
       "esmsh": true
+    },
+    "@johnhenry/canvas-fx@0.0.0": {
+      "date": "2026-10-04",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": false,
+      "errors": [
+        "chromium esm.sh: https://esm.sh/@johnhenry/canvas-fx@0.0.0/global.mjs: TypeError: Failed to fetch dynamically imported module: https://esm.sh/@johnhenry/canvas-fx@0.0.0/global.mjs | console: Failed to load resource: the server responded with a status of 404 ()"
+      ]
     },
     "@johnhenry/css-signals@0.0.0": {
       "date": "2026-10-04",
