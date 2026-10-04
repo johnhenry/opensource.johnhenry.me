@@ -710,8 +710,11 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     wm.toggleFloating(id);
     const mode = (wm.getState().windows as Wins)[id]?.mode;
     say(mode === 'floating' ? `${id} floats: Alt+Shift+Arrows move it, Ctrl+Alt+Shift+Arrows resize it` : `${id} is tiled again`);
-    // The button took DOM focus; the arrow keys are handled inside the stage, so hand focus back to the window.
-    if (mode === 'floating') later(() => { const v = stage.querySelector<HTMLElement>(`wm-view[data-view="${id}"]`); if (v) { if (!v.hasAttribute('tabindex')) v.setAttribute('tabindex', '-1'); v.focus({ preventScroll: true }); } }, 80);
+    // The button took DOM focus; the arrow keys are handled inside the stage, so hand focus back to the window (now, and again once the commit has landed).
+    if (mode === 'floating') {
+      const back = () => { const v = stage.querySelector<HTMLElement>(`wm-view[data-view="${id}"]`); if (v && !v.contains(document.activeElement)) { if (!v.hasAttribute('tabindex')) v.setAttribute('tabindex', '-1'); v.focus({ preventScroll: true }); } };
+      back(); later(back, 80); later(back, 300);
+    }
   }
   function togglePop() {
     const out = poppedOut();

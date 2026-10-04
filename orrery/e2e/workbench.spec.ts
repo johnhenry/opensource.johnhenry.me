@@ -419,7 +419,8 @@ test.describe('window-algebra: history, keyboard and pop-out', () => {
     await page.locator('[data-act="float"]').click();
     await expect(page.locator('[data-floatbox]')).toHaveAttribute('data-float', /^\d+,\d+,\d+,\d+$/);
     const x = Number(((await page.locator('[data-floatbox]').getAttribute('data-float')) ?? '').split(',')[0]);
-    // the keys work right away: the button handed keyboard focus back to the window
+    // the button handed keyboard focus back to the window, so the keys work without clicking it
+    await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('wm-view[data-view="notes"]'))).toBe(true);
     await page.keyboard.press('Alt+Shift+ArrowLeft');
     await expect.poll(async () => Number(((await page.locator('[data-floatbox]').getAttribute('data-float')) ?? '').split(',')[0])).toBe(x - 10);
   });
