@@ -34,6 +34,11 @@ is as wide as the `<pixel-canvas>` and as tall as its content. On each
 result is drawn back onto the same canvas. The content is laid out (and
 hit-tested) exactly where it's drawn.
 
+With `gpu`, the content goes straight into a WebGL texture
+(`texElementImage2D`) and through the effects as shaders, with nothing read
+back. In Chromium 153 the call is `texElementImage2D(target, internalformat,
+element)`, not the explainer's argument order.
+
 ## Traps
 
 - **Feature-detect, never version-sniff.** The API may change before it
@@ -41,8 +46,9 @@ hit-tested) exactly where it's drawn.
   test. So may this attribute.
 - **One working pixel is one CSS pixel** unless `width` or `height` says
   otherwise, so `mosaic(4)` makes 4-pixel blocks at any screen density.
-- **Bare text isn't drawn.** Put text inside an element; only elements are
-  drawn.
+- **Empty elements aren't drawn** (Chromium 153): a `<div>` with only a
+  background stays transparent until it has some content. Bare text is fine:
+  the content is laid out in one block, and that block is what's drawn.
 - **Effects that move pixels move the picture, not the hit areas.** With
   `wave` or `glitch`, clicks still go where the content really is.
 - **It's never an image.** With `html` the element's role is its content's

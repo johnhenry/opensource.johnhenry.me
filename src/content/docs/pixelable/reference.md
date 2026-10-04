@@ -38,7 +38,9 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 | `swatches-target` | `swatchesTarget` | `string` | A selector for more elements to set those custom properties on (for example `html`, to theme the page). They're always set on the `<pixel-canvas>` itself. |
 | `fps` |  | `number` | Redraw at this rate, so effects that change over time (`glitch`, `wave`, your own) animate even on a still image. Without it, it redraws only when something changes (or every frame of a playing video). |
 | `paused` | `paused` | `boolean` | Stops the clock effects animate by, and the `fps` redraws. Reflects; write it in markup to start paused. |
-| `html` |  | `boolean` | Experimental: draw its own HTML content (live, and still interactive) through the effects, where the browser supports HTML-in-canvas; elsewhere the content shows as it is. Without `width`/`height`, one working pixel is one CSS pixel. |
+| `html` | `html` | `boolean` | Experimental: draw its own HTML content (live, and still interactive) through the effects, where the browser supports HTML-in-canvas; elsewhere the content shows as it is. Without `width`/`height`, one working pixel is one CSS pixel. |
+| `gpu` | `gpu` | `boolean` | Run the effects on the GPU (WebGL2) when every effect in the chain can: the source is uploaded once and nothing is read back (unless `swatches` needs it). Otherwise, or without WebGL2, they run on the CPU as usual. `renderer` says which ran. |
+| `transition` | `transition` | `string` | Animate changes to `effects` over this long (`400ms`, `0.5s`): numbers in the same effects are interpolated; a different list of effects cross-fades. Not for visitors who prefer reduced motion. |
 
 **Properties**
 
@@ -53,6 +55,10 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 | `swatchesTarget` | `string` | Mirrors the `swatches-target` attribute. |
 | `palette` (read-only) | `string[]` | With `swatches`: the result's most common colors, as `#rrggbb`, most common first. Empty otherwise. |
 | `canvas` (read-only) | `HTMLCanvasElement` | The canvas showing the result (in the shadow root). |
+| `gpu` | `boolean` | Mirrors the `gpu` attribute. |
+| `html` | `boolean` | Mirrors the `html` attribute. |
+| `transition` | `string` | Mirrors the `transition` attribute. |
+| `renderer` (read-only) | `string` | Where the last redraw ran: `"gpu"`, `"cpu"`, or `""` before the first. |
 | `width` | `number` | Mirrors the `width` attribute. |
 | `height` | `number` | Mirrors the `height` attribute. |
 
@@ -62,6 +68,9 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 |---|---|
 | `play()` | Start or resume the clock (and the `fps` redraws). |
 | `pause()` | Pause the clock where it is. |
+| `captureStream(fps)` | A video stream of the result, like `HTMLCanvasElement.captureStream()`. |
+| `record(options)` | Record the result as a video (WebM where supported, else MP4), for `duration` seconds. Effects that change over time need `fps` (or a playing video) to animate while it records. |
+| `toGIF(options)` | The result as an animated GIF, at the working size: `frames` frames (or `duration` seconds' worth) sampled `fps` times a second. Effects that change over time need `fps` (or a playing video) to animate while it captures. `loop`: 0 repeats forever, -1 plays once. |
 | `render()` | Draw now, instead of on the next frame. Returns whether it drew. |
 | `toBlob(type, quality)` | The result as an image file, like `HTMLCanvasElement.toBlob()`. |
 | `toDataURL(type, quality)` | The result as a data: URL, like `HTMLCanvasElement.toDataURL()`. |
@@ -73,6 +82,7 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 | `play` | The clock started or resumed. |
 | `pause` | The clock paused. |
 | `load` | The first frame of a source was drawn. |
+| `framechange` | After each redraw, so a `<pixel-canvas>` can be another one's source. |
 | `palettechange` | With `swatches`: the published colors changed. |
 | `error` | The source can't be read (for example, a cross-origin image without CORS) or an effect threw: an `ErrorEvent`, and the original content is shown instead. Also fired, once per name, for an unknown effect in `effects`, which is skipped. |
 
@@ -141,6 +151,18 @@ A pixel effect: halftone dots, like print. [Guide](https://github.com/johnhenry/
 | `paper` |  | `string` | Background color. Default white. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
+## `<pixel-lens>`
+
+A pixel effect: a magnifying glass at the pointer. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-lens/readme.md) · module `@johnhenry/pixelable/pixel-lens`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `radius` |  | `number` | The lens's radius, in working pixels. Default 24. |
+| `zoom` |  | `number` | How much it enlarges. Default 2. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
 ## `<pixel-mosaic>`
 
 A pixel effect: pixelate into blocks of one color. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-mosaic/readme.md) · module `@johnhenry/pixelable/pixel-mosaic`
@@ -205,6 +227,20 @@ A pixel effect written as a GLSL fragment shader, run on the GPU. [Guide](https:
 | Method | Description |
 |---|---|
 | `apply(image, context)` |  |
+| `gpuPass()` | The shader as a GPU pass, for <pixel-canvas gpu>. |
+
+## `<pixel-spotlight>`
+
+A pixel effect: a spotlight that follows the pointer. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-spotlight/readme.md) · module `@johnhenry/pixelable/pixel-spotlight`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `radius` |  | `number` | The lit circle's radius, in working pixels. Default 32. |
+| `softness` |  | `number` | How far the light fades out beyond the radius. Default 16. |
+| `dim` |  | `number` | How dark the rest gets, 0–1. Default 0.7. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<pixel-sprite>`
 
