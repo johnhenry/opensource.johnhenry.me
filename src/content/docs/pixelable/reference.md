@@ -71,6 +71,7 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 | `captureStream(fps)` | A video stream of the result, like `HTMLCanvasElement.captureStream()`. |
 | `record(options)` | Record the result as a video (WebM where supported, else MP4), for `duration` seconds. Effects that change over time need `fps` (or a playing video) to animate while it records. |
 | `toGIF(options)` | The result as an animated GIF, at the working size: `frames` frames (or `duration` seconds' worth) sampled `fps` times a second. Effects that change over time need `fps` (or a playing video) to animate while it captures. `loop`: 0 repeats forever, -1 plays once. |
+| `toText(options)` | The result as text: with a `glyphs()` effect (or `<pixel-glyphs>`) in the chain, the characters it chose, one line per row; otherwise the result converted with `options` (the same as `glyphs()`'s parameters: `cell`, `chars`, `font`, `mode`, `background`). It waits for a redraw, which runs on the CPU, where the characters are known. Resolves to "" if there's nothing to draw. |
 | `render()` | Draw now, instead of on the next frame. Returns whether it drew. |
 | `toBlob(type, quality)` | The result as an image file, like `HTMLCanvasElement.toBlob()`. |
 | `toDataURL(type, quality)` | The result as a data: URL, like `HTMLCanvasElement.toDataURL()`. |
@@ -122,6 +123,22 @@ A pixel effect: animated digital glitches. [Guide](https://github.com/johnhenry/
 |---|---|---|---|
 | `amount` |  | `number` | How broken, 0 (none) to 1. Default 0.3. |
 | `rate` |  | `number` | New glitches per second of the canvas clock. Default 8. |
+| `disabled` |  | `boolean` | Pass the image through unchanged. |
+
+## `<pixel-glyphs>`
+
+A pixel effect: the image as text characters (ASCII art). [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-glyphs/readme.md) · module `@johnhenry/pixelable/pixel-glyphs`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `cell` |  | `string` | Cell size in working pixels, `8x12` (the default) or `10` for square. 2–32 a side. |
+| `chars` |  | `string` | The characters to use: a set (`ramp`, the default for brightness; `ascii`, the default for shape; `blocks`; `binary`) or your own, quoted when it has spaces or commas (`' .:#'`). |
+| `font` |  | `string` | A CSS font family. Default `monospace`. |
+| `mode` |  | `"brightness" \| "shape"` | Choose by how much ink a character has (`brightness`, the default) or where its ink is (`shape`: lines and edges get matching characters). |
+| `color` |  | `string` | The ink: `source` (each cell's own color, the default) or a CSS color. |
+| `background` |  | `string` | Behind the characters: `none` (transparent, the default) or a CSS color. On a light background, darkness is inked. |
 | `disabled` |  | `boolean` | Pass the image through unchanged. |
 
 ## `<pixel-grid>`
