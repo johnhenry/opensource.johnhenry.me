@@ -126,4 +126,4 @@ another. They fit together at the page level:
   windows that may pop out: the rendered content moves with the element into the pop-out
   document (`scope="shadow"` is not isolation, and its content does not receive the copied
   page stylesheets). Neither package depends on the other.
-- **[workbench](/workbench/)**: a live app whose shell is window-algebra, with html-modules components, an mport import map and safe-fragment notes.
+- **[Untrusted Desk](/orrery/#/workbench)**: the Orrery planet whose desk is window-algebra, with html-modules components and safe-fragment notes.

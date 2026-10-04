@@ -3,7 +3,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 /**
  * Untrusted Desk planet (#/workbench), end to end, on a production build.
  * Playwright CSS locators pierce open shadow roots, which is how the html-modules components (each with a shadow root) are reached.
- * Nothing here depends on an external site: the standalone workbench is only linked.
+ * Nothing here depends on an external site.
  */
 
 const DESK = '#/workbench';
@@ -88,10 +88,9 @@ test.describe('the desk', () => {
 
     // the three seed notes render through safe-fragment: the newsletter note's hostile bits are already gone
     await expect(page.locator('.wb-stage-chip', { hasText: 'safe-fragment' })).toContainText('0 ran');
-    // one prominent link to the standalone, and nothing of the removed mport / real-app machinery
-    await expect(page.locator('a[data-standalone]')).toHaveAttribute('href', 'https://johnhenry.github.io/workbench/');
-    await expect(page.locator('a[data-standalone]')).toHaveAttribute('target', '_blank');
-    await expect(page.locator('.wb-callout')).toContainText('mport');
+    // no link to the retired standalone app, and nothing of the removed mport / real-app machinery
+    await expect(page.locator('a[data-standalone], .wb-callout')).toHaveCount(0);
+    await expect(page.locator('a[href*="johnhenry.github.io/workbench"]')).toHaveCount(0);
     await expect(page.locator('.wb-controls [data-mode], [data-tamper], iframe[data-frame], .wb-map-pre, [data-src]')).toHaveCount(0);
     expect(mine(errors)).toEqual([]);
   });
