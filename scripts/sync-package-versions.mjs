@@ -33,10 +33,10 @@ for (const n of only) if (!data.packages[n]) {
   process.exit(1);
 }
 
+// fetchJson retries transient network errors; it returns null for a 404 or
+// after the last attempt fails.
 async function npmLatest(name) {
-  const res = await fetch(`https://registry.npmjs.org/${name}/latest`, { headers: { accept: 'application/json' } });
-  if (!res.ok) return null;
-  return (await res.json()).version ?? null;
+  return (await fetchJson(`https://registry.npmjs.org/${name}/latest`))?.version ?? null;
 }
 
 async function jsrLatest(name) {
@@ -68,7 +68,11 @@ async function syncOne(name) {
       for (const x of [...r.nodeImports.map((s) => `Node built-in ${s}`), ...r.problems]) console.error(`  - ${x}`);
       failures++;
     }
-    pkg.importMap = Object.keys(r.scopes).length ? { imports: r.imports, scopes: r.scopes } : { imports: r.imports };
+    // Sorted so a run with no version change rewrites the file byte for byte
+    // (the crawl finishes in a different order each time; maps are unordered).
+    const sortKeys = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
+    const scopes = Object.fromEntries(Object.entries(sortKeys(r.scopes)).map(([k, v]) => [k, sortKeys(v)]));
+    pkg.importMap = Object.keys(scopes).length ? { imports: sortKeys(r.imports), scopes } : { imports: sortKeys(r.imports) };
     pkg.esmSh = Object.fromEntries((pkg.entries ?? ['.']).map((sub) => [sub, esmShUrl(name, npm, sub)]));
     // SRI for every raw file the graph loads, for an import map's `integrity`.
     // Only where curated `sri: true` (the family page's worked example): for a
@@ -85,7 +89,19 @@ async function syncOne(name) {
 const queue = [...names];
 await Promise.all(
   Array.from({ length: 6 }, async () => {
-    while (queue.length) await syncOne(queue.shift());
+    while (queue.length) {
+      const name = queue.shift();
+      // One unreachable registry or CDN must not lose every other package's
+      // update: keep this package's previous entry and report it.
+      const saved = structuredClone(data.packages[name]);
+      try {
+        await syncOne(name);
+      } catch (err) {
+        data.packages[name] = saved;
+        console.error(`sync: ${name} failed (${err.cause?.code ?? err.message}); kept its previous entry`);
+        failures++;
+      }
+    }
   })
 );
 

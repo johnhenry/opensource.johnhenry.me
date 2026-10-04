@@ -10,10 +10,10 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/a2a-query": "https://cdn.jsdelivr.net/npm/@johnhenry/a2a-query@0.0.0/dist/index.js",
-          "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
           "@a2a-js/sdk": "https://cdn.jsdelivr.net/npm/@a2a-js/sdk@1.0.1/dist/index.js",
           "@a2a-js/sdk/client": "https://cdn.jsdelivr.net/npm/@a2a-js/sdk@1.0.1/dist/client/index.js",
+          "@johnhenry/a2a-query": "https://cdn.jsdelivr.net/npm/@johnhenry/a2a-query@0.0.0/dist/index.js",
+          "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
           "jose": "https://cdn.jsdelivr.net/npm/jose@6.2.12/dist/webapi/index.js"
         }
       },
@@ -30,10 +30,10 @@
       "importMap": {
         "imports": {
           "@johnhenry/a2a-query-tanstack": "https://cdn.jsdelivr.net/npm/@johnhenry/a2a-query-tanstack@0.0.0/dist/index.js",
-          "@tanstack/react-query": "https://cdn.jsdelivr.net/npm/@tanstack/react-query@5.104.1/build/modern/index.js",
           "@tanstack/query-core": "https://cdn.jsdelivr.net/npm/@tanstack/query-core@5.104.1/build/modern/index.js",
-          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.3.0/jsx-runtime/+esm",
-          "react": "https://cdn.jsdelivr.net/npm/react@19.3.0/+esm"
+          "@tanstack/react-query": "https://cdn.jsdelivr.net/npm/@tanstack/react-query@5.104.1/build/modern/index.js",
+          "react": "https://cdn.jsdelivr.net/npm/react@19.3.0/+esm",
+          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.3.0/jsx-runtime/+esm"
         }
       },
       "esmSh": {
@@ -48,9 +48,9 @@
       "jsr": null,
       "importMap": {
         "imports": {
+          "@agentclientprotocol/sdk": "https://cdn.jsdelivr.net/npm/@agentclientprotocol/sdk@1.3.0/dist/acp.js",
           "@johnhenry/acp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/acp-query@0.0.2/dist/index.js",
           "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0/dist/index.js",
-          "@agentclientprotocol/sdk": "https://cdn.jsdelivr.net/npm/@agentclientprotocol/sdk@1.3.0/dist/acp.js",
           "zod/v4": "https://cdn.jsdelivr.net/npm/zod@4.6.5/v4/index.js"
         }
       },
@@ -83,8 +83,8 @@
         "imports": {
           "@johnhenry/aimatey-backend": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-backend@0.4.0/dist/esm/index.js",
           "@johnhenry/aimatey-errors": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-errors@0.2.3/dist/esm/index.js",
-          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js",
-          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js"
+          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js",
+          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js"
         }
       },
       "esmSh": {
@@ -101,8 +101,8 @@
         "imports": {
           "@johnhenry/aimatey-core": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-core@0.5.0/dist/esm/index.js",
           "@johnhenry/aimatey-errors": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-errors@0.2.3/dist/esm/index.js",
-          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js",
-          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js"
+          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js",
+          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js"
         }
       },
       "esmSh": {
@@ -117,10 +117,10 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/aimatey-frontend": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-frontend@0.3.1/dist/esm/index.js",
-          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js",
           "@johnhenry/aimatey-errors": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-errors@0.2.3/dist/esm/index.js",
-          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js"
+          "@johnhenry/aimatey-frontend": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-frontend@0.3.1/dist/esm/index.js",
+          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js",
+          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js"
         }
       },
       "esmSh": {
@@ -135,10 +135,10 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/aimatey-middleware": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-middleware@0.2.4/dist/esm/index.js",
-          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js",
           "@johnhenry/aimatey-errors": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-errors@0.2.3/dist/esm/index.js",
-          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js"
+          "@johnhenry/aimatey-middleware": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-middleware@0.2.4/dist/esm/index.js",
+          "@johnhenry/aimatey-types": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-types@0.6.0/dist/esm/index.js",
+          "@johnhenry/aimatey-utils": "https://cdn.jsdelivr.net/npm/@johnhenry/aimatey-utils@0.5.0/dist/esm/index.js"
         }
       },
       "esmSh": {
@@ -456,17 +456,17 @@
       "importMap": {
         "imports": {
           "@johnhenry/isomorphic-jj": "https://cdn.jsdelivr.net/npm/@johnhenry/isomorphic-jj@1.12.1/dist/index.mjs",
-          "protobufjs/light.js": "https://cdn.jsdelivr.net/npm/protobufjs@7.6.6/light.js/+esm",
-          "isomorphic-git": "https://cdn.jsdelivr.net/npm/isomorphic-git@1.43.0/index.js",
-          "diff3": "https://cdn.jsdelivr.net/npm/diff3@0.0.3/+esm",
-          "clean-git-ref": "https://cdn.jsdelivr.net/npm/clean-git-ref@2.0.1/+esm",
+          "@johnhenry/isomorphic-jj/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/isomorphic-jj@1.12.1/src/browser/index.js",
           "async-lock": "https://cdn.jsdelivr.net/npm/async-lock@1.4.1/+esm",
+          "clean-git-ref": "https://cdn.jsdelivr.net/npm/clean-git-ref@2.0.1/+esm",
           "crc-32": "https://cdn.jsdelivr.net/npm/crc-32@1.2.2/+esm",
-          "sha.js/sha1.js": "https://cdn.jsdelivr.net/npm/sha.js@2.4.12/sha1.js/+esm",
+          "diff3": "https://cdn.jsdelivr.net/npm/diff3@0.0.3/+esm",
+          "ignore": "https://cdn.jsdelivr.net/npm/ignore@5.3.2/+esm",
+          "isomorphic-git": "https://cdn.jsdelivr.net/npm/isomorphic-git@1.43.0/index.js",
           "pako": "https://cdn.jsdelivr.net/npm/pako@1.0.11/+esm",
           "pify": "https://cdn.jsdelivr.net/npm/pify@4.0.1/+esm",
-          "ignore": "https://cdn.jsdelivr.net/npm/ignore@5.3.2/+esm",
-          "@johnhenry/isomorphic-jj/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/isomorphic-jj@1.12.1/src/browser/index.js"
+          "protobufjs/light.js": "https://cdn.jsdelivr.net/npm/protobufjs@7.6.6/light.js/+esm",
+          "sha.js/sha1.js": "https://cdn.jsdelivr.net/npm/sha.js@2.4.12/sha1.js/+esm"
         }
       },
       "esmSh": {
@@ -507,8 +507,8 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/jth-stdlib": "https://cdn.jsdelivr.net/npm/@johnhenry/jth-stdlib@0.0.0/dist/index.js",
           "@johnhenry/jth-runtime": "https://cdn.jsdelivr.net/npm/@johnhenry/jth-runtime@0.0.0/dist/index.js",
+          "@johnhenry/jth-stdlib": "https://cdn.jsdelivr.net/npm/@johnhenry/jth-stdlib@0.0.0/dist/index.js",
           "@johnhenry/jth-types": "https://cdn.jsdelivr.net/npm/@johnhenry/jth-types@0.0.0/dist/index.js"
         }
       },
@@ -524,19 +524,19 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/laya": "https://cdn.jsdelivr.net/npm/@johnhenry/laya@0.3.2/dist/index.js",
-          "@johnhenry/modernbert": "https://cdn.jsdelivr.net/npm/@johnhenry/modernbert@0.3.1/dist/index.js",
-          "@johnhenry/tensor-backend": "https://cdn.jsdelivr.net/npm/@johnhenry/tensor-backend@0.4.0/dist/index.js",
-          "@johnhenry/hf-cache/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/hf-cache@0.1.2/dist/browser.js",
-          "@johnhenry/backend-cpu": "https://cdn.jsdelivr.net/npm/@johnhenry/backend-cpu@0.3.3/dist/index.js",
-          "@johnhenry/laya-core": "https://cdn.jsdelivr.net/npm/@johnhenry/laya-core@0.1.1/dist/index.js",
-          "@johnhenry/pyjson": "https://cdn.jsdelivr.net/npm/@johnhenry/pyjson@0.1.2/dist/index.js",
-          "@johnhenry/math-plus-safetensors": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-safetensors@0.1.3/dist/index.js",
-          "@johnhenry/math-plus-tensor-cpu": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-cpu@0.2.2/dist/index.js",
-          "@johnhenry/math-plus-tensor-core": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-core@0.2.1/dist/index.js",
           "@huggingface/tokenizers": "https://cdn.jsdelivr.net/npm/@huggingface/tokenizers@0.2.0/dist/tokenizers.mjs",
+          "@johnhenry/backend-cpu": "https://cdn.jsdelivr.net/npm/@johnhenry/backend-cpu@0.3.3/dist/index.js",
+          "@johnhenry/hf-cache/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/hf-cache@0.1.2/dist/browser.js",
+          "@johnhenry/laya": "https://cdn.jsdelivr.net/npm/@johnhenry/laya@0.3.2/dist/index.js",
+          "@johnhenry/laya-core": "https://cdn.jsdelivr.net/npm/@johnhenry/laya-core@0.1.1/dist/index.js",
+          "@johnhenry/math-plus-safetensors": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-safetensors@0.1.3/dist/index.js",
+          "@johnhenry/math-plus-special": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-special@0.1.1/dist/index.js",
+          "@johnhenry/math-plus-tensor-core": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-core@0.2.1/dist/index.js",
           "@johnhenry/math-plus-tensor-core/kernels": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-core@0.2.1/dist/public-kernels.js",
-          "@johnhenry/math-plus-special": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-special@0.1.1/dist/index.js"
+          "@johnhenry/math-plus-tensor-cpu": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-cpu@0.2.2/dist/index.js",
+          "@johnhenry/modernbert": "https://cdn.jsdelivr.net/npm/@johnhenry/modernbert@0.3.1/dist/index.js",
+          "@johnhenry/pyjson": "https://cdn.jsdelivr.net/npm/@johnhenry/pyjson@0.1.2/dist/index.js",
+          "@johnhenry/tensor-backend": "https://cdn.jsdelivr.net/npm/@johnhenry/tensor-backend@0.4.0/dist/index.js"
         },
         "scopes": {
           "https://cdn.jsdelivr.net/npm/@johnhenry/laya@0.3.2/": {
@@ -599,8 +599,8 @@
       "jsr": "0.2.1",
       "importMap": {
         "imports": {
-          "@johnhenry/math-plus-tensor-core": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-core@0.2.1/dist/index.js",
-          "@johnhenry/math-plus-special": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-special@0.1.1/dist/index.js"
+          "@johnhenry/math-plus-special": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-special@0.1.1/dist/index.js",
+          "@johnhenry/math-plus-tensor-core": "https://cdn.jsdelivr.net/npm/@johnhenry/math-plus-tensor-core@0.2.1/dist/index.js"
         }
       },
       "esmSh": {
@@ -615,8 +615,8 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/math-prototype-patch": "https://cdn.jsdelivr.net/npm/@johnhenry/math-prototype-patch@0.0.1/dist/index.js",
-          "@johnhenry/math": "https://cdn.jsdelivr.net/npm/@johnhenry/math@0.0.1/dist/index.js"
+          "@johnhenry/math": "https://cdn.jsdelivr.net/npm/@johnhenry/math@0.0.1/dist/index.js",
+          "@johnhenry/math-prototype-patch": "https://cdn.jsdelivr.net/npm/@johnhenry/math-prototype-patch@0.0.1/dist/index.js"
         }
       },
       "esmSh": {
@@ -653,18 +653,18 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.1.0/dist/index.js",
           "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
+          "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.1.0/dist/index.js",
           "@modelcontextprotocol/client": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.0.0/dist/index.mjs",
-          "zod": "https://cdn.jsdelivr.net/npm/zod@4.6.5/index.js",
-          "jose": "https://cdn.jsdelivr.net/npm/jose@6.2.12/dist/webapi/index.js",
           "@modelcontextprotocol/client/_shims": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.0.0/dist/shimsBrowser.mjs",
-          "zod/v4": "https://cdn.jsdelivr.net/npm/zod@4.6.5/v4/index.js",
-          "pkce-challenge": "https://cdn.jsdelivr.net/npm/pkce-challenge@5.0.1/dist/index.browser.js",
-          "eventsource": "https://cdn.jsdelivr.net/npm/eventsource@3.0.7/dist/index.js",
           "@modelcontextprotocol/core/internal": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/core@2.0.0/dist/internal.mjs",
+          "eventsource": "https://cdn.jsdelivr.net/npm/eventsource@3.0.7/dist/index.js",
+          "eventsource-parser": "https://cdn.jsdelivr.net/npm/eventsource-parser@3.1.1/dist/index.js",
           "eventsource-parser/stream": "https://cdn.jsdelivr.net/npm/eventsource-parser@3.1.1/dist/stream.js",
-          "eventsource-parser": "https://cdn.jsdelivr.net/npm/eventsource-parser@3.1.1/dist/index.js"
+          "jose": "https://cdn.jsdelivr.net/npm/jose@6.2.12/dist/webapi/index.js",
+          "pkce-challenge": "https://cdn.jsdelivr.net/npm/pkce-challenge@5.0.1/dist/index.browser.js",
+          "zod": "https://cdn.jsdelivr.net/npm/zod@4.6.5/index.js",
+          "zod/v4": "https://cdn.jsdelivr.net/npm/zod@4.6.5/v4/index.js"
         }
       },
       "esmSh": {
@@ -679,23 +679,23 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/mcp-query-tanstack": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query-tanstack@0.0.0/dist/index.js",
-          "@tanstack/react-query": "https://cdn.jsdelivr.net/npm/@tanstack/react-query@5.104.1/build/modern/index.js",
-          "@tanstack/query-core": "https://cdn.jsdelivr.net/npm/@tanstack/query-core@5.104.1/build/modern/index.js",
-          "react": "https://cdn.jsdelivr.net/npm/react@19.3.0/+esm",
-          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.3.0/jsx-runtime/+esm",
+          "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
           "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.0.0/dist/index.js",
+          "@johnhenry/mcp-query-tanstack": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query-tanstack@0.0.0/dist/index.js",
           "@modelcontextprotocol/client": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.0.0/dist/index.mjs",
           "@modelcontextprotocol/client/_shims": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.0.0/dist/shimsBrowser.mjs",
-          "pkce-challenge": "https://cdn.jsdelivr.net/npm/pkce-challenge@5.0.1/dist/index.browser.js",
-          "eventsource": "https://cdn.jsdelivr.net/npm/eventsource@3.0.7/dist/index.js",
-          "jose": "https://cdn.jsdelivr.net/npm/jose@6.2.12/dist/webapi/index.js",
-          "zod/v4": "https://cdn.jsdelivr.net/npm/zod@4.6.5/v4/index.js",
           "@modelcontextprotocol/core/internal": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/core@2.0.0/dist/internal.mjs",
-          "eventsource-parser/stream": "https://cdn.jsdelivr.net/npm/eventsource-parser@3.1.1/dist/stream.js",
+          "@tanstack/query-core": "https://cdn.jsdelivr.net/npm/@tanstack/query-core@5.104.1/build/modern/index.js",
+          "@tanstack/react-query": "https://cdn.jsdelivr.net/npm/@tanstack/react-query@5.104.1/build/modern/index.js",
+          "eventsource": "https://cdn.jsdelivr.net/npm/eventsource@3.0.7/dist/index.js",
           "eventsource-parser": "https://cdn.jsdelivr.net/npm/eventsource-parser@3.1.1/dist/index.js",
-          "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
-          "zod": "https://cdn.jsdelivr.net/npm/zod@4.6.5/index.js"
+          "eventsource-parser/stream": "https://cdn.jsdelivr.net/npm/eventsource-parser@3.1.1/dist/stream.js",
+          "jose": "https://cdn.jsdelivr.net/npm/jose@6.2.12/dist/webapi/index.js",
+          "pkce-challenge": "https://cdn.jsdelivr.net/npm/pkce-challenge@5.0.1/dist/index.browser.js",
+          "react": "https://cdn.jsdelivr.net/npm/react@19.3.0/+esm",
+          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.3.0/jsx-runtime/+esm",
+          "zod": "https://cdn.jsdelivr.net/npm/zod@4.6.5/index.js",
+          "zod/v4": "https://cdn.jsdelivr.net/npm/zod@4.6.5/v4/index.js"
         }
       },
       "esmSh": {
@@ -732,12 +732,12 @@
         "imports": {
           "@johnhenry/oat-bootstrap": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-bootstrap@0.1.1/dist/index.js",
           "@johnhenry/oat-protocol": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-protocol@0.1.1/dist/index.js",
-          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
           "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
-          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
+          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
           "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
+          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
           "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
-          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js"
+          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js"
         }
       },
       "esmSh": {
@@ -753,12 +753,12 @@
       "importMap": {
         "imports": {
           "@johnhenry/oat-protocol": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-protocol@0.1.1/dist/index.js",
-          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
           "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
-          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
+          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
           "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
+          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
           "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
-          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js"
+          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js"
         }
       },
       "esmSh": {
@@ -773,16 +773,16 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/oat-receiver": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-receiver@0.1.1/dist/index.js",
           "@johnhenry/oat-protocol": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-protocol@0.1.1/dist/index.js",
-          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
-          "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
-          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
-          "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
-          "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
-          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
-          "@johnhenry/oat-qr-fountain/fountain": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/fountain.js",
           "@johnhenry/oat-qr-fountain/decode": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/qr-decode.js",
+          "@johnhenry/oat-qr-fountain/fountain": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/fountain.js",
+          "@johnhenry/oat-receiver": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-receiver@0.1.1/dist/index.js",
+          "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
+          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
+          "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
+          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
+          "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
+          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
           "jsqr": "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm"
         }
       },
@@ -798,16 +798,16 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/oat-sender": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-sender@0.1.1/dist/index.js",
           "@johnhenry/oat-protocol": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-protocol@0.1.1/dist/index.js",
-          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
-          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
-          "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
-          "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
-          "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
-          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
-          "@johnhenry/oat-qr-fountain/fountain": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/fountain.js",
           "@johnhenry/oat-qr-fountain/encode": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/qr-encode.js",
+          "@johnhenry/oat-qr-fountain/fountain": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/fountain.js",
+          "@johnhenry/oat-sender": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-sender@0.1.1/dist/index.js",
+          "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
+          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
+          "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
+          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
+          "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
+          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
           "qrcode": "https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm"
         }
       },
@@ -823,15 +823,15 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/oat-sim": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-sim@0.1.1/dist/index.js",
           "@johnhenry/oat-protocol": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-protocol@0.1.1/dist/index.js",
           "@johnhenry/oat-qr-fountain/fountain": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-qr-fountain@0.1.1/dist/fountain.js",
-          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js",
-          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
+          "@johnhenry/oat-sim": "https://cdn.jsdelivr.net/npm/@johnhenry/oat-sim@0.1.1/dist/index.js",
           "@noble/curves/ed25519": "https://cdn.jsdelivr.net/npm/@noble/curves@1.9.7/esm/ed25519.js",
+          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js",
           "@noble/hashes/sha2.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha2.js",
+          "@noble/hashes/sha256": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/sha256.js",
           "@noble/hashes/utils.js": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/utils.js",
-          "@noble/hashes/crypto": "https://cdn.jsdelivr.net/npm/@noble/hashes@1.8.0/esm/crypto.js"
+          "cbor-x": "https://cdn.jsdelivr.net/npm/cbor-x@1.6.6/index.js"
         }
       },
       "esmSh": {
@@ -865,9 +865,9 @@
       "importMap": {
         "imports": {
           "@johnhenry/packfile/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/packfile@0.0.1/browser.mjs",
-          "wbn": "https://cdn.jsdelivr.net/npm/wbn@0.0.9/lib/wbn.js",
+          "cborg": "https://cdn.jsdelivr.net/npm/cborg@1.10.2/esm/cborg.js",
           "cborg/length": "https://cdn.jsdelivr.net/npm/cborg@1.10.2/esm/lib/length.js",
-          "cborg": "https://cdn.jsdelivr.net/npm/cborg@1.10.2/esm/cborg.js"
+          "wbn": "https://cdn.jsdelivr.net/npm/wbn@0.0.9/lib/wbn.js"
         }
       },
       "esmSh": {
@@ -913,8 +913,8 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/raijin-da": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-da@0.0.2/dist/index.js",
-          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js"
+          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js",
+          "@johnhenry/raijin-da": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-da@0.0.2/dist/index.js"
         }
       },
       "esmSh": {
@@ -929,8 +929,8 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/raijin-mempool": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-mempool@0.0.3/dist/index.js",
-          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js"
+          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js",
+          "@johnhenry/raijin-mempool": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-mempool@0.0.3/dist/index.js"
         }
       },
       "esmSh": {
@@ -945,8 +945,8 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/raijin-sdk": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-sdk@0.0.1/dist/index.js",
-          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js"
+          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js",
+          "@johnhenry/raijin-sdk": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-sdk@0.0.1/dist/index.js"
         }
       },
       "esmSh": {
@@ -961,10 +961,10 @@
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/raijin-validator": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-validator@0.0.6/dist/index.js",
-          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js",
           "@johnhenry/raijin-consensus": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-consensus@0.0.6/dist/index.js",
-          "@johnhenry/raijin-mempool": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-mempool@0.0.3/dist/index.js"
+          "@johnhenry/raijin-core": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-core@0.0.1/dist/index.js",
+          "@johnhenry/raijin-mempool": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-mempool@0.0.3/dist/index.js",
+          "@johnhenry/raijin-validator": "https://cdn.jsdelivr.net/npm/@johnhenry/raijin-validator@0.0.6/dist/index.js"
         }
       },
       "esmSh": {
@@ -1006,8 +1006,8 @@
           "@johnhenry/semantic-chunker": "https://cdn.jsdelivr.net/npm/@johnhenry/semantic-chunker@0.0.2/index.mjs",
           "compromise": "https://cdn.jsdelivr.net/npm/compromise@14.17.0/src/three.js",
           "efrt": "https://cdn.jsdelivr.net/npm/efrt@2.7.0/src/index.js",
-          "suffix-thumb": "https://cdn.jsdelivr.net/npm/suffix-thumb@5.0.3/src/index.js",
-          "grad-school": "https://cdn.jsdelivr.net/npm/grad-school@0.0.5/builds/grad-school.mjs"
+          "grad-school": "https://cdn.jsdelivr.net/npm/grad-school@0.0.5/builds/grad-school.mjs",
+          "suffix-thumb": "https://cdn.jsdelivr.net/npm/suffix-thumb@5.0.3/src/index.js"
         }
       },
       "esmSh": {
