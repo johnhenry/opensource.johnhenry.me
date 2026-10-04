@@ -10,7 +10,7 @@ that runs on Chromium, Firefox and WebKit.
 
 - **Live:** [johnhenry.github.io/workbench](https://johnhenry.github.io/workbench/) (GitHub Pages, deployed from CI)
 - **Source:** [github.com/johnhenry/workbench](https://github.com/johnhenry/workbench)
-- **In the Orrery:** [Workbench Desk](/orrery/#/workbench), the same four libraries as a live planet (bundled by Vite; the standalone above is the no-bundler, strict-CSP proof).
+- **In the Orrery:** [Untrusted Desk](/orrery/#/workbench), the desk and its untrusted notes as a live planet: window-algebra with undo/redo, keyboard-movable and pop-out windows, safe-fragment profiles and a strict-CSP, Trusted Types frame, with the components written as html-modules. The standalone above is the one with all four libraries and mport's import map, no bundler.
 - **What it found:** [FINDINGS.md](https://github.com/johnhenry/workbench/blob/main/FINDINGS.md): every bug, gap and awkward
   API met while building it, each with a minimal repro, the library commit that fixed it or the issue that tracks it.
 

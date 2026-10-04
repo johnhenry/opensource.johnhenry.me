@@ -1,3 +1,0 @@
-/* esm.sh - dayjs@1.11.23 */
-export * from "/dayjs@1.11.23/es2022/dayjs.mjs";
-export { default } from "/dayjs@1.11.23/es2022/dayjs.mjs";

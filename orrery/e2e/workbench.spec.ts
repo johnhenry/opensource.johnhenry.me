@@ -1,16 +1,11 @@
-import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 
 /**
- * Workbench Desk planet (#/workbench), end to end, on a production build.
+ * Untrusted Desk planet (#/workbench), end to end, on a production build.
  * Playwright CSS locators pierce open shadow roots, which is how the html-modules components (each with a shadow root) are reached.
- * Nothing here depends on the external standalone site: real mode is exercised against a route-fulfilled copy of its HTML.
- * The one live check (tagged @live) is skipped unless WORKBENCH_LIVE=1.
+ * Nothing here depends on an external site: the standalone workbench is only linked.
  */
 
-const STANDALONE = 'https://johnhenry.github.io/workbench/';
-const FIXTURE = readFileSync(new URL('./fixtures/standalone.html', import.meta.url), 'utf8');
-const FIXTURE_CSP = FIXTURE.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)![1];
 const DESK = '#/workbench';
 
 /** Collect page errors and console errors so every test can assert the planet ran clean. */
@@ -22,9 +17,11 @@ function watch(page: Page) {
 }
 /**
  * Errors that are about this planet. Not counted: the favicon, and the 404 a static host gives the seed notes' hostile
- * <img src="x"> (the sanitizer keeps the <img>, strips its onerror, and the browser still asks for "x").
+ * <img src="x"> (the sanitizer keeps the <img>, strips its onerror, and the browser still asks for "x"), and the one console error the
+ * strict-CSP frame makes ON PURPOSE: its raw-innerHTML control is refused by Trusted Types ("requires a TrustedHTML"), and WebKit's
+ * benign "ResizeObserver loop completed with undelivered notifications" (a layout notice, not an exception) when a window is popped out.
  */
-const mine = (errors: string[]) => errors.filter((e) => !/favicon|manifest|apple-touch|Failed to load resource: the server responded with a status of 404/i.test(e));
+const mine = (errors: string[]) => errors.filter((e) => !/favicon|manifest|apple-touch|Failed to load resource: the server responded with a status of 404|TrustedHTML|require-trusted-types-for|ResizeObserver loop/i.test(e));
 
 /** A full, clean page load at a URL that names nothing (not a hash change followed by a reload, which can race a boot in flight). */
 async function fresh(page: Page) {
@@ -43,7 +40,7 @@ const noteHeadings = (page: Page) => page.locator('wb--note-card').evaluateAll((
 const stored = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
 
 /** What a rendered note actually contains: hazards counted in the live DOM that safe-fragment produced. */
-const hazards = (card: import('@playwright/test').Locator) =>
+const hazards = (card: Locator) =>
   card.evaluate((el) => {
     const frag = el.shadowRoot!.querySelector('safe-fragment') as any;
     const root: ParentNode = frag.getRenderedRoot();
@@ -59,15 +56,16 @@ const hazards = (card: import('@playwright/test').Locator) =>
     };
   });
 
-test.describe('in-page mode', () => {
+test.describe('the desk', () => {
   test('the desk renders its windows, and the components render inside shadow roots', async ({ page }) => {
     const errors = watch(page);
     await openDesk(page);
 
-    // three windows, each a window-algebra view with its chrome
-    await expect(page.locator('wa-stage wm-view[data-view]')).toHaveCount(3);
+    // two windows, each a window-algebra view with its chrome (the pop-out button is part of it)
+    await expect(page.locator('wa-stage wm-view[data-view]')).toHaveCount(2);
     await expect(page.locator('wa-stage wm-view[data-view="notes"] [data-wa-chrome]')).toBeVisible();
-    await expect(page.locator('.wb-stage-chip', { hasText: '3 windows' })).toBeVisible();
+    await expect(page.locator('.wb-stage-chip', { hasText: '2 windows' })).toBeVisible();
+    await expect(page.locator('wa-stage wm-view[data-view="notes"] [data-wm-command="window/pop-out"]')).toHaveCount(1);
 
     // html-modules components: defined, with shadow roots, nesting kit components inside the tool components
     await expect(page.locator('wb--note-card')).toHaveCount(3);
@@ -90,29 +88,26 @@ test.describe('in-page mode', () => {
 
     // the three seed notes render through safe-fragment: the newsletter note's hostile bits are already gone
     await expect(page.locator('.wb-stage-chip', { hasText: 'safe-fragment' })).toContainText('0 ran');
+    // one prominent link to the standalone, and nothing of the removed mport / real-app machinery
+    await expect(page.locator('a[data-standalone]')).toHaveAttribute('href', 'https://johnhenry.github.io/workbench/');
+    await expect(page.locator('a[data-standalone]')).toHaveAttribute('target', '_blank');
+    await expect(page.locator('.wb-callout')).toContainText('mport');
+    await expect(page.locator('.wb-controls [data-mode], [data-tamper], iframe[data-frame], .wb-map-pre, [data-src]')).toHaveCount(0);
     expect(mine(errors)).toEqual([]);
   });
 
-  test('the HTML modules are real static files fetched over HTTP, and the Module source window shows the same files', async ({ page }) => {
+  test('the html-modules components are plain static files served over HTTP', async ({ page }) => {
     const gets: string[] = [];
     // a static host may redirect /x.html to /x (the production `serve` does); either way each file is one real HTTP 200
     page.on('response', (r) => { if (/\/workbench\/components\//.test(r.url())) gets.push(`${new URL(r.url()).pathname.replace(/\.html$/, '')} ${r.status()}`); });
-    await openDesk(page, `${DESK}?w=notes,clips,source`);
-    await expect(page.locator('.wb-stage-chip', { hasText: 'html-modules' })).toContainText('5 modules');
+    await openDesk(page);
     for (const f of ['kit.html', 'notes.html', 'clips.html', 'untrusted/clip.html', 'report.html']) {
       expect(gets, `GET ${f}`).toContain(`/orrery/workbench/components/${f.replace(/\.html$/, '')} 200`); // under the /orrery/ base
     }
-    const src = page.locator('.wb-src');
-    await expect(src.locator('.wb-map-meta')).toContainText('GET /orrery/workbench/components/notes.html');
-    const shown = await src.locator('pre').innerText();
-    const real = await page.evaluate(() => fetch('/orrery/workbench/components/notes.html').then((r) => r.text()));
-    expect(shown.trim()).toBe(real.trim());
-    expect(shown).toContain('<html-export name="notes-tool"');
-    await src.locator('[data-src="untrusted/clip.html"]').click();
-    await expect(src.locator('pre')).toContainText('<script>window.__orreryWorkbenchPwned');
+    await expect(page.locator('.wb-stage-chip', { hasText: 'html-modules' })).toContainText('components');
   });
 
-  test('the less-trusted Clips module is sanitized before its component is defined', async ({ page }) => {
+  test('the untrusted Clips template is sanitized (html-modules sanitize hook) before its component is defined', async ({ page }) => {
     await openDesk(page);
     const clip = page.locator('clip--card');
     await expect(clip).toBeVisible();
@@ -161,25 +156,28 @@ test.describe('in-page mode', () => {
   });
 
   test('a deep link reloads into the same state, in a fresh browser too', async ({ page, browser }) => {
-    await openDesk(page, `${DESK}?l=grid&w=notes,map,source`);
+    await openDesk(page, `${DESK}?l=grid&w=notes,report&pf=ui-v1`);
     await expect(pressed(page, 'data-layout', 'grid')).toHaveAttribute('aria-pressed', 'true');
-    for (const id of ['notes', 'map', 'source']) await expect(pressed(page, 'data-open', id)).toHaveAttribute('aria-pressed', 'true');
-    for (const id of ['clips', 'report']) await expect(pressed(page, 'data-open', id)).toHaveAttribute('aria-pressed', 'false');
+    for (const id of ['notes', 'report']) await expect(pressed(page, 'data-open', id)).toHaveAttribute('aria-pressed', 'true');
+    await expect(pressed(page, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'false');
+    await expect(pressed(page, 'data-profile', 'ui-v1')).toHaveAttribute('aria-pressed', 'true');
     // change something, wait for the link to catch up, then reload the very URL
     await pressed(page, 'data-layout', 'spiral').click();
     await expect.poll(() => page.url()).toContain('l=spiral');
     const url = page.url();
-    expect(url).toContain('w=notes%2Cmap%2Csource');
+    expect(url).toContain('w=notes%2Creport');
+    expect(url).toContain('pf=ui-v1');
     await page.reload();
     await expect(pressed(page, 'data-layout', 'spiral')).toHaveAttribute('aria-pressed', 'true');
-    await expect(pressed(page, 'data-open', 'source')).toHaveAttribute('aria-pressed', 'true');
+    await expect(pressed(page, 'data-open', 'report')).toHaveAttribute('aria-pressed', 'true');
     // a fresh context has no storage: the link alone carries the state
     const fresh = await browser.newContext();
     const other = await fresh.newPage();
     await other.goto(url);
     await expect(other.locator('wb--note-card').first()).toBeVisible();
     await expect(pressed(other, 'data-layout', 'spiral')).toHaveAttribute('aria-pressed', 'true');
-    await expect(pressed(other, 'data-open', 'map')).toHaveAttribute('aria-pressed', 'true');
+    await expect(pressed(other, 'data-open', 'report')).toHaveAttribute('aria-pressed', 'true');
+    await expect(pressed(other, 'data-profile', 'ui-v1')).toHaveAttribute('aria-pressed', 'true');
     await expect(pressed(other, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'false');
     await fresh.close();
   });
@@ -243,9 +241,12 @@ test.describe('in-page mode', () => {
     // layout: A changes, B follows (the BroadcastChannel is named orrery-workbench)
     await pressed(a, 'data-layout', 'columns').click();
     await expect(pressed(b, 'data-layout', 'columns')).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
-    // a window: B closes Source/Map, A follows
-    await pressed(b, 'data-open', 'map').click();
-    await expect(pressed(a, 'data-open', 'map')).toHaveAttribute('aria-pressed', 'false', { timeout: 20_000 });
+    // a window: B closes Clips, A follows
+    await pressed(b, 'data-open', 'clips').click();
+    await expect(pressed(a, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'false', { timeout: 20_000 });
+    // undo is synced too: B undoes the close, A gets the window back
+    await b.locator('[data-act="undo"]').click();
+    await expect(pressed(a, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
 
     // notes: A adds one, B shows it
     await a.locator('wb--notes-tool kit--field input').fill('From tab A');
@@ -260,7 +261,7 @@ test.describe('in-page mode', () => {
     // reset in A resets B's windows and notes
     await a.locator('[data-act="reset"]').click();
     await expect(pressed(b, 'data-layout', 'master-stack')).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
-    await expect(pressed(b, 'data-open', 'map')).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
+    await expect(pressed(b, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
     await expect.poll(async () => (await noteHeadings(b)).length).toBe(3);
 
     // closing a tab drops the count
@@ -333,122 +334,270 @@ test.describe('shortcuts and cleanup', () => {
   });
 });
 
-test.describe('real mode (the standalone app in a frame)', () => {
-  /** The external site is replaced by a copy of its real HTML, so a gating test never depends on it. */
-  async function stubStandalone(context: BrowserContext, fail = false) {
-    await context.route(`${STANDALONE}**`, (route) => {
-      if (fail) return route.abort('internetdisconnected');
-      const url = route.request().url();
-      if (url === STANDALONE) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: FIXTURE });
-      // the page's module entry and its other files: an empty module, so the frame stays inert and quiet
-      return route.fulfill({ status: 200, contentType: /\.(m?js)$/.test(url) ? 'text/javascript' : /\.css$/.test(url) ? 'text/css' : 'text/plain', body: '' });
-    });
-  }
+test.describe('window-algebra: history, keyboard and pop-out', () => {
+  const layoutPressed = (page: Page, id: string) => pressed(page, 'data-layout', id);
 
-  test('?mode=real embeds the standalone URL and lists what the frame proves', async ({ page, context }) => {
-    await stubStandalone(context);
+  test('Undo and Redo walk the desk history: a layout change, a closed window', async ({ page }) => {
     const errors = watch(page);
-    await page.goto('./#/workbench?mode=real');
-    const frame = page.locator('iframe[data-frame]');
-    await expect(frame).toBeVisible();
-    await expect(frame).toHaveAttribute('src', STANDALONE);
-    await expect(frame).toHaveAttribute('loading', 'lazy');
-    expect(((await frame.getAttribute('title')) ?? '').length).toBeGreaterThan(10);
-    expect(await frame.getAttribute('allow')).toBeNull();      // nothing needed, so nothing granted
-    expect(await frame.getAttribute('sandbox')).toBeNull();    // it runs as itself
-    await expect(page.locator('.wb-real')).toHaveAttribute('data-frame', 'loaded');
-    // sized to the desk area
-    const box = (await frame.boundingBox())!;
-    expect(box.height).toBeGreaterThanOrEqual(560);
-    expect(box.width).toBeGreaterThan(500);
+    await openDesk(page);
+    const undo = page.locator('[data-act="undo"]');
+    const redo = page.locator('[data-act="redo"]');
+    const steps = page.locator('[data-history]');
+    // a fresh desk has no history: the initial windows are the baseline, not steps
+    await expect(undo).toBeDisabled();
+    await expect(redo).toBeDisabled();
+    await expect(steps).toHaveAttribute('data-steps', '0');
 
-    // full screen link
-    const full = page.locator('a[data-fullscreen]');
-    await expect(full).toHaveAttribute('href', STANDALONE);
-    await expect(full).toHaveAttribute('target', '_blank');
-    await expect(full).toHaveAttribute('rel', /noopener/);
+    await layoutPressed(page, 'grid').click();
+    await expect(layoutPressed(page, 'grid')).toHaveAttribute('aria-pressed', 'true');
+    await expect(steps).toHaveAttribute('data-steps', '1');
+    await expect(undo).toBeEnabled();
+    await pressed(page, 'data-open', 'clips').click(); // close Clips
+    await expect(pressed(page, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('wa-stage wm-view[data-view]')).toHaveCount(1);
+    await expect(steps).toHaveAttribute('data-steps', '2');
 
-    // the five claims, in order, each from the fetched HTML
-    const claims = page.locator('[data-claims] [data-claim]');
-    await expect(claims).toHaveCount(5);
-    expect(await claims.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.claim))).toEqual(['origin', 'csp', 'trusted-types', 'import-map', 'integrity']);
-    await expect(page.locator('.wb-claims-src')).toContainText('just now');
-    await expect(page.locator('[data-claim="origin"]')).toContainText('https://johnhenry.github.io');
-    await expect(page.locator('[data-claim="origin"]')).toContainText(new URL(page.url()).origin);
-    // the CSP is quoted verbatim, directive by directive
-    const quoted = await page.locator('[data-claim="csp"] [data-csp]').innerText();
-    expect(quoted.split(';\n').map((s) => s.trim().replace(/;$/, ''))).toEqual(FIXTURE_CSP.split(';').map((s) => s.trim()));
-    await expect(page.locator('[data-claim="csp"]')).toContainText('sends no Content-Security-Policy header');
-    await expect(page.locator('[data-claim="trusted-types"]')).toContainText("require-trusted-types-for 'script'");
-    await expect(page.locator('[data-claim="trusted-types"]')).toContainText('trusted-types html-modules dompurify');
-    await expect(page.locator('[data-claim="import-map"]')).toContainText('11');
-    await expect(page.locator('[data-claim="import-map"] [data-importmap]')).toContainText('@johnhenry/window-algebra/element');
-    await expect(page.locator('[data-claim="import-map"]')).toContainText('app/main.js');
-    await expect(page.locator('[data-claim="integrity"] [data-integrity]')).toContainText('sha384-');
-    await expect(page.locator('[data-claim="integrity"] [data-integrity]')).toContainText('https://esm.sh/dayjs@1.11.23/es2022/dayjs.mjs');
-    // real mode does not boot the in-page desk
-    await expect(page.locator('wa-stage')).toHaveCount(0);
+    // undo the close: the window is back, and it still renders (its component was not rebuilt from nothing)
+    await undo.click();
+    await expect(pressed(page, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('wa-stage wm-view[data-view]')).toHaveCount(2);
+    await expect(page.locator('clip--card')).toBeVisible();
+    await expect(redo).toBeEnabled();
+    // undo the layout
+    await undo.click();
+    await expect(layoutPressed(page, 'master-stack')).toHaveAttribute('aria-pressed', 'true');
+    await expect(undo).toBeDisabled();
+    // redo both
+    await redo.click();
+    await expect(layoutPressed(page, 'grid')).toHaveAttribute('aria-pressed', 'true');
+    await redo.click();
+    await expect(pressed(page, 'data-open', 'clips')).toHaveAttribute('aria-pressed', 'false');
+    await expect(redo).toBeDisabled();
+    // a new command after an undo drops the redo branch
+    await undo.click();
+    await pressed(page, 'data-layout', 'rows').click();
+    await expect(redo).toBeDisabled();
     expect(mine(errors)).toEqual([]);
   });
 
-  test('the mode switch round-trips and is deep-linkable', async ({ page, context }) => {
-    await stubStandalone(context);
+  test('a floating window moves and resizes from the keyboard (Alt+Shift+Arrows, Ctrl+Alt+Shift+Arrows)', async ({ page }) => {
+    const errors = watch(page);
     await openDesk(page);
-    await expect(page.locator('button[data-mode="inpage"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('iframe[data-frame]')).toHaveCount(0);
+    await pressed(page, 'data-open', 'report').click(); // the report opens floating
+    const view = page.locator('wa-stage wm-view[data-view="report"]');
+    await expect(view).toBeVisible();
+    await expect(page.locator('wb--report-tool')).toBeVisible();
+    await view.locator('[data-wm-handle="move"]').click(); // focus it by its title bar
+    const read = async () => {
+      const [x, y, w, h] = ((await page.locator('[data-floatbox]').getAttribute('data-float')) ?? '').split(',').map(Number);
+      return { x, y, w, h };
+    };
+    await expect.poll(async () => (await read()).w).toBeGreaterThan(0);
+    const before = await read();
 
-    await page.locator('button[data-mode="real"]').click();
-    await expect(page.locator('iframe[data-frame]')).toBeVisible();
-    await expect(page.locator('wa-stage')).toHaveCount(0);
-    await expect.poll(() => page.url()).toContain('mode=real');
-    await page.reload();
-    await expect(page.locator('button[data-mode="real"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('iframe[data-frame]')).toHaveAttribute('src', STANDALONE);
+    await page.keyboard.press('Alt+Shift+ArrowRight');
+    await expect.poll(async () => (await read()).x).toBe(before.x + 10);
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+    await expect.poll(async () => (await read()).y).toBe(before.y + 10);
+    await page.keyboard.press('Control+Alt+Shift+ArrowLeft'); // resize: left shrinks the width
+    await expect.poll(async () => (await read()).w).toBe(before.w - 10);
+    await page.keyboard.press('Control+Alt+Shift+ArrowDown');
+    await expect.poll(async () => (await read()).h).toBe(before.h + 10);
+    expect(await read()).toMatchObject({ x: before.x + 10, y: before.y + 10 });
 
-    await page.locator('button[data-mode="inpage"]').click();
-    await expect(page.locator('wb--note-card').first()).toBeVisible();
-    await expect(page.locator('iframe[data-frame]')).toHaveCount(0);
-    await expect.poll(() => page.url()).not.toContain('mode=');
-    // the default is the in-page mode
-    await fresh(page);
-    await expect(page.locator('button[data-mode="inpage"]')).toHaveAttribute('aria-pressed', 'true');
+    // every keyboard step is a history step, so Undo takes the window back
+    await page.locator('[data-act="undo"]').click();
+    await expect.poll(async () => (await read()).h).toBe(before.h);
+    expect(mine(errors)).toEqual([]);
   });
 
-  test('when the standalone cannot be reached it says so, keeps a link, and falls back to a recorded copy of the claims', async ({ page, context }) => {
-    await stubStandalone(context, true);
-    await page.goto('./#/workbench?mode=real');
-    const fail = page.locator('[data-frame-fail]');
-    await expect(fail).toBeVisible();
-    await expect(fail).toContainText('did not load');
-    await expect(fail.locator('a')).toHaveAttribute('href', STANDALONE);
-    await expect(page.locator('.wb-real')).toHaveAttribute('data-frame', 'failed');
-    await expect(page.locator('.wb-claims-src')).toContainText('recorded copy');
-    await expect(page.locator('[data-claim]')).toHaveCount(5);
-    await expect(page.locator('[data-claim="csp"] [data-csp]')).toContainText("require-trusted-types-for 'script'");
+  test('"Float focused" turns a tiled window into one the keyboard can move', async ({ page }) => {
+    await openDesk(page);
+    await expect(page.locator('[data-floatbox]')).toContainText('Notes');
+    await expect(page.locator('[data-floatbox]')).toContainText('tiled');
+    await page.locator('wa-stage wm-view[data-view="notes"] [data-wm-handle="move"]').click();
+    await page.locator('[data-act="float"]').click();
+    await expect(page.locator('[data-floatbox]')).toHaveAttribute('data-float', /^\d+,\d+,\d+,\d+$/);
+    const x = Number(((await page.locator('[data-floatbox]').getAttribute('data-float')) ?? '').split(',')[0]);
+    // the keys work right away: the button handed keyboard focus back to the window
+    await page.keyboard.press('Alt+Shift+ArrowLeft');
+    await expect.poll(async () => Number(((await page.locator('[data-floatbox]').getAttribute('data-float')) ?? '').split(',')[0])).toBe(x - 10);
+  });
 
-    // back online: the retry button reloads the frame and re-reads the page
-    await context.unroute(`${STANDALONE}**`);
-    await stubStandalone(context);
-    await fail.locator('[data-retry]').click();
-    await expect(page.locator('.wb-real')).toHaveAttribute('data-frame', 'loaded');
-    await expect(page.locator('.wb-claims-src')).toContainText('just now');
-    await expect(fail).toBeHidden();
+  test('pop-out moves a window into a real browser window and Pop back in returns it', async ({ page, context }) => {
+    const errors = watch(page);
+    await openDesk(page);
+    await pressed(page, 'data-open', 'report').click();
+    await expect(page.locator('wb--report-tool')).toBeVisible();
+    await page.locator('wa-stage wm-view[data-view="report"] [data-wm-handle="move"]').click();
+
+    const popupPromise = context.waitForEvent('page');
+    await page.locator('[data-act="popout"]').click();
+    const popup = await popupPromise;
+    await expect(popup.locator('wb--report-tool')).toBeVisible();
+    await expect(page.locator('[data-act="popout"]')).toHaveText('Pop back in');
+    await expect(page.locator('.wb-status')).toContainText('own browser window');
+    await expect(page.locator('wa-stage wb--report-tool')).toHaveCount(0); // it left this document...
+    await expect(popup.locator('wb--report-tool')).toHaveCount(1);          // ...with its live DOM, shadow root and all
+    expect(await popup.locator('wb--report-tool').evaluate((el) => !!el.shadowRoot)).toBe(true);
+
+    await page.locator('[data-act="popout"]').click(); // Pop back in
+    await expect(page.locator('wa-stage wb--report-tool')).toBeVisible();
+    await expect(page.locator('[data-act="popout"]')).toHaveText('Pop out');
+    await expect.poll(() => popup.isClosed()).toBe(true);
+    expect(mine(errors)).toEqual([]);
   });
 });
 
-/** Optional, non-gating: the real standalone, over the real network. Run with WORKBENCH_LIVE=1 (CI runs it in a separate, allowed-to-fail job). */
-test.describe('live standalone @live', () => {
-  test.skip(!process.env.WORKBENCH_LIVE, 'set WORKBENCH_LIVE=1 to run against the real https://johnhenry.github.io/workbench/');
+test.describe('safe-fragment: the profile switcher', () => {
+  const card = (page: Page, title: string) => page.locator('wb--note-card', { has: page.locator('h3', { hasText: title }) });
+  const profileOf = (page: Page, title: string) => card(page, title).getAttribute('profile');
 
-  test('real mode loads the real app and reads its real policy', async ({ page }) => {
-    await page.goto('./#/workbench?mode=real');
-    await expect(page.locator('.wb-claims-src')).toContainText('just now', { timeout: 30_000 });
-    await expect(page.locator('[data-claim="csp"] [data-csp]')).toContainText("require-trusted-types-for 'script'");
-    await expect(page.locator('[data-claim="integrity"] [data-integrity]')).toContainText('sha384-');
-    await expect(page.locator('.wb-real')).toHaveAttribute('data-frame', 'loaded', { timeout: 30_000 });
-    // (the harness may look inside the cross-origin frame; the page under test never does)
-    const inner = page.frameLocator('iframe[data-frame]');
-    await expect(inner.locator('wa-stage')).toBeVisible({ timeout: 30_000 });
-    await expect(inner.locator('#sanitizer')).toContainText('Sanitizer:', { timeout: 30_000 });
+  test('every note re-renders under the chosen profile, and auto restores the per-note choice', async ({ page }) => {
+    const errors = watch(page);
+    await openDesk(page);
+    const welcome = card(page, 'Welcome to the desk');
+    const plain = card(page, 'Plain text stays plain');
+    // auto: markup -> article-v1, none -> plain-text-v1
+    expect(await profileOf(page, 'Welcome to the desk')).toBe('article-v1');
+    expect(await profileOf(page, 'Plain text stays plain')).toBe('plain-text-v1');
+    expect((await hazards(welcome)).strong).toBeGreaterThan(0);
+    await expect(pressed(page, 'data-profile', 'auto')).toHaveAttribute('aria-pressed', 'true');
+
+    // plain-text-v1 on everything: the markup is shown as text, nothing is bold
+    await pressed(page, 'data-profile', 'plain-text-v1').click();
+    await expect(pressed(page, 'data-profile', 'plain-text-v1')).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => profileOf(page, 'Welcome to the desk')).toBe('plain-text-v1');
+    await expect.poll(async () => (await hazards(welcome)).strong).toBe(0);
+    expect((await hazards(welcome)).text).toContain('<strong>window-algebra</strong>');
+    await expect(page.locator('.wb-stage-chip', { hasText: 'safe-fragment' })).toContainText('plain-text-v1');
+    await expect.poll(() => page.url()).toContain('pf=plain-text-v1');
+
+    // the profiles differ on the same input: article-v1 keeps the link, ui-v1 and email-v1 each render the newsletter note
+    const news = card(page, 'Pasted from a newsletter');
+    for (const profile of ['article-v1', 'ui-v1', 'email-v1'] as const) {
+      await pressed(page, 'data-profile', profile).click();
+      await expect.poll(() => profileOf(page, 'Pasted from a newsletter')).toBe(profile);
+      await expect.poll(async () => (await hazards(news)).strong).toBeGreaterThan(0);
+      await expect(news.locator('safe-fragment')).toHaveAttribute('profile', profile);
+      const h = await hazards(news);
+      expect(h).toMatchObject({ scripts: 0, onAttrs: 0, jsUrls: 0 });
+      expect(h.httpsLinks, `${profile} keeps the https link`).toBeGreaterThan(0);
+    }
+    await page.waitForTimeout(800);
+    expect(await canary(page)).toBe(0);
+
+    // back to auto
+    await pressed(page, 'data-profile', 'auto').click();
+    await expect.poll(() => profileOf(page, 'Plain text stays plain')).toBe('plain-text-v1');
+    await expect.poll(() => profileOf(page, 'Welcome to the desk')).toBe('article-v1');
+    await expect.poll(async () => (await hazards(welcome)).strong).toBeGreaterThan(0);
+    await expect.poll(() => page.url()).not.toContain('pf=');
+    expect(mine(errors)).toEqual([]);
+  });
+
+  test('the report window follows the profile, and the XSS preset runs nothing under any of them', async ({ page }) => {
+    await openDesk(page);
+    await page.locator('[data-preset="xss"]').click();
+    await expect(page.locator('.wb-status')).toContainText('payload neutralised', { timeout: 20_000 });
+    const xss = card(page, 'helpful');
+    for (const profile of ['ui-v1', 'email-v1', 'plain-text-v1', 'article-v1'] as const) {
+      await pressed(page, 'data-profile', profile).click();
+      await expect.poll(() => xss.getAttribute('profile')).toBe(profile);
+      await expect(page.locator('wb--report-tool')).toHaveAttribute('profile', profile);
+      await page.waitForTimeout(500);
+      expect(await canary(page), `canary under ${profile}`).toBe(0);
+      if (profile !== 'plain-text-v1') expect(await hazards(xss)).toMatchObject({ scripts: 0, onAttrs: 0, jsUrls: 0 });
+    }
+    await expect(page.locator('wb--report-tool kit--stat[label="handlers that ran"]')).toHaveAttribute('value', '0');
+  });
+});
+
+test.describe('safe-fragment: strict CSP and Trusted Types, in a separate document', () => {
+  const frameOf = (page: Page) => page.frameLocator('iframe[data-tt-frame]');
+  const stat = (page: Page, id: string) => frameOf(page).locator(`#${id} b`);
+
+  test('safe-fragment renders under require-trusted-types-for with zero violations; a raw innerHTML is refused', async ({ page }, info) => {
+    const errors = watch(page);
+    await openDesk(page);
+    const status = page.locator('[data-tt-status]');
+    await expect(frameOf(page).locator('body[data-tt-state="done"]')).toBeAttached({ timeout: 30_000 });
+
+    // the policy is the frame's own <meta>, and it is the strict one
+    const csp = await frameOf(page).locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+    expect(csp).toContain("require-trusted-types-for 'script'");
+    expect(csp).toContain('trusted-types dompurify');
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).not.toMatch(/unsafe-inline|unsafe-eval/);
+    await expect(frameOf(page).locator('#csp')).toContainText("require-trusted-types-for 'script'");
+
+    // the engine: native Sanitizer API where it exists, DOMPurify (the one allowed policy name) in WebKit
+    const engine = await frameOf(page).locator('#stat-engine b').innerText();
+    if (info.project.name === 'webkit') expect(engine).toBe('dompurify');
+    else expect(['native', 'dompurify']).toContain(engine);
+
+    // notes were rendered, hostile parts are gone, nothing ran
+    const notes = frameOf(page).locator('#notes safe-fragment');
+    await expect(notes).toHaveCount(3);
+    await expect(frameOf(page).locator('#notes strong').first()).toBeVisible();
+    expect(await frameOf(page).locator('#notes script, #notes iframe, #notes form, #notes [onerror], #notes [onclick]').count()).toBe(0);
+    await expect(stat(page, 'stat-canary')).toHaveText('0');
+
+    // the two counters: safe-fragment 0, the control at least 1 (a refused innerHTML is itself a violation)
+    await expect(stat(page, 'stat-sf')).toHaveText('0');
+    const controlViolations = Number(await stat(page, 'stat-control').innerText());
+    expect(controlViolations).toBeGreaterThanOrEqual(1);
+    await expect(frameOf(page).locator('#verdict')).toContainText('Control: blocked, TypeError');
+    await expect(frameOf(page).locator('#samples')).toContainText('[control] require-trusted-types-for');
+    await expect(frameOf(page).locator('#samples')).not.toContainText('[safe-fragment]');
+
+    // the planet outside the frame shows the same numbers
+    await expect(status).toHaveAttribute('data-sf', '0');
+    await expect(status).toHaveAttribute('data-blocked', 'true');
+    await expect(status).toHaveAttribute('data-ran', '0');
+    await expect(status).toContainText('0 violations');
+    await expect(status).toContainText('blocked');
+    expect(mine(errors).filter((e) => !/TrustedHTML|Trusted ?Types|require-trusted-types-for|violates the following Content Security Policy/i.test(e))).toEqual([]);
+  });
+
+  test('re-rendering under every profile adds no safe-fragment violations; the control adds exactly its own', async ({ page }) => {
+    await openDesk(page);
+    const frame = frameOf(page);
+    await expect(frame.locator('body[data-tt-state="done"]')).toBeAttached({ timeout: 30_000 });
+    const control0 = Number(await stat(page, 'stat-control').innerText());
+    // an independent counter, in the frame's own document, not the page's one
+    const frameHandle = await page.locator('iframe[data-tt-frame]').elementHandle();
+    const f = (await frameHandle!.contentFrame())!;
+    await f.evaluate(() => { (window as any).__violations = []; document.addEventListener('securitypolicyviolation', (e) => (window as any).__violations.push(e.violatedDirective)); });
+
+    for (const profile of ['ui-v1', 'email-v1', 'plain-text-v1', 'article-v1']) {
+      await frame.locator(`button[data-profile="${profile}"]`).click();
+      await expect(frame.locator('body[data-tt-state="idle"]')).toBeAttached({ timeout: 15_000 });
+      await expect(frame.locator(`button[data-profile="${profile}"]`)).toHaveAttribute('aria-pressed', 'true');
+      await expect(frame.locator('#notes safe-fragment').first()).toHaveAttribute('profile', profile);
+    }
+    expect(await f.evaluate(() => (window as any).__violations)).toEqual([]);
+    await expect(stat(page, 'stat-sf')).toHaveText('0');
+    await expect(stat(page, 'stat-control')).toHaveText(String(control0));
+    await expect(page.locator('[data-tt-status]')).toHaveAttribute('data-sf', '0');
+
+    // the control again: it is refused, and now the control counter (only) goes up
+    await frame.locator('#raw-try').click();
+    await expect.poll(async () => Number(await stat(page, 'stat-control').innerText()), { timeout: 10_000 }).toBeGreaterThan(control0);
+    expect(await f.evaluate(() => (window as any).__violations)).toContain('require-trusted-types-for');
+    await expect(stat(page, 'stat-sf')).toHaveText('0');
+    await expect(page.locator('[data-tt-status]')).toHaveAttribute('data-sf', '0');
+  });
+
+  test('the frame is served by the orrery itself, with the policy in the document and nothing inline', async ({ page }) => {
+    await openDesk(page);
+    const src = await page.locator('iframe[data-tt-frame]').getAttribute('src');
+    expect(src).toBe('/orrery/workbench/tt.html');
+    const html = await page.evaluate((u) => fetch(u).then((r) => r.text()), src!);
+    expect(html).toContain('http-equiv="Content-Security-Policy"');
+    expect(html).toContain("require-trusted-types-for 'script'");
+    expect(html).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/i); // no inline script
+    expect(html).not.toMatch(/<style[\s>]/i);                  // no inline style
+    expect(html).toMatch(/<script type="module"[^>]*src="\/orrery\/assets\//);
   });
 });

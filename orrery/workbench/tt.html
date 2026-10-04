@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- The strict policy. No inline script, no inline style, no eval, and every DOM string sink is gated by Trusted Types:
+         a raw `el.innerHTML = "..."` throws. The only policy name allowed is "dompurify", which safe-fragment's DOMPurify
+         fallback engine creates (WebKit uses it; Chromium and Firefox use the native Sanitizer API and create no policy). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; require-trusted-types-for 'script'; trusted-types dompurify"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Strict-CSP frame</title>
+  </head>
+  <body>
+    <main id="app" aria-live="polite">Loading safe-fragment under the policy…</main>
+    <script type="module" src="/src/playgrounds/workbench-tt.ts"></script>
+  </body>
+</html>

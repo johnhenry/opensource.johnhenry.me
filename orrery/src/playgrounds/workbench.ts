@@ -2,39 +2,28 @@ import type { Playground } from '../registry';
 import { readState, writeState, copyLink } from '../state';
 import './workbench.css';
 import { XSS_PAYLOAD, XSS_TITLE } from './workbench-modules';
-import { STANDALONE, mountReal } from './workbench-real';
 
 // window-algebra: the shell (state, layouts, <wa-stage>, window chrome, palette, keyboard input).
 import { createState, createWindowManager, THEME_CSS, RULES_CSS, type WindowManager } from '@johnhenry/window-algebra';
 import { lazySurface, PALETTE_CSS } from '@johnhenry/window-algebra/browser';
 import { defineWindowAlgebraElement, type WindowAlgebraElement } from '@johnhenry/window-algebra/element';
-// html-modules: the components inside the windows, defined from real .html files fetched over HTTP by the loader.
+// html-modules: how the components inside the windows are written: real .html files, defined by the loader.
 import { createHTMLModules } from '@johnhenry/html-modules';
 // ... and its adapter for safe-fragment: the `sanitize` hook for the less-trusted module.
 import { safeFragmentSanitizer } from '@johnhenry/html-modules/safe-fragment';
 // safe-fragment: untrusted note bodies through <safe-fragment profile="article-v1">.
 import * as safeFragment from '@johnhenry/safe-fragment';
 import type { SanitizationReport } from '@johnhenry/safe-fragment';
-// mport: the import map for this exact composition, built offline.
-import { createRouter, esmSh, local, custom, entryInfo, renderImportMapCsp, renderModulePreload } from '@johnhenry/mport/core';
-import waPkg from '@johnhenry/window-algebra/package.json';
-import hmPkg from '@johnhenry/html-modules/package.json';
-import sfPkg from '@johnhenry/safe-fragment/package.json';
-// Recorded esm.sh bytes for dayjs (the standalone's one real third-party dependency), so build({ graph: true }) can hash them offline.
-import dayjsEntry from './workbench-cdn/dayjs-entry.mjs?raw';
-import dayjsCore from './workbench-cdn/dayjs-core.mjs?raw';
-import relEntry from './workbench-cdn/relativeTime-entry.mjs?raw';
-import relCore from './workbench-cdn/relativeTime-core.mjs?raw';
-
 /* ────────────────────────────────────────────────────────────────────────────
- * Workbench Desk. The four libraries of johnhenry/workbench, in one planet:
- *   window-algebra  the shell: <wa-stage>, chrome, palette, layouts
- *   html-modules    every component in every window, from .html source
- *   safe-fragment   untrusted note bodies + the sanitize hook for a less-trusted module
- *   mport           the import map that ties them together (built live, offline)
- * The standalone app is the no-bundler, strict-CSP proof; this room is the same
- * composition under Vite. The "What's happening" text says exactly where they differ.
+ * Untrusted Desk (id: workbench). The planet leads with two libraries and uses a third as the way the components are written:
+ *   window-algebra  the desk: <wa-stage>, chrome, palette, layouts, undo/redo, floating windows (keyboard move/resize), pop-out, sync
+ *   safe-fragment   the untrusted notes: a switchable profile, the report, the Clips module (html-modules' sanitize hook), and a
+ *                   strict-CSP + Trusted Types frame (workbench/tt.html) that proves it in a separate document
+ *   html-modules    every component in every window is a .html module
+ * The standalone johnhenry/workbench (all four libraries via an mport import map, no bundler) is linked, not reimplemented.
  * ──────────────────────────────────────────────────────────────────────────── */
+
+const STANDALONE = 'https://johnhenry.github.io/workbench/';
 
 const NS = '__orreryWorkbenchPwned';
 
@@ -81,110 +70,16 @@ function reconcile<T extends { id: string }>(host: HTMLElement, { items, tag, sl
   });
 }
 
-/* ───────────────────────────── 1. mport: the import map for this composition ───────────────────────────── */
+/* ───────────────────────────── 1. html-modules: the components, from .html files ───────────────────────────── */
 
-// What the standalone page imports. Ranges are pinned by the lockfile; dompurify is NOT listed: dependencies:true adds it.
-const SPECIFIERS = [
-  '@johnhenry/window-algebra',
-  '@johnhenry/window-algebra/browser',
-  '@johnhenry/window-algebra/element',
-  '@johnhenry/html-modules/browser',
-  '@johnhenry/html-modules/runtime',
-  '@johnhenry/html-modules/safe-fragment',
-  '@johnhenry/safe-fragment',
-  '@workbench/ui/',
-  'dayjs@^1.11',
-  'dayjs@^1.11/plugin/relativeTime',
-];
-// The standalone's deployed site serves the libraries from /workbench/vendor/ and the components from /workbench/components/.
-const LIB_BASE = '/workbench/vendor/';
 // The components are real static files (Vite public dir: public/workbench/components/), so the prefix carries the site's base
-// ("/" in dev, "/orrery/" in the docs build). html-modules fetches them over HTTP, as the standalone does.
+// ("/" in dev, "/orrery/" in the docs build). html-modules fetches them over HTTP; notes.html imports kit.html by the bare
+// specifier "@workbench/ui/kit.html", which this page has no import map for, so the loader is handed a resolver.
 const UI_BASE = `${import.meta.env.BASE_URL}workbench/components/`;
-const FILE_NAMES = ['kit.html', 'notes.html', 'clips.html', 'untrusted/clip.html', 'report.html'];
-
-/** The registry stand-in: answers version/entry questions from the three installed manifests (as installedRegistry() does from disk). */
-const MANIFESTS: Record<string, any> = {
-  '@johnhenry/window-algebra': waPkg,
-  '@johnhenry/html-modules': hmPkg,
-  '@johnhenry/safe-fragment': sfPkg,
-  dompurify: { name: 'dompurify', version: (sfPkg as any).dependencies?.dompurify ?? '3.4.16', main: 'dist/purify.cjs.js', module: 'dist/purify.es.mjs' },
-  dayjs: { name: 'dayjs', version: '1.11.23', main: 'dayjs.min.js' },
-};
-const registry: any = {
-  async version(p: { name: string }) { const m = MANIFESTS[p.name]; if (!m) throw new Error(`workbench stub registry: ${p.name} is not in the table`); return m.version; },
-  async info(_r: string, name: string) { const m = MANIFESTS[name]; return { versions: [m.version], tags: { latest: m.version }, deprecated: new Set() }; },
-  async manifest(name: string) { return MANIFESTS[name]; },
-  async entryInfo(name: string, _v: string, sub = '') { return (entryInfo as any)(MANIFESTS[name], sub); },
-  async entry(name: string, _v: string, sub = '') { return (entryInfo as any)(MANIFESTS[name], sub).file; },
-};
-
-/** An offline CDN: answers esm.sh requests from recorded bytes, optionally with one file altered. */
-function cdnFetch(tamper: boolean): typeof fetch {
-  const bytes: Record<string, string> = {
-    'https://esm.sh/dayjs@1.11.23?target=es2022': dayjsEntry,
-    'https://esm.sh/dayjs@1.11.23/es2022/dayjs.mjs': tamper ? dayjsCore.replace('function', 'function /* an attacker was here */') : dayjsCore,
-    'https://esm.sh/dayjs@1.11.23/plugin/relativeTime?target=es2022': relEntry,
-    'https://esm.sh/dayjs@1.11.23/es2022/plugin/relativeTime.mjs': relCore,
-  };
-  return (async (input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const body = bytes[url];
-    return body === undefined ? new Response(`offline: ${url} is not recorded`, { status: 404 }) : new Response(body, { status: 200, headers: { 'content-type': 'application/javascript; charset=utf-8' } });
-  }) as typeof fetch;
-}
-
-interface MapBuild {
-  importMap: { imports: Record<string, string>; integrity?: Record<string, string> };
-  lock: any;
-  html: string;
-  hash: string;
-  preload: string;
-  csp: string;
-  added: { specifier: string; from: string }[];
-  ms: number;
-}
-
-async function buildMap(opts: { tamper?: boolean; lock?: any } = {}): Promise<MapBuild> {
-  const t0 = performance.now();
-  const router = createRouter(
-    {
-      // The libraries are served from the site itself (local()), the app's components by an app-owned prefix, the rest from esm.sh.
-      '@johnhenry/*': local({ base: LIB_BASE }),
-      // safe-fragment's own dependency, found by dependencies:true: without this route "*" (esm.sh) would claim it.
-      dompurify: local({ base: LIB_BASE }),
-      '@workbench/*': custom(`${UI_BASE}{path}`, { name: 'app', build: 'app' }),
-      '*': esmSh(),
-    },
-    { probe: 'none', fetch: cdnFetch(!!opts.tamper), registry, ...(opts.lock ? { lock: opts.lock } : {}) },
-  );
-  const res: any = await router.build(SPECIFIERS, { graph: true, dependencies: true });
-  const { html, hash } = await renderImportMapCsp(res.importMap);
-  const origins = [...new Set(Object.values(res.importMap.imports as Record<string, string>).filter((u) => /^https?:/.test(u)).map((u) => new URL(u).origin))];
-  const csp = [
-    "default-src 'none'",
-    `script-src 'self' ${hash} ${origins.join(' ')}`.trim(),
-    "style-src 'self'",
-    "connect-src 'self'",
-    "img-src 'self' data:",
-    "base-uri 'none'",
-    "form-action 'none'",
-    "object-src 'none'",
-    "require-trusted-types-for 'script'",
-    'trusted-types html-modules dompurify',
-  ].join(';\n');
-  return {
-    importMap: res.importMap, lock: res.lock, html, hash, preload: renderModulePreload(res.importMap), csp,
-    added: (res.dependencies?.added ?? []).map((a: any) => ({ specifier: a.specifier, from: a.from })),
-    ms: Math.round(performance.now() - t0),
-  };
-}
-
-/* ───────────────────────────── 2. html-modules: components from source strings ───────────────────────────── */
+const UI_PREFIX = '@workbench/ui/';
 
 interface SanitizeNote { what: string; tag: string; attribute?: string; reason: string; profile?: string; engine?: string }
 interface Boot {
-  map: MapBuild;
   hm: ReturnType<typeof createHTMLModules>;
   fetched: string[];
   components: number;
@@ -202,18 +97,10 @@ function boot(): Promise<Boot> {
     const t0 = performance.now();
     safeFragment.registerSafeFragment();
     const enginePromise = safeFragment.preloadSanitizer().catch(() => 'unavailable' as const);
-    const map = await buildMap();
 
-    // html-modules resolves a bare specifier like "@workbench/ui/kit.html" through the page's import map, with
-    // import.meta.resolve. This page has no import map (Vite bundled everything), so the loader is handed the map mport just built.
-    const hostResolve = (spec: string) => {
-      const imports = map.importMap.imports;
-      if (imports[spec]) return new URL(imports[spec], location.origin).href;
-      for (const [key, value] of Object.entries(imports)) if (key.endsWith('/') && spec.startsWith(key)) return new URL(value + spec.slice(key.length), location.origin).href;
-      return undefined;
-    };
+    const hostResolve = (spec: string) => (spec.startsWith(UI_PREFIX) ? new URL(UI_BASE + spec.slice(UI_PREFIX.length), location.origin).href : undefined);
     const fetched: string[] = [];
-    // The platform's own fetch, only logged: every module is a real GET to /workbench/components/<file>.
+    // The platform's own fetch, only logged.
     const loggedFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       fetched.push(new URL(url, location.href).pathname.replace(/^.*\/workbench\/components\//, ''));
@@ -234,14 +121,15 @@ function boot(): Promise<Boot> {
 
     let components = 0;
     const count = (r: any) => { components += Object.keys(r?.tags ?? r?.elements ?? {}).length; };
-    count(await hm.import('@workbench/ui/kit.html', { as: 'kit' }));
-    count(await hm.import('@workbench/ui/notes.html', { as: 'wb' }));
-    count(await hm.import('@workbench/ui/report.html', { as: 'wb' }));
-    count(await hm.import('@workbench/ui/clips.html', { as: 'wb' }));
-    // The less-trusted module: every component template is sanitized (article-v1 + the clip-- namespace) before it is defined.
+    count(await hm.import(`${UI_PREFIX}kit.html`, { as: 'kit' }));
+    count(await hm.import(`${UI_PREFIX}notes.html`, { as: 'wb' }));
+    count(await hm.import(`${UI_PREFIX}report.html`, { as: 'wb' }));
+    count(await hm.import(`${UI_PREFIX}clips.html`, { as: 'wb' }));
+    // safe-fragment's feature "sanitize an untrusted component template", through html-modules' `sanitize` hook: every template of the
+    // less-trusted module is cleaned (article-v1 + the clip-- namespace) BEFORE its component is defined.
     const sanitize = safeFragmentSanitizer({ safeFragment, profile: { base: 'article-v1', namespaces: ['clip'] } });
-    count(await hm.import('@workbench/ui/untrusted/clip.html', { as: 'clip', sanitize }));
-    return { map, hm, fetched, components, engine: await enginePromise, bootMs: Math.round(performance.now() - t0) };
+    count(await hm.import(`${UI_PREFIX}untrusted/clip.html`, { as: 'clip', sanitize }));
+    return { hm, fetched, components, engine: await enginePromise, bootMs: Math.round(performance.now() - t0) };
   })());
 }
 
@@ -252,11 +140,13 @@ interface Rendered { report: SanitizationReport; html: string; el: Element | nul
 
 const SEED_NOTES = (): Note[] => [
   { id: 'n1', title: 'Welcome to the desk', at: Date.now() - 3 * 60_000, body: '<p>Every window here is a <strong>window-algebra</strong> surface. Everything <em>inside</em> a window is an <strong>html-modules</strong> component, and this note body is rendered by <strong>safe-fragment</strong>.</p><ul><li>drag a title bar</li><li>press <code>Ctrl/Cmd+Shift+P</code></li><li>try a preset above</li></ul>' },
-  { id: 'n2', title: 'Plain text stays plain', at: Date.now() - 2 * 60_000, body: 'No markup in this one, so it goes through the plain-text-v1 profile:\nline breaks survive,\nand <b>this is not bold</b>.' },
+  { id: 'n2', title: 'Plain text stays plain', at: Date.now() - 2 * 60_000, body: 'Nothing here looks like markup, so this goes through the plain-text-v1 profile:\nline breaks survive,\nand so does a < sign when a space follows it (1 < 2).' },
   { id: 'n3', title: 'Pasted from a newsletter', at: Date.now() - 40_000, body: '<p>Big <strong>news</strong> this week. <a href="https://example.com/news">Read more</a> or <a href="javascript:window.__orreryWorkbenchPwned=(window.__orreryWorkbenchPwned||[]).concat(\'javascript: href\')">click here</a>.</p><img src="x" alt="tracking pixel" onerror="window.__orreryWorkbenchPwned=(window.__orreryWorkbenchPwned||[]).concat(\'img onerror\')">' },
 ];
 
 const looksLikeMarkup = (text: string) => /<[a-z!/]/i.test(text);
+/** The profile a note renders under: the switcher's choice, or in "auto" the one that suits the note. */
+const profileFor = (note: { body: string }, choice: ProfileChoice): string => (choice !== 'auto' ? choice : looksLikeMarkup(note.body) ? 'article-v1' : 'plain-text-v1');
 const REL = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 const ago = (t: number) => { const s = Math.round((t - Date.now()) / 1000); return Math.abs(s) < 45 ? 'just now' : Math.abs(s) < 3600 ? REL.format(Math.round(s / 60), 'minute') : REL.format(Math.round(s / 3600), 'hour'); };
 
@@ -309,12 +199,14 @@ const LAYOUTS = [
 ] as const;
 type LayoutId = (typeof LAYOUTS)[number]['id'];
 
-type ToolId = 'notes' | 'clips' | 'report' | 'map' | 'source';
-const TOOL_IDS: ToolId[] = ['notes', 'clips', 'report', 'map', 'source'];
-const TITLES: Record<ToolId, string> = { notes: 'Notes', clips: 'Clips (less trusted)', report: 'Sanitizer report', map: 'Import map (mport)', source: 'Module source' };
+type ToolId = 'notes' | 'clips' | 'report';
+const TOOL_IDS: ToolId[] = ['notes', 'clips', 'report'];
+const TITLES: Record<ToolId, string> = { notes: 'Notes', clips: 'Clips (untrusted template)', report: 'Sanitizer report' };
 
-const DEFAULTS = { mode: 'inpage', l: 'master-stack', w: 'notes,clips,map', p: '' };
-type Mode = 'inpage' | 'real';
+/** The profile switcher: "auto" is the per-note choice (markup -> article-v1, none -> plain-text-v1); the rest force one profile on every note. */
+const PROFILES = ['article-v1', 'ui-v1', 'email-v1', 'plain-text-v1'] as const;
+type ProfileChoice = 'auto' | (typeof PROFILES)[number];
+const DEFAULTS = { l: 'master-stack', w: 'notes,clips', p: '', pf: 'auto' };
 
 /* ---- persistence: window-algebra's own serialize()/load() for the layout, localStorage for the notes, a BroadcastChannel for tabs ----
  * Planet-specific names, so no other planet's storage or channel is touched. Window state crosses tabs through the stage's `sync`
@@ -339,6 +231,8 @@ const newId = () => `n${(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Ma
 interface Ctx {
   notes: Note[];
   selected: string | null;
+  /** The safe-fragment profile every note is rendered under ('auto': each note picks its own). */
+  profile: ProfileChoice;
   rendered: Map<string, Rendered>;
   onChange: Set<() => void>;
   emit(): void;
@@ -375,7 +269,7 @@ function errBox(text: string): HTMLElement { const pre = h('pre', { class: 'code
 async function renderBody(card: HTMLElement, note: Note, ctx: Ctx) {
   const root = await shadowOf(card);
   const fragment = root.querySelector('safe-fragment') as any;
-  const profile = looksLikeMarkup(note.body) ? 'article-v1' : 'plain-text-v1';
+  const profile = profileFor(note, ctx.profile);
   if (!(card as any).__wb) {
     (card as any).__wb = true;
     fragment.addEventListener('safe-fragment:render', (event: CustomEvent) => {
@@ -388,8 +282,9 @@ async function renderBody(card: HTMLElement, note: Note, ctx: Ctx) {
     });
     fragment.addEventListener('safe-fragment:reject', (event: CustomEvent) => setAttr(card, 'report', `Not rendered: ${event.detail.code}`));
   }
-  if ((card as any).__body === note.body) return;
-  (card as any).__body = note.body;
+  const key = `${profile}\u0000${note.body}`;
+  if ((card as any).__key === key) return; // same profile, same body: nothing to render again
+  (card as any).__key = key;
   const prev = ctx.rendered.get(card.dataset.id!);
   if (prev) prev.raw = note.body; else ctx.rendered.set(card.dataset.id!, { report: undefined as any, html: '', el: null, raw: note.body, profile, at: 0 });
   if (fragment.profile !== profile) fragment.profile = profile;
@@ -431,7 +326,7 @@ const notesTool: Mount = componentTool('wb--notes-tool', async (host, ctx) => {
       items: ctx.notes, tag: 'wb--note-card', slot: 'items',
       apply(el, note) {
         setAttr(el, 'heading', note.title);
-        setAttr(el, 'profile', looksLikeMarkup(note.body) ? 'article-v1' : 'plain-text-v1');
+        setAttr(el, 'profile', profileFor(note, ctx.profile));
         setAttr(el, 'updated', `Added ${ago(note.at)}`);
         setAttr(el, 'selected', ctx.selected === note.id);
         renderBody(el, note, ctx).catch((e) => console.warn('[workbench] note body', e));
@@ -543,138 +438,42 @@ const reportTool: Mount = componentTool('wb--report-tool', async (host, ctx) => 
   return () => ctx.onChange.delete(again);
 });
 
-/* ---- Import map (mport) ---- */
-function highlightJson(json: string): string {
-  return esc(json)
-    .replace(/(&quot;(?:sha\d+-[^&]*)&quot;)/g, '<span class="wb-hash">$1</span>')
-    .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="wb-key">$1</span>$2');
-}
-
-const mapTool: Mount = (body, ctx) => {
-  const box = h('div', { class: 'wb-map' });
-  const tabs: [string, string][] = [['map', 'import map'], ['csp', 'CSP + hash'], ['html', 'index.html'], ['lock', 'lockfile']];
-  let tab = 'map';
-  let tamperMsg: { ok: boolean; text: string } | undefined;
-  box.innerHTML = `
-    <div class="wb-map-bar" role="group" aria-label="mport output">${tabs.map(([id, t]) => `<button class="wb-chip" data-tab="${id}" aria-pressed="false">${t}</button>`).join('')}
-      <span class="wb-spacer"></span><button class="wb-chip wb-warn" data-tamper title="Rebuild with one recorded CDN file altered, against the lockfile">Tamper with a CDN file</button></div>
-    <div class="wb-map-meta"></div>
-    <pre class="code wb-map-pre"></pre>
-    <div class="wb-map-tamper" hidden></div>`;
-  body.append(box);
-  const meta = box.querySelector('.wb-map-meta') as HTMLElement;
-  const pre = box.querySelector('.wb-map-pre') as HTMLElement;
-  const tamperBox = box.querySelector('.wb-map-tamper') as HTMLElement;
-  const m = ctx.boot.map;
-
-  const show = () => {
-    for (const b of box.querySelectorAll<HTMLElement>('[data-tab]')) b.setAttribute('aria-pressed', String(b.dataset.tab === tab));
-    const nInt = Object.keys(m.importMap.integrity ?? {}).length;
-    const nImp = Object.keys(m.importMap.imports).length;
-    if (tab === 'map') {
-      meta.innerHTML = `<b>${nImp}</b> imports · <b>${nInt}</b> <code>integrity</code> entries · built in <b>${m.ms} ms</b> by <code>router.build(specs, { graph: true, dependencies: true })</code>` +
-        (m.added.length ? ` · <code>dependencies: true</code> added <b>${esc(m.added.map((a) => a.specifier).join(', '))}</b> (from ${esc(m.added[0].from)})` : '');
-      pre.innerHTML = highlightJson(JSON.stringify(m.importMap, null, 2));
-    } else if (tab === 'csp') {
-      meta.innerHTML = `<code>renderImportMapCsp()</code> hashes exactly the text inside the inline map tag: <b class="wb-hash">${esc(m.hash)}</b>`;
-      pre.textContent = m.csp;
-    } else if (tab === 'html') {
-      meta.innerHTML = `Map first, <em>then</em> <code>renderModulePreload()</code>: an engine that has started a preload refuses a later map.`;
-      pre.textContent = `${m.html}\n${m.preload}`;
-    } else {
-      meta.innerHTML = `<code>mport.lock.json</code>: exact versions, builds, and the SHA-384 of every CDN file in the graph (<code>files</code>).`;
-      pre.textContent = JSON.stringify(m.lock, null, 2);
-    }
-    tamperBox.hidden = !tamperMsg;
-    if (tamperMsg) { tamperBox.className = `wb-map-tamper ${tamperMsg.ok ? 'ok' : 'bad'}`; tamperBox.textContent = tamperMsg.text; }
-  };
-  const onClick = async (e: Event) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tab],[data-tamper]');
-    if (!t) return;
-    if (t.dataset.tab) { tab = t.dataset.tab; show(); return; }
-    t.setAttribute('disabled', '');
-    tamperMsg = { ok: true, text: 'rebuilding against the lockfile with one altered CDN file…' }; show();
-    try {
-      await buildMap({ tamper: true, lock: m.lock });
-      tamperMsg = { ok: false, text: 'Unexpected: the altered file was accepted.' };
-    } catch (err) {
-      tamperMsg = { ok: true, text: `Refused at build time. ${(err as Error).name}: ${(err as Error).message}\n\nIn the browser, the same mismatch against the map's "integrity" entries makes the engine refuse the file at load time (the standalone's tests check this on three engines).` };
-    }
-    t.removeAttribute('disabled'); show();
-  };
-  box.addEventListener('click', onClick);
-  show();
-  return () => { box.removeEventListener('click', onClick); box.remove(); };
-};
-
-/* ---- Module source ---- */
-/** The module sources, fetched from the same URLs html-modules fetched them from (the browser's HTTP cache serves the second GET). */
-const sourceCache = new Map<string, Promise<{ text: string; url: string; status: number }>>();
-const fetchSource = (name: string) => {
-  let p = sourceCache.get(name);
-  if (!p) {
-    const url = new URL(`${UI_BASE}${name}`, location.href).href;
-    p = fetch(url).then(async (res) => ({ text: await res.text(), url, status: res.status }));
-    p.catch(() => sourceCache.delete(name));
-    sourceCache.set(name, p);
-  }
-  return p;
-};
-
-const sourceTool: Mount = (body) => {
-  const box = h('div', { class: 'wb-src' });
-  let cur = FILE_NAMES[1];
-  let disposed = false;
-  box.innerHTML = `<div class="wb-map-bar" role="group" aria-label="Module sources">${FILE_NAMES.map((n) => `<button class="wb-chip" data-src="${esc(n)}" aria-pressed="false">${esc(n)}</button>`).join('')}</div>
-    <div class="wb-map-meta"></div><pre class="code wb-map-pre"></pre>`;
-  body.append(box);
-  const pre = box.querySelector('pre') as HTMLElement;
-  const meta = box.querySelector('.wb-map-meta') as HTMLElement;
-  const show = async () => {
-    const name = cur;
-    for (const b of box.querySelectorAll<HTMLElement>('[data-src]')) b.setAttribute('aria-pressed', String(b.dataset.src === name));
-    meta.textContent = 'fetching…';
-    try {
-      const { text, url, status } = await fetchSource(name);
-      if (disposed || cur !== name) return;
-      meta.innerHTML = `<code>GET ${esc(new URL(url).pathname)}</code> → ${status}: ${text.split('\n').length} lines, a real static file, fetched over HTTP by html-modules' loader and defined as custom elements.`;
-      pre.textContent = text;
-    } catch (err) {
-      if (disposed || cur !== name) return;
-      meta.textContent = `Could not fetch ${name}: ${(err as Error).message}`;
-      pre.textContent = '';
-    }
-  };
-  const onClick = (e: Event) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-src]'); if (t) { cur = t.dataset.src!; void show(); } };
-  box.addEventListener('click', onClick);
-  void show();
-  return () => { disposed = true; box.removeEventListener('click', onClick); box.remove(); };
-};
-
 type Placement = { x: number; y: number; width: number; height: number };
 const TOOLS: Record<ToolId, { mount: Mount; floating?: (stage: HTMLElement) => Placement }> = {
   notes: { mount: notesTool },
   clips: { mount: clipsTool },
   // The report opens as a floating window over the right side: drag it, or press its float/dock button to tile it.
   report: { mount: reportTool, floating: (st) => { const w = st.clientWidth || 900; const hgt = st.clientHeight || 600; const width = Math.min(500, w - 24); return { x: Math.max(12, w - width - 16), y: 16, width, height: Math.min(hgt - 32, 580) }; } },
-  map: { mount: mapTool },
-  source: { mount: sourceTool },
 };
 
 /* ───────────────────────────── the room ───────────────────────────── */
 
-const EXPLAIN = `
-<p><b>Four libraries, one desk.</b> Each box below is a different library doing one job; none of them imports another.</p>
-<ul>
-  <li><b>window-algebra</b> is the shell. <code>&lt;wa-stage&gt;</code> draws the windows from an immutable state: <code>wm.setLayout()</code> swaps the whole arrangement without remounting a window, the chrome (title bar, buttons, eight resize grips) is its built-in <code>chrome: true</code>, and the palette (<kbd>Ctrl/Cmd+Shift+P</kbd>) lists whichever commands make sense right now. Drag a title bar, dock it, press <kbd>Alt+Shift+Arrows</kbd> on a floating one.</li>
-  <li><b>html-modules</b> defines every component inside a window from <code>.html</code> source: <code>{{heading}}</code> and <code>props="value:number"</code> data binding, a form-associated <code>&lt;kit--field&gt;</code> and a real <code>form-role="submit"</code> button (Enter submits; the preset presses it), and <code>notes.html</code> importing <code>kit.html</code> (modules importing modules). Open the <em>Module source</em> window to read them.</li>
-  <li><b>safe-fragment</b> renders each note body, which is untrusted, through <code>&lt;safe-fragment profile="article-v1"&gt;</code>; text with no markup goes through <code>plain-text-v1</code>. The <em>Clips</em> window is a module "from somewhere else": html-modules' <code>sanitize</code> hook, wired to safe-fragment through <code>@johnhenry/html-modules/safe-fragment</code>, cleaned its template before the component existed. The report is on every card, in the <em>Sanitizer report</em> window and in the removed list under the clip. The "handlers that ran" counter watches a canary the payloads try to set; the control button renders the same note with <em>no</em> sanitizer in a sandboxed iframe so you can see it fire.</li>
-  <li><b>mport</b> built the import map in the <em>Import map</em> window, live, for exactly this composition: <code>router.build()</code> with a stand-in registry and recorded esm.sh bytes, so no network. Its UI prefix points at the real files under <code>/workbench/components/</code>. Note the <code>integrity</code> entries (a SHA-384 for every file of dayjs's graph), <code>dompurify</code> added by <code>dependencies: true</code>, and the CSP hash from <code>renderImportMapCsp()</code>.</li>
-</ul>
-<p><b>What is different from the standalone, honestly.</b> In the orrery, <b>Vite bundles all four libraries</b> into this page, so the browser is not using that import map to load them; and this site has no strict CSP or Trusted Types. What is real here: mport really produces the map (the same build the standalone's page runs, here pointed at this site's paths), html-modules really fetches the <code>.html</code> modules <em>over HTTP</em> from <code>public/workbench/components/</code> (as the standalone does) and resolves <code>@workbench/ui/kit.html</code> <em>through that map</em> (the loader is handed it as <code>hostResolve</code>, because this page has no <code>&lt;script type="importmap"&gt;</code>), and the components, windows and sanitizer are the real packages. The standalone loads that exact map with <b>no bundler</b>, copies the libraries into <code>vendor/</code>, runs under <code>require-trusted-types-for 'script'</code> with <code>style-src 'self'</code>, enforces the integrity entries in the engine, and is tested on Chromium, Firefox and WebKit. That is the proof this mode cannot be, so the planet has a second mode: <b>Real app (no bundler)</b> frames the standalone itself and lists what the browser is doing inside it. <a href="${STANDALONE}" target="_blank" rel="noopener">Or open it full screen</a>.</p>
-<p><b>Persistence and tabs.</b> The windows (<code>wm.serialize()</code> / <code>wm.load()</code>) and the notes survive a reload, under this planet's own keys (<code>orrery:workbench:*</code>). Open the planet in a second tab: the layout follows through <code>&lt;wa-stage&gt;</code>'s <code>sync</code> option (<code>attachSync</code> on a <code>BroadcastChannel</code> named <code>orrery-workbench</code>), and notes follow through the <code>storage</code> event, because <code>attachSync</code> carries window state only. <em>Reset desk</em> clears both.</p>`;
+/** The strict-CSP frame: a separate page (built as its own Vite entry, workbench/tt.html) with its own <meta> policy. */
+const FRAME_URL = `${import.meta.env.BASE_URL}workbench/tt.html`;
 
-function mountInPage(host: HTMLElement, boot: Boot): () => void {
+const EXPLAIN = `
+<p><b>Two libraries lead.</b> <b>window-algebra</b> is the desk and <b>safe-fragment</b> is why its notes can be hostile; the components inside the windows are written as <b>html-modules</b>.</p>
+<h4>window-algebra</h4>
+<ul>
+  <li><b>State is data, so history is free.</b> <code>&lt;wa-stage&gt;</code> draws the windows from an immutable state, and the manager records every command: <b>Undo</b> / <b>Redo</b> call <code>wm.undo()</code> / <code>wm.redo()</code>, and the whole of a drag is one step (commands that share a <code>gesture</code> token). Try it: swap a layout, close a window, undo. History covers the windows, not the notes' text. <code>wm.setLayout()</code> changes the whole arrangement without remounting a window.</li>
+  <li><b>Floating windows are keyboard-reachable.</b> <b>Float focused</b> is <code>wm.toggleFloating()</code>. With input <code>keyboard: true</code>, <kbd>Alt+Shift+Arrows</kbd> move the focused floating window by <code>floatStep</code> (10 px) and <kbd>Ctrl+Alt+Shift+Arrows</kbd> resize it; the readout shows the placement. The Sanitizer report opens floating.</li>
+  <li><b>Pop-out.</b> <b>Pop out</b> (or the chrome's own button) uses <code>attachPopouts</code>: the window's live DOM, shadow roots and all, moves into a real browser window and back. It needs a user gesture and a browser that allows pop-ups; a blocked one is reported, not thrown.</li>
+  <li><b>The rest of the shell:</b> built-in chrome (<code>chrome: true</code>), the command palette (<kbd>Ctrl/Cmd+Shift+P</kbd>), and persistence plus two-tab sync, below.</li>
+</ul>
+<h4>safe-fragment</h4>
+<ul>
+  <li><b>Every note body is untrusted.</b> It is handed to <code>&lt;safe-fragment&gt;</code> as a property and rendered under a versioned <b>profile</b>. The switcher re-renders all notes under <code>article-v1</code>, <code>ui-v1</code>, <code>email-v1</code> or <code>plain-text-v1</code>, so you can see what each one keeps; <em>auto</em> picks <code>plain-text-v1</code> for notes with no markup. The report is on every card, in the <em>Sanitizer report</em> window (with an independent hazard count over the raw input and the live DOM), and the "handlers that ran" counter watches a canary the payloads try to set. The control button renders the raw note with <em>no</em> sanitizer in a sandboxed iframe so you can see it fire.</li>
+  <li><b>Sanitize an untrusted component template.</b> <em>Clips</em> is a module "from somewhere else". html-modules' <code>sanitize</code> hook, wired to safe-fragment by <code>@johnhenry/html-modules/safe-fragment</code>, cleaned its template under <code>article-v1</code> before the component was defined; what it removed is listed under the clip.</li>
+  <li><b>Strict CSP, Trusted Types.</b> The frame below is a separate page with <code>require-trusted-types-for 'script'</code> and <code>trusted-types dompurify</code>, no inline script or style. safe-fragment renders hostile notes in it with <b>zero</b> <code>securitypolicyviolation</code> events (counted on the page and on safe-fragment's parse realm); a raw <code>innerHTML</code> of the same string throws and <em>does</em> raise one, shown as the control. Chromium and Firefox use the native Sanitizer API; WebKit uses the DOMPurify engine, the one policy name the page allows. One honest limit: on Chromium a note containing an inline <code>style=</code> attribute makes the parse realm report <code>style-src-attr</code> even though the output is clean, so the frame's demo notes carry none.</li>
+</ul>
+<h4>html-modules</h4>
+<ul>
+  <li>Every component is a <code>.html</code> module: a data-bound template (<code>{{heading}}</code>, <code>props="value:number"</code>), a form-associated <code>&lt;kit--field&gt;</code> and a real <code>form-role="submit"</code> button (Enter submits; the preset presses it), and <code>notes.html</code> importing <code>kit.html</code>. They are plain static files under <code>public/workbench/components/</code>, defined by the loader.</li>
+</ul>
+<p><b>Persistence and tabs.</b> The windows (<code>wm.serialize()</code> / <code>wm.load()</code>) and the notes survive a reload, under this planet's own keys (<code>orrery:workbench:*</code>). Open the planet in a second tab: the layout follows through <code>&lt;wa-stage&gt;</code>'s <code>sync</code> option (<code>attachSync</code> on a <code>BroadcastChannel</code> named <code>orrery-workbench</code>; undo and redo sync too), and notes follow through the <code>storage</code> event, because <code>attachSync</code> carries window state only. <em>Reset desk</em> clears both.</p>
+<p><b>What this page is not.</b> Vite bundles the libraries into the orrery, and the orrery itself has no strict CSP; the frame is the proof that safe-fragment holds under one.</p>`;
+
+function mountDesk(host: HTMLElement, boot: Boot): () => void {
   const defaults = DEFAULTS;
   const init = readState(defaults);
   const narrow = matchMedia('(max-width: 720px)').matches;
@@ -683,6 +482,7 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
   const named = /[?&]l=/.test(location.hash);
   const namedWindows = /[?&]w=/.test(location.hash);
   const startLayout = (LAYOUTS.find((l) => l.id === (named ? init.l : narrow ? 'rows' : defaults.l)) ?? LAYOUTS[0]) as (typeof LAYOUTS)[number];
+  const startProfile: ProfileChoice = (['auto', ...PROFILES] as string[]).includes(String(init.pf)) ? (init.pf as ProfileChoice) : 'auto';
   let disposed = false;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const later = (fn: () => void, ms: number) => { const t = setTimeout(() => { timers.delete(t); if (!disposed) fn(); }, ms); timers.add(t); return t; };
@@ -691,11 +491,11 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
   const savedNotes = readNotes(store.read(DATA_KEY));
   const saveNotes = () => store.write(DATA_KEY, JSON.stringify({ v: 1, notes: ctx.notes }));
   const ctx: Ctx = {
-    notes: savedNotes ?? SEED_NOTES(), selected: null, rendered: new Map(), onChange: new Set(), boot,
+    notes: savedNotes ?? SEED_NOTES(), selected: null, profile: startProfile, rendered: new Map(), onChange: new Set(), boot,
     emit() { if (disposed) return; ctx.onChange.forEach((fn) => fn()); refresh(); },
     later: (fn, ms) => void later(fn, ms),
     addNote(title, body) { const n: Note = { id: newId(), title, body, at: Date.now() }; ctx.notes = [n, ...ctx.notes]; saveNotes(); ctx.emit(); return n; },
-    removeNote(id) { ctx.notes = ctx.notes.filter((n) => n.id !== id); ctx.rendered.delete(id); if (ctx.selected === id) ctx.selected = null; saveNotes(); ctx.emit(); },
+    removeNote(id) { ctx.notes = ctx.notes.filter((n) => n.id !== id); ctx.rendered.delete(id); if (ctx.selected === id) ctx.selected = null; saveNotes(); ctx.emit(); return; },
   };
   if (!savedNotes) saveNotes();
   (window as any)[NS] = [];
@@ -709,10 +509,10 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
   const root = h('div', { class: 'wb-inpage' });
   root.innerHTML = `
     <section class="panel wb-callout">
-      <a class="btn primary" href="${STANDALONE}" target="_blank" rel="noopener">Open the standalone johnhenry/workbench ↗</a>
-      <p><b>The standalone app stays.</b> It is the proof: these four libraries meet at <em>one import map</em> with no bundler, a strict CSP and Trusted Types, tested on three engines. This mode is the same desk under Vite: see "What's happening" for exactly what differs, or switch to <b>Real app (no bundler)</b> above to run the standalone itself.</p>
+      <a class="btn primary" href="${STANDALONE}" target="_blank" rel="noopener" data-standalone>Open the standalone johnhenry/workbench ↗</a>
+      <p>The standalone shows all four libraries loading through an <b>mport</b>-generated import map with no bundler, under strict CSP. This planet is the part you can poke at: the desk and the untrusted notes.</p>
     </section>
-    <div class="wb-pipeline" aria-label="How the four libraries line up"></div>
+    <div class="wb-pipeline" aria-label="How the libraries line up"></div>
     <div class="wb-controls">
       <div class="wb-row" role="group" aria-label="Presets">
         <span class="wb-label">Presets</span>
@@ -728,8 +528,32 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
         <span class="wb-label">Layout</span>${LAYOUTS.map((l) => `<button class="wb-chip" data-layout="${l.id}" aria-pressed="false">${l.label}</button>`).join('')}
         <span class="wb-sep"></span><span class="wb-label">Windows</span>${TOOL_IDS.map((id) => `<button class="wb-chip" data-open="${id}" aria-pressed="false">${TITLES[id].split(' (')[0]}</button>`).join('')}
       </div>
+      <div class="wb-row wb-feature" role="group" aria-label="History">
+        <span class="wb-label">History</span>
+        <button class="btn" data-act="undo" disabled>Undo</button>
+        <button class="btn" data-act="redo" disabled>Redo</button>
+        <span class="stat" data-history>0 steps</span>
+        <span class="wb-why">window-algebra logs every command, so undo and redo walk the desk's history; a whole drag is one step. Windows only, not note text.</span>
+      </div>
+      <div class="wb-row wb-feature" role="group" aria-label="Floating windows">
+        <span class="wb-label">Floating</span>
+        <button class="btn" data-act="float" title="wm.toggleFloating() on the focused window">Float focused</button>
+        <button class="btn" data-act="popout" title="attachPopouts: the focused window's live DOM moves into a real browser window">Pop out</button>
+        <span class="stat" data-floatbox aria-live="polite">no window focused</span>
+        <span class="wb-why">Focus a floating window, then <kbd>Alt+Shift+Arrows</kbd> move it 10px and <kbd>Ctrl+Alt+Shift+Arrows</kbd> resize it. Pop out moves it into its own browser window.</span>
+      </div>
+      <div class="wb-row wb-feature" role="group" aria-label="safe-fragment profile">
+        <span class="wb-label">Profile</span>${(['auto', ...PROFILES] as const).map((p) => `<button class="wb-chip" data-profile="${p}" aria-pressed="false">${p}</button>`).join('')}
+        <span class="wb-why">safe-fragment renders every note under the profile you pick: the badge, the removed list and the rendered HTML change. Auto keeps notes with no markup as plain text.</span>
+      </div>
     </div>
     <wa-stage class="wb-stage" aria-label="Workbench windows"></wa-stage>
+    <section class="panel wb-tt" aria-label="Strict CSP and Trusted Types proof">
+      <h3>Strict CSP and Trusted Types, with safe-fragment inside</h3>
+      <p class="wb-why">A separate page (<code>workbench/tt.html</code>) with <code>require-trusted-types-for 'script'</code>, <code>trusted-types dompurify</code> and no inline script or style. safe-fragment renders hostile notes in it with zero violations; a raw <code>innerHTML</code> of the same string is refused, and that refusal is the one violation.</p>
+      <div class="wb-tt-status" data-tt-status role="status">waiting for the frame…</div>
+      <iframe class="wb-tt-frame" data-tt-frame title="Strict CSP frame: safe-fragment rendering untrusted notes under Trusted Types" src="${FRAME_URL}"></iframe>
+    </section>
     <details class="panel wb-explain" open><summary>What's happening</summary><div class="wb-explain-body">${EXPLAIN}</div></details>`;
   host.append(root);
 
@@ -738,46 +562,57 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
   const pipeline = $('.wb-pipeline');
   const statusEl = $('.wb-status');
   const tabsEl = $('[data-tabs]');
+  const historyEl = $('[data-history]');
+  const floatEl = $('[data-floatbox]');
+  const undoBtn = $<HTMLButtonElement>('[data-act="undo"]');
+  const redoBtn = $<HTMLButtonElement>('[data-act="redo"]');
+  const popBtn = $<HTMLButtonElement>('[data-act="popout"]');
+  const frameEl = $<HTMLIFrameElement>('[data-tt-frame]');
+  const ttEl = $('[data-tt-status]');
 
-  function layoutNow(): LayoutId {
-    const s = wm.getState() as any;
-    return (s.workspaces[s.activeWorkspace]?.layout?.type ?? 'master-stack') as LayoutId;
-  }
-  // --- the window manager: state is data; the stage renders it ---
-  const wm: WindowManager = createWindowManager({
-    state: createState({ layout: startLayout.spec as any, config: { gap: 8, inset: 8 } }),
-    history: 100,
-  });
-  const openTool = (id: ToolId) => {
-    const state = wm.getState();
-    const win = (state.windows as Record<string, any>)[id];
-    if (win) { if (win.status === 'minimized') wm.restore(id); wm.focus(id); return; }
+  type Wins = Record<string, any>;
+  // --- the desk's initial state: restored or seeded on a throwaway manager, so the real manager's history starts clean at this state
+  // (a load() or the first create()s would otherwise be steps that Undo could walk back through to an empty desk) ---
+  const seed = createWindowManager({ state: createState({ layout: startLayout.spec as any, config: { gap: 8, inset: 8 } }) });
+  const openOn = (m: WindowManager, id: ToolId) => {
+    const win = (m.getState().windows as Wins)[id];
+    if (win) { if (win.status === 'minimized') m.restore(id); m.focus(id); return; }
     const t = TOOLS[id];
-    wm.create({ id, title: TITLES[id], ...(t.floating ? { mode: 'floating', placement: t.floating(stage) } : {}) } as any);
+    m.create({ id, title: TITLES[id], ...(t.floating ? { mode: 'floating', placement: t.floating(stage) } : {}) } as any);
   };
-  const closeTool = (id: ToolId) => { if ((wm.getState().windows as Record<string, any>)[id]) wm.close(id); };
-  // Restore the saved desk (wm.load validates and migrates it; null means it was unusable), else open what the link asks for.
+  const openIdsOn = (m: WindowManager) => TOOL_IDS.filter((id) => (m.getState().windows as Wins)[id]);
+  const layoutOn = (m: WindowManager): LayoutId => {
+    const s = m.getState() as any;
+    return (s.workspaces[s.activeWorkspace]?.layout?.type ?? 'master-stack') as LayoutId;
+  };
+  // Restore the saved desk (load validates and migrates it; null means it was unusable), else open what the link asks for.
   const savedWm = store.read(WM_KEY);
-  const restored = !!savedWm && !!wm.load(savedWm);
-  const openNowIds = () => TOOL_IDS.filter((id) => (wm.getState().windows as Record<string, any>)[id]);
+  const restored = !!savedWm && !!seed.load(savedWm);
+  for (const id of Object.keys(seed.getState().windows)) if (!(TOOL_IDS as string[]).includes(id)) seed.close(id); // windows an older version of this planet saved
   if (!restored) {
-    for (const id of wanted) openTool(id);
-    wm.focus(wanted[0] ?? 'notes');
+    for (const id of wanted) openOn(seed, id);
+    seed.focus(wanted[0] ?? 'notes');
   } else {
     // A link that names a layout or windows wins over the saved desk (the saved one is otherwise what the URL already says).
-    if (named && layoutNow() !== startLayout.id) wm.setLayout(startLayout.spec as any);
+    if (named && layoutOn(seed) !== startLayout.id) seed.setLayout(startLayout.spec as any);
     if (namedWindows) {
-      for (const id of openNowIds()) if (!wanted.includes(id)) closeTool(id);
-      for (const id of wanted) if (!openNowIds().includes(id)) openTool(id);
+      for (const id of openIdsOn(seed)) if (!wanted.includes(id)) seed.close(id);
+      for (const id of wanted) if (!openIdsOn(seed).includes(id)) openOn(seed, id);
     }
   }
+  // --- the window manager: state is data; the stage renders it ---
+  const wm: WindowManager = createWindowManager({ state: seed.getState(), history: 100 });
+  const layoutNow = () => layoutOn(wm);
+  const openTool = (id: ToolId) => openOn(wm, id);
+  const closeTool = (id: ToolId) => { if ((wm.getState().windows as Wins)[id]) wm.close(id); };
+  const openNow = () => openIdsOn(wm);
   store.write(WM_KEY, wm.serialize());
   const saveWm = () => store.write(WM_KEY, wm.serialize());
 
   const surfaces = new Map<string, ReturnType<typeof lazySurface>>();
   const surfaceFor = (id: string) => {
     const tool = TOOLS[id as ToolId];
-    if (!tool || !(wm.getState().windows as Record<string, any>)[id]) return undefined;
+    if (!tool || !(wm.getState().windows as Wins)[id]) return undefined;
     if (!surfaces.has(id)) surfaces.set(id, lazySurface((body) => tool.mount(body, ctx)));
     return surfaces.get(id);
   };
@@ -786,59 +621,114 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
   stage.configure({
     wm,
     surfaceFor,
-    chrome: true, // title bar, buttons and resize grips: window-algebra's, themed by --wa-* tokens
+    // Title bar, buttons and resize grips: window-algebra's, themed by --wa-* tokens. "popout" adds the pop-out button (and attachPopouts).
+    chrome: { buttons: ['minimize', 'maximize', 'float', 'popout', 'close'] },
+    popouts: true,
     palette: { host: root, injectStyles: false }, // Ctrl/Cmd+Shift+P; mounted inside the room so it inherits the tokens
     // attachSync on a BroadcastChannel of this planet's own: the layout follows across tabs. onSync repaints the tab counter.
     sync: { channel: CHANNEL, onSync: () => showTabs(), onError: (e: Error) => console.warn('[workbench] sync', e) },
+    // keyboard: Alt+Shift+Arrows move and Ctrl+Alt+Shift+Arrows resize the focused floating window; F6 cycles focus.
     input: { keyboard: true, announce: true, touch: { pinch: true, swipe: { tabs: true } } },
   } as any);
 
   // --- UI state ---
-  const openNow = openNowIds;
   let preset = String(init.p ?? '');
-  const syncUrl = () => writeState({ l: layoutNow(), w: openNow().join(','), p: preset }, defaults);
+  const syncUrl = () => writeState({ l: layoutNow(), w: openNow().join(','), p: preset, pf: ctx.profile }, defaults);
+  const poppedOut = () => TOOL_IDS.filter((id) => (wm.getState().windows as Wins)[id]?.status === 'popped-out');
 
   function refresh() {
     const layout = layoutNow();
     const open = openNow();
+    const state = wm.getState() as any;
     for (const b of root.querySelectorAll<HTMLElement>('[data-layout]')) b.setAttribute('aria-pressed', String(b.dataset.layout === layout));
     for (const b of root.querySelectorAll<HTMLElement>('[data-open]')) b.setAttribute('aria-pressed', String(open.includes(b.dataset.open as ToolId)));
-    const nInt = Object.keys(boot.map.importMap.integrity ?? {}).length;
-    const nImp = Object.keys(boot.map.importMap.imports).length;
+    for (const b of root.querySelectorAll<HTMLElement>('[data-profile]')) b.setAttribute('aria-pressed', String(b.dataset.profile === ctx.profile));
     const removed = sanitizeLog.length + [...ctx.rendered.values()].reduce((n, r) => n + (r.report ? removalsOf(r.report).length : 0), 0);
     pipeline.innerHTML = `
-      <span class="wb-stage-chip"><b>mport</b> ${nImp} imports · ${nInt} integrity · ${boot.map.ms} ms <i>${esc(boot.map.hash.slice(0, 15))}…</i></span><span class="wb-arrow">→</span>
-      <span class="wb-stage-chip"><b>html-modules</b> ${boot.fetched.length} modules · ${boot.components} components</span><span class="wb-arrow">→</span>
-      <span class="wb-stage-chip"><b>safe-fragment</b> ${esc(boot.engine)} engine · ${removed} removed · <span class="${executed() ? 'bad' : 'ok'}">${executed()} ran</span></span><span class="wb-arrow">→</span>
-      <span class="wb-stage-chip"><b>window-algebra</b> ${open.length} windows · ${esc(layout)}</span>`;
+      <span class="wb-stage-chip"><b>window-algebra</b> ${open.length} windows · ${esc(layout)} · ${wm.log.length} history step${wm.log.length === 1 ? '' : 's'}</span><span class="wb-arrow">→</span>
+      <span class="wb-stage-chip"><b>safe-fragment</b> ${esc(boot.engine)} engine · ${esc(ctx.profile)} · ${removed} removed · <span class="${executed() ? 'bad' : 'ok'}">${executed()} ran</span></span><span class="wb-arrow">→</span>
+      <span class="wb-stage-chip"><b>html-modules</b> ${boot.components} components</span>`;
+    // history
+    undoBtn.disabled = !wm.canUndo;
+    redoBtn.disabled = !wm.canRedo;
+    historyEl.textContent = `${wm.log.length} step${wm.log.length === 1 ? '' : 's'}`;
+    historyEl.dataset.steps = String(wm.log.length);
+    // floating: the focused window's placement, which the arrow keys change
+    const fid = state.focus.window as string | null;
+    const win = fid ? state.windows[fid] : null;
+    const pops = poppedOut();
+    if (win && win.mode === 'floating') {
+      const p = win.placement;
+      floatEl.textContent = `${win.title}: x ${Math.round(p.x)} y ${Math.round(p.y)} · ${Math.round(p.width)}×${Math.round(p.height)}`;
+      floatEl.dataset.float = `${Math.round(p.x)},${Math.round(p.y)},${Math.round(p.width)},${Math.round(p.height)}`;
+    } else {
+      floatEl.textContent = win ? `${win.title}: tiled (Float focused to move it by keyboard)` : pops.length ? `${pops.length} popped out` : 'no window focused';
+      delete floatEl.dataset.float;
+    }
+    popBtn.textContent = pops.length ? 'Pop back in' : 'Pop out';
+    popBtn.dataset.popped = String(pops.length);
   }
   const unsubscribe = wm.subscribe(() => { saveWm(); refresh(); syncUrl(); });
   sanitizeListeners.add(refresh);
   refresh();
   syncUrl();
 
-  // --- presets ---
+  // --- the strict-CSP frame reports its counters by postMessage (same origin, one message shape) ---
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const onMessage = (event: MessageEvent) => {
+    if (event.source !== frameEl.contentWindow || event.origin !== location.origin) return;
+    const d = event.data?.wbTT;
+    if (!d || typeof d !== 'object') return;
+    const sf = num(d.safeFragmentViolations), ctl = num(d.controlViolations), ran = num(d.ran);
+    ttEl.dataset.sf = String(sf); ttEl.dataset.control = String(ctl); ttEl.dataset.blocked = String(!!d.controlBlocked); ttEl.dataset.ran = String(ran);
+    ttEl.dataset.engine = String(d.engine ?? '');
+    ttEl.className = `wb-tt-status ${sf === 0 && ran === 0 ? 'ok' : 'bad'}`;
+    ttEl.textContent = `safe-fragment (${String(d.engine)}, ${String(d.profile)}): ${sf} violation${sf === 1 ? '' : 's'} · ${ran} handlers ran · raw innerHTML control: ${d.controlTried ? (d.controlBlocked ? `blocked, ${ctl} violation${ctl === 1 ? '' : 's'}` : 'NOT blocked') : 'not tried yet'}`;
+  };
+  addEventListener('message', onMessage);
+
+  // --- presets and actions ---
   const say = (t: string) => { statusEl.textContent = t; };
   /** Back to the default desk and the seed notes, and forget what this planet saved. The cleared state is written straight back, so a reload shows the default desk. */
   function resetDesk() {
     preset = '';
     store.remove(DATA_KEY); store.remove(WM_KEY);
+    for (const id of poppedOut()) stage.popouts?.popIn(id);
     for (const id of TOOL_IDS) closeTool(id);
-    ctx.notes = SEED_NOTES(); ctx.selected = null; ctx.rendered.clear(); (window as any)[NS] = [];
+    ctx.notes = SEED_NOTES(); ctx.selected = null; ctx.profile = 'auto'; ctx.rendered.clear(); (window as any)[NS] = [];
     saveNotes();
     wm.setLayout(LAYOUTS[0].spec as any);
-    for (const id of ['notes', 'clips', 'map'] as ToolId[]) openTool(id);
+    for (const id of ['notes', 'clips'] as ToolId[]) openTool(id);
     wm.focus('notes');
     ctx.emit();
     saveWm();
     say('desk reset: default windows, seed notes, saved state cleared');
+  }
+  function floatFocused() {
+    const id = (wm.getState() as any).focus.window as string | null;
+    if (!id) { say('focus a window first (click its title bar)'); return; }
+    wm.toggleFloating(id);
+    const mode = (wm.getState().windows as Wins)[id]?.mode;
+    say(mode === 'floating' ? `${id} floats: Alt+Shift+Arrows move it, Ctrl+Alt+Shift+Arrows resize it` : `${id} is tiled again`);
+    // The button took DOM focus; the arrow keys are handled inside the stage, so hand focus back to the window.
+    if (mode === 'floating') later(() => { const v = stage.querySelector<HTMLElement>(`wm-view[data-view="${id}"]`); if (v) { if (!v.hasAttribute('tabindex')) v.setAttribute('tabindex', '-1'); v.focus({ preventScroll: true }); } }, 80);
+  }
+  function togglePop() {
+    const out = poppedOut();
+    if (out.length) { for (const id of out) stage.popouts?.popIn(id); say('popped back in'); return; }
+    const id = (wm.getState() as any).focus.window as string | null;
+    if (!id) { say('focus a window first (click its title bar)'); return; }
+    if (!stage.popouts) { say('pop-outs are unavailable here'); return; }
+    const result: any = stage.popouts.popOut(id);
+    const rejected = (result?.events ?? []).find((e: any) => e.type === 'command/rejected');
+    say(rejected ? (rejected.reason === 'popup-blocked' ? 'the browser blocked the pop-up: allow pop-ups for this site and try again' : `pop-out refused: ${rejected.reason}`) : `${id} is in its own browser window (Pop back in returns it)`);
   }
   async function applyPreset(name: string) {
     if (name === 'layout') {
       const i = LAYOUTS.findIndex((l) => l.id === layoutNow());
       const next = LAYOUTS[(i + 1) % LAYOUTS.length];
       wm.setLayout(next.spec as any);
-      say(`layout → ${next.id} (the windows kept their state)`);
+      say(`layout → ${next.id} (the windows kept their state; Undo goes back)`);
     } else if (name === 'xss') {
       preset = 'xss';
       openTool('report'); openTool('notes');
@@ -863,16 +753,24 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
   }
 
   const onClick = async (e: Event) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-preset],[data-act],[data-layout],[data-open]');
-    if (!t) return;
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-preset],[data-act],[data-layout],[data-open],[data-profile]');
+    if (!t || (t as HTMLButtonElement).disabled) return;
     try {
       if (t.dataset.preset) await applyPreset(t.dataset.preset);
       else if (t.dataset.layout) { const l = LAYOUTS.find((x) => x.id === t.dataset.layout)!; wm.setLayout(l.spec as any); }
-      else if (t.dataset.open) {
+      else if (t.dataset.profile) {
+        ctx.profile = t.dataset.profile as ProfileChoice;
+        say(ctx.profile === 'auto' ? 'profile: auto (per note)' : `every note now renders under ${ctx.profile}`);
+        ctx.emit(); syncUrl();
+      } else if (t.dataset.open) {
         const id = t.dataset.open as ToolId;
         if (openNow().includes(id)) closeTool(id); else openTool(id);
       } else if (t.dataset.act === 'palette') stage.palette?.open();
       else if (t.dataset.act === 'reset') resetDesk();
+      else if (t.dataset.act === 'undo') { wm.undo(); say('undo'); }
+      else if (t.dataset.act === 'redo') { wm.redo(); say('redo'); }
+      else if (t.dataset.act === 'float') floatFocused();
+      else if (t.dataset.act === 'popout') togglePop();
       else if (t.dataset.act === 'copy') { syncUrl(); await sleep(200); await copyLink(); say('link copied'); }
     } catch (err) { say(`error: ${(err as Error).message}`); console.error(err); }
   };
@@ -906,11 +804,13 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
     for (const t of timers) clearTimeout(t);
     clearInterval(tabsTimer);
     removeEventListener('storage', onStorage);
+    removeEventListener('message', onMessage);
     controls.removeEventListener('click', onClick);
     unsubscribe();
     sanitizeListeners.delete(refresh);
     ctx.onChange.clear();
-    root.remove(); // disconnects <wa-stage>: its manager, renderer, input, palette and sync detach; the surfaces' cleanups run
+    for (const id of poppedOut()) { try { stage.popouts?.popIn(id); } catch { /* the popup is closing anyway */ } }
+    root.remove(); // disconnects <wa-stage>: its manager, renderer, input, palette, sync and pop-outs detach; the surfaces' cleanups run
     style.remove();
     delete (window as any)[NS];
   };
@@ -918,66 +818,38 @@ function mountInPage(host: HTMLElement, boot: Boot): () => void {
 
 const playground: Playground = {
   id: 'workbench',
-  title: 'Workbench Desk',
+  title: 'Untrusted Desk',
   pkg: '@johnhenry/window-algebra',
   hue: 165,
-  blurb: 'A tiling desk built from four libraries: window-algebra windows, html-modules components, safe-fragment notes, and the mport import map that joins them.',
+  blurb: 'A tiling desk of notes you should not trust. window-algebra runs the windows (undo/redo, keyboard-movable floating windows, pop-out, saved layouts, two-tab sync); safe-fragment renders every note under a switchable profile, and a strict-CSP, Trusted Types frame proves it. Components are html-modules.',
   docs: 'https://opensource.johnhenry.me/workbench/',
   mount(host) {
-    const defaults = DEFAULTS;
-    let mode: Mode = readState(defaults).mode === 'real' ? 'real' : 'inpage';
     const shell = h('div', { class: 'pg-workbench wb-shell' });
-    shell.innerHTML = `
-      <div class="wb-modebar" role="group" aria-label="Mode">
-        <span class="wb-label">Mode</span>
-        <button class="wb-chip" data-mode="inpage" aria-pressed="false" title="The four libraries bundled by Vite into this page">In-page (bundled)</button>
-        <button class="wb-chip" data-mode="real" aria-pressed="false" title="The standalone app in an iframe: no bundler, its own origin, its own CSP">Real app (no bundler)</button>
-      </div>
-      <div class="wb-content"></div>`;
+    const content = h('div', { class: 'wb-content' });
+    shell.append(content);
     host.append(shell);
-    const content = shell.querySelector('.wb-content') as HTMLElement;
-    let token = 0;
-    let teardown: (() => void) | undefined;
     let gone = false;
-
-    const show = async (next: Mode, fromUser = false) => {
-      const mine = ++token;
-      teardown?.(); teardown = undefined;
-      content.replaceChildren();
-      mode = next;
-      shell.dataset.wbMode = next;
-      for (const b of shell.querySelectorAll<HTMLElement>('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === next));
-      if (next === 'real') {
-        // Only `mode` stays in the link: the in-page state (layout, windows, preset) is the other mode's.
-        if (fromUser) writeState({ ...defaults, mode: 'real' }, defaults);
-        teardown = mountReal(content);
-        return;
-      }
-      if (fromUser) writeState({ ...defaults, mode: 'inpage' }, defaults); // an arriving deep link keeps its own l/w/p
-      const loading = h('div', { class: 'loading' }, 'building the import map, defining the modules…');
-      content.append(loading);
-      try {
-        const b = await boot();
-        if (gone || mine !== token) return;
+    let teardown: (() => void) | undefined;
+    const loading = h('div', { class: 'loading' }, 'defining the html-modules components…');
+    content.append(loading);
+    boot().then(
+      (b) => {
+        if (gone) return;
         loading.remove();
-        teardown = mountInPage(content, b);
-      } catch (e) {
-        if (gone || mine !== token) return;
+        try { teardown = mountDesk(content, b); } catch (e) {
+          const pre = errBox(`Untrusted Desk failed to start:\n${String((e as Error)?.stack ?? e)}`);
+          content.append(pre);
+          teardown = () => pre.remove();
+        }
+      },
+      (e) => {
+        if (gone) return;
         loading.remove();
-        const pre = errBox(`Workbench Desk failed to start:\n${String((e as Error)?.stack ?? e)}`);
-        content.append(pre);
-        teardown = () => pre.remove();
-      }
-    };
-    const onClick = (e: Event) => {
-      const t = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]');
-      if (t && t.dataset.mode !== mode) void show(t.dataset.mode as Mode, true);
-    };
-    shell.querySelector('.wb-modebar')!.addEventListener('click', onClick);
-    void show(mode);
+        content.append(errBox(`Untrusted Desk failed to start:\n${String((e as Error)?.stack ?? e)}`));
+      },
+    );
     return () => {
       gone = true;
-      token++;
       teardown?.();
       shell.remove();
     };

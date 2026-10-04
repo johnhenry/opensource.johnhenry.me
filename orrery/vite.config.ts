@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
+import { resolve } from 'node:path';
 
 /**
  * @johnhenry/dialback's Agent/Server are Fetch-shaped and run fine in a browser, but
@@ -75,7 +76,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 4000,
     // ecmanim's Node-only fallbacks do `await import("@napi-rs/canvas")` (a native
     // .node addon). Never reached in the browser; keep rollup from bundling it.
-    rollupOptions: { external: [/^@napi-rs\/canvas/] },
+    rollupOptions: {
+      external: [/^@napi-rs\/canvas/],
+      // Two pages: the app, and the Untrusted Desk planet's strict-CSP frame (workbench/tt.html), a separate document whose <meta> CSP
+      // forbids inline script, so it needs a real built entry under the same base (served at <base>workbench/tt.html).
+      input: { main: resolve(__dirname, 'index.html'), 'workbench-tt': resolve(__dirname, 'workbench/tt.html') },
+    },
   },
   optimizeDeps: {
     exclude: ['@johnhenry/ecmanim', '@johnhenry/dialback', '@johnhenry/math-grapher'],

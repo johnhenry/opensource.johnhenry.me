@@ -1,6 +1,6 @@
 name: Orrery e2e
 
-# End-to-end tests for the Orrery's Workbench Desk planet (orrery/e2e), on Chromium, Firefox and WebKit.
+# End-to-end tests for the Orrery's Untrusted Desk planet (orrery/e2e, route #/workbench), on Chromium, Firefox and WebKit.
 #
 # A separate workflow from Deploy on purpose:
 #   - it runs on push AND pull_request, on GitHub-hosted runners, so a failure is visible on a PR without a deploy, and a
@@ -8,8 +8,9 @@ name: Orrery e2e
 #   - it only runs when orrery/ changes, so a docs-only push neither waits for it nor is blocked by it;
 #   - Deploy stays a fast build-and-push. Make this a required check in branch protection if a red run should block merging.
 #
-# The tests build the Orrery with the same /orrery/ base the site ships and serve it with `vite preview`. They never depend on
-# the external standalone workbench: real mode is tested against a route-fulfilled copy of its HTML.
+# The tests build the Orrery with the same /orrery/ base the site ships and serve it with `vite preview`. They depend on no
+# external site: the standalone workbench is only linked. The planet's strict-CSP frame (workbench/tt.html) is a second
+# Vite entry of the same build, so the strict-CSP test runs on all three engines (WebKit takes the DOMPurify engine).
 
 on:
   push:
@@ -65,26 +66,3 @@ jobs:
             orrery/playwright-report
             orrery/test-results
           retention-days: 7
-
-  # The real standalone site over the real network. Informational: the standalone is another repo and another host.
-  live:
-    name: live standalone (non-gating)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: orrery
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: orrery/package-lock.json
-      - run: npm ci --no-audit --no-fund
-      - run: npm run build:e2e
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test --project=chromium -g "@live"
-        env:
-          WORKBENCH_LIVE: '1'

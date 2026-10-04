@@ -1,0 +1,32 @@
+:root { color-scheme: dark; --bg: #0d1117; --panel: #161b22; --line: #30363d; --ink: #e6edf3; --ink2: #9da7b3; --accent: #3fd1a8; --ok: #3fb68b; --bad: #f47067; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { display: grid; gap: 10px; padding: 12px; }
+h1 { margin: 0; font-size: 14px; letter-spacing: .02em; }
+h1 span { color: var(--accent); }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bar .lbl { font: 11px ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .08em; color: var(--ink2); margin-right: 2px; }
+button { font: 12px ui-monospace, Menlo, monospace; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink2); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); background: #1b2b27; }
+button.raw { border-color: #6b3b3b; color: #f0b3ad; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-width: 120px; }
+.stat b { display: block; font: 600 18px ui-monospace, Menlo, monospace; }
+.stat span { font-size: 11px; color: var(--ink2); }
+.stat.ok b { color: var(--ok); }
+.stat.bad b { color: var(--bad); }
+.stat.neutral b { color: var(--ink); }
+.panel { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 8px 10px; min-width: 0; }
+.panel h2 { margin: 0 0 4px; font: 11px ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .08em; color: var(--ink2); font-weight: 400; }
+pre { margin: 0; font: 11px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink2); }
+.note { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; overflow-wrap: anywhere; }
+.note:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.note h3 { margin: 0 0 2px; font-size: 12px; color: var(--ink); }
+safe-fragment { display: block; }
+safe-fragment[profile="plain-text-v1"] { white-space: pre-wrap; }
+safe-fragment :is(p, ul, ol, h1, h2, h3) { margin: 4px 0 0; }
+safe-fragment a { color: var(--accent); }
+.verdict { font-size: 12px; color: var(--ink2); }
+.verdict.bad { color: var(--bad); }
+.verdict.ok { color: var(--ok); }
