@@ -1,17 +1,17 @@
 ---
 title: "Reference"
-description: "Every pixelable element's attributes, properties, methods, events, and CSS parts, generated from the code."
+description: "Every canvas-fx element's attributes, properties, methods, events, and CSS parts, generated from the code."
 sidebar:
   order: 3
 ---
 
-<!-- Generated: copied from pixelable's docs/reference.md, which is generated from custom-elements.json. Re-copy it when pixelable changes. -->
+<!-- Generated: copied from canvas-fx's docs/reference.md, which is generated from custom-elements.json. Re-copy it when canvas-fx changes. -->
 
 Every stable element's attributes, properties, methods, events, and CSS custom properties, generated from the code. Each element's guide (linked) explains how to use it.
 
 ## `<pixel-adjust>`
 
-A pixel effect: brightness, contrast, saturation, and hue. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-adjust/readme.md) · module `@johnhenry/pixelable/pixel-adjust`
+A pixel effect: brightness, contrast, saturation, and hue. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-adjust/readme.md) · module `@johnhenry/canvas-fx/pixel-adjust`
 
 **Attributes**
 
@@ -25,7 +25,7 @@ A pixel effect: brightness, contrast, saturation, and hue. [Guide](https://githu
 
 ## `<pixel-canvas>`
 
-Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-canvas/readme.md) · module `@johnhenry/pixelable/pixel-canvas`
+Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-canvas/readme.md) · module `@johnhenry/canvas-fx/pixel-canvas`
 
 **Attributes**
 
@@ -89,7 +89,7 @@ Pixel effects on any image, video, canvas, or pixel sprite. [Guide](https://gith
 
 ## `<pixel-chroma-key>`
 
-A pixel effect: make a color transparent (green screen). [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-chroma-key/readme.md) · module `@johnhenry/pixelable/pixel-chroma-key`
+A pixel effect: make a color transparent (green screen). [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-chroma-key/readme.md) · module `@johnhenry/canvas-fx/pixel-chroma-key`
 
 **Attributes**
 
@@ -102,7 +102,7 @@ A pixel effect: make a color transparent (green screen). [Guide](https://github.
 
 ## `<pixel-crt>`
 
-A pixel effect: an old CRT screen. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-crt/readme.md) · module `@johnhenry/pixelable/pixel-crt`
+A pixel effect: an old CRT screen. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-crt/readme.md) · module `@johnhenry/canvas-fx/pixel-crt`
 
 **Attributes**
 
@@ -115,7 +115,7 @@ A pixel effect: an old CRT screen. [Guide](https://github.com/johnhenry/pixelabl
 
 ## `<pixel-glitch>`
 
-A pixel effect: animated digital glitches. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-glitch/readme.md) · module `@johnhenry/pixelable/pixel-glitch`
+A pixel effect: animated digital glitches. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-glitch/readme.md) · module `@johnhenry/canvas-fx/pixel-glitch`
 
 **Attributes**
 
@@ -127,7 +127,7 @@ A pixel effect: animated digital glitches. [Guide](https://github.com/johnhenry/
 
 ## `<pixel-glyphs>`
 
-A pixel effect: the image as text characters (ASCII art). [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-glyphs/readme.md) · module `@johnhenry/pixelable/pixel-glyphs`
+A pixel effect: the image as text characters (ASCII art). [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-glyphs/readme.md) · module `@johnhenry/canvas-fx/pixel-glyphs`
 
 **Attributes**
 
@@ -143,7 +143,7 @@ A pixel effect: the image as text characters (ASCII art). [Guide](https://github
 
 ## `<pixel-grid>`
 
-A pixel effect: grid lines between cells. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-grid/readme.md) · module `@johnhenry/pixelable/pixel-grid`
+A pixel effect: grid lines between cells. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-grid/readme.md) · module `@johnhenry/canvas-fx/pixel-grid`
 
 **Attributes**
 
@@ -156,7 +156,7 @@ A pixel effect: grid lines between cells. [Guide](https://github.com/johnhenry/p
 
 ## `<pixel-halftone>`
 
-A pixel effect: halftone dots, like print. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-halftone/readme.md) · module `@johnhenry/pixelable/pixel-halftone`
+A pixel effect: halftone dots, like print. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-halftone/readme.md) · module `@johnhenry/canvas-fx/pixel-halftone`
 
 **Attributes**
 
@@ -170,7 +170,7 @@ A pixel effect: halftone dots, like print. [Guide](https://github.com/johnhenry/
 
 ## `<pixel-lens>`
 
-A pixel effect: a magnifying glass at the pointer. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-lens/readme.md) · module `@johnhenry/pixelable/pixel-lens`
+A pixel effect: a magnifying glass at the pointer. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-lens/readme.md) · module `@johnhenry/canvas-fx/pixel-lens`
 
 **Attributes**
 
@@ -182,7 +182,7 @@ A pixel effect: a magnifying glass at the pointer. [Guide](https://github.com/jo
 
 ## `<pixel-mosaic>`
 
-A pixel effect: pixelate into blocks of one color. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-mosaic/readme.md) · module `@johnhenry/pixelable/pixel-mosaic`
+A pixel effect: pixelate into blocks of one color. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-mosaic/readme.md) · module `@johnhenry/canvas-fx/pixel-mosaic`
 
 **Attributes**
 
@@ -193,7 +193,7 @@ A pixel effect: pixelate into blocks of one color. [Guide](https://github.com/jo
 
 ## `<pixel-outline>`
 
-A pixel effect: line art from edges. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-outline/readme.md) · module `@johnhenry/pixelable/pixel-outline`
+A pixel effect: line art from edges. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-outline/readme.md) · module `@johnhenry/canvas-fx/pixel-outline`
 
 **Attributes**
 
@@ -206,7 +206,7 @@ A pixel effect: line art from edges. [Guide](https://github.com/johnhenry/pixela
 
 ## `<pixel-palette>`
 
-A pixel effect: limit colors to a palette, with dithering. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-palette/readme.md) · module `@johnhenry/pixelable/pixel-palette`
+A pixel effect: limit colors to a palette, with dithering. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-palette/readme.md) · module `@johnhenry/canvas-fx/pixel-palette`
 
 **Attributes**
 
@@ -225,7 +225,7 @@ A pixel effect: limit colors to a palette, with dithering. [Guide](https://githu
 
 ## `<pixel-shader>`
 
-A pixel effect written as a GLSL fragment shader, run on the GPU. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-shader/readme.md) · module `@johnhenry/pixelable/pixel-shader`
+A pixel effect written as a GLSL fragment shader, run on the GPU. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-shader/readme.md) · module `@johnhenry/canvas-fx/pixel-shader`
 
 **Attributes**
 
@@ -248,7 +248,7 @@ A pixel effect written as a GLSL fragment shader, run on the GPU. [Guide](https:
 
 ## `<pixel-spotlight>`
 
-A pixel effect: a spotlight that follows the pointer. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-spotlight/readme.md) · module `@johnhenry/pixelable/pixel-spotlight`
+A pixel effect: a spotlight that follows the pointer. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-spotlight/readme.md) · module `@johnhenry/canvas-fx/pixel-spotlight`
 
 **Attributes**
 
@@ -261,7 +261,7 @@ A pixel effect: a spotlight that follows the pointer. [Guide](https://github.com
 
 ## `<pixel-sprite>`
 
-Pixel art written as text, with animation frames. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-sprite/readme.md) · module `@johnhenry/pixelable/pixel-sprite`
+Pixel art written as text, with animation frames. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-sprite/readme.md) · module `@johnhenry/canvas-fx/pixel-sprite`
 
 **Attributes**
 
@@ -306,7 +306,7 @@ Pixel art written as text, with animation frames. [Guide](https://github.com/joh
 
 ## `<pixel-wave>`
 
-A pixel effect: an animated wave. [Guide](https://github.com/johnhenry/pixelable/blob/main/src/pixel-wave/readme.md) · module `@johnhenry/pixelable/pixel-wave`
+A pixel effect: an animated wave. [Guide](https://github.com/johnhenry/canvas-fx/blob/main/src/pixel-wave/readme.md) · module `@johnhenry/canvas-fx/pixel-wave`
 
 **Attributes**
 

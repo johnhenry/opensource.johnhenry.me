@@ -1,11 +1,11 @@
 ---
-title: "pixelable"
+title: "canvas-fx"
 description: "Pixel effects for images, video, canvases, and live HTML, written as HTML: mosaic, palettes with dithering, CRT, halftone, shaders. Custom elements, no build step, no dependencies."
 sidebar:
   order: 0
 ---
 
-**`@johnhenry/pixelable`** puts pixel effects on images, video, canvases,
+**`@johnhenry/canvas-fx`** puts pixel effects on images, video, canvases,
 pixel art you write as text, your own drawing elements (a game, a
 visualization), and, experimentally, live HTML. Put the source in a
 `<pixel-canvas>` and list the effects like CSS `filter`:
@@ -22,17 +22,17 @@ can't be read, the plain `<img>` shows, so nothing is lost.
 
 ## Install
 
-pixelable isn't on npm yet (it was split out of domkit and is waiting for
+canvas-fx (called pixelable until 2026-10-04) isn't on npm yet (it was split out of domkit and is waiting for
 its first release). Until then, load it from jsDelivr's GitHub mirror,
 pinned to a commit:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/johnhenry/pixelable@42ebb706bea97aba73a098eab67067a938588dd7/src/global.mjs"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/johnhenry/canvas-fx@6813d7555865f4bf2da2d3928f544f4e33463baf/src/global.mjs"></script>
 ```
 
 `global.mjs` registers every element; `pixel-canvas/global.mjs` alone is
 enough for the `effects` attribute. Once published, `npm install
-@johnhenry/pixelable` and `@johnhenry/pixelable/global.mjs` will work the
+@johnhenry/canvas-fx` and `@johnhenry/canvas-fx/global.mjs` will work the
 same way.
 
 ## Effects
@@ -82,7 +82,7 @@ attribute's list.
   gives the result back as a string, one line per row.
 - **Live HTML (experimental):** `<pixel-canvas html>` draws its own HTML
   content through the effects and keeps it interactive. See
-  [Live HTML](/pixelable/live-html/).
+  [Live HTML](/canvas-fx/live-html/).
 
 ## Traps
 
@@ -109,11 +109,11 @@ attribute's list.
 
 ## Family
 
-- **[domkit](/domkit/)**, where pixelable started. Its `<frame-timer>` is the
+- **[domkit](/domkit/)**, where canvas-fx started. Its `<frame-timer>` is the
   clock animated sources usually run on, and its `<hot-key>`,
-  `<gamepad-input>`, and `<swipe-input>` drive what's drawn. pixelable
+  `<gamepad-input>`, and `<swipe-input>` drive what's drawn. canvas-fx
   doesn't import domkit; they meet in the page.
 - **forsnaken**, a snake game made of HTML elements, is a consumer: its
   game element is a custom source, shown through `effects="grid(…)"`.
 
-Source: [github.com/johnhenry/pixelable](https://github.com/johnhenry/pixelable).
+Source: [github.com/johnhenry/canvas-fx](https://github.com/johnhenry/canvas-fx).
