@@ -31,10 +31,7 @@
 .pg-workbench code, .pg-workbench kbd { font-family: var(--f-mono); font-size: .92em; color: var(--accent); }
 .pg-workbench kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; background: var(--bg-inset); color: var(--ink-2); }
 
-/* ---- callout + pipeline ---- */
-.pg-workbench .wb-callout { display: grid; gap: 6px; border-color: var(--accent-border); background: linear-gradient(135deg, var(--accent-soft), var(--bg-panel) 60%); }
-.pg-workbench .wb-callout p { margin: 0; color: var(--ink-2); font-size: 13.5px; max-width: 90ch; }
-.pg-workbench .wb-callout .btn { text-decoration: none; padding: 6px 14px; justify-self: start; }
+/* ---- pipeline ---- */
 .pg-workbench .wb-pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-family: var(--f-mono); font-size: 12px; }
 .pg-workbench .wb-stage-chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--bg-panel); color: var(--ink-2); }
 .pg-workbench .wb-stage-chip b { color: var(--accent); font-weight: 600; margin-right: 4px; }

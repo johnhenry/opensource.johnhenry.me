@@ -78,7 +78,7 @@ safe-fragment is one of a few browser-stack packages that each own one concern. 
   (`mport build @johnhenry/safe-fragment@0 dompurify@3.4.16`) or let mport add it from this package's `dependencies` with
   `--dependencies` (`build(specs, { dependencies: true })`); see
   [No bundler: the import map](/safe-fragment/getting-started/#no-bundler-the-import-map).
-- **[workbench](/workbench/)**: a live app that renders untrusted notes with `<safe-fragment>` and loads one module through the `sanitize` adapter, under a strict CSP with Trusted Types.
+- **[Untrusted Desk](/orrery/#/workbench)**: the Orrery planet that renders untrusted notes with `<safe-fragment>`, loads one module through the `sanitize` adapter, and proves it again in a strict-CSP, Trusted Types frame.
 
 The one real runtime dependency is [DOMPurify](https://github.com/cure53/DOMPurify) (exact-pinned), used only as the fallback
 sanitization engine ([ADR 0002](/safe-fragment/decisions/#adr-0002-native-sanitizer-with-a-dompurify-fallback-plus-a-shared-allowlist-pass)),

@@ -20,10 +20,8 @@ import type { SanitizationReport } from '@johnhenry/safe-fragment';
  *   safe-fragment   the untrusted notes: a switchable profile, the report, the Clips module (html-modules' sanitize hook), and a
  *                   strict-CSP + Trusted Types frame (workbench/tt.html) that proves it in a separate document
  *   html-modules    every component in every window is a .html module
- * The standalone johnhenry/workbench (all four libraries via an mport import map, no bundler) is linked, not reimplemented.
+ * It replaced the standalone johnhenry/workbench app (retired 2026-10-03); the import-map story is for an mport planet to tell.
  * ──────────────────────────────────────────────────────────────────────────── */
-
-const STANDALONE = 'https://johnhenry.github.io/workbench/';
 
 const NS = '__orreryWorkbenchPwned';
 
@@ -508,10 +506,6 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
 
   const root = h('div', { class: 'wb-inpage' });
   root.innerHTML = `
-    <section class="panel wb-callout">
-      <a class="btn primary" href="${STANDALONE}" target="_blank" rel="noopener" data-standalone>Open the standalone johnhenry/workbench ↗</a>
-      <p>The standalone shows all four libraries loading through an <b>mport</b>-generated import map with no bundler, under strict CSP. This planet is the part you can poke at: the desk and the untrusted notes.</p>
-    </section>
     <div class="wb-pipeline" aria-label="How the libraries line up"></div>
     <div class="wb-controls">
       <div class="wb-row" role="group" aria-label="Presets">
@@ -825,7 +819,7 @@ const playground: Playground = {
   pkg: '@johnhenry/window-algebra',
   hue: 165,
   blurb: 'A tiling desk of notes you should not trust. window-algebra runs the windows (undo/redo, keyboard-movable floating windows, pop-out, saved layouts, two-tab sync); safe-fragment renders every note under a switchable profile, and a strict-CSP, Trusted Types frame proves it. Components are html-modules.',
-  docs: 'https://opensource.johnhenry.me/workbench/',
+  docs: 'https://opensource.johnhenry.me/window-algebra/',
   mount(host) {
     const shell = h('div', { class: 'pg-workbench wb-shell' });
     const content = h('div', { class: 'wb-content' });

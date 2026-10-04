@@ -9,7 +9,7 @@ name: Orrery e2e
 #   - Deploy stays a fast build-and-push. Make this a required check in branch protection if a red run should block merging.
 #
 # The tests build the Orrery with the same /orrery/ base the site ships and serve it with `vite preview`. They depend on no
-# external site: the standalone workbench is only linked. The planet's strict-CSP frame (workbench/tt.html) is a second
+# external site. The planet's strict-CSP frame (workbench/tt.html) is a second
 # Vite entry of the same build, so the strict-CSP test runs on all three engines (WebKit takes the DOMPurify engine).
 
 on:

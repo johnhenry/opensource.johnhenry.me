@@ -28,6 +28,8 @@ const circuitShikiTheme = {
 
 export default defineConfig({
   site: 'https://opensource.johnhenry.me',
+  // The standalone workbench app was retired on 2026-10-03; its page now points at the Orrery planet that replaced it.
+  redirects: { '/workbench': '/orrery/#/workbench' },
   integrations: [
     starlight({
       title: 'John Henry · Open Source',
@@ -49,7 +51,6 @@ export default defineConfig({
         { label: 'Overview', link: '/' },
         { label: 'Using the packages in a browser', link: '/browser/' },
         { label: 'Orrery · live playground', link: '/orrery/', badge: { text: 'live', variant: 'success' } },
-        { label: 'Built with the family: workbench', link: '/workbench/', badge: { text: 'live', variant: 'success' } },
         ...[
           { label: 'aimatey', directory: 'aimatey' },
           { label: 'browsermesh', directory: 'browsermesh' },

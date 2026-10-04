@@ -130,4 +130,3 @@ another.
   adds it from the package's own `dependencies`; listing `dompurify@<pinned version>`
   explicitly works too. esm.sh rewrites the import itself, so nothing extra is needed
   there. No dependency in either direction.
-- **[workbench](/workbench/)**: a live app where mport builds the import map, CSP hash and subpath deploy for the other three libraries.
