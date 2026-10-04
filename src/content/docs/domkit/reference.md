@@ -74,38 +74,6 @@ Add classes, styles, and attributes to children by media query. [Guide](https://
 |---|---|
 | `change` | A query started or stopped matching (the viewport or container changed), so `activeQueries` changed and the children were updated. |
 
-## `<chernoff-face>`
-
-A face whose features show data: each is a number from 0 to 1. [Guide](https://github.com/johnhenry/domkit/blob/main/src/chernoff-face/readme.md) · module `@johnhenry/domkit/chernoff-face`
-
-**Attributes**
-
-| Attribute | Property | Type | Description |
-|---|---|---|---|
-| `face-width` |  | `number` | 0 narrow … 1 wide. Default 0.5, like every feature. |
-| `eye-size` |  | `number` | 0 small … 1 large eyes. |
-| `eye-spacing` |  | `number` | 0 close … 1 far-apart eyes. |
-| `pupil-size` |  | `number` | 0 small … 1 large pupils. |
-| `gaze` |  | `number` | 0 looking left … 1 looking right. |
-| `brow-slant` |  | `number` | 0 angry … 1 worried brows. |
-| `nose-length` |  | `number` | 0 short … 1 long nose. |
-| `mouth-width` |  | `number` | 0 narrow … 1 wide mouth. |
-| `smile` |  | `number` | 0 frown … 1 smile. |
-| `mouth-open` |  | `number` | 0 closed … 1 open mouth. |
-
-**Properties**
-
-| Property | Type | Description |
-|---|---|---|
-| `features` | `Record<string, number>` | Every feature's current value (0–1), keyed in camelCase (`{ eyeSize: 0.5, smile: 0.9, … }`). Setting it writes the matching attributes; keys you leave out are unchanged. |
-
-**CSS custom properties**
-
-| Property | Description |
-|---|---|
-| `--domkit-face-fill` | Fill of the face (index.css). |
-| `--domkit-face-stroke` | Line color (index.css; defaults to currentColor). |
-
 ## `<code-color>`
 
 Syntax highlighting that never touches your markup. [Guide](https://github.com/johnhenry/domkit/blob/main/src/code-color/readme.md) · module `@johnhenry/domkit/code-color`
@@ -456,41 +424,6 @@ Swap the element wrapping some content by media query. [Guide](https://github.co
 | Event | Description |
 |---|---|
 | `change` | A query started or stopped matching (the viewport or container changed), so `activeQueries` changed. The wrapper may have been swapped. |
-
-## `<scatter-plot>`
-
-A scatter plot of a point template, styled with ordinary CSS. [Guide](https://github.com/johnhenry/domkit/blob/main/src/scatter-plot/readme.md) · module `@johnhenry/domkit/scatter-plot`
-
-**Attributes**
-
-| Attribute | Property | Type | Description |
-|---|---|---|---|
-| `data` | `data` | `string` | JSON array of points: `[x, y]` pairs, or `{ x, y, … }` objects whose other keys become attributes on that point. |
-| `x-min` |  | `number` | The x value at the left edge. Default: the smallest x, or 0 if that's positive. |
-| `x-max` |  | `number` | The x value at the right edge. Default: the largest x. |
-| `y-min` |  | `number` | The y value at the bottom edge. Default: the smallest y, or 0 if that's positive. |
-| `y-max` |  | `number` | The y value at the top edge. Default: the largest y. |
-
-**Properties**
-
-| Property | Type | Description |
-|---|---|---|
-| `data` | `Array<[number, number] \| { x: number, y: number, [attribute: string]: unknown }>` | The points. Setting it replots (and doesn't touch the `data` attribute, so it can hold values JSON can't). |
-| `domain` (read-only) | `{ xMin: number, xMax: number, yMin: number, yMax: number }` | The plotted range, after defaults: `{ xMin, xMax, yMin, yMax }`. |
-| `points` (read-only) | `Element[]` | The point elements now plotted, in data order. |
-
-**Events**
-
-| Event | Description |
-|---|---|
-| `error` | The `data` attribute isn't a JSON array. An `ErrorEvent`; the previous data stays plotted. |
-
-**CSS custom properties**
-
-| Property | Description |
-|---|---|
-| `--domkit-point-size` | Size of the default point (index.css). |
-| `--domkit-accent` | Color of the default point (shared token; see theme.css). |
 
 ## `<stylable-select>`
 
