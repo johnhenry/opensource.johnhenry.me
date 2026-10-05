@@ -92,6 +92,7 @@ export default defineConfig({
           { label: 'safe-fragment', directory: 'safe-fragment' },
           { label: 'domkit', directory: 'domkit' },
           { label: 'canvas-fx', directory: 'canvas-fx' },
+          { label: 'data-plot', directory: 'data-plot' },
           { label: 'webwire', directory: 'webwire' },
         ].map(({ label, directory }) => ({
           label,

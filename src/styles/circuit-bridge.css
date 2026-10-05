@@ -245,6 +245,10 @@
    its own package, with its history (the same kind of link servant has to
    leserve). It no longer imports domkit; the two meet in the page. */
 :root[data-tool='canvas-fx']        { --hue: 13; }
+/* Hue-share: data-plot takes domkit's stop too, for the same reason:
+   <scatter-plot> and <chernoff-face> were domkit elements until they
+   moved out, with their history, to become data-plot. */
+:root[data-tool='data-plot']        { --hue: 13; }
 
 :root[data-theme='light'] {
   --sl-color-text-accent: var(--accent);

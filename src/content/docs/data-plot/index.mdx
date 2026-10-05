@@ -1,0 +1,95 @@
+---
+title: "data-plot"
+description: "Plots written as HTML: data from a <table> or <datalist>, marks from a <template>, placed with CSS. Scatter, line, bars, heatmaps, Gantt charts, glyphs. Custom elements, no build step, no dependencies."
+sidebar:
+  order: 0
+---
+
+import Install from '../../../components/Install.astro';
+
+**`@johnhenry/data-plot`** draws plots from HTML you'd write anyway. The
+data is a `<table>` or `<datalist>`, the marks are elements you design, and
+CSS places them:
+
+```html
+<data-plot>
+  <table>
+    <thead><tr><th>city</th><th>rain</th><th>sun</th></tr></thead>
+    <tbody>
+      <tr><td>Lisbon</td><td>690</td><td>2800</td></tr>
+      <tr><td>Oslo</td><td>760</td><td>1670</td></tr>
+    </tbody>
+  </table>
+  <plot-axis scale="x" label="Rain" grid></plot-axis>
+  <plot-axis scale="y" label="Sun" grid></plot-axis>
+  <plot-marks x="rain" y="sun"></plot-marks>
+</data-plot>
+```
+
+Before the script loads, or for a screen reader after it does, the table
+is the table. Edit it and the plot follows.
+
+## Install
+
+No install is needed: load it from a CDN. One script registers every
+element, and the stylesheet places marks:
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@johnhenry/data-plot/src/global.mjs"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@johnhenry/data-plot/src/index.css" />
+```
+
+With npm:
+
+<Install pkg="@johnhenry/data-plot" />
+
+```js
+import "@johnhenry/data-plot/global.mjs"; // registers every element
+import { DataPlot, linear, band } from "@johnhenry/data-plot"; // or the classes and scales
+```
+
+No dependencies, so no import map. It ships TypeScript declarations and a
+`custom-elements.json` manifest.
+
+## The elements
+
+| Element | What it's for |
+|---|---|
+| `<data-plot>` | The frame: data, one scale per channel, and the layers drawn in it |
+| `<plot-marks>` | One element per row, from a `<template>`, placed by CSS custom properties |
+| `<plot-line>` | A line through the rows, one per series |
+| `<plot-axis>` | Tick labels and gridlines for one of the plot's scales |
+| `<plot-legend>` | A key to the plot's colors |
+| `<chernoff-face>` | A face whose features show data, each a number from 0 to 1 |
+
+A plot maps data fields onto a mark's attributes through scales. Bars,
+heatmap cells, Gantt bars, and dumbbells aren't separate elements: they're
+marks that CSS sizes from the properties each one gets. See
+[Data](/data-plot/data/), [Marks and layers](/data-plot/marks/), and the
+[Reference](/data-plot/reference/).
+
+## Traps
+
+- **The stylesheet is part of it.** Without `index.css`, marks aren't
+  placed: positions are custom properties, and CSS does the placing.
+- **A table inside the plot is hidden visually, not removed.** Screen
+  readers still read it, and the drawing is hidden from them. To show the
+  table too, put it outside and point at it: `<data-plot src="#rain">`.
+- **Data that isn't a readable table needs a label.** A plot over a
+  `<datalist>` or JSON gets `role="img"` from its `aria-label`; without one
+  you'll see a console warning.
+- **`.data` wins until `src` changes.** Setting rows from script replaces
+  the source; set `.data = null` to go back to it. Changing the array in
+  place needs `requestRender()`.
+- **Categories on y read top to bottom**, like the table they came from.
+- **Rows with no position get no mark.** An empty cell isn't plotted at 0.
+- **Every default rule is in `:where()`**, so any CSS of yours wins.
+
+## Family
+
+- **[domkit](/domkit/)**, where `<scatter-plot>` and `<chernoff-face>`
+  started. Its elements sit beside plots in a page; data-plot imports none.
+- **[canvas-fx](/canvas-fx/)**: any element is a mark, so a `<pixel-sprite>`
+  can be one.
+
+Source: [github.com/johnhenry/data-plot](https://github.com/johnhenry/data-plot).
