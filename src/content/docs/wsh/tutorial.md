@@ -13,7 +13,7 @@ Takes about 10 minutes.
 npm install @johnhenry/wsh
 ```
 
-Requires Node.js 24+ (for Web Crypto Ed25519) or a browser with the same support.
+Requires Node.js 26+ (for Web Crypto Ed25519) or a browser with the same support.
 
 ## 2. Create the file
 
