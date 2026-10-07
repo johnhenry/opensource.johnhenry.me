@@ -14,13 +14,16 @@ import { createRequire } from 'node:module';
  * its e2e suite). Nothing in orrery/ is modified.
  */
 export async function loadPlaywright(root) {
+  // Depending on how the module is resolved, Node exposes Playwright's
+  // `chromium`/`firefox`/`webkit` either as named exports or only on `default`.
+  const unwrap = (m) => (m.chromium ? m : m.default);
   try {
-    return await import('playwright');
+    return unwrap(await import('playwright'));
   } catch {
     for (const from of [path.join(root, 'orrery/package.json'), path.join(root, 'package.json')]) {
       try {
         const require = createRequire(from);
-        return await import(require.resolve('playwright'));
+        return unwrap(await import(require.resolve('playwright')));
       } catch {}
     }
   }
