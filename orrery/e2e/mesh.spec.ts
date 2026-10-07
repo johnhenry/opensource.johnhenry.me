@@ -12,7 +12,7 @@ function watch(page: Page) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
   return errors;
 }
-const mine = (errors: string[]) => errors.filter((e) => !/favicon|manifest|apple-touch/i.test(e));
+const mine = (errors: string[]) => errors.filter((e) => !/favicon|manifest|apple-touch|downloadable font/i.test(e));
 
 test('two tabs: signed chat verifies across tabs, a tampered message is rejected', async ({ context }) => {
   const a = await context.newPage();

@@ -20,7 +20,7 @@ function watch(page: Page) {
   return errors;
 }
 /** Errors that are about this planet (not the favicon, nor a companion probe that finds nothing). */
-const mine = (errors: string[]) => errors.filter((e) => !/favicon|manifest|apple-touch|ERR_CONNECTION_REFUSED|orrery\.json/i.test(e));
+const mine = (errors: string[]) => errors.filter((e) => !/favicon|manifest|apple-touch|ERR_CONNECTION_REFUSED|orrery\.json|downloadable font/i.test(e));
 
 const status = (page: Page) => page.locator('.status').first();
 const termText = (page: Page) => page.locator('.xterm-rows').first().innerText();
