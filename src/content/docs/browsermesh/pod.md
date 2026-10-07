@@ -11,7 +11,7 @@ A **Pod** is any browser execution context — window, iframe, worker, service w
 npm install @johnhenry/browsermesh-pod @johnhenry/browsermesh-primitives
 ```
 
-`browsermesh-primitives` is a **peer dependency**, not bundled — it provides the Ed25519 identity generation `Pod` relies on. Both must be installed; installing only `browsermesh-pod` leaves the peer dependency unresolved.
+`browsermesh-primitives` is a **peer dependency**, not bundled — it provides the Ed25519 identity generation `Pod` relies on. Both must be installed; installing only `browsermesh-pod` leaves the peer dependency unresolved. As of `pod` 0.0.3 the declared range is `>=0.2.0 <1.0.0`: it needs `primitives` 0.2.0 or later (the release that changed [`PodIdentity.verify()`'s argument order](/browsermesh/primitives/#breaking-in-020-podidentityverify-takes-webcrypto-argument-order)) and excludes a 1.x install. `pod` ships TypeScript declarations and requires Node 26 or later.
 
 ```js
 import { Pod } from '@johnhenry/browsermesh-pod'
@@ -42,6 +42,7 @@ await pod.boot({
   discoveryChannel,   // BroadcastChannel name (default: 'pod-discovery')
   handshakeTimeout,   // ms to wait for parent ACK (default: 1000)
   discoveryTimeout,   // ms to wait for peer responses (default: 2000)
+  globalThis,         // override globalThis (for testing)
 })
 ```
 
@@ -64,6 +65,8 @@ Previously published, unscoped, as `browsermesh-pod@0.2.1` — a real standalone
 ```sh
 npm install @johnhenry/browsermesh-embed @johnhenry/browsermesh-pod
 ```
+
+`embed` (0.1.0) declares `pod` as a peer dependency with range `>=0.0.0 <1.0.0` and `"engines": { "node": ">=24.0.0" }`; it was not part of the 2026-10-07 releases.
 
 `EmbeddedPod` extends `Pod` with a minimal messaging API (`sendMessage`, `on`/`off`/`emit`) and a lazy-attached **agent slot** — the package has no dependency on any specific agent implementation. An agent just needs to be duck-typed with `sendMessage(text, opts)`, `getEventLog().query({ type })`, and `run()`.
 

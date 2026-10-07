@@ -45,9 +45,23 @@ new Server(defaultHandler, options)
 - `fetch(request)` — handles an incoming HTTP request, returns a `Promise`
   resolving to a `Response`.
 - `setStrategy(newStrategy)` — throws on an unrecognized value.
+- `listen(port)` — Node only. Starts an HTTP server and a WebSocket server on
+  `port`: HTTP requests are handed to `fetch()` and WebSocket connections are
+  registered with `addConnection()` (and removed with `removeConnection()`
+  when they close). Returns a `Promise` that resolves once the port is bound;
+  throws if the server is already listening. The Node `req`/`res` to
+  `Request`/`Response` conversion is [`@johnhenry/webwire`](/webwire/)'s
+  `toWebRequest()`/`writeWebResponse()`, with `X-Forwarded-Host` taking
+  priority over `Host` for the URL the agent sees. Repeated response headers
+  (for example several `Set-Cookie`) are written as separate header lines. A
+  request that cannot be turned into a `Request`, or a handler error, gets a
+  real error response instead of a hung socket.
+- `close()` — closes the WebSocket and HTTP servers started by `listen()`;
+  throws if not listening.
 
 ### Properties
 
+- `listening` — `true` while `listen()`'s servers are running.
 - `strategy` — gets or sets the current agent selection strategy (setting
   validates the same way as `setStrategy`).
 - `fetch` — a bound version of the `fetch` method, usable directly with
@@ -75,6 +89,10 @@ If a shared secret genuinely isn't enough — you need to tell agents apart,
 not just confirm they're *some* trusted agent — see [the
 `dialback/browsermesh` transport](/dialback/browsermesh-transport/), which
 swaps this model for real per-agent Ed25519 identity.
+
+The package ships TypeScript declarations for `Server`, `Agent`, and their
+options (`Server`'s `defaultHandler` and `Agent`'s `abort` option may return a
+`Response` or a `Promise<Response>`). The `dialback/browsermesh` subpath ships none.
 
 ## `Agent`
 
@@ -106,8 +124,12 @@ new Agent(address, options)
 - `serve(handler)` — sets the request handler function. `handler` accepts
   a `Request` and returns a `Promise` resolving to a `Response`.
 
+- `close()` — closes the connection to the server.
+
 ### Properties
 
+- `connection` — a `Promise` resolving to the established connection; await
+  it to know the handshake has finished.
 - `serve` — a bound version of the `serve` method.
 
 ## Utility functions
