@@ -71,7 +71,7 @@ rather than via `onWebSocket()`'s outer-middleware shape.
 ## Global types
 
 `Request`, `Response`, `Headers`, `URL`, `URLSearchParams`, and (in modern
-Node.js) `WebSocket` are standard Node.js runtime globals (Node 18+) —
+Node.js) `WebSocket` are standard Node.js runtime globals (all present on leserve's Node 26 floor) —
 available out of the box, not something `@johnhenry/leserve` adds or
 polyfills.
 

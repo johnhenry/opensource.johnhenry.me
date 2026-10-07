@@ -24,11 +24,11 @@ objects — either **points** (`PlainDate`, `ZonedDateTime`, …) or **intervals
 
 <Install pkg="@johnhenry/temporals" />
 
-On Node < 22, also install the peer: `npm install temporal-polyfill`. (The CDN import map already includes it.)
+Node 26, the package's `engines.node` floor, ships `Temporal` natively. On a runtime without a native `Temporal`, also install the peer: `npm install temporal-polyfill`. (The CDN import map already includes it.)
 
 Temporal is a **peer**, not a bundled dependency — the engines derive
-everything from the values you pass in. On Node < 22, `import
-"temporal-polyfill/global"` once at your entry point.
+everything from the values you pass in. Where there is no native `Temporal`,
+`import "temporal-polyfill/global"` once at your entry point.
 
 ## Quick start
 

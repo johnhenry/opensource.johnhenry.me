@@ -111,9 +111,10 @@ one, and only add sugar for genuine gaps.
   (`.json()`, `.formData()`, `.clone()`, `.signal`, `.headers.get()` all
   already work, zero wrapper). `headers`/`trailers` accept the standard
   `HeadersInit` union, not a servable-specific shape.
-- **`URLPattern`** — not a global in Node 18/20/22, so `urlpattern-polyfill`
-  ships as a real dependency; a native global is preferred when present
-  (Deno/Bun/Workers/newer Node don't need it).
+- **`URLPattern`** — `urlpattern-polyfill` ships as a real dependency so
+  `path` compilation behaves the same everywhere, but a native global is
+  preferred when present (Node 26, servable's `engines.node` floor, has one,
+  and so do Deno/Bun/Workers).
 - **`WebSocket`** — fits the existing "handler returns a `Response`" model:
   every modern runtime models an upgrade as still returning a `Response`
   (status 101, socket attached). `upgradeWebSocket(req)` abstracts that for
