@@ -1,11 +1,11 @@
 ---
 title: "Core"
-description: "@johnhenry/raijin-core — the state machine, transaction/block types, SHA-256 + Merkle hashing, and canonical binary encoding."
+description: "@johnhenry/raijin-core — the state machine, transaction/block types, SHA-256 + Merkle hashing, canonical binary encoding, the wire codec, durable state, and genesis."
 ---
 
 import Install from '../../../components/Install.astro';
 
-**`@johnhenry/raijin-core`** is the bottom of the dependency graph: types (`Transaction`, `Block`, `Account`, receipts), the deterministic state transition function (`StateMachine`), a reference `StateStore` (`InMemoryStateStore`), SHA-256/Merkle hashing, and the canonical binary encoding that signatures and hashes are computed over. Zero dependencies; only `globalThis.crypto.subtle`.
+**`@johnhenry/raijin-core`** (0.2.0) is the bottom of the dependency graph: types (`Transaction`, `Block`, `Account`, receipts), the deterministic state transition function (`StateMachine`), `StateStore` implementations (`InMemoryStateStore` and the IndexedDB-backed `PersistentStateStore`), SHA-256/Merkle hashing, the canonical binary encoding that signatures and hashes are computed over, a canonical wire codec for anything that crosses a process boundary, and genesis derivation. Zero dependencies; only `globalThis.crypto.subtle`. Works in the browser and in Node.
 
 <Install pkg="@johnhenry/raijin-core" />
 
@@ -15,15 +15,17 @@ import Install from '../../../components/Install.astro';
 - **`tx.data[0]` is the transaction type.** Empty `data` defaults to `Transfer` (0x01). Of the 15 `TransactionType` values, only `Transfer` and `ReputationAttest` (0x02) execute real logic — the other 13 are placeholders that just increment the sender's nonce and report success. Don't build on `EscrowCreate` expecting escrow.
 - **Reverts are receipts, not exceptions.** Bad signature, wrong nonce, insufficient balance — all come back as `{ status: 'revert', revertReason }`. A reverted transaction leaves state untouched (executors check preconditions before any write) and does **not** consume the sender's nonce.
 - **`applyBlock` has no block-level atomicity.** Reverted transactions stay in the block alongside their receipts; the rest of the block proceeds. Don't assume all-or-nothing.
-- **`InMemoryStateStore.root()` is a flat hash of sorted entries, not a Merkle trie.** Perfect for "do two nodes agree" equality checks; useless for inclusion proofs.
-- **`merkleRoot` has no domain separation** and duplicates the last leaf at odd levels; a single leaf is returned as-is, unhashed. Fine for its use here; don't reuse it where second-preimage tricks matter.
+- **`InMemoryStateStore.root()` is a Merkle root over the store's entries, not a queryable trie.** Each key-value pair is hashed through `encodeStateEntry` (domain-tagged, both fields length-prefixed) and the entry hashes are combined with `merkleRoot`, ordered by the key's bytes, so it uniquely commits to the store's contents. There is still no inclusion-proof API: it is a commitment, not a trie.
+- **`merkleRoot` is domain-separated and unambiguous.** Leaves are `H(0x00 ‖ leaf)`, internal nodes `H(0x01 ‖ left ‖ right)`, an odd level *promotes* its last node instead of pairing it with itself, and `[]` yields `H(0x00)`. Together these make the root a unique commitment to the leaf list (without them `[A, B, C]` and `[A, B, C, C]` would share a root).
+- **Signature verifiers take WebCrypto order: `(publicKey, signature, message)`.** This changed in 0.1.0 (it was `(message, signature, publicKey)`); a custom verifier you inject must follow the new order. See [Signatures](#signatures).
+- **Build state keys with `accountKey(address)`**, never by concatenating a prefix yourself. Key bytes are hashed into the state root, so a hand-built key silently forks you from your peers. See [State keys and genesis](#state-keys-and-genesis).
 
 ## `StateMachine`
 
 ```js
 import { StateMachine, InMemoryStateStore } from '@johnhenry/raijin-core'
 
-const sm = new StateMachine(new InMemoryStateStore(), verifier) // verifier: { verify(msg, sig, pubkey) }
+const sm = new StateMachine(new InMemoryStateStore(), verifier) // verifier: { verify(publicKey, signature, message) }
 
 const receipt = await sm.applyTransaction(signedTx, 0)
 // { txHash, status: 'success' | 'revert', revertReason?, index }
@@ -33,12 +35,12 @@ Per transaction: verify signature over `encodeTx(tx)` → check `tx.nonce` equal
 
 | Method | Signature | Notes |
 | --- | --- | --- |
-| `applyTransaction` | `(tx, index) → Promise<TransactionReceipt>` | The receipt's `txHash` is `hash(encodeTx(tx))` — unsigned encoding. |
+| `applyTransaction` | `(tx, index) → Promise<TransactionReceipt>` | The receipt's `txHash` is `hash(encodeTxSigned(tx))` — the canonical transaction id, same as the mempool key and the `txRoot` leaf. |
 | `applyBlock` | `(block) → Promise<TransactionReceipt[]>` | Sequential `applyTransaction` over `block.transactions`. |
 | `getAccount` | `(address) → Promise<Account>` | Unknown address ⇒ `{ balance: 0n, nonce: 0n, reputation: 0n }`. |
 | `stateRoot` | `() → Promise<Uint8Array>` | Delegates to `store.root()`. |
 
-Genesis funding is a raw store write under the `'account:'` namespace — see the fence in [Getting started](/raijin/getting-started/) or `examples/02-state-machine.mjs`.
+Genesis funding is a store write at `accountKey(address)` (or, better, a `GenesisConfig`) — see [State keys and genesis](#state-keys-and-genesis).
 
 ## Types and interfaces
 
@@ -49,12 +51,12 @@ Genesis funding is a raw store write under the `'account:'` namespace — see th
 | `Account` | `{ balance, nonce, reputation }`, all `bigint` |
 | `TransactionReceipt` | `{ txHash, status, revertReason?, index }` |
 | `TransactionType` | enum `0x01`–`0x0f`; see trap above |
-| `StateStore` | `get/put/delete/root/snapshot/revert` — implement over IndexedDB/OPFS for persistence |
+| `StateStore` | `get/put/delete/root/snapshot/revert` — see [Durable state](#durable-state) for the IndexedDB-backed implementation |
 | `StateSnapshot` | `{ id: number }`, from `store.snapshot()` |
-| `SignatureVerifier` | `{ verify(message, signature, publicKey): Promise<boolean> }` |
+| `SignatureVerifier` | `{ verify(publicKey, signature, message): Promise<boolean> }` (WebCrypto order; changed in 0.1.0) |
 | `TransactionSigner` | `{ publicKey, sign(message) }` — `Wallet` in the SDK implements this |
 
-`InMemoryStateStore` implements `StateStore` over a `Map` with working `snapshot()`/`revert()` (revert also discards later snapshots) and a `size` getter. It's the right choice for tests and demos, and explicitly not for real state.
+`InMemoryStateStore` implements `StateStore` over a `Map` with working `snapshot()`/`revert()` (revert also discards later snapshots) and a `size` getter. It's the right choice for tests and demos; for state that must survive a reload use `PersistentStateStore`.
 
 ## Hashing
 
@@ -65,21 +67,95 @@ const root = await merkleRoot([await hashString('tx-a'), await hashString('tx-b'
 equal(fromHex(toHex(root)), root) // true
 ```
 
-`hash`/`hashString` are SHA-256 (32 bytes). `merkleRoot([])` is `hash(empty)`; leaf order changes the root. `equal` is byte-wise (not constant-time); `toHex`/`fromHex` are lowercase-hex round-trips.
+`hash`/`hashString` are SHA-256 (32 bytes). `merkleRoot` is described in the traps above; leaf order changes the root. `equal` is byte-wise (not constant-time); `toHex`/`fromHex` are lowercase-hex round-trips.
 
 ## Canonical encoding
 
-The encoding module is why signatures and hashes are stable across nodes: LEB128 varints for `bigint`s, length-prefixed byte arrays, fixed field order.
+The encoding module is why signatures and hashes are stable across nodes. Two rules make an encoding a *commitment* rather than just a serialization: every variable-length field carries its length (LEB128), and every distinct structure carries a one-byte domain tag from the `Domain` registry (`Transaction` 0x01, `SignedTransaction` 0x02, `Account` 0x03, `Receipt` 0x04, `BlockHeader` 0x05, `StateEntry` 0x06, `StateKey` 0x07, `Genesis` 0x08), so one kind of encoding cannot be reinterpreted as another. The tags are consensus-critical: never reuse or renumber one.
 
 | Function | Purpose |
 | --- | --- |
-| `encodeTx(tx)` | Everything **except** the signature — the exact bytes wallets sign and receipts hash |
-| `encodeTxSigned(tx)` | `encodeTx` + signature — what block producers hash into `txRoot` |
-| `encodeAccount` / `decodeAccount` | Account ↔ bytes, used for state storage |
+| `encodeTx(tx)` | Everything **except** the signature — the exact bytes wallets sign and verifiers check |
+| `encodeTxSigned(tx)` | `encodeTx` + signature — its hash is the canonical transaction id: block `txRoot` leaves, mempool dedup keys, and receipt `txHash` |
+| `encodeAccount` / `decodeAccount` | Account ↔ bytes, used for state storage; the decoder rejects bytes not tagged `Domain.Account` |
+| `encodeReceipt(receipt)` | Receipt → bytes |
+| `encodeStateEntry(key, value)` | One state entry's bytes; exported so any `StateStore` derives the same state root from the same contents |
+| `encodeBlockHeader(header)` / `blockHash(block)` | One definition of a header's bytes; `blockHash` is `H(encodeBlockHeader(header))` and is what a child's `parentHash` must equal |
 | `encodeBigInt` / `decodeBigInt` | LEB128; decoder returns `[value, bytesConsumed]` |
 | `encodeBytes` / `decodeBytes` | Length-prefixed; same pair-return convention |
 
-Note the two tx hashes in play: receipts use `hash(encodeTx(tx))`, the validator's FIFO mempool and `txRoot` use `hash(encodeTxSigned(tx))`. Match against the right one.
+There is now one transaction id, not two: receipts, `txRoot` and the mempool all use `hash(encodeTxSigned(tx))`. Only *signature verification* runs over the unsigned `encodeTx(tx)` bytes, because that is what was signed.
+
+## Signatures
+
+```ts
+verifyEd25519(publicKey: Uint8Array, signature: Uint8Array, message: Uint8Array): Promise<boolean>
+signEd25519(privateKey: CryptoKey | Uint8Array /* 32-byte seed */, message: Uint8Array): Promise<Uint8Array>
+ed25519Verifier: SignatureVerifier   // { verify: verifyEd25519 }
+```
+
+`ed25519Verifier` is the real verifier to hand to `StateMachine`, `PBFTConsensus` or a `ValidatorNode` identity. The argument order is WebCrypto's: key first, message last.
+
+**Breaking in 0.1.0.** `verifyEd25519` used to be `(message, signature, publicKey)`; `ed25519Verifier` and the `SignatureVerifier` interface flipped with it. A custom verifier that reads its arguments positionally must be updated, and the compiler will not catch it in plain JS. To catch swapped call sites, `verifyEd25519` **throws a `TypeError`** (it does not return `false`) when `publicKey` is not a 32-byte `Uint8Array`. Every other failure (wrong, truncated or garbled signature; unusable key bytes of the right length) returns `false`. Wrap the call if a malformed key is attacker-controlled input you want to treat as "invalid" rather than as an exception. `signEd25519` throws on bad input.
+
+## State keys and genesis
+
+A state key is `0x07 ‖ len(namespace) ‖ namespace ‖ len(id) ‖ id`. `accountKey(address)` builds the one you want; `stateKey(namespace, id)` is the general form for the other `StateNamespace` entries (`account:`, `credential:`, `proposal:`, `service:`, `identity:`, `escrow:`, `validator:` — only `account:` is read or written by the state machine today).
+
+The low-level way to fund genesis accounts is a store write before the first block, identically on every node:
+
+```js
+import { InMemoryStateStore, encodeAccount, accountKey } from '@johnhenry/raijin-core'
+
+const store = new InMemoryStateStore()
+await store.put(
+  accountKey(alicePublicKey),
+  encodeAccount({ balance: 1_000n, nonce: 0n, reputation: 0n }),
+)
+```
+
+For anything shared between nodes, describe genesis as data instead. A `GenesisConfig` (`chainId`, ordered `validators`, optional `accounts` of `{ address, balance, nonce?, reputation? }`, optional `timestamp`, default 0) deterministically derives block 0:
+
+| Function | Purpose |
+| --- | --- |
+| `createGenesisBlock(config)` | Block 0: number 0, zero parent, `stateRoot` = root of the genesis accounts, `txRoot` = a commitment to the chain id and ordered validator set |
+| `genesisHash(config)` | The canonical hash of block 0 — the value to distribute out of band |
+| `applyGenesisState(store, config)` | Write the genesis accounts into a fresh store |
+| `assertGenesisMatches(config, expectedHash)` | Throws unless `config` derives exactly `expectedHash` |
+
+Equal configs give equal hashes; any difference (chain id, a validator or their order, a balance, the timestamp) gives a different one. **Trust model:** genesis is not discovered trustlessly — a node is told the config, or at least the expected hash, out of band. [`ValidatorNode`](/raijin/validator/#genesis) consumes all of this (`genesis`, `genesisHash`, `ready()`, `fetchGenesis()`).
+
+## Wire codec
+
+Consensus messages, `tx-gossip` messages, genesis payloads, transactions and blocks carry `bigint` and `Uint8Array`, which `JSON.stringify` throws on or mangles. `encodeMessage(value): Uint8Array` / `decodeMessage(bytes)` is a small, dependency-free, **canonical** binary format that round-trips `null`, booleans, numbers, `bigint`, strings, `Uint8Array`, arrays and plain objects. Canonical means one value has exactly one encoding (so the bytes can be hashed, signed or compared), and `decodeMessage` throws `WireFormatError` on anything else: truncation, trailing bytes, an unknown version or tag, non-minimal integers, unsorted or duplicate object keys, invalid UTF-8, nesting deeper than 64. `1`, `1n` and `"1"` encode differently, so types are preserved exactly.
+
+`undefined` object properties are omitted (like JSON); `undefined` elsewhere, functions, symbols, `Map`/`Set`/`Date`/class instances and lone surrogates throw `TypeError` on encode. The codec only guarantees well-formed values; a receiver must still validate the *shape* of what it decodes. [`raijin-consensus`](/raijin/consensus/#transports-and-the-wire) builds typed `encodeConsensusMessage`/`decodeConsensusMessage` and `codecTransport` on top, and `@johnhenry/raijin-sdk` re-exports `encodeMessage`/`decodeMessage`. The byte-level format spec is in the package README.
+
+## Durable state
+
+`InMemoryStateStore` loses everything on a reload. `PersistentStateStore` is a `StateStore` that keeps the working set in memory (so `root()`, `snapshot()` and `revert()` are exactly the in-memory ones, and roots are identical by construction) and writes every change through to a `KVBackend`:
+
+```js
+import { PersistentStateStore, IndexedDbKVBackend } from '@johnhenry/raijin-core'
+
+const store = await PersistentStateStore.open(new IndexedDbKVBackend({ name: 'my-chain-state' }))
+```
+
+```ts
+interface KVBackend {
+  loadAll(): Promise<Map<string, Uint8Array>>   // hex(key) -> value
+  write(batch: { puts: [string, Uint8Array][]; deletes: string[] }): Promise<void>  // MUST be atomic
+  close?(): void | Promise<void>
+}
+```
+
+- `put`/`delete`/`revert` resolve only once the change is durable; a failed backend write rejects the call and leaves memory unchanged, so memory is never ahead of disk. Writes are serialised.
+- `importData` (state sync) is synchronous by contract, so its disk write runs in the background: `await store.flush()` for durability. `ValidatorNode.importSyncState` flushes for you.
+- Snapshots are in-memory only (rollback within a block, not across restarts).
+- `IndexedDbKVBackend` (browser) takes `{ name, storeName?, indexedDB? }`, uses one object store and one readwrite transaction per batch. The package README notes it has been exercised against an in-process IndexedDB double in tests, not a real browser. `MemoryKVBackend` is the in-memory backend; an OPFS or Node file backend is just another `KVBackend`.
+- `checkStateStoreConformance({ create, reopen? })` throws unless a store is root-equivalent to `InMemoryStateStore`, and, with `reopen`, survives a restart. Run it from any test runner against your own `StateStore`.
+
+To resume a *validator* (not just state) after a restart, also pass `checkpoint` to `ValidatorNode`; see [Validator](/raijin/validator/#persistence-and-restarts).
 
 ## Errors
 

@@ -1,30 +1,33 @@
 ---
 title: "Validator"
-description: "@johnhenry/raijin-validator — ValidatorNode composition root, BlockProducer, and the FIFO Mempool that is not raijin-mempool."
+description: "@johnhenry/raijin-validator — ValidatorNode composition root, BlockProducer, the fee-ordered Mempool it wires in, transaction gossip, genesis, and checkpointed restarts."
 ---
 
 import Install from '../../../components/Install.astro';
 
-**`@johnhenry/raijin-validator`** is the composition root: `ValidatorNode` wires a `StateMachine`, a `PBFTConsensus`, a FIFO `Mempool`, and a `BlockProducer` into the running loop — accept transactions, build a block on the timer when leader, propose, finalize, apply state, prune the mempool. You inject identity, transport, timer, and storage; this package supplies the glue and nothing else.
+**`@johnhenry/raijin-validator`** (0.2.0) is the composition root: `ValidatorNode` wires a `StateMachine`, a `PBFTConsensus`, the fee-ordered `Mempool` from [`@johnhenry/raijin-mempool`](/raijin/mempool/), and a `BlockProducer` into the running loop — accept transactions, build a block on the timer when leader, propose, finalize, apply state, prune the mempool. You inject identity, transport, timer, and storage; this package supplies the glue and nothing else.
 
 <Install pkg="@johnhenry/raijin-validator" />
 
 ## Traps first
 
-- **This `Mempool` is not `@johnhenry/raijin-mempool`.** Same class name, different animal: FIFO order (no fee ordering), **no signature verification**, and `add()` **throws** `'Mempool full'` instead of evicting. The fee-ordered pool is a separate, unintegrated package — comparison table below.
-- **`submitTransaction()` accepts garbage.** Nothing is validated at submission; bad signatures, wrong nonces, and overspends surface later as `revert` receipts in the finalized block — after consuming mempool and block space. Pre-validate at your API edge if that matters.
-- **`validators` must include this node's own public key.** Forget it and `isLeader` is never true; with a single node that means zero blocks, silently — the block-production loop swallows errors by design.
-- **The *vote* doesn't cover state; the *chain* does.** `BlockProducer` computes a real `txRoot` but leaves the *proposed* header's `stateRoot`/`receiptRoot` zeroed, since neither can be known before the block runs — that's the header nodes vote on. PBFT fills in the real, post-execution roots afterward, and `parentHash` is the hash of *that* completed header, not a reused zeroed root — so the chain does commit to state, one block later than the vote itself. See [Architecture](/raijin/architecture/).
-- **Quorum below 4 validators is not fault-tolerant, but it's not "1" either.** `quorumSize() = n − f` — at `n = 1` it's 1 (a lone node finalizes its own blocks, which is what makes the quick start below work), but at `n = 2` or `n = 3` it's 2 or 3: every validator, not a single one. None of `n = 1, 2, 3` tolerates a single fault; don't conflate that with "any one node can finalize alone" above `n = 1`. See [Consensus](/raijin/consensus/).
+- **`chainId` is required and has no default.** It is signed into every consensus vote; a default would be an id shared by every deployment that never chose one, letting votes replay between them. Give two different deployments two different ids.
+- **`Mempool` is re-exported from `@johnhenry/raijin-mempool`.** This package used to ship its own simpler FIFO class of the same name; it no longer does. `ValidatorNode` wires the real one: fee-ordered, sender+nonce deduplicated, signature-verified against the same `SignatureVerifier` the state machine uses, and evicting the lowest-fee transaction when full rather than throwing. `import { Mempool } from '@johnhenry/raijin-validator'` still works and now gives you that pool. Mind the pool's [fee convention](/raijin/mempool/#the-fee-convention-sits-next-to-the-tx-type-byte).
+- **`submitTransaction()` rejects rather than accepts-and-reverts.** An invalid signature, a duplicate sender+nonce, or a full pool with nothing cheaper to evict all make it **throw**, before the transaction ever occupies block space. A bad *nonce* is still only caught at execution, as a `revert` receipt: the mempool deduplicates nonces but does not know the account's current one.
+- **`validators` must include this node's own public key**, or `isLeader` is never true and (with `n = 1`) nothing ever finalizes — silently, because the block-production loop swallows errors by design. All nodes must pass the same keys in the same order.
+- **The *vote* doesn't cover state; the *chain* does.** `BlockProducer` computes a real `txRoot` but leaves the *proposed* header's `stateRoot`/`receiptRoot` zeroed, since neither can be known before the block runs — that's the header nodes vote on. PBFT fills in the real, post-execution roots afterward, and `advance()` hashes *that* completed header for the next block's `parentHash`. So the chain link commits to the executed result, while the digest nodes voted on commits to the proposal. See [Architecture](/raijin/architecture/).
+- **`parentHash` is the parent's block hash**, `blockHash(parent)` = `H(encodeBlockHeader(parent.header))` — not the parent's state root, which is what it used to be. It therefore commits to the parent's transactions, proposer, timestamp and roots, so "same height, different history" is detectable from headers alone.
+- **Quorum below 4 validators is not fault-tolerant, but it's not "1" either.** `quorumSize() = n − f` — at `n = 1` it's 1 (a lone node finalizes its own blocks, which is what makes the quick start below work), but at `n = 2` or `n = 3` it's 2 or 3: every validator, not a single one. None of `n = 1, 2, 3` tolerates a single fault. See [Consensus](/raijin/consensus/).
 
 ## `ValidatorNode`
 
 ```js
-import { InMemoryStateStore } from '@johnhenry/raijin-core'
+import { InMemoryStateStore, ed25519Verifier } from '@johnhenry/raijin-core'
 import { ValidatorNode } from '@johnhenry/raijin-validator'
 
 const node = new ValidatorNode({
-  identity: { publicKey, sign, verify },  // verify checks *transaction* signatures
+  chainId: 1n,                            // required — no default
+  identity: { publicKey, sign, verify: ed25519Verifier }, // verify checks tx AND vote signatures
   transport,                              // NetworkTransport; no-ops for a single node
   timer: { set: (ms, cb) => setTimeout(cb, ms), clear: clearTimeout },
   store: new InMemoryStateStore(),
@@ -39,40 +42,86 @@ node.start()
 const txHashHex = await node.submitTransaction(signedTx)
 ```
 
+Config beyond the above: `viewTimeout` (ms, default 10000 — how long to wait for the leader before requesting a view change), `gossip`, `genesis`, `genesisHash` and `checkpoint` (each covered below).
+
+`identity.verify` has two jobs: the state machine and the mempool check *transaction* signatures with it, and consensus checks every PRE-PREPARE/PREPARE/COMMIT/VIEW-CHANGE vote with it. A verifier that returns `true` unconditionally therefore disables vote authentication as well as transaction validation. Its argument order is `(publicKey, signature, message)` — changed in 0.1.0; see [Core](/raijin/core/#signatures).
+
 | Member | Signature | Behavior |
 | --- | --- | --- |
 | `start()` / `stop()` | `() → void` | Idempotent; starts consensus and the block-production timer loop, stops both and clears timers. |
-| `submitTransaction` | `(tx) → Promise<string>` | FIFO-enqueues; resolves to the hex of `hash(encodeTxSigned(tx))`. Throws only when the mempool is full. |
+| `submitTransaction` | `(tx) → Promise<string>` | Verifies and adds to the mempool, relays to the other validators (gossip), resolves to the hex of `hash(encodeTxSigned(tx))`. **Throws** on an invalid signature, a duplicate sender+nonce, or a full pool with nothing cheaper to evict. |
 | `onBlockFinalized` | `(handler) → void` | `(block, receipts)` after every finalized block, post state-application and mempool pruning. |
+| `ready()` / `ValidatorNode.create(config)` | `() → Promise<void>` / `(config) → Promise<ValidatorNode>` | Resolves once genesis (if configured) is verified and applied, and any checkpoint is loaded; rejects on a genesis or checkpoint problem. `create` constructs a node and awaits `ready()`. |
+| `fetchGenesis` | `({ timeoutMs? }) → Promise<GenesisConfig>` | Ask peers for the genesis config; see [Genesis](#genesis). |
+| `genesisBlock` / `genesis` | getters | Block 0 / the `GenesisConfig` once configured and applied; else `null`. |
 | `latestBlock` | getter | Most recent finalized `Block` or `null`. |
 | `running` | getter | Boolean. |
-| `consensus` / `mempool` / `stateMachine` / `blockProducer` | getters | The wired internals, exposed on purpose — e.g. `node.stateMachine.getAccount(addr)` for queries, `node.blockProducer.produceBlock()` to force production in tests. |
+| `checkpointError` | getter | The most recent `checkpoint.save` failure, if any. |
+| `exportSyncState` / `importSyncState` / `syncFrom` | async | Catch a rejoining node up from a peer's state, last block and consensus view; needs a store with `exportData`/`importData` (both built-in stores qualify). |
+| `consensus` / `mempool` / `stateMachine` / `blockProducer` / `store` | getters | The wired internals, exposed on purpose — e.g. `node.stateMachine.getAccount(addr)` for queries, `node.blockProducer.produceBlock()` to force production in tests. |
 
 The production loop: every `blockTime` the node calls `produceBlock()` and *swallows any error* — not being leader and an empty mempool are normal, so the loop stays quiet. When you need the failure, call `node.blockProducer.produceBlock()` yourself.
+
+### Transaction gossip
+
+`gossip?: { enabled?: boolean, fanout?: number, maxHops?: number }` — on by default. `submitTransaction` also relays the tx to the other validators over the same `transport` (a `tx-gossip` message; `PBFTConsensus` ignores it), so a client can submit to **any** validator and whichever one leads will include it.
+
+- **Dedupe:** by signed-tx hash (a bounded seen-set) on top of the mempool's sender+nonce rule, so the relay storm terminates.
+- **Hops:** the originator sends at hop 1; a receiver relays (to everyone except the sender) only while `hops < maxHops`. Default `maxHops: 2`.
+- **Fanout:** default is `transport.broadcast`; with `fanout: k` each round goes to `k` random other validators via `send` (use with a larger `maxHops`).
+- **Backpressure:** an inbound tx is dropped *before* signature verification when the pool is full and it cannot out-bid the lowest-fee pending tx (`Mempool.hasCapacityFor`), when more than 64 verifications are already in flight, or when its nonce is already consumed on-chain. Only transactions the mempool actually accepted are relayed, and only validators' gossip is accepted.
+- `enabled: false` restores the old local-only behavior. Gossip messages carry `bigint`/`Uint8Array`, so every node needs a transport that can carry them: wrap a byte transport with [`codecTransport`](/raijin/consensus/#transports-and-the-wire).
+
+### Genesis
+
+`genesis?: GenesisConfig` and `genesisHash?: Uint8Array` (see [Core](/raijin/core/#state-keys-and-genesis)). With `genesis`, every node derives the same block 0 from the config: a fresh store is seeded with the genesis accounts, `validators` come from the config (set one or the other; they must match), `genesis.chainId` must equal `chainId`, and the first block's `parentHash` is the genesis hash. `await node.ready()` (or `await ValidatorNode.create(config)`) surfaces a genesis problem: if `genesisHash` is given and the config does not hash to it, the node **refuses to run** (`ready()` rejects, `start()` never starts consensus). A node whose genesis differs from the cluster's and was not pinned computes a different block 0, ignores the cluster's blocks (parent hash mismatch), and never finalizes anything.
+
+A node can also be started with **only** `genesisHash` (no `genesis`, no `validators`) and then call `await node.fetchGenesis({ timeoutMs })`: it asks peers (`genesis-request`/`genesis-response` over the transport) and adopts the first response that hashes to the expected hash; it rejects on timeout. **Trust model:** the hash (or the config) must be obtained out of band — a peer cannot vouch for the genesis it serves, so there is no trustless bootstrap. Without `genesis` the node behaves as before (no block 0, first parent hash all zeros); all nodes of a chain must use the same mode.
+
+### Persistence and restarts
+
+`checkpoint?: CheckpointStore` (`{ load(): Promise<Uint8Array | null>; save(record): Promise<void> }`) makes a restarted validator resume from its last committed block instead of genesis. Pair it with a durable `store`:
+
+```js
+import { PersistentStateStore, IndexedDbKVBackend } from '@johnhenry/raijin-core'
+import { ValidatorNode, kvCheckpointStore } from '@johnhenry/raijin-validator'
+
+const store = await PersistentStateStore.open(new IndexedDbKVBackend({ name: 'chain-state' }))
+const checkpoint = kvCheckpointStore(new IndexedDbKVBackend({ name: 'chain-checkpoint' }))
+const node = await ValidatorNode.create({ /* …config… */ store, checkpoint })
+```
+
+- On every finalized block the node saves `{ latestBlock, view }` (wire-codec encoded). During `ready()` it loads it, checks the block's `stateRoot` equals the store's root, and resumes block numbering, parent-hash linkage and consensus's chain tip from it.
+- Use a **separate** storage location from the state store; a shared key space would put the record inside the state root.
+- Ordering: transactions reach the state store before the checkpoint is written, so after a crash the store can be one block ahead of the checkpoint. A mismatch makes `ready()` reject with a clear error rather than guess; recover with `syncFrom`/`importSyncState` from a peer. A failed `save` does not halt finalization; see `node.checkpointError`.
+- The consensus *view* is recorded but not re-adopted (a view needs its signed justification); a restarted node rejoins the current view through the normal protocol or `importSyncState`.
+- `importSyncState` awaits `store.flush()` when the store has one, so synced state is durable before the node continues.
 
 ## `BlockProducer`
 
 Config: `{ proposer, consensus, mempool, maxTxPerBlock? }`.
 
-- `produceBlock(): Promise<Block | null>` — `null` if not leader or mempool empty; otherwise pulls up to `maxTxPerBlock` transactions, Merkle-roots `hash(encodeTxSigned(tx))` per tx into `txRoot`, stamps `timestamp: Date.now()`, and hands the block to `consensus.propose()`. Remember `propose()` throws if a round is already in flight.
-- `advance(block): void` — post-finalization bookkeeping: `nextBlockNumber = number + 1`, parent linkage carried forward. `ValidatorNode` calls this for you.
+- `produceBlock(): Promise<Block | null>` — `null` if not leader or mempool empty; otherwise pulls up to `maxTxPerBlock` transactions via `mempool.pendingForProposer()`, Merkle-roots `hash(encodeTxSigned(tx))` per tx into `txRoot`, stamps `timestamp: Date.now()`, and hands the block to `consensus.propose()`. Remember `propose()` throws if a round is already in flight.
+- `advance(block): Promise<void>` — post-finalization bookkeeping: `nextBlockNumber = number + 1` and `parentHash = await blockHash(block)`. **Async**, since it hashes the parent header, so callers must `await` it. `ValidatorNode` calls this for you.
 - `nextBlockNumber: bigint` — starts at `1n`.
 
-## `Mempool` (the FIFO one)
+## `Mempool` (re-exported)
 
-`new Mempool(maxSize = 4096)`:
-
-- `add(tx): Promise<string>` — throws `'Mempool full'` at capacity; returns tx-hash hex. Keyed by hash of the *signed* encoding, so an identical signed tx submitted twice occupies one slot (and a re-signed variant occupies a second — no sender+nonce dedup here).
-- `pending(limit?)` — insertion order. `remove(hashHex)`, `removeBatch(txs)`, `clear()`, `size`.
+`export { Mempool } from '@johnhenry/raijin-mempool'` — a convenience re-export, not a separate implementation. See [Mempool](/raijin/mempool/) for the full API (`submit`, `pendingForProposer`, `removeBatch`, `hasCapacityFor`, the fee convention and the eviction rule). `ValidatorNode` constructs it with `maxSize: maxMempoolSize` and a verifier built from `identity.verify`.
 
 ### Which mempool am I holding?
 
-| | this package's `Mempool` | [`@johnhenry/raijin-mempool`](/raijin/mempool/) |
-| --- | --- | --- |
-| Ordering | FIFO | fee-descending |
-| Verifies signatures | no | yes (injected) |
-| Full-pool behavior | throws | evict lowest / reject |
-| Dedup key | signed-tx hash | sender+nonce |
-| Used by `ValidatorNode` | **yes** | no |
+One. Older documentation described a second, FIFO `Mempool` in this package that did no signature verification, threw `'Mempool full'` at capacity, and was the one `ValidatorNode` used. That class is gone: both import paths give you the pool from `@johnhenry/raijin-mempool`.
+
+## Running more than one node
+
+Everything above scales to a mesh, but four things change:
+
+1. **The transport becomes real.** Every node's `transport.broadcast`/`send` must reach every other validator, and `onMessage` reports the sender's public key as `from`. Consensus no longer *trusts* that value — every vote's signature is verified against it — but nothing here retries or reorders, so a lossy transport costs liveness, not safety. Consensus, `tx-gossip` and genesis messages carry `bigint`s and `Uint8Array`s, so they cannot be JSON'd: implement the byte-level `BytesTransport` and wrap it with `codecTransport` from `@johnhenry/raijin-consensus` (see [Consensus](/raijin/consensus/#transports-and-the-wire)).
+2. **`validators` must be byte-identical on every node** — same keys, same order. Leader election is positional (`view % n`), so a different ordering means nodes disagree about who may propose and nothing ever finalizes, with no error to tell you why.
+3. **Quorum math starts to matter.** Quorum is `n − f` with `f = floor((n − 1) / 3)`: at n = 4 you tolerate one faulty node (quorum 3), at n = 3 quorum is 3 and you tolerate none. Pick n = 3f + 1 for the f you actually need.
+4. **Every node needs the same `chainId`**, and two different deployments need two different ones.
+
+Multi-node scenarios — leader crashes, partitions, membership churn — are exercised by the repo's internal `raijin-test-harness` package rather than examples, because they're timing-sensitive by nature.
 
 Runnable: `npm run example:06` is the full lifecycle — genesis funding, start, submit, timer-driven production, finalization, pruning, clean stop — with assertions at each step.

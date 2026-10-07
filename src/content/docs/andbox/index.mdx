@@ -1,16 +1,16 @@
 ---
 title: "andbox"
-description: "Run JavaScript in its own Web Worker context with capability-gated RPC, import maps, rate limits, and hard-kill timeouts — zero dependencies. Not a security sandbox."
+description: "Run JavaScript in its own Worker context (browser Web Worker or Node worker thread) with capability-gated RPC, import maps, rate limits, and hard-kill timeouts — zero dependencies. Not a security sandbox."
 planet: andbox
 ---
 
 import Install from '../../../components/Install.astro';
 
-andbox runs JavaScript in a dedicated Web Worker with a structured bridge back to the host. Code in that Worker can call host-provided "capabilities" via RPC, use import-mapped packages, and define virtual modules -- all with configurable rate limits, timeouts, and hard-kill semantics.
+andbox runs JavaScript in a dedicated Worker — a Web Worker in browsers, a `node:worker_threads` thread under Node — with a structured bridge back to the host. Code in that Worker can call host-provided "capabilities" via RPC, use import-mapped packages, and define virtual modules -- all with configurable rate limits, timeouts, and hard-kill semantics.
 
-**andbox's job is running code in its own context with a clean RPC surface, not containing adversarial code.** The Worker boundary keeps well-behaved code from touching the DOM or host globals by accident, and gives you rate limits, timeouts, and a kill switch for code you trust but don't want to block on or grant unrestricted access to. It is **not** a security sandbox — code that specifically tries to escape can reach `fetch`/`WebSocket`/`Worker` directly, and the capability gate can be bypassed via the prototype chain. See [Security model](#security-model) before using andbox to run code you don't trust.
+**andbox's job is running code in its own context with a clean RPC surface, not containing adversarial code.** The Worker boundary keeps well-behaved code from touching the DOM or host globals by accident, and gives you rate limits, timeouts, and a kill switch for code you trust but don't want to block on or grant unrestricted access to. It is **not** a security sandbox — code that specifically tries to escape can reach `fetch`/`WebSocket`/`Worker` directly, whatever capabilities you grant, and under Node a worker thread shares the host process. See [Security model](#security-model) before using andbox to run code you don't trust.
 
-Zero dependencies. Uses only Web Workers and standard browser APIs.
+Zero dependencies. Uses only Web Workers and standard browser APIs in browsers, and `node:worker_threads` under Node (Node 26 or newer).
 
 > Previously published as `andbox` (last unscoped version 0.1.1). Same
 > library, same API — the scoped package restarts its version line at
@@ -71,11 +71,13 @@ await sandbox.dispose();
 
 ## Execution modes
 
-andbox supports three execution modes:
+andbox supports five execution modes (any other `mode` throws an error listing these):
 
-- **`worker`** (default) -- Runs in a dedicated Worker with an RPC bridge, import maps, virtual modules, and hard-kill timeout semantics. See [Security model](#security-model) for what this does and doesn't protect against.
+- **`worker`** (default) -- Runs in a dedicated Worker with an RPC bridge, import maps, virtual modules, and hard-kill timeout semantics. Under Node, with no global `Worker`, this picks `node:worker_threads` automatically -- see [Running under Node](#running-under-node). See [Security model](#security-model) for what this does and doesn't protect against.
+- **`node-worker`** -- The `worker` mode on `node:worker_threads`, forced. Selected automatically under Node when there is no global `Worker`.
 - **`inline`** -- Same-thread execution via AsyncFunction. Lighter weight, no Worker overhead, no isolation at all -- code runs with full access to the calling context. Only for code you already trust.
-- **`data-uri`** -- Dynamic `import()` via Blob URL. Module-level separation without a Worker. Supports globals injection.
+- **`data-uri`** -- Dynamic `import()` via Blob URL (a `data:` URL under Node). Module-level separation without a Worker. Supports globals injection.
+- **`service-worker`** -- Not code execution at all: registers a Service Worker that serves an in-memory `path → content` map with real HTTP-shaped fetch/navigation semantics. For hosting a small virtual multi-file site, not for running JS in isolation; browser only. See [API reference](/andbox/api/#service-worker-mode) and [Security model](#security-model).
 
 ```js
 // Inline mode (no Worker)
@@ -87,12 +89,54 @@ const dataUri = createSandbox({ mode: 'data-uri', globals: { x: 42 } });
 const result = await dataUri.execute('print(x)');
 ```
 
+## Running under Node
+
+Since 0.0.4 no Worker shim is needed. Under Node (`engines.node >= 26`), `createSandbox()` just works:
+
+```js
+import { createSandbox } from '@johnhenry/andbox';
+
+const sandbox = await createSandbox({ capabilities: { now: () => Date.now() } });
+await sandbox.evaluate('return await host.call("now")');
+await sandbox.dispose(); // worker threads keep the process alive until disposed
+```
+
+**Mode selection.** `mode: 'worker'` (the default) picks `node:worker_threads` when `typeof Worker === 'undefined'` and the runtime is Node; if a global `Worker` exists (a browser, or a shim you installed) that is used as before. `mode: 'node-worker'` forces the Node implementation. `workerFactory: (source) => WorkerLike` overrides both, and `createNodeWorkerFactory()` is exported for that purpose.
+
+**How it works.** The same worker script the browser uses is passed to `new worker_threads.Worker(prelude + source, { eval: true })`; no blob URLs are created. The prelude maps `parentPort` to `self.postMessage`/`onmessage`/`close` and installs an in-thread module loader hook (`module.registerHooks`) that serves virtual modules from memory. `node:worker_threads` is loaded with a dynamic `import()`, so browser bundles never see a `node:` specifier. Timeouts, `AbortSignal`, and `dispose()` hard-kill the thread with `terminate()`, and a fresh one is started on the next call.
+
+**Virtual modules can import each other (0.0.6).** `defineModule()` modules are served under `andbox-vfs://` URLs, so they can import one another relatively (`./b`, `../lib/c.js`), by bare name (`import x from "lib/x"`), through the sandbox `importMap`, and cyclically. Extensions are optional (`./b`, `./b.js`, `./b/index.js` all find `b`). Redefining a module (or a dependency) takes effect on the next `sandboxImport()`. Difference from the browser: under Node, modules are cached per definition, so repeated `sandboxImport(name)` returns the same module instance until it is redefined.
+
+**Process lifetime.** A live worker thread keeps the host process alive until `dispose()`. Pass `unref: true` to let the process exit while the sandbox is *idle*: the thread is unref'd between calls and ref'd again while a startup, `evaluate()` or `defineModule()` is in flight, so an `await sandbox.evaluate(...)` is never abandoned. Default `false`; ignored with a browser Worker.
+
+**Opt-in hardening: `nodeWorker`.** By default the thread behaves like any `worker_threads` thread: a copy of `process.env`, no memory cap, and full access to `process`, `fs`, `child_process`, and the rest. `nodeWorker` tightens that:
+
+```js
+const sandbox = await createSandbox({
+  nodeWorker: {
+    permissions: true,        // permission model, isolated env, heap cap, ...
+    // env: { MODE: 'x' },    // explicit env; with permissions the default is {}
+    // maxMemoryMb: 128,      // heap cap (default 256 with permissions: true)
+    // resourceLimits: {...}, // raw worker_threads resourceLimits, merged on top
+    // execArgv: [...],       // extra thread flags, e.g. '--allow-fs-read=/data'
+    // captureStdio: true,    // route thread stdout/stderr to onConsole('stdout'|'stderr', text)
+  },
+});
+```
+
+`permissions: true` spawns the thread with `--permission` (so `fs` reads and `child_process` are denied with `ERR_ACCESS_DENIED`; grant paths with `execArgv: ['--allow-fs-read=/dir']`), gives it an isolated `env` (`{}` unless you pass one), caps the heap at 256 MB by default (an allocation loop kills the thread, the pending `evaluate()` rejects, and the next call starts a fresh thread), strips `process.binding`, `_linkedBinding`, `getBuiltinModule`, `dlopen`, `kill`, `abort`, `reallyExit` and `mainModule`, makes a resolve hook reject any `import()`/`sandboxImport()` that resolves to a `node:` or `file:` URL (`data:`, `http(s):` and virtual modules still work), and routes thread stdout/stderr to `onConsole`. Nested workers and native addons are not granted. The `nodeWorker` options throw when combined with a browser Worker or a custom `workerFactory`, rather than silently doing nothing.
+
+**Not supported / differences from the browser.**
+
+- `mode: 'service-worker'` needs a browser and rejects under Node.
+- `data-uri` mode uses a `data:` URL instead of a Blob URL.
+- **A worker thread is not a security boundary** -- not by default and not with `nodeWorker.permissions`. See [Security model](#security-model).
 
 ## Execution model
 
-Code runs inside a Web Worker created from a Blob URL. This gets you, for free, against code that isn't specifically trying to defeat it:
+In a browser, code runs inside a Web Worker created from a Blob URL (under Node, inside a `worker_threads` thread — see [Running under Node](#running-under-node)). This gets you, for free, against code that isn't specifically trying to defeat it:
 
-- **No DOM access** -- Workers are inherently isolated from the document
+- **No DOM access** -- Workers are inherently isolated from the document (a Node worker thread has no DOM to begin with)
 - **No direct host object references** -- only what's explicitly passed in (capabilities, globals, import map entries) is reachable, so ordinary code can't accidentally touch host-side state
 - **Hard kill** -- on timeout, the Worker is `terminate()`d and a fresh one is created for the next call
 - **Virtual modules** -- modules defined via `defineModule()` are available via `sandboxImport()`
@@ -100,22 +144,33 @@ Code runs inside a Web Worker created from a Blob URL. This gets you, for free, 
 
 ## Security model
 
-andbox is **not** a boundary against code that is actively trying to escape it. If you're running code you don't fully trust, every item below is a confirmed way sandboxed code can act outside what `capabilities`/`policy`/`createNetworkFetch` appear to allow:
+andbox is **not** a boundary against code that is actively trying to escape it. If you're running code you don't fully trust, read this section before you rely on `capabilities`/`policy`/`createNetworkFetch` for anything.
 
-- **Worker-global APIs are directly reachable, regardless of `capabilities`.** Sandboxed code executes in a real Worker global scope, so `fetch`, `WebSocket`, `Worker` (nested workers), `importScripts`, `indexedDB`, and `self.postMessage` are all callable directly — omitting a `fetch` capability does not block network access.
-- **`gateCapabilities()`'s check can be bypassed via the prototype chain.** `host.call('constructor', ...)` resolves through `Object.prototype` to the real global `Object` constructor, bypassing the capability allowlist, rate limits, and call accounting entirely.
-- **`createNetworkFetch()`'s allowlist is not redirect-safe.** It checks the request hostname before the fetch, not the final response URL — an allowlisted host that redirects (an open redirector, or a compromised endpoint) can steer the request anywhere.
-- **`sandboxImport()` will load and execute an arbitrary remote URL.** Any `http(s)://` specifier is passed straight to `import()` with no allowlist, independent of any network policy configured for capabilities.
-- **A timeout stops message delivery, not in-flight host-side effects.** If a capability call with a real side effect (a write, an API call) is in flight when the timeout fires, that side effect still completes on the host even though the Worker is killed.
+**What andbox guarantees:**
 
-If you need to run untrusted/adversarial code safely, andbox alone is not sufficient — pair it with OS-level isolation (a separate process/container with its own network and filesystem restrictions) or use a purpose-built sandboxing runtime. Capability gating and rate limits here are for organizing and throttling code you already trust, not for containing code you don't.
+- **No DOM access.** Worker-mode code executes in a real Worker global scope, which has no `document`, `window`, or other DOM references -- a platform property of Workers, not something andbox enforces itself.
+- **No implicit host object references.** Only what you explicitly pass in (`capabilities`, `globals`, import map entries) is reachable from sandboxed code, so ordinary (non-adversarial) code cannot accidentally read or mutate host-side state it wasn't given a reference to.
+- **Hard kill on timeout.** `evaluate()` calls that exceed `timeoutMs` `terminate()` the Worker outright and start a fresh one for the next call -- a real kill, not a cooperative cancellation the running code could ignore.
+- **The capability gate cannot be walked around via the prototype chain.** `gateCapabilities()` builds the gated object with `Object.create(null)`, so `host.call('constructor', ...)` cannot resolve through `Object.prototype` to the real global `Object` constructor. (Fixed; see [andbox#5](https://github.com/johnhenry/andbox/issues/5).)
+- **`createNetworkFetch()`'s allowlist is redirect-safe.** Requests are made with `redirect: 'manual'` and any redirect response is rejected outright, so an allowlisted host cannot silently redirect a caller to a non-allowlisted one. (Fixed; see [andbox#6](https://github.com/johnhenry/andbox/issues/6).)
+- **`gateCapabilities()` enforces call/argument-size/concurrency caps per capability**, for cooperative callers that stay within the capabilities you actually granted.
+
+**What is still yours:**
+
+- **Worker-global APIs are directly reachable, regardless of `capabilities`.** Sandboxed code executes in a real Worker global scope, so `fetch`, `WebSocket`, `Worker` (nested workers), `importScripts`, `indexedDB`, and `self.postMessage` are all callable directly -- omitting a `fetch` capability does not block network access. Fixing this needs a different execution strategy (a cross-origin iframe with a strict CSP, or a Realms/Compartments-based approach). See [andbox#10](https://github.com/johnhenry/andbox/issues/10).
+- **Under Node, a worker thread is not a security boundary.** It shares the process with the host; by default it inherits `process.env` and can reach `process` (including `process.binding` and `process.getBuiltinModule('fs')`) and `import('node:child_process')`. The opt-in `nodeWorker.permissions` hardening raises the cost of casual abuse but does not restrict the network or CPU use, and the `process` stripping and import hook are denylists, not a proof. For untrusted code on a server, add OS-level isolation.
+- **`sandboxImport()` will load and execute an arbitrary remote URL.** Any `http(s)://` specifier is passed straight to `import()` with no allowlist, independent of any network policy configured for capabilities. See [andbox#7](https://github.com/johnhenry/andbox/issues/7).
+- **A timeout stops message delivery, not in-flight host-side effects.** If a capability call with a real side effect (a write, an API call) is in flight when the timeout fires, that side effect still completes on the host even though the Worker is killed. Make such capabilities idempotent and/or cancellable via `AbortSignal`. See [andbox#8](https://github.com/johnhenry/andbox/issues/8).
+- **`mode: 'service-worker'` does not provide isolation by merely existing.** It's a hosting mechanism -- a real Service Worker, same-origin by default, serving your `files` map. Content served through it can see and touch its own origin like any same-origin page. For content you don't fully trust, point it at a genuinely separate origin. See [andbox#14](https://github.com/johnhenry/andbox/issues/14).
+- **The Service Worker does not control the very first navigation into its scope.** Don't navigate anything into `scope` until the promise returned by `createSandbox({ mode: 'service-worker' })` resolves; after that every request is intercepted from the first byte.
+
+If you need to run untrusted/adversarial code safely, andbox alone is not sufficient -- pair it with OS-level isolation (a separate process/container with its own network and filesystem restrictions) or use a purpose-built sandboxing runtime. Capability gating and rate limits here are for organizing and throttling code you already trust, not for containing code you don't.
 
 ## Status
 
-Small and stable: 16 tests, zero runtime dependencies, Node ≥ 24 (browser use
-needs only standard Web Worker APIs). Runnable examples live in the repo's
+Small and usable in both browsers and Node: zero runtime dependencies, `engines.node >= 26` (browser use needs only standard Web Worker APIs). Runnable examples live in the repo's
 [`examples/`](https://github.com/johnhenry/andbox/tree/main/examples)
-directory — note they require a Worker-capable runtime, documented there.
+directory; the first five run under Node, and the Service Worker demo is browser-only.
 
 ## License
 

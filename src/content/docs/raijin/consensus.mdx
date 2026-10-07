@@ -1,11 +1,11 @@
 ---
 title: "Consensus"
-description: "@johnhenry/raijin-consensus — the PBFT engine and ValidatorSet: quorum math, the message flow, view changes, and what is not verified."
+description: "@johnhenry/raijin-consensus — the PBFT engine and ValidatorSet: quorum math, the message flow, view changes, what is authenticated, and the byte-transport codec."
 ---
 
 import Install from '../../../components/Install.astro';
 
-**`@johnhenry/raijin-consensus`** implements a simplified PBFT: leader broadcasts PRE-PREPARE with a block, validators answer PREPARE then COMMIT, and finalization happens at `quorumSize()` commits, after which the block is applied to the injected `StateMachine`. Leader rotation is round-robin per view; view changes evict a stalled leader. Transport and time are injected interfaces, which is what makes the engine testable and browser-portable. Every vote the engine acts on is now signature-verified against a required, injected `verify` — see "What's authenticated" below before assuming otherwise.
+**`@johnhenry/raijin-consensus`** (0.2.0) implements a simplified PBFT: leader broadcasts PRE-PREPARE with a block, validators answer PREPARE then COMMIT, and finalization happens at `quorumSize()` commits, after which the block is applied to the injected `StateMachine`. Leader rotation is round-robin per view; view changes evict a stalled leader. Transport and time are injected interfaces, which is what makes the engine testable and browser-portable. Every vote the engine acts on is signature-verified against a required, injected `verify` (`(publicKey, signature, message)` order) — see "What's authenticated" below before assuming otherwise.
 
 <Install pkg="@johnhenry/raijin-consensus" />
 
@@ -45,7 +45,7 @@ const consensus = new PBFTConsensus({
   timer: { set: (ms, cb) => setTimeout(cb, ms), clear: clearTimeout },
   stateMachine,                                // from @johnhenry/raijin-core
   sign: (msg) => wallet.sign(msg),
-  verify: ed25519Verifier,                     // required -- every vote is checked with this
+  verify: ed25519Verifier,                     // required -- every vote is checked with this; (publicKey, signature, message)
   blockTime: 2000,                             // ms, default 2000
   viewTimeout: 10000,                          // ms, default 10000
 })
@@ -75,6 +75,7 @@ View changes: the view timer resets on any progress; on expiry a node broadcasts
 | Member | Behavior |
 | --- | --- |
 | `new ValidatorSet(keys?)` | Ordered list of 32-byte public keys. Order is consensus-critical. |
+| `epoch()` | `Promise<Uint8Array>` — a 32-byte digest of this exact set in this exact order. Every vote signature covers it, which is what stops votes crossing a membership change. A digest rather than a counter on purpose: two nodes that applied *different* changes would still agree on "epoch 2". Memoized; invalidated by `add`/`remove`. |
 | `add(k)` / `remove(k)` / `has(k)` | Membership; `add` rejects duplicates (`false`). |
 | `leaderForView(view)` | `keys[view % n]`; throws on an empty set. |
 | `quorumSize()` / `maxFaults` | The table above. |
@@ -84,8 +85,26 @@ Every node must build its set with the **same keys in the same order** — leade
 
 ## Types
 
-`PBFTConfig`, `PBFTPhase`, `NetworkTransport` (`broadcast` / `send` / `onMessage`), `ConsensusTimer` + `TimerHandle` (inject a mock for deterministic tests — the repo's `MockTimer` advances time manually), and the message union `ConsensusMessage` = `PrePrepareMessage | PrepareMessage | CommitMessage | ViewChangeMessage | NewViewMessage`.
+`PBFTConfig`, `PBFTPhase`, `NetworkTransport` (`broadcast` / `send` / `onMessage`), `ConsensusTimer` + `TimerHandle` (inject a mock for deterministic tests — the repo's `MockTimer` advances time manually), and the message union `ConsensusMessage` = `PrePrepareMessage | PrepareMessage | CommitMessage | ViewChangeMessage | NewViewMessage | TxGossipMessage | GenesisRequestMessage | GenesisResponseMessage`. The last three are not consensus votes: `PBFTConsensus` ignores them, and [`ValidatorNode`](/raijin/validator/) uses them for transaction gossip and genesis fetching.
 
-Serialization gotcha: consensus messages carry `bigint`s and `Uint8Array`s, so `JSON.stringify` alone will throw or mangle. If your transport is JSON-based you need a replacer/reviver pair — `packages/consensus/test/helpers.ts` in the repo has a working one.
+## Transports and the wire
+
+`NetworkTransport` is typed over message **objects**, which carry `bigint` and `Uint8Array` and so cannot be `JSON.stringify`d. The contract:
+
+- **In-process transports** (tests, same-thread buses) may pass the objects straight through.
+- **Anything that crosses a process boundary** (WebSocket, WebRTC data channel, a byte stream) should implement the byte-level `BytesTransport` — `broadcast(bytes)`, `send(to, bytes)`, `onMessage((from, bytes) => ...)` — and be wrapped: `new ValidatorNode({ transport: codecTransport(myBytesTransport), ... })`. `codecTransport` encodes on send and decodes on receive with the canonical [wire codec](/raijin/core/#wire-codec) from `raijin-core`. Payloads that fail to decode, or are not consensus messages, are dropped (report them via `codecTransport(inner, { onError })`); they never throw into your socket.
+- Either way `from` must be the **authenticated** peer key the transport established (e.g. from a handshake), never something read out of the payload. Consensus verifies every vote's signature against it. Delivery should be reliable and ordered per peer.
+
+`encodeConsensusMessage(msg): Uint8Array` / `decodeConsensusMessage(bytes): ConsensusMessage` are the same codec plus a shape check (types, `bigint` views/sequences, `Uint8Array` digests/keys/signatures, well-formed `new-view`), covering every member of `ConsensusMessage`.
+
+## `voteDigest(vote)` / `NO_BLOCK_DIGEST`
+
+The bytes a validator signs for one vote, exported so a transport, relay or test can construct and check a vote without re-deriving the layout:
+
+```ts
+voteDigest({ phase, chainId, epoch, view, sequence, digest }): Promise<Uint8Array>
+```
+
+`H(tag ‖ 0x00 ‖ chainId ‖ epoch ‖ view ‖ sequence ‖ digest)`, with integers LEB128 and `epoch`/`digest` length-prefixed, so every field is self-delimiting and no two distinct votes share an input. `phase` is `'pre-prepare' | 'prepare' | 'commit' | 'view-change'` and selects the domain tag; use `NO_BLOCK_DIGEST` (32 zero bytes) as the `digest` for VIEW-CHANGE, which commits to no block. It takes one object rather than positional arguments on purpose: four of the six fields are bigints or byte strings of similar shape, and a transposed pair would silently sign a valid-looking signature over the wrong scope.
 
 Runnable: `npm run example:05` prints the quorum table and drives a complete single-validator round from `propose()` through finalization.
