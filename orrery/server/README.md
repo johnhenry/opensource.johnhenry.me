@@ -53,6 +53,17 @@ useful "API surface stand-in": it shows the wrapper's real option surface
 exact JSON request it would send, and a canned response shaped like a real
 one — clearly labelled as a stand-in, never pretending to be the model.
 
+## wsh — Web Shell (`@johnhenry/wsh/server`)
+
+Routes on the companion: `GET /wsh/info`, `POST /wsh/authorize`, `POST /wsh/revoke`, `POST /wsh/rotate-host-key`. The wsh host itself is the package's own `createWshServer`, listening on its own port, `ws://127.0.0.1:7780/` (`ORRERY_WSH_PORT` to change it).
+
+- **Auth:** Ed25519 only. The planet registers its public key with `POST /wsh/authorize` (the companion's origin allow-list applies to that call), and the host's `auth.authorize` checks the key against that list after the signature verifies.
+- **Host key:** persisted in `os.tmpdir()/orrery-wsh-host-key.pem`, so trust-on-first-use is real across restarts. `POST /wsh/rotate-host-key` deletes it and restarts the host with a new one, so a client that pinned the old key is refused with `HOST_KEY_MISMATCH`.
+- **Files:** `fs` is rooted at `os.tmpdir()/orrery-wsh-sandbox` (list, stat, read, write, rename, mkdir, remove, uploads and downloads, confined to that directory).
+- **MCP:** three tools (`list_files`, `read_file`, `kepler`), served through `createWshServer({ mcp })`, so `WshMcpBridge` works against the companion.
+- **`exec` / `pty` are never a real shell.** The server's `exec` takes a custom `run` and `pty` takes a `spawn`; both are wired to the restricted command set in `server/demos/wsh.mjs` (`help`, `ls`, `cat`, `cowsay`, `top`, `flood`, ...). `createWshServer({ exec: true })` would run `/bin/sh` for any page that could register a key; a localhost companion must not offer that.
+- The in-page host the planet uses without the companion is a hand-built wsh-v1 host from the same file (a browser tab cannot run the Node server), sharing the command set and the MCP tools.
+
 ## Security
 
 The companion listens on `127.0.0.1` by default and emits CORS headers only for allow-listed browser origins (any `localhost`/`127.0.0.1` port, `https://opensource.johnhenry.me`, plus `ORRERY_ALLOWED_ORIGINS`, comma-separated, `*` wildcards allowed). Requests and WebSocket upgrades from other origins get 403. This matters because the leserve and servant demos evaluate handler source posted to `/leserve/handler` and `/servant/script` — hot-swapping is the point of a local dev companion, so never expose it beyond your machine without setting `ORRERY_HOST` and an origin allowlist on purpose.

@@ -10,9 +10,15 @@ import Install from '../../../components/Install.astro';
 execution client: open PTY and exec sessions on a remote host from a web page
 or Node.js, authenticated with Ed25519 keys, over either WebTransport or
 WebSocket with an identical API. It speaks a compact CBOR wire protocol with
-97 message types, and includes file transfer (plus structured `sftp`-style
-listing), session recording (asciicast v2), a remote-MCP bridge, and reverse
-(peer-accept) mode.
+97 message types, and includes file transfer (list, read, write, rename,
+upload, download), session recording (its own JSON schema), a remote-MCP
+bridge, and reverse (peer-accept) mode.
+
+The package root is the client and stays browser-safe. A separate subpath,
+**`@johnhenry/wsh/server`**, is a Node host for the same protocol: WebSocket
+and optional WebTransport listeners, with `exec`, `pty`, `fs`, MCP tools,
+resumable sessions, a pinnable host key, password auth and a relay all opt-in.
+See [Node server](/wsh/server/).
 
 Two things distinguish the current releases. The WebSocket transport
 multiplexes with **QMux** (draft-ietf-quic-qmux-02) — real QUIC-v1 frames
@@ -23,34 +29,45 @@ that binds the username, reverse-mode peer registrations are self-signed and
 verifiable, session traffic can be sealed end-to-end with a hybrid
 post-quantum (X25519+ML-KEM-768) key exchange feeding real AES-256-GCM frame
 encryption (`session.enableE2E(sharedSecret, { role })` — see the
-[guide](/wsh/guide/)), and a JS `WshKnownHosts` store gives trust-on-first-use
-host-identity verification.
+[guide](/wsh/guide/)), and host identity can be pinned: the Node server
+advertises a signed host key, and the client checks it with `expectHostKey` or
+a `WshKnownHosts` trust-on-first-use store.
 
 A parallel **Rust implementation** (`crates/`: `wsh-core`, `wsh-client`,
 `wsh-cli`, `wsh-server`) speaks the same wire protocol and ships a `wsh`
-CLI binary (`wsh connect`/`scp`/`sftp`/`ls`/`reverse`/`agent`/`copy-id`) —
-see the [repo README](https://github.com/johnhenry/wsh#readme) for its
-capability matrix against the JS client; it isn't covered on this page yet.
+CLI binary (`wsh connect`/`scp`/`sftp`/`ls`/`reverse`/`agent`/`copy-id`). It
+is not feature-identical to the Node server: the Rust `wsh-server` advertises
+no host key, refuses file write and rename, and replays its whole output ring
+on resume regardless of `last_seq`. The repo README's
+[capability matrix](https://github.com/johnhenry/wsh#readme) lists every
+difference; this site documents the JS client and the Node server.
 
 > Previously published as `wsh-upon-star` (last release 0.1.1, now deprecated),
-> in the repo `johnhenry/wsh-upon-star`. Renamed to `@johnhenry/wsh` and
-> restarted at 0.0.0 on import into the @johnhenry family. The restart was a
-> new name and era, not a maturity signal — and the seventeen releases since
-> (0.17.0 at this writing) have reworked auth, the mux, file transfer, session
-> resumption, and real E2E frame encryption well past what the old name ever
-> shipped.
+> in the repo `johnhenry/wsh-upon-star`. Renamed to `@johnhenry/wsh` on import
+> into the @johnhenry family. Unlike most of the family it did not restart its
+> version numbers on adoption: it was already a mature release, and the
+> numbering continues forward (0.23.0 at this writing). Since the rename it has
+> reworked auth, the mux, file transfer, session resumption, and E2E frame
+> encryption, and gained a Node server, host-key pinning and a relay.
 
 ## Install
 
 <Install pkg="@johnhenry/wsh" />
 
-Requires Node.js 26+ or a browser with Web Crypto Ed25519 support. WebTransport
-needs Chrome/Edge 97+ or Firefox 114+; the WebSocket transport works
-everywhere and presents the same API. The library has zero required runtime
-dependencies; for the hybrid post-quantum key exchange it prefers native
-WebCrypto ML-KEM-768 (Node 24.7+, some browsers) and falls back to the
-optional `@noble/post-quantum` dependency only where native support is
-absent.
+Requires Node.js 26+ (the package's `engines` floor) or a browser with Web
+Crypto Ed25519 support (roughly Safari 17+, Chrome/Edge 137+, Firefox 130+).
+WebTransport is optional: it needs roughly Chrome/Edge 97+, Firefox 114+ or Safari 26+,
+and the WebSocket transport works everywhere and presents the same API. The
+library has zero required runtime dependencies. For the hybrid post-quantum
+key exchange it prefers native WebCrypto ML-KEM-768 (Node 24.7+) and falls
+back to the optional `@noble/post-quantum` dependency where native support is
+absent; no browser tested has native ML-KEM yet, so on the web the fallback is
+what runs.
+
+`@johnhenry/wsh/server` additionally needs the optional peer `ws`
+(`npm install ws`), and its WebTransport listener the optional peers
+`@fails-components/webtransport` and
+`@fails-components/webtransport-transport-http3-quiche`.
 
 ## Two transports, one API
 
@@ -73,7 +90,9 @@ await client.connect('wss://shell.example.com', {
 
 ## The pages here
 
-- [Guide](/wsh/guide/) — connect, PTY sessions, one-shot exec, detach/resume, keys
+- [Guide](/wsh/guide/) — connect, PTY sessions, one-shot exec, detach/resume, files, host-key pinning, keys
+- [Node server](/wsh/server/) — host the protocol with `@johnhenry/wsh/server`: exec, pty, fs, MCP tools, sessions, WebTransport, relay
+- [Tutorial](/wsh/tutorial/) — handshake to exec over real wire frames, no network
 - [API](/wsh/api/) — every export, grouped
 
 Source: [github.com/johnhenry/wsh](https://github.com/johnhenry/wsh) ·

@@ -5,45 +5,35 @@ description: "The smallest working raijin node, driven through @johnhenry/raijin
 
 import Install from '../../../components/Install.astro';
 
-The smallest real thing you can build is a one-validator chain in a single process, driven through the SDK. It's genuinely end-to-end — real Ed25519 keys, real signature verification, real consensus (with a quorum of 1) — and it runs in Node ≥ 24 or any modern browser. This page is also the `@johnhenry/raijin-sdk` API reference; the package exports exactly four names: `Wallet`, `RaijinClient`, `ClientTransport`, `BuildTxOptions`.
+The smallest real thing you can build is a one-validator chain in a single process, driven through the SDK. It's genuinely end-to-end — real Ed25519 keys, real signature verification, real consensus (with a quorum of 1) — and it runs in Node ≥ 24 or any modern browser. This page is also the `@johnhenry/raijin-sdk` (0.1.0) API reference. The package exports `Wallet`, `RaijinClient`, the types `ClientTransport`, `BuildTxOptions`, `GenerateOptions` and `ImportOptions`, and re-exports the wire codec from core (`encodeMessage`, `decodeMessage`, `WireFormatError`, `WireValue`).
 
 <Install pkg="@johnhenry/raijin-sdk @johnhenry/raijin-validator @johnhenry/raijin-core" />
 
 ## 1. Keys and signature verification
 
-`Wallet` wraps Web Crypto Ed25519. Verification isn't built in anywhere — you inject a `SignatureVerifier` into the node:
+`Wallet` wraps Web Crypto Ed25519. Verification isn't built into the wallet — you inject a `SignatureVerifier` into the node, and `raijin-core` ships the real one:
 
 ```js
 import { Wallet } from '@johnhenry/raijin-sdk'
+import { ed25519Verifier } from '@johnhenry/raijin-core'
 
 const validatorWallet = await Wallet.generate()
 const userWallet = await Wallet.generate()   // publicKey (32 bytes) is the address
-
-const ed25519Verifier = {
-  async verify(message, signature, publicKey) {
-    const key = await crypto.subtle.importKey(
-      'raw', publicKey, { name: 'Ed25519' }, false, ['verify'])
-    return crypto.subtle.verify({ name: 'Ed25519' }, key, signature, message)
-  },
-}
+const merchantPublicKey = (await Wallet.generate()).publicKey
 ```
+
+`ed25519Verifier` is `{ verify(publicKey, signature, message) }` — **WebCrypto argument order, key first**, which changed in `raijin-core` 0.1.0 (it used to be `(message, signature, publicKey)`). If you write your own verifier, follow the same order. `verifyEd25519` throws a `TypeError` when the public key is not 32 bytes, which is how a swapped call site announces itself. See [Core](/raijin/core/#signatures).
 
 ## 2. A node with a funded genesis account
 
-Accounts live in the injected `StateStore` under `'account:' + publicKey` keys — genesis funding is just a store write before the node starts:
+Describe genesis as data: chain id, the ordered validator set, and the initial accounts. `ValidatorNode.create` derives block 0 from it, seeds the store, and resolves once genesis is applied:
 
 ```js
-import { InMemoryStateStore, encodeAccount } from '@johnhenry/raijin-core'
+import { InMemoryStateStore } from '@johnhenry/raijin-core'
 import { ValidatorNode } from '@johnhenry/raijin-validator'
 
-const store = new InMemoryStateStore()
-const prefix = new TextEncoder().encode('account:')
-await store.put(
-  new Uint8Array([...prefix, ...userWallet.publicKey]),
-  encodeAccount({ balance: 1_000n, nonce: 0n, reputation: 0n }),
-)
-
-const node = new ValidatorNode({
+const node = await ValidatorNode.create({
+  chainId: 1n,                              // required — no default
   identity: {
     publicKey: validatorWallet.publicKey,
     sign: (msg) => validatorWallet.sign(msg),
@@ -51,14 +41,18 @@ const node = new ValidatorNode({
   },
   transport: { broadcast() {}, send() {}, onMessage() {} }, // single node: no peers
   timer: { set: (ms, cb) => setTimeout(cb, ms), clear: clearTimeout },
-  store,
-  validators: [validatorWallet.publicKey], // must include self, or nothing finalizes
+  store: new InMemoryStateStore(),
+  genesis: {
+    chainId: 1n,                            // must equal the node's chainId
+    validators: [validatorWallet.publicKey], // must include self, or nothing finalizes
+    accounts: [{ address: userWallet.publicKey, balance: 1_000n }],
+  },
   blockTime: 500,
 })
 node.start()
 ```
 
-With one validator, quorum is 1: every `blockTime` tick the node drains its mempool, proposes, and finalizes its own block immediately.
+With one validator, quorum is 1: every `blockTime` tick the node drains its mempool, proposes, and finalizes its own block immediately. (You can also fund accounts by writing to the store at `accountKey(address)` before starting, and pass `validators` directly instead of `genesis`; see [Core](/raijin/core/#state-keys-and-genesis) and [Validator](/raijin/validator/#genesis).)
 
 ## 3. A transport, then the client
 
@@ -66,11 +60,11 @@ With one validator, quorum is 1: every `blockTime` tick the node drains its memp
 
 ```js
 import { RaijinClient } from '@johnhenry/raijin-sdk'
-import { hash, encodeTx, equal } from '@johnhenry/raijin-core'
+import { hash, encodeTxSigned, equal } from '@johnhenry/raijin-core'
 
 const transport = {
   async submitTransaction(tx) {
-    const want = await hash(encodeTx(tx))     // receipts hash the unsigned encoding
+    const want = await hash(encodeTxSigned(tx)) // receipts carry hash(encodeTxSigned(tx))
     const receipt = new Promise((resolve) =>
       node.onBlockFinalized((_b, receipts) => {
         const r = receipts.find((r) => equal(r.txHash, want))
@@ -98,11 +92,14 @@ const tx = await userWallet.buildTx({
   to: merchantPublicKey,   // Uint8Array(32) — or null for system ops
   value: 250n,
   nonce: account.nonce,    // nonce management is yours; wrong nonce ⇒ revert receipt
+  chainId: 1n,             // required — part of the signed bytes
 })
 
 const receipt = await client.submitTransaction(tx)
 receipt.status // 'success' — or 'revert' with receipt.revertReason
 ```
+
+`node.submitTransaction()` now validates on the way in: a bad signature, a duplicate sender+nonce, or a pool with nothing cheaper to evict makes it **throw** instead of producing a revert receipt a block later (a wrong *nonce* is still a revert receipt). In this in-process transport that surfaces as a rejected `client.submitTransaction()`; a remote transport decides how to report it.
 
 The complete runnable script — including subscribing to blocks and demonstrating that a post-signing mutation produces an `'invalid signature'` revert — is [`examples/07-sdk-end-to-end.mjs`](https://github.com/johnhenry/raijin/blob/main/examples/07-sdk-end-to-end.mjs) in the repo (`npm run example:07`).
 
@@ -112,18 +109,24 @@ The complete runnable script — including subscribing to blocks and demonstrati
 
 | Member | Signature | Notes |
 | --- | --- | --- |
-| `Wallet.generate()` | `→ Promise<Wallet>` | New Ed25519 keypair. Throws where Web Crypto lacks Ed25519 (pre-20 Node, old browsers). |
-| `Wallet.fromKey(pkcs8)` | `(Uint8Array) → Promise<Wallet>` | Import a PKCS8 private key; public key is derived. |
+| `Wallet.generate(opts?)` | `({ extractable? }) → Promise<Wallet>` | New Ed25519 keypair. Throws where Web Crypto lacks Ed25519 (pre-20 Node, old browsers). **Non-extractable by default**; pass `{ extractable: true }` only if the key has to be exported. |
+| `Wallet.fromKey(pkcs8, opts?)` | `(Uint8Array, { extractable? }) → Promise<Wallet>` | Import a PKCS8 private key; public key is derived. **Non-extractable by default**, same as `generate()` — `fromKey` is the persistence path, so it is the one most likely to be handed to code that never asked for an exportable key. |
 | `wallet.publicKey` | `Uint8Array` | 32 raw bytes — this is the address everywhere in raijin. |
 | `wallet.sign(message)` | `→ Promise<Uint8Array>` | 64-byte deterministic Ed25519 signature. |
-| `wallet.buildTx(opts)` | `(BuildTxOptions) → Promise<Transaction>` | Builds and signs. `BuildTxOptions = { to, value, nonce, data?, chainId? }`; `chainId` defaults to `1n`, `data` to empty. |
-| `wallet.exportPrivateKey()` | `→ Promise<Uint8Array>` | PKCS8; round-trips through `fromKey`. |
+| `wallet.buildTx(opts)` | `(BuildTxOptions) → Promise<Transaction>` | Builds and signs. `BuildTxOptions = { to, value, nonce, data?, chainId }`; **`chainId` is required** (no default), `data` defaults to empty. |
+| `wallet.exportPrivateKey()` | `→ Promise<Uint8Array>` | PKCS8; round-trips through `fromKey`. Throws unless the wallet was created with `{ extractable: true }`. |
 
-Two signing facts worth engraving: the signature covers `encodeTx(tx)` — every field *except* the signature — so any post-`buildTx` mutation invalidates it; and `hash(encodeTx(tx))` is the `txHash` receipts carry, which is how you correlate submissions to results. Note the state machine reads `tx.data[0]` as the transaction type; empty `data` means plain transfer.
+Three facts worth engraving:
+
+- The signature covers `encodeTx(tx)` — every field *except* the signature — so any post-`buildTx` mutation invalidates it.
+- `hash(encodeTxSigned(tx))` is the `txHash` receipts carry, the same id the block's `txRoot` leaves and the mempool's dedup key use, which is how you correlate submissions to results. Signature *verification* still runs over the unsigned `encodeTx(tx)` bytes, because that is what was signed.
+- **`chainId` is required** because it is the only field separating one deployment from another: a default would give every chain that never chose one the same id, and a signed transfer on either would be valid on the other. It is part of the signed bytes; the reference state machine does not additionally check it against a configured chain.
+
+Note also that the state machine reads `tx.data[0]` as the transaction type; empty `data` means plain transfer. **Private keys are non-extractable unless you ask**, on both `generate()` and `fromKey()` — in a browser that is the strongest guarantee WebCrypto offers.
 
 ### `RaijinClient` — typed pass-through to your transport
 
-`submitTransaction(tx)`, `getAccount(address)` (unknown addresses return zero accounts, not errors), `getBlock(number)` (`null` if missing), and `subscribe(handler)` which returns its own unsubscribe function. All reliability semantics — timeouts, retries, which validator you're actually talking to — belong to your `ClientTransport`, not the client.
+`submitTransaction(tx)`, `getAccount(address)` (unknown addresses return zero accounts, not errors), `getBlock(number)` (`null` if missing), and `subscribe(handler)` which returns its own unsubscribe function. All reliability semantics — timeouts, retries, which validator you're actually talking to — belong to your `ClientTransport`, not the client. A transport that talks to a remote node can send `encodeMessage(tx)` (re-exported from `raijin-core`'s [wire codec](/raijin/core/#wire-codec)) instead of inventing a JSON replacer.
 
 ## Where next
 

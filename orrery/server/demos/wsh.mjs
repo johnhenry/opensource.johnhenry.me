@@ -1,21 +1,27 @@
 /**
- * wsh demo host — a RESTRICTED wsh-v1 server built only from @johnhenry/wsh's
- * exported primitives (QMuxConnection, frameEncode/FrameDecoder, the message
- * constructors, verifyChallenge/fingerprint). The package itself is a pure
- * client library and ships no server, so this is the "alternate server
- * speaking the same framing" its README invites.
+ * wsh demo hosts. Two of them share one restricted command set (COMMANDS):
+ *
+ *   - the ORRERY companion (`npm run node`) mounts the REAL Node host,
+ *     `createWshServer` from `@johnhenry/wsh/server`, on its own port (7780),
+ *     with real Ed25519 auth against an allowlist the planet fills via
+ *     POST /wsh/authorize, a persisted host key (host-key TOFU), a real
+ *     directory sandbox behind `fs` (list/stat/read/write/rename/mkdir/remove,
+ *     uploads/downloads), MCP tools, and `exec` / `pty` wired to the
+ *     restricted commands below;
+ *   - the browser: the Web Shell planet imports createWshHost + memoryVfs and
+ *     attaches it to one end of a MessageChannel. A browser tab cannot run
+ *     `@johnhenry/wsh/server` (it needs Node), so this is a hand-built
+ *     wsh-v1 host made from the package's exported primitives
+ *     (QMuxConnection, frameEncode/FrameDecoder, the message constructors,
+ *     verifyChallenge/fingerprint) that speaks byte-identical QMux/CBOR.
  *
  * NEVER a real shell: every command is a pure function in COMMANDS below.
  * There is no child_process, no eval, no path outside the sandbox directory.
+ * (`createWshServer({ exec: true })` would run /bin/sh; a localhost companion
+ * that a web page can reach must not offer that, so exec/pty here are custom
+ * runners over the restricted set.)
  *
- * The same `createWshHost()` runs in two places:
- *   - the ORRERY companion (`npm run node`): mount(app) serves it over
- *     app.ws('/wsh') on port 7777, with a sandbox dir in os.tmpdir() and a
- *     key allowlist the planet fills via POST /wsh/authorize (dev convenience);
- *   - the browser: the Web Shell planet imports createWshHost + memoryVfs and
- *     attaches it to one end of a MessageChannel, so the in-page stand-in
- *     speaks byte-identical QMux/CBOR to the real thing.
- * This module therefore imports nothing Node-specific at the top level.
+ * This module imports nothing Node-specific at the top level.
  */
 import {
   MSG, FrameDecoder, frameEncode,
@@ -24,10 +30,12 @@ import {
   generateNonce, verifyChallenge, fingerprint, importPublicKeyRaw,
   generateKeyPair, exportPublicKeyRaw, QMuxConnection,
   base64Decode, parseSSHPublicKey, extractRawFromSSHWire,
+  mcpTools as mcpToolsMsg, mcpResult, MCP_CALL_ID_FEATURE,
 } from '@johnhenry/wsh';
 
 export const id = 'wsh';
-export const describe = 'restricted wsh-v1 host (QMux over WebSocket at /wsh) with a sandbox dir and a POST /wsh/authorize Ed25519 allowlist';
+export const PORT = Number(globalThis.process?.env?.ORRERY_WSH_PORT || 7780);
+export const describe = `real @johnhenry/wsh/server host on ws://127.0.0.1:${PORT} (restricted commands, sandbox dir, MCP tools), Ed25519 allowlist via POST /wsh/authorize on the companion`;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -284,6 +292,154 @@ async function runCommand(line, io) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Interactive restricted shell (line editor over runCommand)          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A tiny line-editing shell for the pty channel, shared by the in-page host and the
+ * companion's `pty.spawn` adapter. It owns no transport: `out(text)` ships bytes,
+ * `onExit(code)` is called once when the session ends.
+ *
+ * @param {object} o
+ * @param {string} o.user @param {string} o.fp @param {object} o.vfs
+ * @param {string} o.hostname @param {string} o.where @param {number} o.t0
+ * @param {number} o.cols @param {number} o.rows
+ * @param {(text: string) => Promise<unknown>|unknown} o.out
+ * @param {(code: number) => unknown} o.onExit
+ * @param {() => boolean} [o.isDead] true once the transport is gone
+ */
+function createShell({ user, fp, vfs, hostname, where, t0, cols, rows, out, onExit, isDead = () => false }) {
+  const ch = { cols: cols || 80, rows: rows || 24, line: '', history: [], hIdx: -1, running: null, cancel: false, esc: '', exitRequested: false, finished: false };
+  const ps1 = () => `${C.green}${C.bold}${user}@${hostname}${C.reset}:${C.blue}${C.bold}~/sandbox${C.reset}$ `;
+  const prompt = () => out(ps1());
+  const redraw = () => out(`\r\x1b[K${ps1()}${ch.line}`);
+  const finish = async (code) => {
+    if (ch.finished) return;
+    ch.finished = true;
+    await onExit(code);
+  };
+  const run = (line) => {
+    const io = {
+      pty: true, user, fp, vfs, hostname, where, t0, sleep, write: out, history: ch.history,
+      cols: () => ch.cols, cancelled: () => ch.cancel || ch.finished || isDead(),
+      requestExit: () => { ch.exitRequested = true; },
+    };
+    ch.cancel = false;
+    ch.running = runCommand(line, io).catch((e) => out(`\r\nerror: ${e.message}\r\n`)).then(async () => {
+      ch.running = null;
+      if (ch.finished || isDead()) return;
+      if (ch.exitRequested) { await out('logout\r\n'); return finish(0); }
+      await prompt();
+    });
+  };
+  return {
+    async start() {
+      await out(`${C.dim}restricted wsh host · ${where} · sandbox ${vfs.label}${C.reset}\r\n${C.cyan}${dec.decode((await vfs.read('motd.txt')) ?? new Uint8Array())}${C.reset}`.replace(/\n/g, '\r\n'));
+      await out(`type ${C.bold}help${C.reset} for the command list\r\n`);
+      await prompt();
+    },
+    input(data) {
+      const s = typeof data === 'string' ? data : dec.decode(data);
+      if (ch.running) {
+        if (s.includes('\x03') || s.includes('q')) { ch.cancel = true; if (s.includes('\x03')) out('^C'); }
+        return;
+      }
+      for (const c of s) {
+        if (ch.esc) {
+          ch.esc += c;
+          if (ch.esc.length >= 3) {
+            if (ch.esc === '\x1b[A' || ch.esc === '\x1b[B') {
+              if (ch.history.length) {
+                ch.hIdx = ch.esc === '\x1b[A' ? Math.max(0, (ch.hIdx < 0 ? ch.history.length : ch.hIdx) - 1) : Math.min(ch.history.length, ch.hIdx + 1);
+                ch.line = ch.history[ch.hIdx] ?? '';
+                redraw();
+              }
+            }
+            ch.esc = '';
+          }
+          continue;
+        }
+        if (c === '\x1b') { ch.esc = c; continue; }
+        if (c === '\r' || c === '\n') {
+          const line = ch.line.trim();
+          ch.line = ''; ch.hIdx = -1;
+          out('\r\n');
+          if (line) { ch.history.push(line); if (ch.history.length > 100) ch.history.shift(); run(line); return; }
+          prompt();
+          continue;
+        }
+        if (c === '\x7f' || c === '\b') { if (ch.line.length) { ch.line = ch.line.slice(0, -1); out('\b \b'); } continue; }
+        if (c === '\x03') { ch.line = ''; out('^C\r\n'); prompt(); continue; }
+        if (c === '\x04') { if (!ch.line) { out('logout\r\n'); finish(0); return; } continue; }
+        if (c === '\x0c') { out('\x1b[H\x1b[2J'); redraw(); continue; }
+        if (c === '\t') {
+          const hits = Object.keys(COMMANDS).filter((k) => k.startsWith(ch.line) && ch.line && !ch.line.includes(' '));
+          if (hits.length === 1) { const add = hits[0].slice(ch.line.length) + ' '; ch.line += add; out(add); }
+          continue;
+        }
+        if (c >= ' ' && ch.line.length < 512) { ch.line += c; out(c); }
+      }
+    },
+    resize(c, r) { ch.cols = c || ch.cols; ch.rows = r || ch.rows; },
+    signal(sig) { if (/INT/.test(String(sig))) ch.cancel = true; },
+    kill() { ch.cancel = true; ch.finished = true; },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* MCP tools (answered by the real server and by the in-page host)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The tool list both hosts serve for McpDiscover/McpCall. Shaped like
+ * `createWshServer({ mcp: { tools } })` wants: `{ name, description, inputSchema, call }`.
+ * Arguments are validated against `inputSchema` by the real server before `call()` runs;
+ * the in-page host checks `required` and `type` itself (see validateArgs).
+ */
+export function demoMcpTools(vfs) {
+  return [
+    {
+      name: 'list_files',
+      description: 'List the files in the demo sandbox with their sizes.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      call: async () => ({ success: true, output: (await vfs.list()).map((f) => `${f.name}\t${f.size} B`).join('\n') || '(empty)' }),
+    },
+    {
+      name: 'read_file',
+      description: 'Read a text file from the demo sandbox (up to 64 KiB).',
+      inputSchema: { type: 'object', properties: { name: { type: 'string', maxLength: 64 } }, required: ['name'], additionalProperties: false },
+      call: async ({ name }) => {
+        const data = await vfs.read(safeName(name));
+        if (!data) throw new Error(`${name}: no such file in sandbox`);
+        if (data.byteLength > 64 * 1024) throw new Error(`${name}: too large to return (${fmtSize(data.byteLength)})`);
+        return { success: true, output: dec.decode(data) };
+      },
+    },
+    {
+      name: 'kepler',
+      description: "Orbital period in years for a semi-major axis in AU (Kepler's third law, T = a^1.5).",
+      inputSchema: { type: 'object', properties: { au: { type: 'number', minimum: 0.001, maximum: 1000 } }, required: ['au'], additionalProperties: false },
+      call: async ({ au }) => ({ success: true, output: `${(au ** 1.5).toFixed(3)} years (${Math.round(au ** 1.5 * 365.25)} days) at ${au} AU` }),
+    },
+  ];
+}
+
+/** The subset of JSON Schema the demo tools use: type, required, additionalProperties, min/max. */
+function validateArgs(schema, args) {
+  const a = args ?? {};
+  if (typeof a !== 'object' || Array.isArray(a)) return 'arguments must be an object';
+  for (const k of schema.required ?? []) if (!(k in a)) return `missing required argument "${k}"`;
+  for (const [k, v] of Object.entries(a)) {
+    const prop = schema.properties?.[k];
+    if (!prop) { if (schema.additionalProperties === false) return `unexpected argument "${k}"`; continue; }
+    if (prop.type === 'string' && typeof v !== 'string') return `"${k}" must be a string`;
+    if (prop.type === 'number' && typeof v !== 'number') return `"${k}" must be a number`;
+    if (typeof v === 'number' && ((prop.minimum !== undefined && v < prop.minimum) || (prop.maximum !== undefined && v > prop.maximum))) return `"${k}" must be between ${prop.minimum} and ${prop.maximum}`;
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
 /* The host: one QMux connection per attached pipe                     */
 /* ------------------------------------------------------------------ */
 
@@ -307,6 +463,7 @@ export function createWshHost({ vfs, isAuthorized, onLog = () => {}, hostname = 
   })();
   const t0 = Date.now();
   let connCounter = 0;
+  const mcpTools = demoMcpTools(vfs);
 
   function attach(pipe) {
     const cid = ++connCounter;
@@ -374,6 +531,8 @@ export function createWshHost({ vfs, isAuthorized, onLog = () => {}, hostname = 
         case MSG.CLOSE: { const ch = channels.get(m.channel_id); if (ch) { ch.kill?.(); channels.delete(m.channel_id); } return; }
         case MSG.FILE_OP: return handleFileOp(m);
         case MSG.FILE_CHUNK: return channels.get(m.channel_id)?.chunk?.(m);
+        case MSG.MCP_DISCOVER: return send(mcpToolsMsg({ tools: mcpTools.map((t) => ({ name: t.name, description: t.description, parameters: t.inputSchema })) }));
+        case MSG.MCP_CALL: return handleMcpCall(m);
         default: log(`ignored message type 0x${m.type.toString(16)}`);
       }
     }
@@ -394,7 +553,7 @@ export function createWshHost({ vfs, isAuthorized, onLog = () => {}, hostname = 
         }
         conn.username = user;
         conn.nonce = generateNonce();
-        await send(serverHello({ sessionId: conn.sessionId, features: ['pty', 'exec', 'file', 'restricted'], fingerprints: hostFp ? [hostFp] : [] }));
+        await send(serverHello({ sessionId: conn.sessionId, features: ['pty', 'exec', 'file', 'restricted', MCP_CALL_ID_FEATURE], fingerprints: hostFp ? [hostFp] : [] }));
         await send(challenge({ nonce: conn.nonce, sessionId: conn.sessionId }));
         log(`HELLO from ${user}; challenge sent`);
         return;
@@ -422,6 +581,17 @@ export function createWshHost({ vfs, isAuthorized, onLog = () => {}, hostname = 
       }
     }
 
+    /** McpCall: the same tools the real server serves, minus its full JSON-Schema validator. */
+    async function handleMcpCall(m) {
+      const callId = m.call_id;
+      const tool = mcpTools.find((t) => t.name === m.tool);
+      const reply = (result) => send(mcpResult({ result, callId }));
+      if (!tool) return reply({ success: false, error: `unknown tool "${m.tool}"` });
+      const bad = validateArgs(tool.inputSchema, m.arguments);
+      if (bad) return reply({ success: false, error: `invalid arguments: ${bad}` });
+      try { return reply(await tool.call(m.arguments ?? {})); } catch (e) { return reply({ success: false, error: e.message }); }
+    }
+
     function baseIo(ch, pty) {
       return {
         pty, user: conn.username, fp: conn.fp, vfs, hostname, where, t0,
@@ -440,72 +610,16 @@ export function createWshHost({ vfs, isAuthorized, onLog = () => {}, hostname = 
 
     async function openPty(m) {
       const channelId = ++conn.nextChannel;
-      const ch = { kind: 'pty', cols: m.cols || 80, rows: m.rows || 24, line: '', cursor: 0, history: [], hIdx: -1, running: null, cancel: false, esc: '' };
-      channels.set(channelId, ch);
-      const out = (text) => send(sessionData({ channelId, data: enc.encode(text) }));
-      const prompt = () => out(`${C.green}${C.bold}${conn.username}@${hostname}${C.reset}:${C.blue}${C.bold}~/sandbox${C.reset}$ `);
-      const finish = async (code) => { channels.delete(channelId); await send(exitMsg({ channelId, code })); setTimeout(() => send(closeMsg({ channelId })), 120); };
-      const redraw = () => out(`\r\x1b[K${C.green}${C.bold}${conn.username}@${hostname}${C.reset}:${C.blue}${C.bold}~/sandbox${C.reset}$ ${ch.line}`);
-      const run = (line) => {
-        const io = { ...baseIo(ch, true), write: out, history: ch.history, requestExit: () => { ch.exitRequested = true; } };
-        ch.cancel = false;
-        ch.running = runCommand(line, io).catch((e) => out(`\r\nerror: ${e.message}\r\n`)).then(async () => {
-          ch.running = null;
-          if (!channels.has(channelId)) return;
-          if (ch.exitRequested) { await out('logout\r\n'); return finish(0); }
-          await prompt();
-        });
-      };
-      ch.input = (data) => {
-        const s = dec.decode(data);
-        if (ch.running) {
-          if (s.includes('\x03') || s.includes('q')) { ch.cancel = true; if (s.includes('\x03')) out('^C'); }
-          return;
-        }
-        for (const c of s) {
-          if (ch.esc) {
-            ch.esc += c;
-            if (ch.esc.length >= 3) {
-              if (ch.esc === '\x1b[A' || ch.esc === '\x1b[B') {
-                if (ch.history.length) {
-                  ch.hIdx = ch.esc === '\x1b[A' ? Math.max(0, (ch.hIdx < 0 ? ch.history.length : ch.hIdx) - 1) : Math.min(ch.history.length, ch.hIdx + 1);
-                  ch.line = ch.history[ch.hIdx] ?? '';
-                  redraw();
-                }
-              }
-              ch.esc = '';
-            }
-            continue;
-          }
-          if (c === '\x1b') { ch.esc = c; continue; }
-          if (c === '\r' || c === '\n') {
-            const line = ch.line.trim();
-            ch.line = ''; ch.hIdx = -1;
-            out('\r\n');
-            if (line) { ch.history.push(line); if (ch.history.length > 100) ch.history.shift(); run(line); return; }
-            prompt();
-            continue;
-          }
-          if (c === '\x7f' || c === '\b') { if (ch.line.length) { ch.line = ch.line.slice(0, -1); out('\b \b'); } continue; }
-          if (c === '\x03') { ch.line = ''; out('^C\r\n'); prompt(); continue; }
-          if (c === '\x04') { if (!ch.line) { out('logout\r\n'); finish(0); return; } continue; }
-          if (c === '\x0c') { out('\x1b[H\x1b[2J'); redraw(); continue; }
-          if (c === '\t') {
-            const hits = Object.keys(COMMANDS).filter((k) => k.startsWith(ch.line) && ch.line && !ch.line.includes(' '));
-            if (hits.length === 1) { const add = hits[0].slice(ch.line.length) + ' '; ch.line += add; out(add); }
-            continue;
-          }
-          if (c >= ' ' && ch.line.length < 512) { ch.line += c; out(c); }
-        }
-      };
-      ch.resize = (cols, rows) => { ch.cols = cols || ch.cols; ch.rows = rows || ch.rows; };
-      ch.signal = (sig) => { if (/INT/.test(String(sig))) ch.cancel = true; };
-      ch.kill = () => { ch.cancel = true; };
+      const shell = createShell({
+        user: conn.username, fp: conn.fp, vfs, hostname, where, t0, cols: m.cols, rows: m.rows,
+        out: (text) => send(sessionData({ channelId, data: enc.encode(text) })),
+        onExit: async (code) => { channels.delete(channelId); await send(exitMsg({ channelId, code })); setTimeout(() => send(closeMsg({ channelId })), 120); },
+        isDead: () => conn.closed || !channels.has(channelId),
+      });
+      channels.set(channelId, { kind: 'pty', cols: m.cols || 80, input: (d) => shell.input(d), resize: (c, r) => shell.resize(c, r), signal: (sg) => shell.signal(sg), kill: () => shell.kill() });
       await send(openOk({ channelId, dataMode: 'virtual', capabilities: ['resize', 'signal'], sessionId: crypto.randomUUID(), token: randomBytes(16) }));
-      log(`pty channel ${channelId} opened (${ch.cols}x${ch.rows})`);
-      await out(`${C.dim}restricted wsh host · ${where} · sandbox ${vfs.label}${C.reset}\r\n${C.cyan}${dec.decode((await vfs.read('motd.txt')) ?? new Uint8Array())}${C.reset}`.replace(/\n/g, '\r\n'));
-      await out(`type ${C.bold}help${C.reset} for the command list\r\n`);
-      await prompt();
+      log(`pty channel ${channelId} opened (${m.cols || 80}x${m.rows || 24})`);
+      await shell.start();
     }
 
     async function openExec(m) {
@@ -602,8 +716,8 @@ export function createWshHost({ vfs, isAuthorized, onLog = () => {}, hostname = 
       try {
         switch (m.op) {
           case 'list': {
-            const entries = await vfs.list();
-            return reply(true, { path: '~/sandbox', entries, host: where });
+            const entries = (await vfs.list()).map((f) => ({ name: f.name, size: f.size, modified: Math.floor(f.mtime / 1000), type: 'file' }));
+            return send(fileResult({ channelId, success: true, metadata: { path: '~/sandbox', host: where }, entries }));
           }
           case 'stat': {
             const name = safeName(m.path);
@@ -660,23 +774,92 @@ function parsePublicKey(input) {
   return raw;
 }
 
+/**
+ * The companion mount: the real `@johnhenry/wsh/server` host on its own port
+ * (7780, like leserve's 7778 and servant's 7779), plus the small HTTP surface
+ * on the companion the planet uses to drive it.
+ */
+/**
+ * The companion mount: the real `@johnhenry/wsh/server` host on its own port
+ * (7780, like leserve's 7778 and servant's 7779), plus the small HTTP surface
+ * on the companion the planet uses to drive it.
+ */
 export async function mount(app) {
-  const vfs = await nodeVfs();
+  const spec = (x) => x; // keep bundlers from following these into the browser build
+  const fsp = await import(/* @vite-ignore */ spec('node:fs/promises'));
+  const os = await import(/* @vite-ignore */ spec('node:os'));
+  const path = await import(/* @vite-ignore */ spec('node:path'));
+  const { createWshServer } = await import(/* @vite-ignore */ spec('@johnhenry/wsh/server'));
+
+  const vfs = await nodeVfs();            // seeds the sandbox directory; `vfs.label` is its path
+  const sandbox = vfs.label;
+  const hostKeyFile = path.join(os.tmpdir(), 'orrery-wsh-host-key.pem');
+  const hostname = process.env.ORRERY_HOST || '127.0.0.1';
+  const t0 = Date.now();
+  const where = `node ${process.version} ${process.platform}`;
   /** @type {Map<string, {username: string, at: number}>} */
   const allow = new Map();
-  let conns = 0;
-  const host = createWshHost({
-    vfs,
-    isAuthorized: (fp) => allow.has(fp),
+  /** username -> fingerprint of the key that last authenticated as it (for `whoami`) */
+  const lastFp = new Map();
+
+  const restrictedExec = async (command, io) => runCommand(command, {
+    pty: false, user: io.user, fp: lastFp.get(io.user) ?? '', vfs, hostname: 'companion', where, t0, sleep,
+    cols: () => io.cols, cancelled: () => io.signal.aborted, write: (s) => io.write(s),
+  });
+  // A node-pty-shaped `spawn` whose "process" is the restricted line shell. The server passes
+  // the client's `env`, which is how the shell learns the username (process.env is NOT used:
+  // `pty.env` below is empty so the host's own USER never leaks to a client).
+  const restrictedSpawn = (_file, _args, o) => {
+    let onData = null; let onExit = () => {}; let started = false; let exited = false;
+    const queue = [];
+    const emit = (t) => { if (onData) onData(t); else queue.push(t); return Promise.resolve(); };
+    const user = String(o.env?.USER || 'guest');
+    const shell = createShell({
+      user, fp: lastFp.get(user) ?? '', vfs, hostname: 'companion', where, t0,
+      cols: o.cols, rows: o.rows, out: emit,
+      onExit: (code) => { if (!exited) { exited = true; onExit({ exitCode: code }); } },
+    });
+    // The server registers onData/onExit synchronously after spawn() returns; start on the next tick.
+    setTimeout(() => { started = true; void shell.start(); }, 0);
+    return {
+      onData(cb) { onData = cb; for (const q of queue.splice(0)) cb(q); },
+      onExit(cb) { onExit = cb; },
+      write: (d) => { if (started) shell.input(d); },
+      resize: (c, r) => shell.resize(c, r),
+      kill: () => { shell.kill(); if (!exited) { exited = true; onExit({ exitCode: 130 }); } },
+    };
+  };
+
+  const build = () => createWshServer({
+    host: hostname,
+    port: PORT,
+    // Ed25519 only: the planet registers its key with POST /wsh/authorize; `authorize` runs after the
+    // signature verifies. No password login.
+    auth: ({ username, fingerprint: fp }) => {
+      if (!allow.has(fp)) return false;
+      lastFp.set(username, fp);
+      return true;
+    },
+    // A persisted host key, so trust-on-first-use is real across restarts (and rotating it is real too).
+    hostKey: { file: hostKeyFile },
+    exec: { run: restrictedExec },
+    pty: { spawn: restrictedSpawn, env: {}, shell: 'restricted' },
+    fs: { root: sandbox, maxFileBytes: MAX_FILE_BYTES },
+    mcp: { tools: demoMcpTools(vfs) },
     onLog: (m) => console.log(`  [wsh] ${m}`),
-    hostname: 'companion',
-    where: `node ${process.version} ${process.platform}`,
   });
 
+  let server = build();
+  await server.listen();
+  const hk = () => server.hostKey();
+  console.log(`  [wsh] real @johnhenry/wsh/server host on ws://${hostname}:${PORT}  host key ${hk()?.fingerprint?.slice(0, 16)}…  sandbox ${sandbox}`);
+
   app.route('GET', '/wsh/info', async () => json({
-    ws: '/wsh', port: app.port, sandbox: vfs.label, allowlist: allow.size, connections: conns,
-    hostFingerprint: host.hostFingerprint, commands: Object.keys(COMMANDS), maxFileBytes: MAX_FILE_BYTES,
-    note: 'restricted host: built-in commands only, never a real shell',
+    ws: `ws://${hostname}:${PORT}/`, port: PORT, sandbox, allowlist: allow.size,
+    hostFingerprint: hk()?.fingerprint ?? null, hostKeyOpenssh: hk()?.openssh ?? null,
+    commands: Object.keys(COMMANDS), tools: demoMcpTools(vfs).map((t) => t.name), maxFileBytes: MAX_FILE_BYTES,
+    server: '@johnhenry/wsh/server',
+    note: 'real wsh host; exec and pty run a restricted command set, never a real shell',
   }));
 
   // Dev convenience: the planet registers its key so the Ed25519 path is real.
@@ -698,18 +881,14 @@ export async function mount(app) {
       return json({ ok: true, removed: had, allowlist: allow.size });
     } catch (e) { return json({ ok: false, error: e.message }, 400); }
   });
-
-  app.ws('/wsh', (ws) => {
-    conns++;
-    const conn = host.attach({
-      send: (b) => { if (ws.readyState === 1) ws.send(b); },
-      close: () => { try { ws.close(1000, 'wsh host closed'); } catch { /* */ } },
-    });
-    ws.on('message', (d) => {
-      const buf = Array.isArray(d) ? Buffer.concat(d) : Buffer.isBuffer(d) ? d : Buffer.from(d);
-      conn.receive(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength));
-    });
-    ws.on('close', () => { conns--; conn.close(); });
-    ws.on('error', () => {});
+  // Really rotate the host key: drop the connections, delete the persisted key, start a new
+  // server (new key, same port). A client that pinned the old key now gets HOST_KEY_MISMATCH.
+  app.route('POST', '/wsh/rotate-host-key', async () => {
+    const before = hk()?.fingerprint ?? null;
+    await server.close();
+    await fsp.rm(hostKeyFile, { force: true });
+    server = build();
+    await server.listen();
+    return json({ ok: true, before, after: hk()?.fingerprint ?? null });
   });
 }

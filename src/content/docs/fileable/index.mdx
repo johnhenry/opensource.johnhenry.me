@@ -104,7 +104,7 @@ Things that aren't obvious from the API surface alone:
 169 tests, zero runtime surprises left unguarded that a scratch-directory
 reproduction could catch — every fix above was verified by actually
 triggering the bug first, not just by reasoning about the code. CI covers
-Node 18/20/22 on both Linux and Windows (symlink-fallback behavior is
+Node 26 (the package's `engines.node` floor) on both Linux and Windows (symlink-fallback behavior is
 genuinely platform-specific).
 
 ## License

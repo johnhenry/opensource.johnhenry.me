@@ -97,7 +97,7 @@ If the selected backend fails mid-stream, `executeStream()` yields a single
 
 ---
 
-### `register(name, adapter)`
+### `register(name, adapter, options?)`
 
 Register a backend under a name. The name is what you use in fallback chains,
 model mappings, per-request overrides and statistics.
@@ -106,6 +106,8 @@ model mappings, per-request overrides and statistics.
 
 - `name: string` - Backend identifier
 - `adapter: BackendAdapter` - Backend adapter instance
+- `options?: BackendRegistrationOptions` - Per-backend settings (see
+  [Per-backend circuit breaker](#per-backend-circuit-breaker))
 
 **Returns:** `Router` (for chaining)
 
@@ -119,17 +121,81 @@ router.register('groq', new GroqBackendAdapter({ apiKey: process.env.GROQ_API_KE
 
 ---
 
-### `replace(name, adapter)` / `unregister(name)`
+### `replace(name, adapter)` / `unregister(name, options?)`
 
 Swap a registered backend for another instance, or remove one. Both return the
 router for chaining. Unregistering the backend named by `defaultBackend` clears
 `defaultBackend` and emits a `routing-config-changed` warning through
-`config.onWarning`.
+`config.onWarning`. `replace()` keeps the per-backend options given to
+`register()` (they are policy about the name, like latency history) and resets
+the health verdict.
 
 ```typescript
 router.replace('openai', new OpenAIBackendAdapter({ apiKey: rotatedKey }));
 router.unregister('groq');
 ```
+
+#### Unregistering with requests in flight
+
+`unregister()` is **not cancellation**. A call already handed to the backend runs
+to its natural end: an `execute()` resolves and a stream keeps yielding, because
+the call holds the adapter it started on. From the moment `unregister()` returns:
+
+- no new request is routed to the name;
+- the circuit-breaker recovery timer is cancelled;
+- the in-flight call's outcome is **not accounted** - no counters, no stats, no
+  breaker. The backend is gone, so a late failure must not land on an object
+  nobody can read, nor trip the breaker of a different backend registered under
+  the same name afterwards.
+
+To wait for in-flight calls, pass `drain`. The backend is still removed
+synchronously; you get a promise that settles when the calls have finished
+(streams included) or the timeout passed:
+
+```typescript
+router.unregister('desktop');                                  // Router, synchronously
+
+const result = await router.unregister('desktop', { drain: true });
+//    { drained: true, inFlight: 0 }   -- safe to dispose of the adapter now
+
+await router.unregister('desktop', { drain: 5_000 });
+//    { drained: false, inFlight: 1 }  -- gave up after 5 s; the call still finishes
+```
+
+A stream the consumer never finishes or closes keeps its backend "in flight", so
+use a timeout when you cannot guarantee consumers read to the end. The number of
+calls currently running is `getBackendInfo(name).inFlight`.
+
+#### Revoking with `abort`
+
+By default `unregister()` stops *new* work only. If the answer must not be
+*delivered* - a revoked device, a rotated credential - pass `{ abort: true }`:
+
+```typescript
+router.unregister('desktop', { abort: true });                       // cut, now
+await router.unregister('desktop', { abort: true, drain: 5_000 });   // cut, then wait for unwinding
+```
+
+The router owns an `AbortController` per call, linked to the caller's own signal
+(so the caller keeps its control), and `abort` fires every one running against that
+backend - chat, stream, embedding and decision calls alike:
+
+- the adapter's `AbortSignal` aborts with an `AbortError`, and
+  `adapter.cancel?.(requestId, reason)` is called once for the call, for a far side
+  that cannot see a signal (best effort; a throwing or rejecting `cancel()` is ignored);
+- the caller receives that `AbortError` whatever the adapter made of the abort, even
+  an adapter that ignores its signal. A stream ends by throwing it, and nothing the
+  revoked backend yields afterwards is delivered;
+- **it is not failed over.** The router does not answer from another backend a request
+  it was just told to cut; the caller decides whether to retry;
+- calls on other backends are untouched, and the cut calls' late outcomes are not
+  accounted, as for any unregistered backend.
+
+`cancel()` is sent for revocation only. A *caller's* abort is not relayed by the router
+(a proxy behind a router watches the signal itself; `Bridge` sends `cancel()` for a
+direct backend), so no far side is told twice. Whether a transport really stops is still
+the adapter's business; revocation guarantees only that the caller is released and gets
+nothing further.
 
 ---
 
@@ -203,6 +269,36 @@ console.log(result.response, result.successfulBackends, result.totalTimeMs);
 
 ---
 
+### `decide(request, signal?)`
+
+Answer typed decision questions via the best available backend. Mirrors
+`embed()`: candidates are registered backends that implement `decide()`, whose
+circuit is not open, and that can serve the request (a backend whose
+`decisionTypes`, `decisionLimits` or `decisionImages` rule it out is skipped,
+not failed). They are tried in fallback-chain order, then the default backend,
+then registration order.
+
+**Parameters:**
+
+- `request: IRDecisionRequest`
+- `signal?: AbortSignal`
+
+**Returns:** `Promise<IRDecisionResponse>`
+
+```typescript
+const response = await router.decide({
+  state: ticket,
+  questions,
+  metadata: { requestId: 'r1', timestamp: Date.now() },
+});
+```
+
+`parameters.model` is a hint: a candidate that declares `decisionModels` without
+it is tried after the rest, not excluded. Throws `UNSUPPORTED_FEATURE` when no
+backend supports decisions.
+
+---
+
 ### `checkHealth(name?)`
 
 Actively probe backends by calling each adapter's `healthCheck()`. An adapter
@@ -246,11 +342,102 @@ for (const info of router.getBackendInfo()) {
 ### Circuit breaker controls
 
 ```typescript
-router.openCircuitBreaker('openai', 30_000); // force open, optionally with a timeout
+router.openCircuitBreaker('openai', 30_000); // force open; 30 s is the rest period of THIS open
 router.closeCircuitBreaker('openai');
 router.resetCircuitBreaker();                // all backends when name is omitted
 router.isCircuitBreakerOpen('openai');       // boolean
 ```
+
+`openCircuitBreaker(name, timeoutMs)` rests for exactly `timeoutMs`, in either
+direction: a value longer than the configured timeout is honoured, not capped by
+it. It applies only to that open.
+
+#### Per-backend circuit breaker
+
+`enableCircuitBreaker`, `circuitBreakerThreshold`, `circuitBreakerTimeout` and
+`circuitBreakerWindow` on `RouterConfig` are **defaults**. One router often fronts backends that fail very
+differently - a cloud API that blips for seconds and a LAN peer that is asleep
+overnight - so `register()` takes per-backend overrides; any field you leave out
+inherits the router-wide value:
+
+```typescript
+const router = new Router({
+  enableCircuitBreaker: true,
+  circuitBreakerThreshold: 5,       // default for every backend
+  circuitBreakerTimeout: 60_000,
+});
+
+router
+  // Cloud API: tolerate a few blips, retry soon.
+  .register('openai', openai, { circuitBreaker: { threshold: 5, timeout: 15_000 } })
+  // LAN peer / docker container: a refused connection means "asleep", not "flaky".
+  // Trip fast, and rest for five minutes before probing it again.
+  .register('desktop', desktopTunnel, { circuitBreaker: { threshold: 2, timeout: 5 * 60_000 } })
+  // A backend that should never be rested.
+  .register('local', localModel, { circuitBreaker: { enabled: false } });
+
+router.getBackendInfo('desktop')?.circuitBreaker;
+// { enabled: true, threshold: 2, timeout: 300000, window: undefined, countAsFailure: fn,
+//   source: { enabled: 'router', threshold: 'register', timeout: 'register', ... } }
+```
+
+`threshold` must be a positive integer and `timeout` a non-negative number of
+milliseconds; anything else throws from `register()` before the backend is added.
+`enabled: true` gives one backend a breaker in a router that has none.
+`getBackendInfo()` reports the effective values, so you can see which layer won.
+The overrides survive `replace()` and `clone()`.
+
+##### Failure window
+
+By default the breaker counts **consecutive** failures with no notion of elapsed time:
+three refusals in four milliseconds trip it exactly like three failures over three
+minutes, and a success in between resets the count. That is the backward-compatible
+default and stays the behaviour unless you set a `window`.
+
+`window` (milliseconds, per backend or as `RouterConfig.circuitBreakerWindow`) changes
+the question to "`threshold` failures **within** `window`":
+
+```typescript
+router.register('desktop', tunnel, { circuitBreaker: { threshold: 3, window: 10_000 } });
+```
+
+Timestamps of recent failures are kept per backend and pruned to the window. In windowed
+mode a success does *not* reset them (intermittent failure is still failure); they are
+forgotten when the breaker closes or is reset. A failed half-open probe reopens a windowed
+breaker at once.
+
+##### Slow-start tolerance
+
+A desktop loading a 7B model has a legitimate 40 s time-to-first-token that is not a
+failure. No threshold or timeout says so; a *signal* does:
+
+- An adapter that can tell reports `ErrorCode.MODEL_LOADING` (a retryable
+  `ProviderError`). The default `countAsFailure` predicate does not count it toward the
+  breaker, though it still appears in `failedRequests`. The shipped Ollama adapter (a 503
+  "loading model", or a deadline that expired while `/api/ps` shows the model not
+  resident), `native-model-runner` (a request while `start()` is waiting for the process)
+  and `native-node-llamacpp` (a request while another request's load is running) report it.
+- `countAsFailure?: (error) => boolean` replaces the default for one backend. It receives
+  the thrown value, or the `{ code, message }` of an in-band stream error chunk. It
+  *replaces* the default, so one that should still ignore warm-up must say so; a predicate
+  that throws counts the failure.
+
+```typescript
+router.register('desktop', tunnel, {
+  circuitBreaker: { countAsFailure: (e) => (e as { code?: string }).code !== 'PROVIDER_TIMEOUT' },
+});
+```
+
+##### Adapter-declared policy
+
+An adapter distributed as a package can recommend its own policy in
+`AdapterMetadata.circuitBreaker` (`threshold`, `timeout`, `window`, `countAsFailure`;
+never `enabled` - whether breakers run at all is the application's call). Precedence,
+per field: **`register()` option > adapter metadata > `RouterConfig`**.
+`getBackendInfo(name).circuitBreaker.source` reports the layer (`'register' | 'adapter' |
+'router'`) each field came from. The recommendation is read from the adapter currently
+registered, so `replace()` hands the name the replacement's. An invalid recommendation
+throws from `register()`/`replace()` like an invalid override.
 
 ---
 
@@ -407,6 +594,8 @@ interface BackendInfo {
   readonly lastHealthCheck?: number;
   readonly circuitBreakerState: 'closed' | 'open' | 'half-open';
   readonly consecutiveFailures: number;
+  readonly circuitBreaker: { enabled: boolean; threshold: number; timeout: number };
+  readonly inFlight: number;
   readonly stats: BackendStats;
 }
 ```

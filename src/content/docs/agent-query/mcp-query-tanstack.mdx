@@ -9,6 +9,8 @@ import Install from '../../../components/Install.astro';
 
 Peer-depends on `@johnhenry/mcp-query` and `@tanstack/react-query`.
 
+**Version pinning.** `mcp-query-tanstack@0.0.0` peer-depends on exactly `@johnhenry/mcp-query@0.0.0` — under npm's pre-1.0 caret rules a `^0.0.0` range matches only that one version. [`mcp-query`](/agent-query/mcp-query/) is now at 0.2.1, so installing the bridge next to the current client produces a peer-dependency conflict until the bridge publishes a release that tracks it. Pin the pair to versions that agree, or install with `--legacy-peer-deps` knowing the bridge was built against `0.0.0`.
+
 ## What it does
 
 `mcp-query` already maintains its own reactive cache. If you also use TanStack Query, you don't want two caches disagreeing, and you don't want TanStack refetching data the MCP client already has fresh.

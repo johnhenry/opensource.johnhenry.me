@@ -7,11 +7,54 @@ import Install from '../../../components/Install.astro';
 
 <Install pkg="@johnhenry/mcp-query" />
 
-An MCP client shaped like a data layer rather than an agent loop. It wraps the official `@modelcontextprotocol/sdk` and adds the machinery an application needs: a reactive cache, stable query keys, tag-based invalidation, and connection lifecycle modelled on an LSP client.
+An MCP client shaped like a data layer rather than an agent loop. It wraps the official v2 MCP SDK (`@modelcontextprotocol/client`) and adds the machinery an application needs: a reactive cache, stable query keys, tag-based invalidation, and connection lifecycle modelled on an LSP client.
 
 ```ts
 import { MCPClient } from '@johnhenry/mcp-query';
+import { StdioClientTransport } from '@johnhenry/mcp-query/transports';
+
+const client = new MCPClient({
+  servers: {
+    fs: {
+      transport: () =>
+        new StdioClientTransport({ command: 'mcp-server-filesystem', args: ['/work'] }),
+    },
+  },
+});
+await client.connect();
+
+client.listTools('fs'); // a synchronous cache read once connected
 ```
+
+The current release is **0.2.1**, which declares `engines.node >=22.0.0`.
+
+## SDK dependency
+
+`mcp-query` peer-depends on `@modelcontextprotocol/client` and `@modelcontextprotocol/server`, both pinned to exactly `2.0.0` — the v2 split packages, not the v1 monolith `@modelcontextprotocol/sdk`. Install them alongside it:
+
+```bash
+npm install @johnhenry/mcp-query @modelcontextprotocol/client@2.0.0 @modelcontextprotocol/server@2.0.0
+```
+
+React (`^19.2.7`) and `@opentelemetry/api` (`^1.9.0`) are optional peers, needed only for the `/react` and `/otel` subpaths. The client transports (stdio, Streamable HTTP, SSE) are re-exported from `@johnhenry/mcp-query/transports`, so application code doesn't need to import the SDK directly.
+
+## Protocol versions
+
+Connections speak the classic 2025-era protocol by default — no probe, no behavioral change. Opt into the 2026-07-28 revision with the additive `versions` list, on the client or per connection:
+
+```ts
+new MCPClient({ servers, versions: ['2026-07-28', '2025-11-25'] });
+```
+
+The client probes each server, speaks 2026-07-28 where the server offers it, and falls back losslessly to the older protocol otherwise. A list containing only modern entries pins the connection with no fallback. `client.connection(name)?.era` reports what was actually negotiated (`'legacy'` or `'modern'`); `versionNegotiation` remains available as a lower-level escape hatch.
+
+## Listing servers and tools
+
+`listTools`, `listResources`, `listResourceTemplates`, and `listPrompts` are synchronous cache reads. Pass a server name for one server, or nothing for the union across all of them with each entry tagged `server`.
+
+When given a server name that isn't configured, these **throw** an `MCPError` — `unknown server "x"; configured: a, b` — rather than returning an empty array that looks like a server with nothing to offer (older releases returned `[]`). Every client method that takes a server name uses the same message.
+
+The React capability hooks (`useTools`, `useResourceList`, `usePromptList`, `useResourceTemplates`) deliberately do the opposite: they return an empty list for a server that hasn't been added yet. With dynamic topology (`client.addServer()` after mount, lazy connections) a component often renders before its server exists, and throwing during render would crash the tree for what is a normal transient state. The hook re-renders with real data as soon as the server is added. The trade-off is that a typo'd server name in a hook renders an empty list; for strictness call `client.listTools(name)` yourself, or check `client.connection(name)`.
 
 ## Why not use the SDK directly
 
@@ -23,15 +66,31 @@ The SDK gives you a correct protocol client. An application additionally needs t
 
 Elicitation is first-class. The client advertises both `form` and `url` elicitation capabilities and routes requests through an `InteractionBroker`, so an approval UI can sit between the server's request and the user's answer.
 
+```ts
+import { MCPClient, InteractionBroker } from '@johnhenry/mcp-query';
+
+const broker = new InteractionBroker();
+const client = new MCPClient({ servers, interactions: broker });
+
+broker.list(); // pending sampling / elicitation / confirm requests for your approval UI
+```
+
+The broker comes from the shared `@johnhenry/agent-query-core` engine, and its request types are `sampling`, `elicitation`, and `confirm`. A `policy` function can auto-answer some requests, `onAudit` receives an audit entry for each, and `manualSampling` lets a person author the model's response in the approval UI instead of an LLM. [`mcp-gate`](/agent-query/mcp-gate/) uses the same broker for its [tool-call approvals](/agent-query/mcp-gate/#human-in-the-loop-approval).
+
 A note learned the hard way: servers gate each elicitation mode on its own sub-capability. Advertising a bare `{}` only works for form mode via a backwards-compatibility transform in the SDK's schema — declaring `url` requires declaring `form` explicitly too, or form-mode elicitation breaks with *"Client does not support form elicitation."*
 
 ## Subpath exports
 
-- `@johnhenry/mcp-query/server` — server-side helpers
+- `@johnhenry/mcp-query/transports` — stdio, Streamable HTTP, and SSE client transports
+- `@johnhenry/mcp-query/server` — server-side helpers: `authorize`, `createGateway`, `circuitBreaker`, `rateLimit`
 - `@johnhenry/mcp-query/testing` — `MockMCPServer` and friends for tests
 - `@johnhenry/mcp-query/react` — React bindings
 - `@johnhenry/mcp-query/devtools` — inspection UI
 - `@johnhenry/mcp-query/webmcp` — WebMCP integration
+- `@johnhenry/mcp-query/session` — per-principal session management for backends
+- `@johnhenry/mcp-query/metrics` — metrics collection
+- `@johnhenry/mcp-query/redis` — a Redis-backed L2 cache store for multi-node setups
+- `@johnhenry/mcp-query/otel` — an OpenTelemetry tracing interceptor
 
 ## Binaries
 

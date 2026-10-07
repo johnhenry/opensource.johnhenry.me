@@ -31,33 +31,22 @@ integration."
 
 <Install pkg="@johnhenry/dialback" />
 
+dialback 0.0.5 requires Node 26 or later (`"engines": { "node": ">=26.0.0" }`) and ships its own TypeScript declarations for `Server` and `Agent`. Its runtime dependencies are `ws` and `@johnhenry/webwire`.
+
 ## Quick example
 
 ```javascript
-// Server
+// Server (Node.js)
 import { Server } from "@johnhenry/dialback";
-import http from "http";
-import { WebSocketServer } from "ws";
 
 const server = new Server(() => new Response("no responder", { status: 500 }), {
   secret: "shared-secret",
 });
 
-const httpServer = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-  const response = await server.fetch(new Request(url, { method: req.method, headers: req.headers }));
-  res.writeHead(response.status, response.statusText, Object.fromEntries(response.headers));
-  response.body.pipe(res);
-});
-
-const wss = new WebSocketServer({ server: httpServer });
-wss.on("connection", (ws) => {
-  server.addConnection(ws);
-  ws.on("close", () => server.removeConnection(ws));
-});
-
-httpServer.listen(8082);
+await server.listen(8082);
 ```
+
+`Server#listen(port)` starts an HTTP server and a WebSocket server on the same port: plain HTTP requests go to `server.fetch()`, and WebSocket connections are registered as agents (and unregistered when they close). Converting Node's `req`/`res` to and from `Request`/`Response` is done by [`@johnhenry/webwire`](/webwire/), which dialback 0.0.5 depends on — so repeated response headers such as `Set-Cookie` reach the client as separate header lines instead of being collapsed to the last one. `X-Forwarded-Host` is read before `Host`, so the agent sees the host the original client asked for rather than the proxy's own. If you want to run your own HTTP server instead, use `server.fetch()` and `server.addConnection()` directly, as in the [Deno example](/dialback/api/#usage-with-deno).
 
 ```javascript
 // Agent
@@ -84,7 +73,8 @@ real per-agent-identity alternative to the shared-secret model above.
   on authentication
 - [The `dialback/browsermesh` transport](/dialback/browsermesh-transport/)
   — optional per-agent Ed25519 identity in place of a shared secret, the
-  handshake, and its honestly-documented limitations
+  handshake, the `@johnhenry/dialback/handshake` subpath, and its
+  honestly-documented limitations
 
 ## Contributing
 

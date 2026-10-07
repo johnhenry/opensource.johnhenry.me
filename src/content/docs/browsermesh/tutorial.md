@@ -10,10 +10,10 @@ Takes about 5 minutes.
 ## 1. Install
 
 ```sh
-npm install @johnhenry/browsermesh-pod
+npm install @johnhenry/browsermesh-pod @johnhenry/browsermesh-primitives
 ```
 
-`browsermesh-pod` depends on `@johnhenry/browsermesh-primitives` (identity, wire format) as a peer — npm will pull it in.
+`browsermesh-pod` depends on `@johnhenry/browsermesh-primitives` (identity, wire format) as a peer, so install both. Use `primitives` 0.2.0 or later (`pod` 0.0.3 requires `>=0.2.0 <1.0.0`) and Node 26 or later.
 
 ## 2. Create the file
 

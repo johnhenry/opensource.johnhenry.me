@@ -1,6 +1,6 @@
 ---
 title: "Guide"
-description: "Connect, open a PTY session, run one-shot commands, detach and resume, and manage keys."
+description: "Connect, open a PTY session, run one-shot commands, detach and resume, write and rename files, pin a host key, and manage keys."
 ---
 
 ## A full PTY session
@@ -47,16 +47,34 @@ distinguish "you closed it" from "it died" without guessing from side effects.
 
 When a PTY or exec session is opened, the server mints a session id and a
 session-scoped resume token, exposed as `session.sessionId` and
-`session.resumeToken`. Those two values are the whole story of coming back:
+`session.resumeToken`. Those two values, plus how much output you have already
+seen, are the whole story of coming back:
 
 ```js
 const { sessionId, resumeToken } = session;
+const lastSeq = session.seq;      // cumulative output bytes received so far
 
 await client.detach(sessionId);   // release it; it keeps running host-side
 
-// Later — possibly from a brand-new connection:
-await client.resumeSession(sessionId, resumeToken);
+// Later — possibly from a brand-new connection with the same key:
+const { session: resumed } = await client2.resumeSession(sessionId, resumeToken, { lastSeq });
+resumed.onData = (data) => process.stdout.write(new TextDecoder().decode(data));
+// only the bytes after lastSeq arrive, then live output
 ```
+
+`session.seq` is the running count of output bytes the client has received;
+passing it as `lastSeq` makes the host replay only what you missed. A host
+with a bounded history refuses a `lastSeq` older than it still holds (an
+`output gap` error), in which case `attachSession()` gets you the retained
+tail. `resumeSession()` and `attachSession()` return the `Presence` reply,
+with a non-enumerable `session` property: the `WshSession` to read and write
+the re-attached channel.
+
+Note that `session.close()` and a graceful `client.disconnect()` end a session
+you own. To walk away and keep it running, call `detach()` first (a dropped
+connection also detaches). The host has to opt in to keeping sessions alive:
+`@johnhenry/wsh/server` does so with its `sessions` option, see
+[Node server](/wsh/server/).
 
 The distinction between the two reattachment calls is *who you are*:
 
@@ -90,6 +108,12 @@ console.log(new TextDecoder().decode(stdout), 'exit', exitCode);
 ```
 
 `stdout` is bytes here too — same reason.
+
+A stream-mode exec session needs the host to notice the data stream the client
+opened. A host that advertises `stream-announce` (the Node server does)
+discovers it by itself; against a host that does not, the client writes a
+one-byte primer for you, and that host strips it. Pass `primer: false` to
+`WshClient.exec()` or `openSession()` to never send it.
 
 ## Keys and authentication
 
@@ -148,25 +172,84 @@ batching profile (latency-first for a PTY, throughput-first for exec).
 the two ends of a session must pass opposite roles (e.g. `'client'`/
 `'server'`) or frames won't open.
 
-## Trust-on-first-use host verification
+## Pinning the host: expectHostKey and trust on first use
 
-`WshKnownHosts` is a small JS host-identity store (TOFU, matching
-`ssh_known_hosts`'s model): record a host's identity fingerprint on first
-connect, then detect if a later connection presents a different one — the
-same signal SSH gives you against a changed or spoofed host. Server-side
-population of `ServerHello.host_fingerprint` isn't shipped by any
-`wsh-server` release yet, so this store is ready but has no live fingerprint
-to check against until the server side catches up.
+A host that advertises a key (the Node server does, with its `hostKey`
+option) fills in `ServerHello.host_fingerprint` and proves it holds the key
+with a signature bound to a fresh nonce from your `Hello`, so the proof cannot
+be replayed. The client can then pin it:
+
+```js
+import { WshClient, WshKnownHosts, HostKeyError } from '@johnhenry/wsh';
+
+const client = new WshClient();
+
+// Pin a fingerprint you got out of band; refuses on mismatch.
+await client.connect(url, { username, keyPair, expectHostKey: fingerprint });
+
+// Or trust on first use, remembered in a store (the ssh_known_hosts model).
+await client.connect(url, {
+  username, keyPair,
+  knownHosts: new WshKnownHosts(),
+  trustOnFirstUse: true,
+});
+
+client.hostKey;  // { fingerprint, publicKey, openssh, status: 'pinned' | 'known' | 'unknown' | 'unpinned' }
+```
+
+`expectHostKey` takes a hex fingerprint (a `sha256:` prefix is fine), a raw
+32-byte key, or an `ssh-ed25519 AAAA...` line. With `knownHosts`, a changed key
+is always refused and never overwrites the stored pin; an unseen host is
+refused unless `trustOnFirstUse` is set or an `onHostKey` callback (on the
+client, or per `connect()` call) accepts it. Either option also refuses a host
+that presents no key at all. Refusals are `HostKeyError`, with a `code` of
+`HOST_KEY_MISSING`, `HOST_KEY_INVALID`, `HOST_KEY_MISMATCH`,
+`HOST_KEY_UNKNOWN` or `HOST_KEY_REJECTED`, and they are thrown before any
+signature or password is sent. `WshClient.exec()` and `connectReverse()` take
+the same options.
+
+`WshKnownHosts` defaults to `localStorage`, which in Node is not a persistent
+file store; pass `new WshKnownHosts({ storage })` with a `getItem` / `setItem`
+/ `removeItem` object you back with a file. Pinning keeps you from talking to
+the wrong host but does not encrypt anything: over plain `ws://` an active
+attacker can relay a genuine host proof and then read or alter the rest, so
+confidentiality still needs `wss://` or a link you trust. The Rust
+`wsh-server` advertises no key, so a pin against it is refused with
+`HOST_KEY_MISSING`, never silently skipped.
+
+## Files: list, write, rename
+
+Alongside `upload()` / `download()`, the client does directory operations
+against a host that serves files (the Node server's `fs` option):
+
+```js
+await client.fileWrite('todo.txt', 'ship it\n');          // create or replace
+await client.fileWrite('todo.txt', 'X', 3);               // write in place at byte 3, no truncation
+await client.fileRename('todo.txt', 'done.txt');    // refuses to overwrite
+const listing = await client.fileList('/');                  // listing.entries: name, size, modified, type
+await client.fileRemove('done.txt');
+```
+
+Each resolves with a `FileResult`-shaped object; a failure is
+`success: false` with an `error_message`, not a throw. `fileWrite` and
+`fileRename` send spec-conformant frames (a `FileOp` followed by `FileChunk`
+frames on the same channel; for a rename, one chunk holding the UTF-8
+destination), and need the host to advertise `file-write` / `file-rename` in
+its `ServerHello`. The client throws instead of sending to a host that does
+not, as the Rust `wsh-server` does not support those two operations.
 
 ## Beyond the basics
 
 The same client also exposes file transfer (`WshFileTransfer` and
 `client.upload`/`download` — `FileChunk` control messages in 64KB chunks, so
 transfers work identically on stream-backed and virtual channels) with
-structured directory listing (`client.list()` returns typed
-`FileResult.metadata.entries: FileEntry[]`, backing the CLI's `sftp`/`ls`
+structured directory listing (`client.fileList(path)` resolves with a
+`FileResult` whose `entries` is a typed `FileEntry[]`, and
+`WshFileTransfer.list()` decodes it for you; both back the CLI's `sftp`/`ls`
 commands on both clients), session recording and playback (`SessionRecorder`
-/ `SessionPlayer`, asciicast v2), and a remote-MCP bridge (`WshMcpBridge`, to
-discover and invoke MCP tools over the control channel — calls now carry a
-`call_id` for correlating concurrent in-flight calls). See the
+/ `SessionPlayer`; the recording uses wsh's own JSON schema, not asciicast
+v2), and a remote-MCP bridge (`WshMcpBridge`, to discover and invoke MCP
+tools over the control channel — calls carry a `call_id` for correlating
+concurrent in-flight calls, against hosts that advertise `mcp-call-id`). To
+serve all of this yourself, see [Node server](/wsh/server/). See the
 [API](/wsh/api/) for the full surface.

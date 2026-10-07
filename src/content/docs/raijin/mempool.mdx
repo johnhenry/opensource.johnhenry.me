@@ -1,24 +1,27 @@
 ---
 title: "Mempool"
-description: "@johnhenry/raijin-mempool — fee-ordered transaction pooling: the fee-byte convention, eviction rules, dedup, events, and gossip."
+description: "@johnhenry/raijin-mempool — the fee-ordered transaction pool ValidatorNode runs: the fee-byte convention, eviction rules, dedup, events, and gossip."
 ---
 
 import Install from '../../../components/Install.astro';
 
-**`@johnhenry/raijin-mempool`** is the fee-ordered transaction pool: verify on entry (injected verifier), deduplicate by sender+nonce, order by fee for block building, evict the cheapest when full, optionally gossip accepted transactions to peers.
+**`@johnhenry/raijin-mempool`** (0.1.1) is the fee-ordered transaction pool: verify on entry (injected verifier), deduplicate by sender+nonce, order by fee for block building, evict the cheapest when full, optionally gossip accepted transactions to peers. It is the pool [`ValidatorNode`](/raijin/validator/) runs, and `@johnhenry/raijin-validator` re-exports it.
 
 <Install pkg="@johnhenry/raijin-mempool" />
 
-## The fee convention collides with the tx-type byte
+## The fee convention sits next to the tx-type byte
 
-`defaultFeeExtractor` reads the **first 8 bytes of `tx.data` as a big-endian uint64** (shorter data ⇒ fee `0n`). But [`raijin-core`'s state machine](/raijin/core/) reads `tx.data[0]` as the *transaction type*. One `data` layout cannot satisfy both defaults: a `Transfer` (`data[0] = 0x01`) gets a fee ≥ 2⁵⁶ under the default extractor, and an 8-byte fee prefix gets misread as a transaction type. If your transactions carry typed data — and in raijin they do — **supply your own `FeeExtractor`**, e.g. `(tx) => tx.value` for tip-style fees. (An inline comment in older type builds claims the default *is* `tx.value`; it isn't.)
+`defaultFeeExtractor` reads **8 bytes of `tx.data` starting at offset 1, as a big-endian uint64** (data shorter than 9 bytes ⇒ fee `0n`). Byte 0 is left alone because [`raijin-core`'s state machine](/raijin/core/) reads `tx.data[0]` as the *transaction type*, so a typed transaction is `data = [type, fee × 8 bytes, …]`. An empty-`data` plain transfer therefore has fee `0n` under the default extractor. If your transactions carry other layouts, **supply your own `FeeExtractor`**, e.g. `(tx) => tx.value` for tip-style fees.
 
-Two more rules that decide disputes:
+One caveat: the package README still describes the default as the *first* 8 bytes of `data`. The shipped code and type definitions read from offset 1, and that is what this page documents; confirm with `defaultFeeExtractor(tx)` if in doubt. (An inline comment in older type builds claims the default *is* `tx.value`; it isn't.)
 
-- **Eviction requires strictly higher fee.** When the pool is full, an incoming tx displaces the current cheapest only if its fee is strictly greater; equal fee is dropped as `'pool-full'`. The displaced tx is announced as `'evicted'`.
+Rules that decide disputes:
+
+- **Eviction requires strictly higher fee.** When the pool is full, an incoming tx displaces the current cheapest only if its fee is strictly greater; equal fee is dropped as `'pool-full'`. The displaced tx is announced as `'evicted'`. Inside a validator a full pool therefore evicts its cheapest transaction instead of throwing; only a transaction that cannot out-bid it is rejected.
 - **No replace-by-fee.** Identity is sender+nonce, so a re-submission with the same nonce and a juicier fee is a `'duplicate'`, full stop.
+- **A sender's own transactions are never reordered.** Block ordering ranks senders by the fee of their lowest pending nonce, so a high-fee nonce 1 can't jump ahead of the same sender's nonce 0 and revert on a nonce mismatch.
 
-And a scoping fact: `ValidatorNode` in [`raijin-validator`](/raijin/validator/) does **not** use this class — it ships its own FIFO `Mempool` under the same name. This package is standalone until you wire it in yourself.
+And a scoping fact: this is **the** pool a validator uses. `ValidatorNode` constructs it with `maxSize: maxMempoolSize` and a verifier built from the node's `identity.verify` (the same `SignatureVerifier` the state machine uses), so a transaction with a bad signature is rejected at `submitTransaction()` instead of becoming a revert receipt one block later. Fee ordering is active inside a validator by default, so mind the fee convention above when your transactions carry typed data. `Mempool` imported from `@johnhenry/raijin-validator` is this same class; the older, simpler FIFO class of that name no longer exists.
 
 ## `Mempool`
 
@@ -36,16 +39,18 @@ pool.onAccepted((tx) => {})
 pool.onDropped((tx, reason) => {})  // 'duplicate' | 'invalid-signature' | 'pool-full' | 'evicted'
 
 const ok = await pool.submit(tx)          // boolean; accepted txs are also gossiped
-const block = pool.pendingForProposer(100) // top-100 by fee
+const block = pool.pendingForProposer(100) // top-100 by fee, per-sender nonce order kept
 ```
 
 | Member | Signature | Behavior |
 | --- | --- | --- |
 | `submit` | `(tx) → Promise<boolean>` | Pipeline: dedup → verify → (if full) evict-or-reject → accept → gossip. Never throws for a bad tx; watch `onDropped`. |
 | `remove` / `removeBatch` | `(tx) → boolean` / `(txs) → number` | Delete by sender+nonce identity — call after block inclusion. |
-| `pending` | `() → Transaction[]` | Fee-descending, nonce-ascending on equal fee. Fresh array each call. |
+| `pending` | `() → Transaction[]` | Fee-descending across senders, nonce-ascending within a sender (see `orderByFee`). Fresh array each call. |
 | `pendingForProposer` | `(limit?) → Transaction[]` | Same ordering, truncated. |
 | `has` / `hasNonce` | `(tx)` / `(sender, nonce) → boolean` | Membership by sender+nonce. |
+| `hasCapacityFor` | `(tx) → boolean` | Cheap backpressure check with no signature verification: `true` while there is room, or when `tx` pays a strictly higher fee than the lowest pending one (so `submit` would evict). Added in 0.1.0 for `ValidatorNode`'s transaction gossip. |
+| `pruneBelowNonce` | `(sender, currentNonce) → number` | Drop every pending tx from `sender` with a nonce below `currentNonce`, i.e. already consumed on-chain. Used after a state-sync import, where only the latest block's transactions are known individually. Returns the count removed. |
 | `size` | getter | Current count. |
 | `onAccepted` / `onDropped` | `(handler) → void` | Synchronous event fan-out; drop handler gets the reason string. |
 
@@ -53,16 +58,17 @@ Rejected transactions are never gossiped — the gossip hook only fires on accep
 
 ## `orderByFee(txs, feeExtractor)`
 
-The pure sorting core, exported separately: fee descending, tie-break by nonce ascending, returns a new array. Useful when you have transactions from somewhere else (another node's gossip, a test fixture) and just need block ordering without pool semantics.
+The pure sorting core, exported separately. It groups transactions by sender, keeps each sender's queue in nonce order, and lets only each queue's *head* (the sender's lowest pending nonce) compete on fee; whichever head has the highest fee is picked next (ties go to the lower nonce), exposing that sender's next transaction. Returns a new array. Useful when you have transactions from somewhere else (another node's gossip, a test fixture) and just need block ordering without pool semantics.
 
 ## `defaultFeeExtractor(tx)`
 
-The 8-byte big-endian `data`-prefix rule described up top. Encoding a fee that way from your side:
+The 8-byte big-endian `data` rule described up top (bytes 1 through 8). Encoding a fee that way from your side:
 
 ```js
-function encodeFee(fee) {          // bigint → Uint8Array(8), big-endian
-  const b = new Uint8Array(8)
-  for (let i = 7; i >= 0; i--) { b[i] = Number(fee & 0xffn); fee >>= 8n }
+function encodeData(type, fee) {   // type byte + bigint → Uint8Array(9), fee big-endian
+  const b = new Uint8Array(9)
+  b[0] = type
+  for (let i = 8; i >= 1; i--) { b[i] = Number(fee & 0xffn); fee >>= 8n }
   return b
 }
 ```

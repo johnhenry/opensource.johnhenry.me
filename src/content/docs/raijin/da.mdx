@@ -1,11 +1,11 @@
 ---
 title: "Data availability"
-description: "@johnhenry/raijin-da — the DALayer interface, what commitments prove, LocalDA and CelestiaDA, the EthBlobDA stub, and encode/decode."
+description: "@johnhenry/raijin-da — the DALayer interface, what commitments prove, LocalDA and CelestiaDA, the EthBlobDA stub, and size-bounded encode/decode."
 ---
 
 import Install from '../../../components/Install.astro';
 
-**`@johnhenry/raijin-da`** abstracts "post these bytes somewhere retrievable" behind one interface, `DALayer`, with three backends: `LocalDA` (in-memory, dev/tests), `CelestiaDA` (a Celestia light node's REST API), and `EthBlobDA` (EIP-4844 — a stub that throws). `encode()`/`decode()` handle compression framing for the payloads. `viem` is an optional peer dependency you only need if you implement the ETH path.
+**`@johnhenry/raijin-da`** (0.0.4) abstracts "post these bytes somewhere retrievable" behind one interface, `DALayer`, with three backends: `LocalDA` (in-memory, dev/tests), `CelestiaDA` (a Celestia light node's REST API), and `EthBlobDA` (EIP-4844 — a stub that throws). `encode()`/`decode()` handle compression framing for the payloads. `viem` is an optional peer dependency you only need if you implement the ETH path.
 
 <Install pkg="@johnhenry/raijin-da" />
 
@@ -25,7 +25,9 @@ import Install from '../../../components/Install.astro';
 Other traps:
 
 - **`EthBlobDA` throws on all three methods.** It pins the interface and its error messages are a step-by-step implementation guide (viem blob sidecars, KZG setup, Beacon API retrieval). Also: Ethereum prunes blobs after ~18 days — the archival problem is yours.
-- **`encode()` is environment-dependent.** If the optional `fflate` package can be imported, shrinkable payloads get deflated with an `RJC` magic prefix; otherwise everything is `RJR` raw. `decode()` of an `RJC` payload **throws when fflate is absent** — if any writer might compress, every reader needs fflate installed.
+- **`encode()` is environment-dependent.** If the optional `fflate` package can be imported, shrinkable payloads get deflated with an `RJC` magic prefix; otherwise everything is `RJR` raw. `decode()` of an `RJC` payload **throws when fflate is absent and no `inflate` was supplied** — if any writer might compress, every reader needs fflate installed or an explicit codec (`decode(data, { inflate })`).
+- **`decode()` caps its output at 16 MiB.** DA bytes are untrusted by definition, and DEFLATE reaches roughly 1000:1 on repetitive input, so a few kilobytes can ask for gigabytes. Oversized payloads are refused with `DASizeLimitError`; raise the cap per call with `decode(data, { maxDecompressedSize })` if a payload is genuinely expected to be larger.
+- **`CelestiaDA` refuses to send an auth token over cleartext `http:` to a non-loopback host.** The node token is a node credential and usually carries write access. Use `https:`, a loopback host (the default `http://localhost:26658` is fine), or opt in explicitly with `allowInsecureAuth: true`.
 - **`retrieve()` throws on a miss; `verify()` returns `false`.** Same unknown-hash situation, different failure channels — don't catch around `verify`.
 
 ## `LocalDA`
@@ -51,18 +53,28 @@ const da = new CelestiaDA({
   namespace: '00c0ffee00c0ffee',        // required — 8-byte hex namespace ID
   endpoint: 'http://localhost:26658',   // default; a *running light node*, not embedded
   authToken: process.env.CELESTIA_NODE_AUTH_TOKEN, // most nodes require one
+  // allowInsecureAuth: true,             // only for a non-loopback http: endpoint
 })
 ```
 
-`submit()` posts a PFB (pay-for-blob) to your namespace and returns the inclusion height; `retrieve()` fetches all blobs in the namespace at that height and returns the one whose hash matches the commitment; `verify()` is retrieve-and-rehash, mapping *any* failure — network included — to `false`. Fees/gas are currently fixed constants in the client. `CelestiaDAOptions` is exported for typing.
+`submit()` posts a PFB (pay-for-blob) to your namespace and returns the inclusion height; `retrieve()` fetches all blobs in the namespace at that height and returns the one whose hash matches the commitment; `verify()` is retrieve-and-rehash, mapping *any* failure — network included — to `false`. Fees/gas are currently fixed constants in the client. The constructor **throws** if an `authToken` is set and `endpoint` is `http:` on a non-loopback host, unless `allowInsecureAuth: true` is passed, and the namespace is percent-encoded into the request path so a caller-supplied namespace cannot rewrite the URL and carry the token to a different route. `CelestiaDAOptions` (`namespace`, `endpoint`, `authToken`, `allowInsecureAuth`) is exported for typing.
 
 ## `EthBlobDA`
 
 Constructable (`EthBlobDAOptions`: `rpcUrl`, `beaconUrl`, `chainId` — defaults localhost:8545, localhost:5052, 1) but every method throws with implementation requirements. The source file (`packages/da/src/eth-blobs.ts`) contains a complete viem-based sketch: `toBlobs()`/`toBlobSidecars()`, KZG via c-kzg-4844, a type-3 transaction, and Beacon API retrieval. If you implement it, keep the `DACommitment.hash` semantics — content hash of the pre-blob bytes — so `verify()` stays uniform across backends.
 
-## `encode(data)` / `decode(data)`
+## `encode(data, opts?)` / `decode(data, opts?)`
 
-Framing for DA payloads: a 3-byte magic (`RJC` compressed / `RJR` raw) followed by the payload. Compression happens only when fflate is present *and* actually shrinks the bytes, so tiny or high-entropy payloads pass through raw even with fflate installed. `decode()` throws on truncated input, unknown magic, or compressed data without fflate. Round-trip is guaranteed: `decode(encode(x))` equals `x` in any single environment.
+Framing for DA payloads:
+
+- raw: `"RJR" ‖ data`
+- compressed: `"RJC" ‖ LEB128(decompressed length) ‖ deflate(data)`
+
+The compressed frame carries the **decompressed** length so `decode()` can refuse an oversized payload before allocating for it. Compression is used only when a deflater is available *and* the whole frame (length header included) actually shrinks the payload, so tiny or high-entropy payloads pass through raw even with fflate installed. Round-trip is guaranteed: `decode(encode(x))` equals `x` in any single environment.
+
+`decode()` never returns more than `maxDecompressedSize` bytes (default `MAX_DECOMPRESSED_SIZE`, 16 MiB): the declared length is checked against the cap before inflating, the inflater is bounded by that declared length, and the result is checked again in case the inflater ignored its bound. Both frame types are capped.
+
+Errors: every rejection is a `DADecodeError` (missing or unknown magic, a truncated frame, a failure inside the compression library — wrapped rather than propagated raw), and size refusals are the `DASizeLimitError` subclass, carrying `limit` and `requested`. Options: `encode(data, { deflate })` and `decode(data, { maxDecompressedSize, inflate })`. Supply a codec explicitly in environments where the optional fflate import does not resolve; an `Inflate` must honor its `limit` argument as a memory bound, not a post-hoc truncation.
 
 ## Wiring it into a node
 

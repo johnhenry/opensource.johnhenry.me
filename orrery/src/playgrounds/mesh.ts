@@ -93,7 +93,7 @@ async function verifyFrom(claimed: string, pub: string, data: Uint8Array, sig: s
   try {
     const key = await importPub(pub);
     if (await P.derivePodId(key) !== claimed) return { ok: false, why: 'public key does not hash to sender podId' };
-    const ok = await P.PodIdentity.verify(key, data as BufferSource, unb64(sig) as BufferSource);
+    const ok = await P.PodIdentity.verify(key, unb64(sig) as BufferSource, data as BufferSource);
     return ok ? { ok } : { ok, why: 'Ed25519 signature invalid' };
   } catch (e) { return { ok: false, why: (e as Error).message }; }
 }

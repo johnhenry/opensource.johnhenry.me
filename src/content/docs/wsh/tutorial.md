@@ -5,7 +5,7 @@ description: "Authenticate with an Ed25519 challenge-response handshake and run 
 
 wsh's real job is talking to a remote host over a network. But its protocol — Ed25519 challenge-response auth, then a channel open for a command, then streamed output — is entirely expressible as plain function calls exchanging bytes, which makes it possible to see the whole conversation end to end without standing up a server first. This tutorial does exactly that: authenticate, then run one command, using wsh's own wire-format encode/decode functions directly. Every byte that moves is the real length-prefixed CBOR frame format a live server or `wsh-cli` would produce and consume.
 
-Takes about 10 minutes.
+Takes about 10 minutes. When you want a real host to talk to instead of an in-process stand-in, `@johnhenry/wsh/server` is one — see [Node server](/wsh/server/).
 
 ## 1. Install
 
@@ -133,5 +133,6 @@ exit code: 0
 ## Where to go next
 
 - [wsh overview](/wsh/) and [Guide](/wsh/guide/) — the higher-level `WshClient`/`WshSession` API (`client.connect()`, `client.openSession()`, `WshClient.exec()`) that wraps this protocol for a real WebSocket/WebTransport connection to an actual server, instead of hand-driving frames like this tutorial does.
+- [Node server](/wsh/server/) — the same conversation against a real listener: `createWshServer` with `exec` enabled, over WebSocket or WebTransport.
 - [API](/wsh/api/) — every export, grouped.
 - `wsh`'s own [`examples/`](https://github.com/johnhenry/wsh/tree/main/examples) — `01` shows frames surviving a fragmented transport, `02` shows a tampered challenge failing authentication, `04` shows session recording/replay, and `05` shows remote MCP tools called through the bridge.

@@ -48,7 +48,7 @@ npm run build    # static output in dist/
 | Leserve Wire | `@johnhenry/leserve` | Edit a `(request) => Response` handler, fire requests, see the raw HTTP wire. Real Node via the companion. |
 | Servant Hall | `@johnhenry/servant` | Fetch-event server script with a middleware chain, HTTP and WebSocket panels, and a dispatch trace. |
 | Dialback Tunnel | `@johnhenry/dialback` | The browser is the agent behind the NAT; public requests are tunnelled back down its own socket. |
-| Web Shell | `@johnhenry/wsh` | Ed25519 handshake viewer, xterm PTY, QMux stream inspector, files and asciicast recording. |
+| Web Shell | `@johnhenry/wsh` | Ed25519 handshake viewer, xterm PTY, QMux stream inspector, files (list/write/rename/transfer), MCP tools, trust-on-first-use host keys and session recording. Against the companion it talks to the real `@johnhenry/wsh/server` host. |
 | Apple On-Device | `@johnhenry/apple-foundation-models` | Status, chat and the full API surface; live only on macOS 26 Apple Silicon with the package installed. |
 
 The home page is an animated orrery driven by `@johnhenry/css-signals`. The whole site is themed with
@@ -66,7 +66,7 @@ Five planets have a server side (Leserve, Servant, Dialback, Web Shell, Apple On
 They work everywhere with a clearly labelled in-page stand-in. To use the real servers on your machine:
 
 ```bash
-npm run node      # http://localhost:7777, plus 7778 (leserve) and 7779 (servant)
+npm run node      # http://localhost:7777, plus 7778 (leserve), 7779 (servant) and 7780 (wsh)
 ```
 
 Planets probe `GET /orrery.json` on mount and switch to live mode when it answers. Demos live in `server/demos/*.mjs`;

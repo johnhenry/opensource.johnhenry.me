@@ -28,16 +28,33 @@ This isn't ten libraries that happened to end up together — it's one family, c
 | [`@johnhenry/browsermesh-transport`](/browsermesh/services/) | WebSocket/WebRTC/WebTransport adapters, stream multiplexing | primitives |
 | [`@johnhenry/browsermesh-sync`](/browsermesh/services/) | CRDT/delta sync, file transfer, real-time collaboration | primitives |
 | [`@johnhenry/browsermesh-discovery`](/browsermesh/services/) | DHT, peer discovery, naming, swarm coordination | primitives |
-| [`@johnhenry/browsermesh-apps`](/browsermesh/apps/) | Application layer: marketplace, chat, payments, mesh-native storage, serverless sites/functions, compute orchestration, agent tools | core, transport, sync, discovery, primitives |
+| [`@johnhenry/browsermesh-apps`](/browsermesh/apps/) | Application layer: marketplace, chat, payments, mesh-native storage, serverless sites/functions, compute orchestration, agent tools | primitives, sync (required); core, transport, discovery, kernel, netway, andbox (optional) |
 | [`@johnhenry/browsermesh-kernel`](/browsermesh/kernel/) | Capability-secure browser microkernel: resource handles, IPC, tracing, chaos engineering | *(nothing)* |
 
-Two packages are genuinely standalone: `primitives` and `kernel` ship zero npm dependencies each, including zero dependencies on each other. Everything else in the mesh/app stack depends on `primitives`, directly or transitively — the kernel is a deliberately separate concern (a browser microkernel, not a mesh peer).
+Three packages are genuinely standalone: `primitives`, `netway`, and `kernel` ship zero npm dependencies each, and none of them declares a dependency on another. Everything else in the mesh/app stack depends on `primitives`, directly or transitively — the kernel is a deliberately separate concern (a browser microkernel, not a mesh peer).
 
-## Cross-package dependencies are peer dependencies with an unbounded range
+## Cross-package dependencies are peer dependencies with a bounded range
 
-Every package that depends on another package in this family (`pod` on `primitives`; `core`/`transport`/`sync`/`discovery` on `primitives`; `apps` on all four of those plus `primitives`; `embed` on `pod`) declares it as a **`peerDependencies`** entry with range `>=0.0.0` — not a regular `dependencies` entry, and not the pinned `^0.0.0` you'd expect from the family's usual pre-1.0-caret convention. Two consequences: (1) installing a package that has peers does **not** pull them in automatically — see each page's own install command, which always lists every peer explicitly; and (2) because the range is `>=0.0.0` rather than `^0.0.0`, npm will not warn you if your installed peer is a much later major than the dependent package was built against — there's no upper bound to violate. Match versions deliberately across the family rather than relying on npm to catch a drift.
+Every package that depends on another package in this family declares it as a **`peerDependencies`** entry — not a regular `dependencies` entry — with a range of the form `>=x <1.0.0`, where `x` is the oldest release the dependent is known to work with. As of the 2026-10-07 releases:
 
-Every package also declares `"engines": { "node": ">=26.0.0" }` — a hard floor, not a suggestion; nothing in this family is tested against, or expected to work on, earlier Node majors.
+| Package | Peer dependencies |
+| --- | --- |
+| `pod` 0.0.3 | `primitives` `>=0.2.0 <1.0.0` |
+| `core` 0.6.0 | `primitives` `>=0.2.0 <1.0.0`; `apps` `>=0.4.0 <1.0.0` (optional) |
+| `transport` 0.3.3, `sync` 0.2.1, `discovery` 0.0.6 | `primitives` `>=0.2.0 <1.0.0` |
+| `apps` 0.11.0 | `primitives` `>=0.2.0 <1.0.0` and `sync` `>=0.0.0 <1.0.0` (required); `core` `>=0.5.0`, `transport` `>=0.1.0`, `discovery` `>=0.0.1`, `kernel` `>=0.0.0`, `netway` `>=0.0.0`, `@johnhenry/andbox` `>=0.0.1`, each `<1.0.0` (all optional) |
+| `embed` 0.1.0 | `pod` `>=0.0.0 <1.0.0` |
+| `primitives` 0.2.0, `kernel` 0.2.0, `netway` 0.0.1 | *(none)* |
+
+Two consequences: (1) a package's peers are not part of its own install — see each page's own install command, which lists every required peer explicitly; and (2) the lower bounds matter. `primitives` 0.2.0 changed the argument order of `PodIdentity.verify()`, so the peer ranges of the packages built on it now start at `>=0.2.0` — an older `primitives` is flagged as a peer-range conflict instead of surfacing as a runtime surprise. The `<1.0.0` upper bound means a future `primitives` 1.x will not be accepted silently either. Keep the family at matching versions deliberately.
+
+### Breaking in the 2026-10-07 releases: `PodIdentity.verify()` argument order
+
+`PodIdentity.verify(publicKey, signature, data)` now takes the same order as `crypto.subtle.verify`; it used to take `(publicKey, data, signature)`. The old order throws a `TypeError` rather than returning `false`. See [primitives](/browsermesh/primitives/#breaking-in-020-podidentityverify-takes-webcrypto-argument-order) for the details, and [the application layer](/browsermesh/apps/#verify-callbacks-take-the-webcrypto-order-too) for the callbacks you pass to `apps`.
+
+### Node versions
+
+The packages that sit on `primitives` — `primitives`, `pod`, `core`, `transport`, `sync`, `discovery`, and `apps` — each declare `"engines": { "node": ">=26.0.0" }`. `kernel` and `netway` declare `">=24.0.0"`, and so does `embed` (0.1.0). Nothing in the mesh stack is tested against, or expected to work on, a Node major earlier than its floor.
 
 ## The pages here
 

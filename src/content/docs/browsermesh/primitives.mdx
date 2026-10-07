@@ -20,7 +20,9 @@ console.log(identity.podId) // base64url-encoded SHA-256 of the public key
 
 const data = new TextEncoder().encode('hello mesh')
 const sig = await identity.sign(data)
-await PodIdentity.verify(identity.keyPair.publicKey, data, sig)
+// Argument order is (publicKey, signature, data) -- the same as
+// crypto.subtle.verify. Resolves true for a good signature.
+const ok = await PodIdentity.verify(identity.keyPair.publicKey, sig, data)
 
 // CRDTs merge across peers instead of conflicting
 const clockA = new VectorClock()
@@ -36,13 +38,21 @@ set.has('item') // true
 
 ### What's in here
 
-- **Identity** — `PodIdentity` (Ed25519 keypair, sign/verify), `derivePodId(publicKey)`
+- **Identity** — `PodIdentity` (Ed25519 keypair, sign/verify), `derivePodId(publicKey)`, `encodeBase64url(bytes)` / `decodeBase64url(str)`
 - **Wire format** — `messageTypeRegistry`, `encodeMeshMessage(msg)` / `decodeMeshMessage(bytes)`
 - **Capabilities** — `CapabilityToken` (scoped, with expiry), `parseScope`/`matchScope`
 - **Trust** — `createTrustEdge`, `computeTransitiveTrust(edges, source, target)` — a weighted trust graph, not just a boolean allow-list
 - **ACL** — `ACLEngine`, `Permission`, `AccessGrant`, `matchResourcePattern` (glob-style)
 - **CRDTs** — `VectorClock`, `LWWRegister`, `GCounter`, `PNCounter`, `ORSet`, `RGA` (replicated growable array), `LWWMap`. All support `merge()`, `toJSON()`, `fromJSON()`.
 - **Test utilities** — `DeterministicRNG`, `LocalChannel`/`createLocalChannelPair()`, `TestMesh` — useful if you're testing code that consumes this package without standing up a real mesh
+
+### Breaking in 0.2.0: `PodIdentity.verify()` takes WebCrypto argument order
+
+`PodIdentity.verify(publicKey, signature, data)` now matches `crypto.subtle.verify('Ed25519', publicKey, signature, data)`. Before 0.2.0 it took `(publicKey, data, signature)`. Because Ed25519 signatures are always exactly 64 bytes, the new `verify()` can recognise the old order (a 64-byte `data` argument with a `signature` that is not 64 bytes) and **throws a `TypeError` instead of quietly returning `false`** — so a caller that was not updated fails loudly rather than rejecting every signature.
+
+Everything built on `primitives` follows the same order — `core`'s `MeshIdentityManager#verify()` and `IdentityWallet#verify()` (breaking in `core` 0.5.0), the verification callbacks you hand to `browsermesh-apps` (see [the application layer](/browsermesh/apps/#verify-callbacks-take-the-webcrypto-order-too)), and [`dialback/browsermesh`](/dialback/browsermesh-transport/)'s handshake. Any other code you have that calls `PodIdentity.verify()` positionally needs its last two arguments swapped.
+
+`primitives` (0.2.0) ships its own TypeScript declarations and declares `"engines": { "node": ">=26.0.0" }`.
 
 ### Provenance
 
@@ -83,6 +93,8 @@ await sandbox.connect('mem://localhost:8080') // allowed
 - `ChaosBackendWrapper` — wraps any of the above with fault injection (latency, drops, partitions) — useful for testing reconnect/retry logic without a real flaky network
 
 Knowing which backend a given scheme resolves to matters: `mem://localhost:8080` and `tcp://example.com:80` look like the same kind of address but have completely different trust and reachability implications, and nothing about the `connect()` call site tells you which backend you're on unless you check the scheme.
+
+`netway` (0.0.1) declares `"engines": { "node": ">=24.0.0" }` — a lower floor than `primitives` and the mesh-stack packages built on it, which require Node 26.
 
 ### Provenance
 

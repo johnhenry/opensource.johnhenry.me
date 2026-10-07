@@ -34,6 +34,16 @@ module:
 npm install @johnhenry/browsermesh-netway @johnhenry/browsermesh-primitives
 ```
 
+As of dialback 0.0.5 the declared ranges are `netway` `>=0.0.1` and
+`primitives` `>=0.2.0 <1.0.0`. The `primitives` lower bound matters:
+0.2.0 changed [`PodIdentity.verify()`](/browsermesh/primitives/#breaking-in-020-podidentityverify-takes-webcrypto-argument-order)
+to the WebCrypto argument order `(publicKey, signature, data)`, and the
+handshake below calls it that way. dialback 0.0.4 and earlier called the
+old `(publicKey, data, signature)` order, which `primitives` 0.2.0 rejects
+with a `TypeError` — against that `primitives`, every handshake failed with
+"could not verify signature". Install dialback 0.0.5 or later alongside
+`primitives` 0.2.0 or later.
+
 ## Usage
 
 ```javascript
@@ -80,13 +90,32 @@ Run entirely inside the transport, before either side ever sees a
 `Connection`: the listener (mirroring how `Server` already validates
 incoming agents against its `secret`) sends a random nonce; the connecting
 peer signs it with its `PodIdentity` and replies with `{ podId, publicKey,
-signature }`; the listener verifies the signature and that `podId` really
-is the hash of the supplied `publicKey`, then sends accept or reject. A
+signature }`; the listener verifies the signature (`PodIdentity.verify(publicKey,
+signature, nonce)`) and that `podId` really is the hash of the supplied
+`publicKey`, then sends accept or reject. A
 rejected or malformed handshake closes the connection immediately — it's
 never wrapped as a `Connection` or handed to `Server#addConnection()`. See
 `transports/handshake.mjs` in the repo for the exact wire format and
 `transports/framing.mjs` for how dialback's message-oriented protocol is
 framed (newline-delimited JSON) over `StreamSocket`'s raw byte stream.
+
+### Using the handshake directly
+
+If you bring your own `StreamSocket` transport instead of using
+`createBrowsermeshTransport` / `acceptBrowsermeshConnections`, the two halves
+of the handshake are importable by subpath, with no deep import into
+`node_modules` (added in dialback 0.0.4):
+
+```javascript
+import {
+  challengeConnectingPeer, // listener side: challenge, verify, accept/reject
+  respondToChallenge, // connecting side: sign the nonce with your PodIdentity
+} from "@johnhenry/dialback/transports/handshake"; // or the alias "@johnhenry/dialback/handshake"
+```
+
+Both are deliberately **not** re-exported from the package root, which stays
+transport-agnostic (the handshake is only meaningful with the optional
+`@johnhenry/browsermesh-*` peer dependencies).
 
 This handshake is intentionally **one-directional** — the listener
 authenticates the connecting agent, not the other way around — exactly
@@ -108,3 +137,6 @@ identity.
   (loudly) only once the peer is already overwhelmed.
 - **No mutual authentication.** As above, the connecting agent does not
   cryptographically verify the listener.
+- **No TypeScript types for this subpath.** `@johnhenry/dialback`'s root
+  entry ships declarations; `@johnhenry/dialback/browsermesh` (and the
+  handshake subpath) do not.

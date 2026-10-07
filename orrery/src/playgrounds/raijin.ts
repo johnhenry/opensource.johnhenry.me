@@ -1181,7 +1181,11 @@ const playground: Playground = {
         const x0 = this.wx(t0), x1 = this.wx(t1), y0 = this.laneY(from), y1 = this.laneY(to);
         const el = svgEl('path', { class: `rj-msg m-${k}` }) as SVGPathElement;
         const tt = svgEl('title');
-        const vs = msg.type === 'view-change' ? `→v${msg.newView}` : msg.type === 'new-view' ? `v${msg.view}` : `v${msg.view} s${msg.sequence}`;
+        const vs = msg.type === 'view-change' ? `→v${msg.newView}`
+          : msg.type === 'new-view' ? `v${msg.view}`
+          : msg.type === 'tx-gossip' ? `hop ${msg.hops}`
+          : msg.type === 'genesis-request' || msg.type === 'genesis-response' ? ''
+          : `v${msg.view} s${msg.sequence}`;
         tt.textContent = `${msg.type} ${vs}  #${from} → #${to}`;
         el.appendChild(tt);
         this.paths.set(id, { el, x0, y0, x1, y1 });
