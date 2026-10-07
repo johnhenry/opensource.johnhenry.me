@@ -33,6 +33,8 @@ const SOURCES = [
     // Generated TypeDoc pages; regenerating them needs the whole monorepo
     // built, so the API reference is deliberately out of this pass.
     exclude: (p) => p.startsWith('reference/'),
+    // Owned by this site: the section's identity label and its Orrery planet.
+    frontmatter: { title: '"aimatey"', planet: 'aimatey' },
     // The api/index.md dead-link patch that used to live here was retired
     // 2026-08-26: ai.matey PR #34 fixed those links properly upstream.
   },
@@ -43,6 +45,7 @@ const SOURCES = [
     subdir: 'website/src/content/docs',
     // Logo images referenced from the index page's <picture> element.
     assets: 'website/public/assets',
+    frontmatter: { planet: 'ecmanim' },
     patches: [
       {
         file: 'index.md',
@@ -101,6 +104,7 @@ const SOURCES = [
     repo: path.join(PROJECTS, '@erisera-code/circuit'),
     ref: 'origin/main',
     subdir: 'docs/src/content/docs',
+    frontmatter: { title: 'circuit', planet: 'circuit' },
   },
 ];
 
@@ -176,6 +180,26 @@ export function normalizeIndex(raw) {
   return `---\n${cleaned.trimEnd()}\n---\n${body}`;
 }
 
+/**
+ * Sets frontmatter keys on a page: replaces the line of a key that exists,
+ * appends one that does not. Values are written verbatim (pass quotes if the
+ * YAML needs them). Used for the few keys this site owns on a ported index
+ * page (`planet:` links the page to its Orrery planet; the title carries the
+ * section's identity label) so a re-import does not clobber them.
+ */
+export function setFrontmatter(raw, entries) {
+  const match = raw.match(/^---\n([\s\S]*?)\n---(\n?[\s\S]*)$/);
+  if (!match) return raw;
+  const [, frontmatter, rest] = match;
+  const lines = frontmatter.split('\n');
+  for (const [key, value] of Object.entries(entries)) {
+    const i = lines.findIndex((l) => l.startsWith(`${key}:`));
+    if (i >= 0) lines[i] = `${key}: ${value}`;
+    else lines.push(`${key}: ${value}`);
+  }
+  return `---\n${lines.join('\n')}\n---${rest}`;
+}
+
 function listFiles(repo, ref, subdir) {
   const out = execFileSync('git', ['ls-tree', '-r', '--name-only', ref, subdir], {
     cwd: repo,
@@ -242,7 +266,7 @@ function main() {
   let total = 0;
   let patchesApplied = 0;
   let assetCount = 0;
-  for (const { section, repo, ref, subdir, exclude, patches, assets } of SOURCES) {
+  for (const { section, repo, ref, subdir, exclude, patches, assets, frontmatter } of SOURCES) {
     const dest = path.join(DOCS_ROOT, section);
     fs.rmSync(dest, { recursive: true, force: true });
 
@@ -263,6 +287,7 @@ function main() {
 
       const isIndex = rel === 'index.md' || rel === 'index.mdx';
       let staged = isIndex ? normalizeIndex(raw) : raw;
+      if (isIndex && frontmatter) staged = setFrontmatter(staged, frontmatter);
 
       // Patches repair links that were already broken upstream, so they run
       // before the section prefix is applied and fail loudly if the upstream

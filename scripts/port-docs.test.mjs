@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeIndex, rewritePaths } from './port-docs.mjs';
+import { normalizeIndex, rewritePaths, setFrontmatter } from './port-docs.mjs';
 
 // --- normalizeIndex -------------------------------------------------------
 
@@ -126,4 +126,18 @@ test('rewritePaths: mixed single- and double-quoted attributes in the same doc',
 test('rewritePaths: markdown links are still rewritten', () => {
   const body = '[CLI](/guides/cli/)';
   assert.equal(rewritePaths(body, 'ai-matey'), '[CLI](/ai-matey/guides/cli/)');
+});
+
+// --- setFrontmatter -------------------------------------------------------
+
+test('setFrontmatter: replaces an existing key in place and appends a missing one', () => {
+  const raw = ['---', 'title: "aimatey Documentation"', 'description: "d"', '---', 'Body.'].join('\n');
+  const out = setFrontmatter(raw, { title: '"aimatey"', planet: 'aimatey' });
+  assert.equal(out, ['---', 'title: "aimatey"', 'description: "d"', 'planet: aimatey', '---', 'Body.'].join('\n'));
+});
+
+test('setFrontmatter: leaves a page with no frontmatter untouched and does not duplicate an existing value', () => {
+  assert.equal(setFrontmatter('No frontmatter.', { planet: 'x' }), 'No frontmatter.');
+  const raw = ['---', 'title: T', 'planet: x', '---', 'B'].join('\n');
+  assert.equal(setFrontmatter(raw, { planet: 'x' }), raw);
 });
