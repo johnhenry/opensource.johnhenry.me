@@ -37,7 +37,7 @@ Two packages are genuinely standalone: `primitives` and `kernel` ship zero npm d
 
 Every package that depends on another package in this family (`pod` on `primitives`; `core`/`transport`/`sync`/`discovery` on `primitives`; `apps` on all four of those plus `primitives`; `embed` on `pod`) declares it as a **`peerDependencies`** entry with range `>=0.0.0` — not a regular `dependencies` entry, and not the pinned `^0.0.0` you'd expect from the family's usual pre-1.0-caret convention. Two consequences: (1) installing a package that has peers does **not** pull them in automatically — see each page's own install command, which always lists every peer explicitly; and (2) because the range is `>=0.0.0` rather than `^0.0.0`, npm will not warn you if your installed peer is a much later major than the dependent package was built against — there's no upper bound to violate. Match versions deliberately across the family rather than relying on npm to catch a drift.
 
-Every package also declares `"engines": { "node": ">=24.0.0" }` — a hard floor, not a suggestion; nothing in this family is tested against, or expected to work on, earlier Node majors.
+Every package also declares `"engines": { "node": ">=26.0.0" }` — a hard floor, not a suggestion; nothing in this family is tested against, or expected to work on, earlier Node majors.
 
 ## The pages here
 

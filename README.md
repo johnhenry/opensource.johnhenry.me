@@ -236,6 +236,13 @@ Nixpacks builds it and runs the `Procfile`, which serves `dist/` on `$PORT`.
 The Node version is pinned in `.node-version`, `.nvmrc`, and `engines.node` —
 keep all three in sync, since Nixpacks does not consistently prefer one.
 
+These stay at **24** on purpose, even though the Orrery (`orrery/package.json`)
+and the docs require Node 26: the Dokku host's Nixpacks (1.41.0) only knows
+Node up to 24, and an `engines.node` of `>=26` at the root silently falls back
+to Node 18 (this broke the site on 2026-09-21). The site is static, so the
+Dokku build only needs to run `astro build` on 24; CI (`deploy.yml`) builds on
+26. Raise all three together once the host's Nixpacks supports Node 26.
+
 
 ## Orrery (live playground) at /orrery
 
