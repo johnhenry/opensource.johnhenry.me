@@ -15,24 +15,105 @@ import { createGate } from '@johnhenry/mcp-gate';
 
 ## What it enforces
 
-**Authorization** — which callers may reach which tools, resources, and prompts.
+**Authorization** — allow, deny, and approve rules over `server.tool` ids, written as globs or as a function. Name-denied tools are also hidden from discovery, and `denyDestructive` blocks anything flagged `destructiveHint` at call time.
+
+**Human approval** — rules that hold a call until a person or handler signs off. See [Human-in-the-loop approval](#human-in-the-loop-approval).
 
 **DLP redaction** — pattern-based scrubbing of tool results before they reach the client, so an upstream that over-returns doesn't leak through.
 
-**Rate limiting** — per-caller and per-tool budgets.
+**Rate limiting** — a concurrency cap per upstream and tenant.
 
-**Circuit breaking** — a failing upstream stops being called rather than timing out every request behind it.
+**Circuit breaking** — a failing upstream stops being called rather than timing out every request behind it, tracked per upstream and tenant.
 
-**Audit** — a `CallAuditEntry` stream of what was called, by whom, and what the policy decided.
+**Audit** — a `CallAuditEntry` stream of what was called and what the policy decided; denied calls are included.
 
 ## Fan-in
 
 The gate fronts **many upstreams as one MCP endpoint**. Clients see a merged catalog; the gate routes each call to the right server and applies policy uniformly. That's what makes it useful beyond single-server access control — it's the seam where a fleet of MCP servers becomes one governed surface.
 
+## Human-in-the-loop approval
+
+A policy verdict is `allow`, `deny`, or `approve`. `approve` means *allowed, but only if someone says so*: the call is held until the approval backend decides, then runs — or fails with JSON-RPC error `-32003` and is audited as `denied`.
+
+```ts
+import { createGate } from '@johnhenry/mcp-gate';
+
+const gate = await createGate({
+  upstreams: { fs: { command: 'mcp-fs' } },
+  policy: {
+    deny: ['fs.shell_*'],
+    approve: ['fs.write_*', 'fs.delete_*'], // a person signs off on these
+  },
+  approval: {
+    timeoutMs: 60_000, // no answer in a minute -> denied
+    onTimeout: 'deny', // the only mode there is
+    // Either decide programmatically...
+    handler: async (req) => ((await askOnSlack(req)) ? 'allow' : 'deny'),
+    // ...or omit `handler` and resolve from a UI through gate.approvals.
+    // ...or share your own InteractionBroker: broker: myBroker
+  },
+});
+
+// UI-driven flow (no handler): held calls queue up in the broker.
+gate.approvals!.subscribe(() => {
+  for (const item of gate.approvals!.list()) {
+    gate.approvals!.resolve(item.id, { action: 'approve' });
+  }
+});
+```
+
+(`askOnSlack` stands in for whatever your approver is.)
+
+The `approval` config takes `{ broker?, handler?, timeoutMs?, onTimeout?, discovery? }`:
+
+- **`handler`** receives an `ApprovalRequest` — `{ id, kind, server, target, args?, destructive, readOnly, context? }`, where `target` is the upstream's own, un-namespaced tool name — and returns `'allow'` or `'deny'`.
+- **`broker`** is your own `InteractionBroker` from `@johnhenry/mcp-query`, so approvals can share a queue, trust policy, and audit sink with sampling and elicitation. A broker policy that returns `ask` (the default) parks the call in `broker.list()` until you `resolve(id, { action: 'approve' | 'deny' })`; one that returns `allow` or `deny` decides without a person.
+- **`gate.approvals`** is the broker holding pending approvals. It is set whenever `config.approval` is.
+- **`timeoutMs`** is the longest to wait for a decision. The default is to wait forever.
+
+### It fails closed
+
+Approval never fails open. A timeout, a handler that throws or rejects, and a broker policy that auto-denies all refuse the call. Without an `approval` config at all, `policy.approve` is rejected at config validation, and a function policy that returns `'approve'` is denied at call time because there is nobody to ask.
+
+### Where it runs
+
+Right after the policy's allow/deny decision and *before* the circuit breaker, rate limiter, and redaction:
+
+- Denied calls never reach a human.
+- A human wait doesn't hold a rate-limit slot or count against the breaker.
+- Redaction still applies to whatever the approved call returns.
+
+`approve` never widens access: an id outside `allow` is denied even if it matches `approve`, and `deny` always wins. `denyDestructive: true` is a hard deny — destructive tools are refused outright rather than routed to a person. To send them to approval instead, leave it off and list them in `approve`, or use a function policy such as `(req) => (req.destructive ? 'approve' : 'allow')`.
+
+### Discovery
+
+`approval.discovery` controls how `approve`-listed tools appear in listings:
+
+| Value | Behavior |
+|---|---|
+| `'visible'` (default) | Listed like any other tool; approval is enforced only when the call is made. |
+| `'annotated'` | Listed with `_meta.requiresApproval: true`, a hook for badging in a UI. (`_meta` is used because MCP tool `annotations` is a closed set of behavior hints.) |
+| `'hidden'` | Omitted from `tools/list`, `prompts/list`, and `resources/list`. |
+
+Hidden is de-cluttering, not access control: a caller that already knows the name can still call it, and the call still goes through the full approval flow. Use `deny` or `allow` to actually forbid a tool. Only declarative `policy.approve` globs are listed this way; a function policy's `'approve'` verdicts are call-time only.
+
+## Browser usage
+
+`createGate` spawns and connects to upstream servers, so it is **Node-only**. The pure policy helpers have no such dependency, and a bundler that sets the `browser` export condition (Vite, webpack, and esbuild's browser platform all do) resolves `@johnhenry/mcp-gate` to a subset entry containing only them:
+
+- `compilePolicy`
+- `policyListFilter`
+- `redact`
+- `validateGateConfig`
+
+The published type declarations for that entry also include `policyListAnnotator`, the helper behind `discovery: 'annotated'`. `compilePolicy` returns `'approve'` for `approve` rules. That is enough to preview a policy or a redaction rule set in a config-authoring dashboard; run `createGate` in a Node process.
+
 ## A note on the SDK
 
-`mcp-gate` depends on `@modelcontextprotocol/client` and `@modelcontextprotocol/server` (the v2 split packages), not the v1 monolith `@modelcontextprotocol/sdk` that `mcp-query` itself peer-depends on.
+`mcp-gate` depends on `@modelcontextprotocol/client` and `@modelcontextprotocol/server`, both pinned to `2.0.0` (the v2 split packages), plus `@johnhenry/mcp-query` at `^0.2.1`. It does not depend on the v1 monolith `@modelcontextprotocol/sdk`. `mcp-query` itself now peer-depends on those same two v2 packages, so there is a single SDK lineage across the pair.
+
+A consumer that pins `@modelcontextprotocol/sdk@^1.x` for its own client code has no conflict with the gate — they are separate package names and install side by side. Wire compatibility across the two generations is exercised in the gate's own tests, which connect a v1-SDK `Client` to the gate's v2 server.
 
 ## Versions
 
-Unlike its siblings, `mcp-gate` was not renamed and continues its original line — currently **0.2.1**. Versions `0.0.1` through `0.2.0` are deprecated: they depend on the pre-rename `@johnhenry/mcpq`. Use `0.2.1` or later.
+Unlike its siblings, `mcp-gate` was not renamed and continues its original line — currently **0.4.0**, which declares `engines.node >=22.0.0`. Versions `0.0.1` through `0.2.0` are deprecated: they depend on the pre-rename `@johnhenry/mcpq`. Use `0.2.1` or later; `approval.discovery` arrived in 0.4.0.

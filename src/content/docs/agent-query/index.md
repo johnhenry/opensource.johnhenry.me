@@ -10,9 +10,9 @@ The premise: most code that talks to an MCP or A2A server **is not itself an age
 
 | Package | What it is |
 |---|---|
-| [`@johnhenry/mcp-query`](/agent-query/mcp-query/) | Reactive, cached MCP client. TanStack Query keys + RTK Query tags + LSP-client lifecycle, on the official MCP SDK. |
+| [`@johnhenry/mcp-query`](/agent-query/mcp-query/) | Reactive, cached MCP client. TanStack Query keys + RTK Query tags + LSP-client lifecycle, on the official v2 MCP SDK. |
 | [`@johnhenry/mcp-query-tanstack`](/agent-query/mcp-query-tanstack/) | TanStack Query bridge — `queryOptions`/`mutationOptions` factories with zero extra refetches |
-| [`@johnhenry/mcp-gate`](/agent-query/mcp-gate/) | Config-driven MCP security proxy — authorization, DLP redaction, rate limiting, circuit breaking, audit |
+| [`@johnhenry/mcp-gate`](/agent-query/mcp-gate/) | Config-driven MCP security proxy — authorization, human-in-the-loop approval, DLP redaction, rate limiting, circuit breaking, audit |
 | [`@johnhenry/a2a-query`](/agent-query/a2a-query/) | Reactive A2A client — multi-agent registry, task-handle store, approval broker, on the official A2A SDK |
 | [`@johnhenry/a2a-query-tanstack`](/agent-query/a2a-query-tanstack/) | TanStack Query bridge for a2a-query |
 | [`@johnhenry/acp-query`](/agent-query/acp-query/) | Reactive session/turn store and permission broker for the Agent Client Protocol |
@@ -45,7 +45,7 @@ The rename went deeper than the package name: CLI binaries, cache namespaces, st
 
 ## Versions
 
-The renamed packages restarted at `0.0.0` with `^0.0.0` internal ranges. Under npm's pre-1.0 caret rules that matches **only** `0.0.0`. Pin exact versions. Two exceptions continue their own version lines instead of the shared `0.0.0` restart: `@johnhenry/mcp-gate` (`0.2.1`) and `@johnhenry/acp-query` (`0.0.2`, after `agent-query-core` was promoted to a stable `0.1.0`).
+The renamed packages restarted at `0.0.0` with `^0.0.0` internal ranges. Under npm's pre-1.0 caret rules that matches **only** `0.0.0`. Pin exact versions. Three packages have moved on from the shared `0.0.0` restart: `@johnhenry/mcp-query` (`0.2.1`), `@johnhenry/mcp-gate` (`0.4.0`, which continues its original line), and `@johnhenry/acp-query` (`0.0.2`, after `agent-query-core` was promoted to a stable `0.1.0`). `@johnhenry/mcp-query-tanstack` is still `0.0.0` and peers on exactly `mcp-query@0.0.0`, so it does not install cleanly beside the current `mcp-query` yet.
 
 Both `a2a-query` and `acp-query` published early releases before the rename that recommended installing via an `@rc` dist-tag — that dist-tag and those versions no longer exist. Plain `npm install @johnhenry/a2a-query` / `acp-query` gets the current code; ignore any `@rc` instruction you find in an older cached copy of either README.
 
