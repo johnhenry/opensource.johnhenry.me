@@ -6,10 +6,16 @@ import { resolve } from 'node:path';
  * agent.mjs/server.mjs import a few Node modules at module scope (node:events for
  * Agent's base class; ws/http/node:crypto only used by Server#listen and the
  * shared-secret check). Shim them ONLY for importers inside that package.
+ *
+ * Since dialback 0.0.5, server.mjs also imports @johnhenry/webwire (Node req/res <->
+ * Fetch conversion for Server#listen), whose write-web-response.mjs takes `Readable`
+ * and `pipeline` from node:stream[/promises]. Those two are only reached by
+ * Server#listen, never by the in-page `server.fetch()` path, so they are shimmed
+ * for importers inside webwire too.
  */
 function dialbackNodeShims(): Plugin {
   const V = '\0dialback-shim:';
-  const inPkg = (importer?: string) => !!importer && importer.includes('/@johnhenry/dialback/');
+  const inPkg = (importer?: string) => !!importer && (importer.includes('/@johnhenry/dialback/') || importer.includes('/@johnhenry/webwire/'));
   const src: Record<string, string> = {
     events: `export default class EventEmitter {
   constructor(){ this._l = new Map(); }
@@ -27,6 +33,10 @@ export class WebSocketServer { constructor(){ throw new Error('WebSocketServer i
 export default WebSocket;`,
     http: `export function createServer(){ throw new Error('http.createServer is Node-only (Server#listen); use server.fetch() instead'); }
 export default { createServer };`,
+    stream: `export class Readable { static fromWeb(){ throw new Error('node:stream is Node-only (Server#listen)'); } }
+export default { Readable };`,
+    'stream/promises': `export async function pipeline(){ throw new Error('node:stream/promises is Node-only (Server#listen)'); }
+export default { pipeline };`,
     crypto: `export function timingSafeEqual(a, b){ if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a[i] ^ b[i]; return d === 0; }
 export default { timingSafeEqual };`,
   };

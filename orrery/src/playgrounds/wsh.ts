@@ -298,6 +298,10 @@ class PipeTransport extends W.WshTransport {
 
   protected override async _doOpenStream() {
     const qs = await this.qmux!.openStream();
+    // A QMux stream is invisible to the peer until its first frame. @johnhenry/wsh/server advertises
+    // `stream-announce`, so the client writes no primer byte; the transport must announce the stream
+    // itself (what the package's own WebSocketTransport does). Hosts without it still get the primer.
+    (qs as QMuxStream & { announce?(): void }).announce?.();
     this.taps.onStream(qs.id);
     return adaptStream(qs);
   }
@@ -492,7 +496,16 @@ const playground: Playground = {
     const btnPty = q<HTMLButtonElement>(cxPanel, '[data-a=pty]');
     userIn.value = state.user; winSel.value = WINDOWS[state.win] ? state.win : '1m'; rateSel.value = RATES[state.rate] ? state.rate : '0'; regChk.checked = !!state.reg;
     const modeBtns = [...cxPanel.querySelectorAll<HTMLButtonElement>('[data-m]')];
-    const liveUrl = comp ? `${comp.wsBase}/wsh` : 'ws://localhost:7777/wsh';
+    // The companion's real @johnhenry/wsh/server host listens on its own port; ask where.
+    let liveUrl = 'ws://127.0.0.1:7780/';
+    let liveHostKey = '';
+    if (live && comp) {
+      try {
+        const info = await (await fetch(`${comp.base}/wsh/info`)).json() as { ws?: string; hostFingerprint?: string };
+        if (typeof info.ws === 'string') liveUrl = info.ws;
+        liveHostKey = info.hostFingerprint ?? '';
+      } catch { /* keep the default */ }
+    }
     const PAGE_URL = 'messagechannel://in-page-host/wsh';
     const effMode = (): 'page' | 'live' => (state.mode === 'live' && live) ? 'live' : state.mode === 'page' ? 'page' : live ? 'live' : 'page';
     const renderMode = () => {
@@ -597,11 +610,15 @@ const playground: Playground = {
     const spark = q<HTMLCanvasElement>(inspPanel, '[data-r=spark]');
 
     /* ---------- files panel ---------- */
-    filePanel.innerHTML = `<h3>Sandbox files <span class="sub">FILE_OP list/remove · upload/download as FILE_CHUNK</span><span class="spacer"></span><button class="btn sm" data-a="refresh" disabled>refresh</button></h3>
+    filePanel.innerHTML = `<h3>Sandbox files <span class="sub">FILE_OP list/write/rename/remove · upload/download as FILE_CHUNK</span><span class="spacer"></span><button class="btn sm" data-a="refresh" disabled>refresh</button></h3>
       <table class="files"><tbody data-r="files"><tr><td class="muted">connect to list the sandbox</td></tr></tbody></table>
       <div class="drop" data-r="drop">drop a small file here (≤ ${Math.round(MAX_FILE_BYTES / 1024)} KiB) or click to upload<input type="file" hidden data-r="fin"></div>
       <div class="progress"><i data-r="prog"></i></div>
+      <div class="row" data-r="noterow" style="margin-top:8px;display:none"><input data-r="notename" spellcheck="false" value="note.txt" aria-label="file name" style="width:110px"><input data-r="notetext" spellcheck="false" value="written with client.fileWrite()" aria-label="file contents" style="flex:1;min-width:0"><button class="btn sm" data-a="note">fileWrite()</button></div>
       <div class="muted" data-r="fmsg" style="margin-top:6px"></div>`;
+    const noteRow = q<HTMLElement>(filePanel, '[data-r=noterow]');
+    const noteName = q<HTMLInputElement>(filePanel, '[data-r=notename]');
+    const noteText = q<HTMLInputElement>(filePanel, '[data-r=notetext]');
     const filesBody = q<HTMLElement>(filePanel, '[data-r=files]');
     const drop = q<HTMLElement>(filePanel, '[data-r=drop]');
     const fin = q<HTMLInputElement>(filePanel, '[data-r=fin]');
@@ -644,11 +661,12 @@ const playground: Playground = {
     /* ---------- known hosts (TOFU) ---------- */
     trustPanel.innerHTML = `<h3>Known hosts <span class="sub">WshKnownHosts · trust-on-first-use</span></h3>
       <div class="kpis" data-r="trustkpi"></div>
-      <div class="row" style="margin-top:8px"><button class="btn sm" data-a="rotate">simulate host key rotation</button><button class="btn sm" data-a="forget">forget this host</button></div>
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-a="rotate">rotate host key</button><button class="btn sm" data-a="forget">forget this host</button></div>
       <div data-r="trustverdict"></div>
-      <div class="muted" style="margin-top:8px">Pins the host fingerprint <code>SERVER_HELLO.fingerprints[0]</code> already sends — the same shape a real
-      <code>host_fingerprint</code> field would be pinned by once a wsh-server populates it (none does yet; see the class's own doc comment).
-      First sight of a host is trust-on-first-use; a later mismatch means either the host's key changed, or something is intercepting the connection.</div>`;
+      <div class="muted" style="margin-top:8px">Against the companion this is the real thing: <code>@johnhenry/wsh/server</code> advertises a signed host key (persisted in a
+      file), and <code>connect({ knownHosts, trustOnFirstUse })</code> pins it on first sight and refuses a changed one with <code>HostKeyError: HOST_KEY_MISMATCH</code>
+      before any signature is sent. “rotate host key” really rotates it on the companion — connect again to see the refusal. The in-page host has no host key, so there the
+      check pins the fingerprint in <code>SERVER_HELLO.fingerprints[0]</code> by hand and the rotation is a simulated byte flip.</div>`;
     const trustKpi = q<HTMLElement>(trustPanel, '[data-r=trustkpi]');
     const trustVerdict = q<HTMLElement>(trustPanel, '[data-r=trustverdict]');
     const btnRotate = q<HTMLButtonElement>(trustPanel, '[data-a=rotate]');
@@ -674,8 +692,9 @@ const playground: Playground = {
       <div data-r="mcptools" class="muted" style="margin-top:8px">no tools discovered yet</div>
       <div class="row" style="margin-top:8px"><input data-r="mcpargs" spellcheck="false" placeholder='tool name, then {"json":"args"}' style="flex:1;min-width:0;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-inset);color:var(--ink);font-family:var(--f-mono);font-size:12px" disabled><button class="btn sm" data-a="call" disabled>call()</button></div>
       <div class="muted" style="margin-top:8px">Sends real <code>MCP_DISCOVER</code>/<code>MCP_CALL</code> control messages over the live connection
-      (visible in the handshake viewer). This demo host doesn't answer them yet — every unhandled message type is logged and ignored — so
-      <code>discover()</code> is expected to time out; that's the bridge and wire protocol working honestly against a host with no MCP tools mounted.</div>`;
+      (visible in the handshake viewer). Both hosts serve three tools — <code>list_files</code>, <code>read_file</code>, <code>kepler</code>: the companion through
+      <code>createWshServer({ mcp: { tools } })</code> (arguments validated against each tool's JSON Schema before it runs), the in-page host with a small stand-in.
+      Type a tool name, then JSON arguments, e.g. <code>kepler {"au": 5.2}</code>.</div>`;
     const btnMcpDiscover = q<HTMLButtonElement>(mcpPanel, '[data-a=discover]');
     const mcpStat = q<HTMLElement>(mcpPanel, '[data-r=mcpstat]');
     const mcpTools = q<HTMLElement>(mcpPanel, '[data-r=mcptools]');
@@ -686,9 +705,9 @@ const playground: Playground = {
     explain.innerHTML = `<h3>What's happening</h3>
       <ol>
         <li><b>Identity.</b> <code>generateKeyPair(true)</code> makes an Ed25519 pair with WebCrypto; the PKCS#8 private half is kept in localStorage and re-imported non-extractable. The fingerprint is <code>fingerprint(raw)</code> = SHA-256 of the 32-byte public key.</li>
-        <li><b>Transport.</b> <code>WshClient.connectWithTransport()</code> is handed a <code>WshTransport</code> subclass built from the package's exported <code>QMuxConnection</code>, <code>frameEncode</code>/<code>FrameDecoder</code> and <code>SerialQueue</code>/<code>dispatchSerially</code> — the pieces its own <code>WebSocketTransport</code> is made of — over either a real WebSocket to the companion or a <code>MessageChannel</code> to the in-page host. Both ends speak QUIC-v1 frames in QMux records: stream 0 is the control channel carrying length-prefixed CBOR.</li>
+        <li><b>Transport.</b> <code>WshClient.connectWithTransport()</code> is handed a <code>WshTransport</code> subclass built from the package's exported <code>QMuxConnection</code>, <code>frameEncode</code>/<code>FrameDecoder</code> and <code>SerialQueue</code>/<code>dispatchSerially</code> — the pieces its own <code>WebSocketTransport</code> is made of — over either a real WebSocket to the companion or a <code>MessageChannel</code> to the in-page host. (The companion end is the package's own Node host, <code>createWshServer</code> from <code>@johnhenry/wsh/server</code>; a browser tab can't run that, so the in-page end is a hand-built host made from the same exported primitives.) Both ends speak QUIC-v1 frames in QMux records: stream 0 is the control channel carrying length-prefixed CBOR.</li>
         <li><b>Auth.</b> HELLO names the user; the host answers SERVER_HELLO + CHALLENGE (session id + 32-byte nonce); the client signs the transcript; the host checks the key against its allowlist (<code>POST /wsh/authorize</code> on the companion) and runs <code>verifyChallenge</code>. Untick “register it first” to watch AUTH_FAIL.</li>
-        <li><b>Sessions.</b> The PTY uses <code>data_mode: "virtual"</code> — keystrokes and output ride stream 0 as SESSION_DATA. Exec sessions use <code>data_mode: "stream"</code>: the client opens a fresh QMux stream (4, 8, …) and writes a 1-byte primer so the host can discover it (client-initiated streams are invisible until a byte arrives).</li>
+        <li><b>Sessions.</b> The PTY uses <code>data_mode: "virtual"</code> — keystrokes and output ride stream 0 as SESSION_DATA. Exec sessions use <code>data_mode: "stream"</code>: the client opens a fresh QMux stream (4, 8, …). A QMux stream is invisible to the peer until its first frame, so the transport <em>announces</em> it with an empty STREAM frame when the host advertises <code>stream-announce</code> (the companion's <code>@johnhenry/wsh/server</code> does); against a host that does not, the client writes a 1-byte primer instead.</li>
         <li><b>Backpressure.</b> Every host write awaits QMux flow control. Pick an 8 KiB window plus a slow consumer, reconnect, run <code>flood 1024</code>: the host burns through its credit, sends STREAM_DATA_BLOCKED, and waits for our MAX_STREAM_DATA — keystrokes queue behind it, exactly like a real congested link.</li>
         <li><b>Recording.</b> Every PTY byte is fed to <code>SessionRecorder</code>; <code>SessionPlayer</code> replays it with original timing and <code>seek()</code>s under the scrubber. Export is asciicast v2 (<code>asciinema play</code> can read it).</li>
       </ol>
@@ -751,7 +770,16 @@ const playground: Playground = {
       }
       renderTrust();
     }
-    btnRotate.addEventListener('click', () => {
+    btnRotate.addEventListener('click', async () => {
+      if (effMode() === 'live' && comp) {
+        // Really rotate: the companion deletes the persisted host key and restarts the host with a new one.
+        try {
+          const r = await (await fetch(`${comp.base}/wsh/rotate-host-key`, { method: 'POST' })).json() as { ok?: boolean; before?: string; after?: string };
+          log(`companion rotated its host key: ${(r.before ?? '').slice(0, 16)}… → ${(r.after ?? '').slice(0, 16)}… — connect again and WshClient refuses with HOST_KEY_MISMATCH`);
+          if (client) { try { await disconnect(); } catch { /* */ } }
+        } catch (err) { log(`rotate-host-key failed: ${(err as Error).message}`); }
+        return;
+      }
       const real = knownHosts.list().find((h) => h.host === hostLabel())?.fingerprint;
       if (!real) { log('known hosts: connect at least once first so there is a trusted fingerprint to rotate away from'); return; }
       // Simulate a rotated host key: flip a hex nibble rather than fabricate an unrelated string,
@@ -956,11 +984,20 @@ const playground: Playground = {
     async function refreshFiles() {
       if (!client) return;
       try {
-        const r = await client.fileList('~/sandbox');
+        const r = await client.fileList('.');
         if (!r.success) throw new Error(r.error_message || 'list failed');
-        const entries = ((r.metadata?.entries ?? []) as { name: string; size: number; mtime: number }[]);
-        filesBody.innerHTML = entries.map((f) => `<tr><td class="n">${esc(f.name)}</td><td class="s">${fmtB(f.size)}</td><td class="m">${new Date(f.mtime).toLocaleTimeString()}</td><td class="a"><button data-f="cat" data-n="${esc(f.name)}">cat</button><button data-f="get" data-n="${esc(f.name)}">download</button><button data-f="rm" data-n="${esc(f.name)}">rm</button></td></tr>`).join('') || '<tr><td class="muted">(empty)</td></tr>';
-        fmsg.textContent = `${entries.length} files in ${String(r.metadata?.path ?? '')} on the ${String(r.metadata?.host ?? 'host')}`;
+        // FileResult carries `entries` (name/size/modified in seconds/type). The in-page host used to put them
+        // under metadata with an `mtime` in ms; accept both.
+        type Row = { name: string; size: number; modified?: number; mtime?: number; type?: string };
+        const raw = (r.entries?.length ? r.entries : (r.metadata?.entries ?? [])) as Row[];
+        const entries = raw.filter((f) => f.type !== 'directory');
+        const canRename = client.hasFeature('file-rename');
+        filesBody.innerHTML = entries.map((f) => {
+          const t = f.mtime ?? (f.modified ?? 0) * 1000;
+          return `<tr><td class="n">${esc(f.name)}</td><td class="s">${fmtB(f.size)}</td><td class="m">${new Date(t).toLocaleTimeString()}</td><td class="a"><button data-f="cat" data-n="${esc(f.name)}">cat</button><button data-f="get" data-n="${esc(f.name)}">download</button>${canRename ? `<button data-f="mv" data-n="${esc(f.name)}">rename</button>` : ''}<button data-f="rm" data-n="${esc(f.name)}">rm</button></td></tr>`;
+        }).join('') || '<tr><td class="muted">(empty)</td></tr>';
+        fmsg.textContent = `${entries.length} files on the ${effMode() === 'live' ? 'companion (real directory)' : 'in-page host'}`;
+        noteRow.style.display = client.hasFeature('file-write') ? '' : 'none';
       } catch (e) { fmsg.textContent = `list failed: ${(e as Error).message}`; }
     }
     btnRefresh.addEventListener('click', () => refreshFiles());
@@ -968,6 +1005,12 @@ const playground: Playground = {
       const b = (e.target as HTMLElement).closest('button'); if (!b || !client) return;
       const name = b.dataset.n!;
       if (b.dataset.f === 'cat') { typeInto(`cat ${name}\r`); term.focus(); return; }
+      if (b.dataset.f === 'mv') {
+        const to = window.prompt(`Rename ${name} to:`, name.replace(/(\.[^.]*)?$/, '-renamed$1'));
+        if (!to) return;
+        try { const r = await client.fileRename(name, to); fmsg.textContent = r.success ? `renamed ${name} → ${to} (client.fileRename)` : `rename failed: ${r.error_message}`; } catch (err) { fmsg.textContent = `rename failed: ${(err as Error).message}`; }
+        refreshFiles(); return;
+      }
       if (b.dataset.f === 'rm') { try { const r = await client.fileRemove(name); fmsg.textContent = r.success ? `removed ${name}` : `rm failed: ${r.error_message}`; } catch (err) { fmsg.textContent = String(err); } refreshFiles(); return; }
       try {
         prog.style.width = '0%';
@@ -990,6 +1033,17 @@ const playground: Playground = {
         refreshFiles();
       } catch (e) { fmsg.textContent = `upload failed: ${(e as Error).message}`; }
     }
+    q<HTMLButtonElement>(noteRow, '[data-a=note]').addEventListener('click', async () => {
+      if (!client) return;
+      const name = noteName.value.trim();
+      let msg: string;
+      try {
+        const r = await client.fileWrite(name, noteText.value);
+        msg = r.success ? `wrote ${name} (${noteText.value.length} chars) with client.fileWrite()` : `write failed: ${r.error_message}`;
+      } catch (err) { msg = `write failed: ${(err as Error).message}`; }
+      await refreshFiles();
+      fmsg.textContent = msg;
+    });
     drop.addEventListener('click', () => fin.click());
     fin.addEventListener('change', () => { const f = fin.files?.[0]; if (f) uploadFile(f); fin.value = ''; });
     drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
@@ -1023,7 +1077,7 @@ const playground: Playground = {
       try {
         term.reset();
         const cols = fitCols(); lastCols = cols; term.resize(cols, ROWS);
-        const s = await client.openSession({ type: 'pty', cols, rows: ROWS });
+        const s = await client.openSession({ type: 'pty', cols, rows: ROWS, env: { USER: userIn.value.trim() || 'guest' } });
         pty = s;
         recDecoder = new TextDecoder();
         recorder = new W.SessionRecorder(s.sessionId || client.sessionId || 'wsh', { width: cols, height: ROWS });
@@ -1181,8 +1235,17 @@ const playground: Playground = {
         c.onClose = () => { if (client === c) { setStatus('closed', ''); setConnected(false); client = null; pty = null; recEl.className = 'rec'; } };
         c.onError = (e) => { if (client === c) log(`client error: ${e.message}`); };
         connT0 = performance.now();
-        const sid = await c.connectWithTransport(t, url, { username: user, keyPair: ident.keyPair });
+        // Live: the real host presents a signed host key, so WshClient does the trust-on-first-use itself
+        // (options knownHosts / trustOnFirstUse / hostLabel). The in-page host has no host key to pin;
+        // it sends SERVER_HELLO.fingerprints, which handleHostFingerprint() checks by hand.
+        const hostOpts = mode === 'live' ? { knownHosts, trustOnFirstUse: true, hostLabel: hostLabel() } : {};
+        const sid = await c.connectWithTransport(t, url, { username: user, keyPair: ident.keyPair, ...hostOpts });
         if (gen !== connGen) return;
+        if (mode === 'live' && c.hostKey) {
+          lastVerify = { status: 'known' };
+          log(`host key ${c.hostKey.fingerprint.slice(0, 16)}… — ${c.hostKey.status === 'unknown' ? 'first sight, pinned by trust-on-first-use' : 'matches the pinned key'} (client.hostKey.status = "${c.hostKey.status}")`);
+          renderTrust();
+        }
         setStatus(`authenticated · ${mode === 'live' ? 'companion' : 'in-page'}`, 'ok');
         setConnected(true);
         log(`authenticated as ${user}; session ${sid}; server features [${c.features.join(', ')}]`);
@@ -1193,7 +1256,12 @@ const playground: Playground = {
       } catch (e) {
         if (gen !== connGen) return;
         const msg = (e as Error).message || String(e);
-        setStatus(/Authentication failed/.test(msg) ? 'auth failed' : 'error', 'bad');
+        if ((e as { name?: string }).name === 'HostKeyError') {
+          const he = e as { code?: string; expected?: string };
+          if (he.code === 'HOST_KEY_MISMATCH') { lastVerify = { status: 'changed', expected: he.expected }; renderTrust(); }
+          log(`HostKeyError ${he.code}: refused before any signature was sent`);
+        }
+        setStatus(/Authentication failed/.test(msg) ? 'auth failed' : /^HOST KEY|host key/i.test(msg) ? 'host key refused' : 'error', 'bad');
         errEl.textContent = msg + (/allowlist/.test(msg) ? '\n→ tick “register it first” and connect again.' : '');
         term.write(`\r\n\x1b[31m${msg}\x1b[0m\r\n`);
         setConnected(false);

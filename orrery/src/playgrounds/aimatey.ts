@@ -819,7 +819,8 @@ async function mountRoom(host: HTMLElement): Promise<() => void> {
 
     const frontendForIR = buildFrontend();
     try {
-      const ir0 = state.format === 'generic' ? rawRequest as IRChatRequest : await frontendForIR.toIR(rawRequest as never);
+      // toIR is optional since aimatey-types 0.7 (decision-only frontends omit it); all three frontends here are chat frontends.
+      const ir0 = state.format === 'generic' || !frontendForIR.toIR ? rawRequest as IRChatRequest : await frontendForIR.toIR(rawRequest as never);
       el.wireIr0.textContent = pretty(ir0);
     } catch (e) {
       el.wireIr0.textContent = errText(e);
