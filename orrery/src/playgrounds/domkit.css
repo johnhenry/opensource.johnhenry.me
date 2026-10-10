@@ -1,0 +1,100 @@
+/* domkit's shared tokens, mapped onto Circuit's (scoped to this planet; the
+   combo box's popover lives in the top layer but stays a descendant, so it
+   inherits these too). */
+.pg-domkit {
+  --domkit-accent: var(--accent);
+  --domkit-highlight: var(--accent-soft);
+  --domkit-border: var(--line);
+  --domkit-radius: 8px;
+  --domkit-focus-ring: 2px solid var(--accent);
+  --domkit-surface: var(--bg-panel);
+  --domkit-surface-text: var(--ink);
+  display: grid;
+  gap: 12px;
+}
+.pg-domkit .hint { color: var(--ink-2); font-size: 13px; line-height: 1.55; margin: 6px 0; }
+.pg-domkit h4 { margin: 0 0 8px; font-family: var(--f-mono); font-size: 14px; }
+.pg-domkit h5 { margin: 0 0 6px; font-size: 14px; }
+.pg-domkit kbd { font-family: var(--f-mono); font-size: 11px; padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--bg-inset); }
+.pg-domkit .dk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pg-domkit .dk-bar .hint { flex: 1 1 320px; margin: 0; }
+
+/* The planet's own tabs (a <tabbed-ui>). */
+.pg-domkit .dk-tabs { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 16px 16px; --domkit-tab-padding: .6em .9em; }
+.pg-domkit .dk-tablist { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 14px; }
+.pg-domkit .dk-tablist > button { background: none; border: 0; border-bottom: 2px solid transparent; font-family: var(--f-mono); font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.pg-domkit .dk-tablist > button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.pg-domkit .dk-panel:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+
+.pg-domkit .dk-stage { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.pg-domkit .dk-controls { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.pg-domkit .dk-label { font-family: var(--f-mono); font-size: 13px; color: var(--ink); }
+.pg-domkit .dk-label .hint { font-family: var(--f-body, inherit); font-size: 12px; }
+.pg-domkit .dk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pg-domkit .dk-row > label.field { flex: 1 1 110px; }
+.pg-domkit .dk-checks { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+.pg-domkit label.field input[type="range"] { padding: 0; }
+.pg-domkit .dk-tag { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: none; color: var(--accent); }
+.pg-domkit .dk-small { font-size: 12px; max-height: 200px; }
+.pg-domkit .stat { line-height: 1.7; overflow-wrap: anywhere; }
+.pg-domkit .stat b.ok { color: var(--success); }
+.pg-domkit .stat b.bad, .pg-domkit .dk-log b.bad { color: var(--error); }
+.pg-domkit .dk-log { list-style: none; margin: 0; padding: 0; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); display: grid; gap: 2px; min-height: 2em; }
+.pg-domkit .dk-log li { padding: 3px 8px; border-radius: 6px; background: var(--bg-inset); overflow-wrap: anywhere; }
+.pg-domkit .dk-log .t { color: var(--ink-3); margin-right: 6px; }
+.pg-domkit .dk-log code { color: var(--accent); }
+
+/* code-editor */
+/* The site paints code on a dark --code-bg in both themes, so code-color's light-dark() highlight colors must resolve dark here. */
+.pg-domkit code-editor { color-scheme: dark; caret-color: var(--code-ink); background: var(--code-bg); color: var(--code-ink); border-color: var(--line); max-height: 22lh; font-family: var(--f-mono); font-size: 13px; }
+.pg-domkit code-editor:focus-within { border-color: var(--accent); }
+.pg-domkit code-editor:invalid { border-color: color-mix(in srgb, var(--error) 60%, var(--line)); }
+
+/* infinite-combo-box */
+.pg-domkit infinite-combo-box input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); }
+.pg-domkit infinite-combo-box [role="listbox"] { background: var(--bg-panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 16px 40px rgb(0 0 0 / .3); font-size: 13px; }
+.pg-domkit infinite-combo-box [role="option"][data-active] { background: var(--accent-soft); }
+.pg-domkit infinite-combo-box [data-load-more] { color: var(--accent); font-style: italic; }
+
+/* stylable-select */
+.pg-domkit stylable-select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg-inset); padding: 4px; }
+.pg-domkit stylable-select [role="option"] { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.pg-domkit stylable-select [role="option"] small { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+.pg-domkit stylable-select [role="option"][aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.pg-domkit stylable-select optgroup, .pg-domkit stylable-select [role="group"] { display: block; }
+.pg-domkit .dk-sw { width: 12px; height: 12px; border-radius: 50%; background: hsl(var(--h) 80% 55%); box-shadow: 0 0 8px hsl(var(--h) 80% 55% / .6); }
+
+/* attribute-cycler's preview card */
+.pg-domkit .dk-tone-card { --a: hsl(20 90% 55%); --b: hsl(350 70% 35%); border-radius: 12px; padding: 14px; color: #fff; background: linear-gradient(135deg, var(--b), color-mix(in srgb, var(--a) 70%, black)); transition: background .4s; }
+.pg-domkit .dk-tone-card[data-tone="tide"] { --a: hsl(195 90% 55%); --b: hsl(225 70% 28%); }
+.pg-domkit .dk-tone-card[data-tone="moss"] { --a: hsl(95 60% 50%); --b: hsl(150 50% 20%); }
+.pg-domkit .dk-tone-card[data-tone="dusk"] { --a: hsl(285 70% 65%); --b: hsl(255 45% 18%); }
+.pg-domkit .dk-tone-card p { margin: 10px 0 0; font-size: 13px; }
+.pg-domkit .dk-tone-card code { color: #fff; }
+.pg-domkit .dk-tone-sky { position: relative; height: 90px; }
+.pg-domkit .dk-tone-planet { position: absolute; left: 30px; top: 12px; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff8, var(--a) 45%, var(--b)); box-shadow: 0 0 40px var(--a); transition: background .4s, box-shadow .4s; }
+.pg-domkit .dk-tone-moon { position: absolute; left: 120px; top: 30px; width: 16px; height: 16px; border-radius: 50%; background: #fffc; animation: dk-orbit 6s linear infinite; }
+@keyframes dk-orbit { from { transform: rotate(0deg) translateX(30px) rotate(0deg); } to { transform: rotate(360deg) translateX(30px) rotate(-360deg); } }
+@media (prefers-reduced-motion: reduce) { .pg-domkit .dk-tone-moon { animation: none; } }
+.pg-domkit .dk-pressed .btn[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-domkit attribute-cycler { display: grid; gap: 8px; }
+.pg-domkit attribute-cycler output { font-family: var(--f-mono); }
+
+/* drill-menu */
+.pg-domkit .dk-drill { border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: var(--bg-inset); min-height: 150px; }
+.pg-domkit .dk-drill > a { color: var(--ink); }
+.pg-domkit .dk-drill section, .pg-domkit .dk-drill [data-screen] { padding: 6px 8px; }
+
+/* swipe-input + the moons carousel */
+.pg-domkit .dk-swipe { display: grid; place-content: center; gap: 4px; height: 100%; touch-action: pan-y; user-select: none; cursor: grab; }
+.pg-domkit .dk-moons > div { display: flex; gap: 4px; margin-bottom: 8px; }
+.pg-domkit .dk-moons > div > button { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.pg-domkit .dk-moons > div > button[aria-selected="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-domkit .dk-moons > section:not([hidden]) { display: block; text-align: center; height: 130px; border-radius: 12px; color: #fff;
+  background: radial-gradient(circle at 30% 30%, hsl(var(--h) 70% 65%), hsl(var(--h) 60% 22%)); }
+.pg-domkit .dk-moons > section b { font-size: 22px; font-family: var(--f-display); }
+.pg-domkit .dk-moons > section span { font-size: 12px; opacity: .85; }
+
+.pg-domkit .dk-dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-panel); color: var(--ink); max-width: min(480px, 92vw); }
+.pg-domkit .dk-dialog::backdrop { background: rgb(0 0 0 / .45); }
+.pg-domkit .dk-dialog ul { padding-left: 18px; font-size: 14px; line-height: 1.8; }

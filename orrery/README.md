@@ -1,7 +1,7 @@
 # ORRERY
 
 An interactive, browser-native tour of the [@johnhenry open-source ecosystem](https://opensource.johnhenry.me/).
-Thirty-eight planets, and nothing is a screenshot: every planet imports the real npm package and runs it live in your browser.
+Forty-one planets, and nothing is a screenshot: every planet imports the real npm package and runs it live in your browser.
 
 ```bash
 npm install
@@ -32,6 +32,9 @@ npm run build    # static output in dist/
 | Browsermesh Swarm | `@johnhenry/browsermesh-primitives`, `-pod` | Open two tabs: they discover each other, merge CRDTs, verify signed chat, enforce paint grants. |
 | Raijin Ledger | `@johnhenry/raijin-*` | 4–7 in-page PBFT validators, fee-ordered mempool, leader crashes, partitions and recovery. |
 | Jujutsu Timeline | `@johnhenry/isomorphic-jj` | Change IDs survive rewrites on an animated DAG; op-log time travel; conflicts as data. |
+| Form Lab | `@johnhenry/obfo` | An editable form read as a nested object as you type (`observe`, `cast: "auto"`), `fill()` from JSON with a round-trip check, `formFromObject()` generating a form, and the cast rules computed live. Plots an array of rows in Data Plot Studio. |
+| Domkit Workshop | `@johnhenry/domkit` | Live `<code-editor>` (form-associated), `<infinite-combo-box>` with a paged, abortable search function, `<stylable-select>`, an `<attribute-cycler>` tone switcher, `<hot-key>`, `<drill-menu>` and `<swipe-input>`, each with its attributes editable. |
+| Data Plot Studio | `@johnhenry/data-plot` | Edit the `<table>` a `<data-plot>` reads and the chart follows: dots, bars, lines, legends and Chernoff faces, switchable channels and layers, and a width slider that reflows with no redraw. Takes Tensor Bench's loss curve. |
 | JSX Studio | `@johnhenry/fileable`, `servable`, `hostable` | JSX → file tree with hashes, → request dispatcher, → multi-host gateway. Run requests in-page. |
 | Untrusted Desk | `@johnhenry/window-algebra`, `safe-fragment`, `html-modules` | A tiling desk of untrusted notes: window-algebra windows (undo/redo, keyboard-movable floating windows, pop-out, persistence, two-tab sync), safe-fragment under a switchable profile with an XSS preset, and a strict-CSP, Trusted Types frame; the components are html-modules. The import-map and no-bundler story lives on the Import Router planet. |
 | Import Router | `@johnhenry/mport` | Routing scenarios (outage, race, circuit breaker, lockfile pinning, prefer, tampered mirror, `router.import()` failover) with timelines, health and the compiled import map + lockfile, on a simulated or the real network; a no-bundler Preact + htm app in a strict-CSP frame that allows its import map only by mport's hash, with tamper controls and a CDN up/down/broken switch; mport's examples run in-page as proofs. |
@@ -76,7 +79,7 @@ a demo that fails to mount is reported in the manifest and never takes the compa
 
 Planets talk to each other through a small bus (`src/bus.ts`): Math → Ecmanim (export a rotor, Julia set or graph as a Scene),
 Spintax → Hashish and Chunker (generated corpora), Domable → JSX Studio (scaffold as files), HTTP Converter → Header Fields
-(structured headers). Every planet is deep-linkable (`#/<planet>?k=v`) with a copy-link button, ⌘K jumps between planets,
+(structured headers), Tensor Bench and Form Lab → Data Plot Studio (a loss curve, an array of rows). Every planet is deep-linkable (`#/<planet>?k=v`) with a copy-link button, ⌘K jumps between planets,
 a source drawer shows each planet's module, and the Tester Console's results appear as badges on the planets.
 
 ## What's next
