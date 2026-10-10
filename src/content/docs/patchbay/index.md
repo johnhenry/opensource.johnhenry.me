@@ -1,0 +1,144 @@
+---
+title: "patchbay"
+description: "A pannable, zoomable canvas and the wires between things on it: screen/world math, wheel, pinch, drag and keyboard gestures, fit-to-content, SVG bezier wires and a drag-to-connect gesture. Framework-free."
+sidebar:
+  order: 0
+---
+
+:::caution[Not yet on npm]
+`@johnhenry/patchbay` is a new package (0.0.0) and has not been published. Until it is, work from a clone of the
+[repository](https://github.com/johnhenry/patchbay). The install command below is what installation will look like once
+it is published.
+:::
+
+**`@johnhenry/patchbay`** is a pannable, zoomable canvas, and the wires between things on it.
+
+Node editors, spatial notebooks, whiteboards and patch-cable UIs all need the same two pieces: a viewport
+(screen-to-world math, zoom about the cursor, wheel/pinch/drag/keyboard gestures, zoom-to-fit) and wires (curves between
+ports that follow the things they connect, plus a drag-to-connect gesture). patchbay is those two pieces and nothing
+else: no node model, no framework, no layout. Your content stays ordinary DOM inside one transformed element.
+
+Zero dependencies. ESM. The viewport math and `wirePath()` run anywhere (Node 26 or newer, `engines`); the gesture and
+wire helpers need a DOM.
+
+## Traps
+
+- **The stage takes the wheel.** Every wheel event over the stage is `preventDefault()`ed and turned into a pan or a
+  zoom, so the page doesn't scroll while the pointer is over it, and neither does scrollable content inside it. Mark such
+  content (an output panel, a map, an interactive animation camera) with **`data-patchbay-ignore`**: wheel and drag
+  inside it are left alone. The attribute must be on an element inside the stage.
+- **`wheel: "zoom"` swaps pinch too.** Trackpad pinch arrives as a Ctrl+wheel event, so in `"zoom"` mode, where
+  modifier+wheel pans, a pinch pans instead of zooming.
+- **Keyboard zoom and pan only work while the stage element itself has focus.** Give it `tabindex="0"`. Keys pressed
+  while a card or a field inside the stage is focused are ignored.
+- **Space-drag is document-wide.** Holding Space anywhere outside a text field arms drag-to-pan, even over your content,
+  and patchbay doesn't `preventDefault()` the Space key.
+- **Zoom methods take screen points, not client points.** `zoomAt`, `zoomTo`, `toWorld` and `toScreen` on the viewport
+  are relative to the stage's top-left. Convert pointer positions with `coordinates.toLocal()` (or go straight to world
+  units with `coordinates.toWorld()`).
+- **happy-dom is not a browser here.** Its `WheelEvent` drops `ctrlKey`, `metaKey`, `clientX` and `clientY`, and it has
+  no layout, so a headless test needs to patch both. See [Limitations and traps](/patchbay/limitations/#testing-without-a-browser).
+
+## Install
+
+```sh
+npm install @johnhenry/patchbay
+```
+
+**Provenance:** a new package, never published under another name. Under npm's caret rules `^0.0.0` matches only
+`0.0.0`, so pin exactly until a deliberate `0.1.0`.
+
+## Quick start
+
+```html
+<link rel="stylesheet" href="node_modules/@johnhenry/patchbay/src/patchbay.css" />
+<div id="stage" class="patchbay-stage" tabindex="0">
+  <div id="world" class="patchbay-world">
+    <svg id="wires" class="patchbay-wires"></svg>
+    <!-- your nodes, absolutely positioned in world units -->
+  </div>
+</div>
+```
+
+```js
+import { createViewport, attachViewport, createWires, connectDrag } from "@johnhenry/patchbay";
+
+const viewport = createViewport({ minZoom: 0.2, maxZoom: 3 });
+const { coordinates } = attachViewport(viewport, { container: stage, world });
+
+const wires = createWires({
+  svg: document.querySelector("#wires"),
+  resolve: (port) => portPosition(port), // your function: port -> { x, y } in world units
+});
+wires.set("a->b", { from: "a:out", to: "b:in" });
+// after nodes move: wires.schedule()  (one redraw per frame)
+
+outPort.addEventListener("pointerdown", (event) =>
+  connectDrag({
+    svg: document.querySelector("#wires"),
+    event,
+    from: portPosition("a:out"),
+    toWorld: coordinates.toWorld,
+    hitTest: (x, y) => document.elementFromPoint(x, y)?.closest("[data-node]")?.dataset.node,
+    onConnect: (nodeId) => connect("a", nodeId),
+    onDrop: (point) => createNodeAt(point), // released over empty canvas
+  }),
+);
+```
+
+`portPosition`, `connect` and `createNodeAt` are yours. A complete page is the repository's
+[`examples/04-cards-and-wires-in-a-browser/`](https://github.com/johnhenry/patchbay/tree/main/examples).
+
+## Entry points
+
+| Import | What it is |
+| --- | --- |
+| `@johnhenry/patchbay` | Everything below. |
+| `@johnhenry/patchbay/viewport` | `createViewport`, `boundsOf`, `attachViewport`. |
+| `@johnhenry/patchbay/wires` | `wirePath`, `createWires`, `connectDrag`, `anchorOf`. |
+| `@johnhenry/patchbay/patchbay.css` | Optional base styles (see [Styling](/patchbay/styling/)). |
+
+## The pages here
+
+- [Coordinates](/patchbay/coordinates/): client, screen and world, and which function takes which.
+- [Viewport](/patchbay/viewport/): `createViewport()` state and math, and the gestures `attachViewport()` adds.
+- [Wires](/patchbay/wires/): `wirePath()`, `createWires()`, `connectDrag()` and `anchorOf()`.
+- [Styling](/patchbay/styling/): the optional stylesheet and its tokens.
+- [Limitations and traps](/patchbay/limitations/): what patchbay leaves to you, and testing it headlessly.
+
+## Examples
+
+The repository's [`examples/`](https://github.com/johnhenry/patchbay/tree/main/examples) assert what they show:
+
+| Example | Demonstrates |
+| --- | --- |
+| `01-zooming-keeps-the-point-under-the-cursor-still.mjs` | `zoomAt()` keeps the world point under the cursor fixed through repeated zooms in and out, including when the zoom hits `minZoom` and is clamped. |
+| `02-fit-frames-every-node-in-the-container.mjs` | `fit(boundsOf(nodes), size, { padding })` puts every node inside the container, padding included, even for nodes at negative coordinates. |
+| `03-a-wire-leaves-right-and-arrives-from-the-left.mjs` | `wirePath()` produces a cubic whose handles leave the source rightward and enter the target from the left, looping around when the target is behind the source. |
+| `04-cards-and-wires-in-a-browser/` | The whole kit in a page: pan, zoom, drag cards, drag-to-connect, drop to create, and a scrollable list that keeps its own wheel via `data-patchbay-ignore`. |
+
+01 to 03 run under plain Node (`npm run examples`): the viewport math and `wirePath()` touch no DOM. Example 04 needs a
+real browser (pointer capture, `elementFromPoint`, layout), so it isn't part of `npm run examples`; serve the repository
+(`npx serve .`) and open it.
+
+## Family
+
+patchbay is the spatial layer: it places things and draws the lines between them; other packages decide what the things
+are. None of these is a dependency.
+
+- **[window-algebra](/window-algebra/)**: floating windows with drag, resize, stacking and undo. Pass patchbay's
+  `coordinates` (`toStage`, `scale`) to window-algebra's renderer and input adapter, and its floating windows live on a
+  zoomable, unbounded canvas. That `coordinates` option is new in window-algebra 0.1.1
+  ([window-algebra#9](https://github.com/johnhenry/window-algebra/pull/9), not merged as of 2026-10-09); the published
+  0.1.0 and this site's window-algebra pages don't have it yet.
+- **[dataflow](/dataflow/)**: a node graph's edges are dataflow's `deps`. Draw each dependency as a wire with
+  `` wires.set(`${dep}->${id}`, ...) `` and color it by the source's run state.
+- **[ecmanim](/ecmanim/)**: an interactive ecmanim canvas
+  ([`attachInteractiveCamera()`](/ecmanim/guides/authoring-studio/#interactive-camera-panzoomorbitpick)) inside a
+  patchbay stage keeps its own pan and zoom when its container carries `data-patchbay-ignore`.
+- **[inspectable](/inspectable/)**: the previews a notebook shows on the canvas. A scrollable `<value-inspector>` panel
+  inside a card needs `data-patchbay-ignore` to keep its wheel.
+
+Built for miso, a natto.dev-style spatial notebook.
+
+Source: [github.com/johnhenry/patchbay](https://github.com/johnhenry/patchbay).

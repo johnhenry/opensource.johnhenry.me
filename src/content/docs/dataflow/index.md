@@ -1,0 +1,133 @@
+---
+title: "dataflow"
+description: "An async dataflow scheduler: nodes that depend on other nodes, run by your async function, with glitch-free propagation, newest-run-wins cancellation and per-node run states. It never holds your values."
+sidebar:
+  order: 0
+---
+
+:::caution[Not yet on npm]
+`@johnhenry/dataflow` is a new package (0.0.0) and has not been published. Until it is, work from a clone of the
+[repository](https://github.com/johnhenry/dataflow). The install command below is what installation will look like once
+it is published.
+:::
+
+**`@johnhenry/dataflow`** is an async dataflow scheduler. Nodes depend on other nodes; your async `run(id)` computes a
+node; dataflow decides **when** each node runs and remembers **how** its last run went. It never holds your values, so
+they can live wherever they need to: in a `Map`, inside a Web Worker, in a sandboxed iframe, on a server.
+
+That split is the point. A spatial notebook, a spreadsheet or a build graph keeps values somewhere the scheduler can't
+(or shouldn't) reach, and still needs the hard parts done right: no glitches in a diamond, no slow stale run overwriting
+a newer one, errors that don't turn every downstream cell red, manual cells that know they're out of date.
+
+Zero dependencies. ESM. Runs in browsers, Workers and Node 26 or newer (`engines`).
+
+## Traps
+
+Read these before the API. Each one is a design decision, not a bug, and none of them is visible from the type
+signatures.
+
+- **It doesn't store your values, but it keeps whatever `run` returns.** The return value becomes `state.result` and
+  stays there until the next run, an error, or `reset()`. If the value must stay in a Worker, return something small
+  that describes it (a preview, a handle, a status) and keep the value itself on the other side.
+- **Cancellation is cooperative.** A superseded run's `AbortSignal` aborts and its result is dropped, but your code keeps
+  running until it checks the signal. Put every side effect behind `if (!signal.aborted)`. For a hard stop, run in
+  something you can terminate (a Worker), then call `reset()`.
+- **Errors make dependents wait, not fail.** When a node throws, only that node is `error`; its dependents become
+  `waiting` and rerun by themselves once it's fixed. A pane showing "waiting" downstream of an error is correct.
+- **`set()` never runs anything, even when it changes a node's dependencies.** Follow it with `invalidate(id)` (or
+  `run(id)`) when a node's inputs change.
+- **There is no equality cut-off.** A node that reran and returned the same value still reruns every autorun dependent.
+  Compare and return early in your own `run` if that matters.
+- **Listeners must not throw.** `onChange` and `subscribe` listeners run synchronously inside the scheduler. One that
+  throws while a run settles stops that settlement half-way: queued dependents never start and `idle()` never
+  resolves.
+
+More in [Limitations and traps](/dataflow/limitations/).
+
+## Install
+
+```sh
+npm install @johnhenry/dataflow
+```
+
+**Provenance:** a new package, never published under another name. Under npm's caret rules `^0.0.0` matches only
+`0.0.0`, so pin exactly until a deliberate `0.1.0`.
+
+## Quick start
+
+```js
+import { createDataflow } from "@johnhenry/dataflow";
+
+const values = new Map(); // yours, not the scheduler's
+const formulas = {
+  price: () => 50,
+  tip: (price) => price * 0.2,
+  total: (price, tip) => price + tip,
+};
+
+const flow = createDataflow({
+  async run(id, { deps, signal }) {
+    const value = await formulas[id](...deps.map((d) => values.get(d)));
+    if (!signal.aborted) values.set(id, value); // a newer run superseded this one
+    return value; // becomes state.result
+  },
+  onChange(id, state) {
+    console.log(id, state.status);
+  },
+});
+
+flow
+  .set("price")
+  .set("tip", { deps: ["price"] })
+  .set("total", { deps: ["price", "tip"] });
+
+flow.runAll();
+await flow.idle();
+values.get("total"); // 60
+
+formulas.price = () => 80;
+flow.invalidate("price"); // price, tip, total rerun -- in that order, once each
+```
+
+Nothing runs synchronously: `runAll()`, `run()` and `invalidate()` queue work, and the scheduler flushes it on the next
+microtask (or whatever `schedule` you pass). `await flow.idle()` waits for the graph to settle.
+
+## The pages here
+
+- [States and guarantees](/dataflow/states-and-guarantees/): the six statuses, what each state object carries, and the
+  five guarantees (glitch-free, newest run wins, errors wait, manual nodes stay put, cycles are refused).
+- [API](/dataflow/api/): `createDataflow()` and every graph method.
+- [Limitations and traps](/dataflow/limitations/): what is yours to handle.
+
+## Examples
+
+The repository's [`examples/`](https://github.com/johnhenry/dataflow/tree/main/examples) are runnable and assert what
+they show (`npm run examples`, plain Node 26, no browser):
+
+| Example | Demonstrates |
+| --- | --- |
+| `01-a-spreadsheet-recomputes-only-what-changed.mjs` | `invalidate("price")` reruns exactly `price -> tip -> total`, in dependency order, once each; an unrelated cell with no inputs is not rerun. |
+| `02-a-slow-stale-run-never-overwrites-a-newer-one.mjs` | A slow first run that settles after a fast second run is dropped: its `AbortSignal` fires and `state.result` keeps the newer value. |
+| `03-errors-make-dependents-wait-not-fail.mjs` | A failing node leaves its dependents `waiting`, not `error`, and fixing it reruns the whole chain without any extra calls. |
+
+## Family
+
+dataflow is the scheduling half of a notebook-shaped stack: it decides when cells run, while other packages hold and
+show the values. None of these is a dependency; they meet in the app.
+
+- **[andbox](/andbox/)**: where the values can live. A `run` that calls `sandbox.evaluate(...)` keeps every cell's value
+  inside andbox's Worker (functions and class instances included) while dataflow tracks states on the page. When an
+  andbox timeout hard-kills the Worker, the values are gone: call `reset()` and `runAll()`.
+- **[inspectable](/inspectable/)**: what `run` returns. Return inspectable's `serialize(value)` from inside the sandbox
+  and `state.result` is a structured-clone-safe preview a `<value-inspector>` can render, while the value stays put.
+- **[patchbay](/patchbay/)**: a node graph's edges are dataflow's `deps`. Draw each dependency as a wire and color it by
+  the source node's status.
+- **[signalle](/signalle/)**: signals for UI state. signalle's `computed` is the right tool when the values live in the
+  same realm and you want them as signals; dataflow is for when they don't, or when you need cancellation,
+  error/waiting states and manual cells.
+- **[math](/math/math/)**: its `CellGraph` is a synchronous reactive graph of math cells that stores values itself;
+  dataflow is the async, value-agnostic counterpart.
+
+Built for miso, a natto.dev-style spatial notebook, where every pane's value lives in an andbox Worker.
+
+Source: [github.com/johnhenry/dataflow](https://github.com/johnhenry/dataflow).
