@@ -60,6 +60,7 @@ test('presets switch the chart elements: bars, lines, faces', async ({ page }) =
   await expect(page.locator('data-plot plot-marks.dp-faces > chernoff-face')).toHaveCount(6);
   await expect(page.locator('data-plot plot-marks.dp-faces > chernoff-face').first()).toHaveAttribute('aria-label', 'Atlas');
 
+  await expect(page).toHaveURL(/p=teams/); // writeState() is debounced: reload only once the deep link is written
   await page.reload();
   await expect(page.locator('[data-preset="teams"]')).toHaveAttribute('aria-pressed', 'true');
 });
