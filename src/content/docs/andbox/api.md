@@ -33,7 +33,7 @@ Creates a new runtime in its own execution context. Returns a promise (Worker, w
 | `iframeSandbox` | `string[]` | `[]` | `mode: 'iframe'`: extra sandbox tokens (`allow-scripts` is always set); `'allow-same-origin'` throws unless `dangerouslyAllowSameOrigin` |
 | `dangerouslyAllowSameOrigin` | `boolean` | `false` | `mode: 'iframe'`: permit `'allow-same-origin'`, which removes the origin boundary |
 | `onFrame` | `(iframe) => void` | -- | `mode: 'iframe'`: called with every new frame (first and after each restart) before it is attached |
-| `network` | `{ fetch?, allowedHosts?, credentials? }` | unset | `worker`, `node-worker`, `iframe` (0.1.3): install a global `fetch` in the sandbox that sends every request through the host function (the gated `fetch` capability). **Unset: no `fetch` in worker modes.** Throws in other modes, or with a capability named `fetch`. See [Mediated network](/andbox/network/). |
+| `network` | `{ allowedHosts, fetch?, credentials? }` | unset | `worker`, `node-worker`, `iframe` (0.1.3): install a global `fetch` in the sandbox that sends every request through the host function (the gated `fetch` capability). `allowedHosts` is required since 0.2.0: a hostname list, a `(url: URL) => boolean \| Promise<boolean>` function, or `'*'`; without it `createSandbox()` throws. **Unset: no `fetch` in worker modes.** Throws in other modes, or with a capability named `fetch`. See [Mediated network](/andbox/network/). |
 | `workerFactory` | `(source: string) => WorkerLike` | -- | Supply the Worker implementation yourself; overrides automatic selection. See `createNodeWorkerFactory()`. |
 | `nodeWorker` | `NodeWorkerOptions` | -- | Node `worker_threads` options and opt-in hardening (below). Throws with a browser Worker or a custom `workerFactory`. |
 | `unref` | `boolean` | `false` | Node only. Unref the thread while the sandbox is idle so it does not keep the process alive; it stays ref'd during startup, `evaluate()` and `defineModule()`. Ignored with a browser Worker. |
@@ -128,7 +128,7 @@ The registry also has `has(path)`, `paths()` and `isDisposed()`. `resolveSpecifi
 
 ### `createNetworkFetch(allowedHosts?, fetchFn?)`
 
-Creates a fetch function that checks the request hostname against an allowlist before calling through. Useful for keeping cooperative code pointed at the hosts you intend. It is redirect-safe: requests use `redirect: 'manual'` and any redirect response is rejected rather than followed (see [Security model](/andbox/#security-model)). It is what `network: { allowedHosts }` puts in front of the sandbox's `fetch`.
+Creates a fetch function that checks the request hostname against an allowlist before calling through. Useful for keeping cooperative code pointed at the hosts you intend. It is redirect-safe: requests use `redirect: 'manual'` and any redirect response is rejected rather than followed (see [Security model](/andbox/#security-model)). It is what `network: { allowedHosts: [...] }` puts in front of the sandbox's `fetch`. Unlike `network.allowedHosts`, a missing or empty list here still allows every host ([andbox#44](https://github.com/johnhenry/andbox/issues/44)).
 
 ```js
 import { createNetworkFetch } from '@johnhenry/andbox';
