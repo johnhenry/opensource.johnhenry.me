@@ -5,11 +5,7 @@ sidebar:
   order: 0
 ---
 
-:::caution[Not yet on npm]
-`@johnhenry/inspectable` is a new package (0.0.0) and has not been published. Until it is, work from a clone of the
-[repository](https://github.com/johnhenry/inspectable). The install command below is what installation will look like
-once it is published.
-:::
+import Install from '../../../components/Install.astro';
 
 **`@johnhenry/inspectable`** shows a JavaScript value that lives somewhere else.
 
@@ -43,9 +39,7 @@ yours.
 
 ## Install
 
-```sh
-npm install @johnhenry/inspectable
-```
+<Install pkg="@johnhenry/inspectable" />
 
 **Provenance:** a new package, never published under another name. Under npm's caret rules `^0.0.0` matches only
 `0.0.0`, so pin exactly until a deliberate `0.1.0`.

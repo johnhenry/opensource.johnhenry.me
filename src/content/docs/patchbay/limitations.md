@@ -11,7 +11,7 @@ sidebar:
   worlds at very small zoom still lay out every node; cull off-screen nodes with `visibleRect()` if you have thousands.
 - **No node model.** Positions, selection, snapping and undo are yours. `coordinates` plugs into a window manager that
   has them: [window-algebra](/window-algebra/)'s renderer and input adapter accept a coordinates hook from 0.1.1
-  ([window-algebra#9](https://github.com/johnhenry/window-algebra/pull/9), not merged as of 2026-10-09).
+  ([window-algebra#9](https://github.com/johnhenry/window-algebra/pull/9)).
 - **Wires don't route around things.** They're single cubics; with many crossing wires, you get spaghetti, as on a real
   patch bay.
 - **Multi-touch pinch** relies on the browser's Ctrl-wheel translation of trackpad pinches; two-finger touch-screen pinch

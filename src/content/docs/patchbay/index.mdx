@@ -5,11 +5,7 @@ sidebar:
   order: 0
 ---
 
-:::caution[Not yet on npm]
-`@johnhenry/patchbay` is a new package (0.0.0) and has not been published. Until it is, work from a clone of the
-[repository](https://github.com/johnhenry/patchbay). The install command below is what installation will look like once
-it is published.
-:::
+import Install from '../../../components/Install.astro';
 
 **`@johnhenry/patchbay`** is a pannable, zoomable canvas, and the wires between things on it.
 
@@ -41,9 +37,7 @@ wire helpers need a DOM.
 
 ## Install
 
-```sh
-npm install @johnhenry/patchbay
-```
+<Install pkg="@johnhenry/patchbay" />
 
 **Provenance:** a new package, never published under another name. Under npm's caret rules `^0.0.0` matches only
 `0.0.0`, so pin exactly until a deliberate `0.1.0`.
@@ -128,9 +122,10 @@ are. None of these is a dependency.
 
 - **[window-algebra](/window-algebra/)**: floating windows with drag, resize, stacking and undo. Pass patchbay's
   `coordinates` (`toStage`, `scale`) to window-algebra's renderer and input adapter, and its floating windows live on a
-  zoomable, unbounded canvas. That `coordinates` option is new in window-algebra 0.1.1
-  ([window-algebra#9](https://github.com/johnhenry/window-algebra/pull/9), not merged as of 2026-10-09); the published
-  0.1.0 and this site's window-algebra pages don't have it yet.
+  zoomable, unbounded canvas (with `config: { bounds: "none" }`). The `coordinates` option is new in window-algebra
+  0.1.1 ([window-algebra#9](https://github.com/johnhenry/window-algebra/pull/9)); its full reference is the repository's
+  [`docs/api/browser.md`](https://github.com/johnhenry/window-algebra/blob/main/docs/api/browser.md) until this site's
+  window-algebra pages are re-ported.
 - **[dataflow](/dataflow/)**: a node graph's edges are dataflow's `deps`. Draw each dependency as a wire with
   `` wires.set(`${dep}->${id}`, ...) `` and color it by the source's run state.
 - **[ecmanim](/ecmanim/)**: an interactive ecmanim canvas
