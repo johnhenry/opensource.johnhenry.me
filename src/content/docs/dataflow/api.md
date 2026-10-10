@@ -1,21 +1,22 @@
 ---
 title: "API"
-description: "createDataflow({ run, onChange, schedule }) and every graph method: set, delete, run, invalidate, runAll, reset, pause/resume, the read methods, order, subscribe and idle."
+description: "createDataflow({ run, onChange, schedule }) and every graph method: set, delete, run, invalidate, runAll, reset, pause/resume, the read methods, order, subscribe and idle; plus SKIP, skip and isSkip."
 sidebar:
-  order: 2
+  order: 3
 ---
 
-One export, `createDataflow` (also the default export). TypeScript declarations ship in `src/index.d.ts`.
+`createDataflow` (also the default export), and the skip values `SKIP`, `skip` and `isSkip` (0.0.1). TypeScript declarations ship in `src/index.d.ts`.
 
 ```js
-import { createDataflow } from "@johnhenry/dataflow";
+import { createDataflow, SKIP, skip, isSkip } from "@johnhenry/dataflow";
 ```
 
 ## `createDataflow({ run, onChange?, schedule? })`
 
-- `run(id, { runId, signal, deps })`: compute one node; may return a value or a promise. `deps` is the dependency list
-  at the moment the run started. A synchronous throw is reported the same way as a rejection (the node goes to
-  `error`).
+- `run(id, { runId, signal, deps, skipped })`: compute one node; may return a value or a promise. `deps` is the
+  dependency list at the moment the run started; `skipped` lists the inputs that were skipped (only ever non-empty for a
+  node with `consumesSkip`). Return `SKIP` or `skip(reason)` to skip the node ([Skipping](/dataflow/skipping/)). A
+  synchronous throw is reported the same way as a rejection (the node goes to `error`).
 - `onChange(id, state)`: called on every state change (also see `subscribe`).
 - `schedule(fn)`: how flushes are deferred; default `queueMicrotask`.
 
@@ -27,14 +28,14 @@ Returns a graph object; mutating methods return it, so calls chain.
 
 | Method | Does |
 | --- | --- |
-| `set(id, { deps = [], autorun = true })` | Add a node, or replace its dependencies / autorun flag. Never runs anything by itself. |
+| `set(id, { deps = [], autorun = true, consumesSkip = false })` | Add a node, or replace its dependencies / autorun flag / skip handling (`true`, or the input ids it consumes skips from). Never runs anything by itself. |
 | `delete(id)` | Remove a node; its dependents start waiting. |
 | `run(id)` | Run now, whatever the autorun flag. Autorun dependents follow. |
 | `invalidate(id)` | The definition changed: autorun nodes rerun, manual nodes become `stale`. |
 | `runAll({ all = true, ids })` | Queue nodes in dependency order; `all: false` skips manual nodes. |
 | `reset()` | Forget every result, abort in-flight runs (for example after the place your values live was restarted). |
 | `pause()` / `resume()` / `paused` | Hold new runs; running ones still settle. |
-| `get(id)`, `has(id)`, `deps(id)`, `autorun(id)`, `dependents(id)`, `ids()` | Read the graph. |
+| `get(id)`, `has(id)`, `deps(id)`, `autorun(id)`, `consumesSkip(id)`, `dependents(id)`, `ids()` | Read the graph. |
 | `order(ids?)` | Topological order, dependencies first; nodes on a cycle are omitted. |
 | `subscribe(fn)` | Listen to every change; returns an unsubscribe function. |
 | `idle()` | Resolves once nothing is queued or running (or the graph is paused). |
@@ -42,7 +43,7 @@ Returns a graph object; mutating methods return it, so calls chain.
 ## Details per method
 
 **`set(id, options)`**. `id` must be a non-empty string (otherwise a `TypeError`). Duplicate ids in `deps` are dropped.
-Adding a node emits its `idle` state. Replacing an existing node's `deps` or `autorun` does **not** rerun it, mark it
+Adding a node emits its `idle` state. Replacing an existing node's `deps`, `autorun` or `consumesSkip` does **not** rerun it, mark it
 stale, or wake anything: call `invalidate(id)` or `run(id)` afterwards. Every `set` rechecks cycles, so an edge that
 closes a cycle sends every node on it to `error` with `cycle: true` immediately. `deps` may name ids that don't exist
 yet; such a node waits when asked to run.
@@ -64,7 +65,7 @@ are aborted and their results dropped. Nodes on a cycle stay in `error`. Nothing
 they queue wait for `resume()`, which flushes everything queued meanwhile.
 
 **`get(id)`**. A copy of the node's state, or `undefined` for an unknown id. `deps(id)` returns a copy of the list.
-`autorun(id)` is `undefined` for an unknown id. `dependents(id)` lists direct dependents only.
+`autorun(id)` and `consumesSkip(id)` are `undefined` for an unknown id. `dependents(id)` lists direct dependents only.
 
 **`subscribe(fn)`**. `fn(id, state)` is called for every state change of every node. The returned function removes the
 listener (it returns `true` the first time, `false` after). Listeners run synchronously; an exception from one is
@@ -73,3 +74,12 @@ reported through `reportError` and doesn't affect other listeners or scheduling.
 
 **`idle()`**. Polls on `setTimeout(0)` turns until nothing is queued and no node is `running`. It also resolves whenever
 the graph is paused, with work still queued, so `await flow.idle()` after `pause()` does not mean "settled".
+
+## `SKIP`, `skip(reason?)`, `isSkip(value)`
+
+- `SKIP`: return it from `run` to skip the node. It is `Symbol.for("@johnhenry/dataflow.skip")`, so two copies of the
+  package agree; it can't cross `postMessage`, so a Worker returns its own marker and your `run` maps it to `SKIP`.
+- `skip(reason)`: a frozen skip that carries `reason` to `state.skip.reason` of the node and everything it spreads to.
+- `isSkip(value)`: `true` for both.
+
+How skips spread, and the coalesce and if/else patterns, are in [Skipping](/dataflow/skipping/).

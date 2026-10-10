@@ -97,6 +97,96 @@ Syntax highlighting that never touches your markup. [Guide](https://github.com/j
 |---|---|
 | `tokens()` | The current token ranges, by type (for tests and tooling). |
 
+## `<code-editor>`
+
+A syntax-highlighted code field that works like a textarea. [Guide](/domkit/code-editor/) · module `@johnhenry/domkit/code-editor`
+
+**Attributes**
+
+| Attribute | Property | Type | Description |
+|---|---|---|---|
+| `value` | `value` | `string` | Default value (what `form.reset()` restores). Without it, the element's initial text content is the default: a `<textarea>`'s, a `<pre>`'s, or its own. |
+| `language` | `language` | `string` | `js`, `css`, or `html` (plus aliases like `javascript`, `ts`, `json`, `xml`), as for code-color. Default: a `language-*` class on a `<code>` in the initial markup, else `html`. |
+| `placeholder` | `placeholder` | `string` | Text shown while the value is empty. |
+| `disabled` | `disabled` | `boolean` | Blocks interaction and form submission. Also inherited from a disabled fieldset. |
+| `readonly` |  | `boolean` | The value can be selected and copied but not edited. Tab then moves focus as usual. |
+| `required` | `required` | `boolean` | The form is invalid while the value is empty. |
+| `tab-size` | `tabSize` | `number` | Spaces per indent level, for Tab/Shift+Tab, auto-indent, and how tab characters display. Default 2. |
+| `rows` | `rows` | `number` | Minimum height in lines, default 2 like a textarea (sets `--domkit-code-editor-rows`). The editor grows with its content; cap it with CSS `max-height`. |
+| `wrap` | `wrap` | `string` | Long lines wrap by default, like a textarea (`soft`, `hard`, empty or absent); `off` scrolls them horizontally. |
+| `name` | `name` | `string` | Name submitted with the form. |
+| `maxlength` |  | `number` | Maximum length; typing stops there, and a longer value the user typed is `tooLong`, like a textarea. |
+| `minlength` |  | `number` | Minimum length; a shorter, non-empty value the user typed is `tooShort`, like a textarea. |
+| `spellcheck` |  | `string` | Off by default (code isn't prose); `spellcheck="true"` turns the browser's checking back on. |
+| `autocapitalize` |  | `string` | Off by default for code; any value is passed to the textarea. |
+| `autocorrect` |  | `string` | Off by default for code; any value is passed to the textarea. |
+| `autocomplete` | `autocomplete` | `string` | Off by default for code; any value is passed to the textarea. |
+| `inputmode` |  | `string` | Passed to the textarea (virtual keyboard hint). |
+| `enterkeyhint` |  | `string` | Passed to the textarea (virtual keyboard Enter label). |
+| `autofocus` |  | `boolean` | Focus the editor when it is first connected, if nothing else has focus. |
+| `no-auto-close` | `noAutoClose` | `boolean` | Don't auto-close brackets and quotes (also turns off typing over a closer and deleting an empty pair). |
+
+**Properties**
+
+| Property | Type | Description |
+|---|---|---|
+| `value` | `string` | The current text. Setting it replaces the text (and, as for a textarea, clears the browser's undo history). Script changes don't fire events. |
+| `defaultValue` | `string` | The value `form.reset()` restores: the `value` attribute if present, else the initial text content. Setting it sets the `value` attribute. |
+| `textLength` (read-only) | `number` | Length of the value, like a textarea's. |
+| `type` (read-only) | `string` | "textarea", like a textarea's (for code that branches on `type`). |
+| `resolvedLanguage` (read-only) | `string \| null` | The language in effect: `js`, `css`, `html`, or null if unrecognized. |
+| `language` | `string` | Mirrors the `language` attribute. |
+| `name` | `string` | Mirrors the `name` attribute. |
+| `placeholder` | `string` | Mirrors the `placeholder` attribute. |
+| `disabled` | `boolean` | Mirrors the `disabled` attribute. |
+| `readOnly` | `boolean` | Mirrors the `readonly` attribute. |
+| `required` | `boolean` | Mirrors the `required` attribute. |
+| `tabSize` | `number` | Spaces per indent level (default 2). |
+| `rows` | `number` | Minimum height in lines (default 2, like a textarea). |
+| `wrap` | `string` | Reflects the `wrap` attribute as written ("" when absent), like a textarea's. Long lines wrap unless it is `off`. |
+| `maxLength` | `number` | Mirrors the `maxlength` attribute; -1 when absent, like a textarea's. |
+| `minLength` | `number` | Mirrors the `minlength` attribute; -1 when absent, like a textarea's. |
+| `autocomplete` | `string` | Mirrors the `autocomplete` attribute. |
+| `noAutoClose` | `boolean` | Mirrors the `no-auto-close` attribute. |
+| `textarea` (read-only) | `HTMLTextAreaElement \| null` | The `<textarea>` that does the editing (for advanced use: measuring, or a library that needs a real text control). |
+| `selectionStart` | `number` |  |
+| `selectionEnd` | `number` |  |
+| `selectionDirection` | `string` |  |
+| `form` (read-only) | `HTMLFormElement \| null` |  |
+| `labels` (read-only) | `NodeList` |  |
+| `validity` (read-only) | `ValidityState` |  |
+| `validationMessage` (read-only) | `string` |  |
+| `willValidate` (read-only) | `boolean` |  |
+
+**Methods**
+
+| Method | Description |
+|---|---|
+| `setSelectionRange(start, end, direction)` | Select a range of the text, like a textarea's. |
+| `setRangeText(replacement, start, end, selectMode)` | Replace a range of the text, like a textarea's `setRangeText()`. A script change: no events, and not on the undo stack. |
+| `select()` | Select all the text, like a textarea's `select()`. |
+| `focus(options)` | Focus the text field. |
+| `blur()` | Remove focus from the text field. |
+| `tokens()` | The current token ranges, by type, in text order (for tests and tooling). |
+| `checkValidity()` |  |
+| `reportValidity()` |  |
+| `setCustomValidity(message)` |  |
+
+**Events**
+
+| Event | Description |
+|---|---|
+| `change` | The user committed a change: the field lost focus with a different value than when it got it, like a textarea. |
+| `input` | The user changed the value (typing, pasting, undo, or an editing key). Fired from the element, with the textarea's `inputType` and `data`. |
+
+**CSS custom properties**
+
+| Property | Description |
+|---|---|
+| `--domkit-code-editor-rows` | Minimum height in lines, from the `rows` attribute. |
+| `--domkit-focus-ring` | Focus outline (shared token; see theme.css). |
+| `--domkit-border` | Border (shared token). |
+
 ## `<define-component>`
 
 Register a custom element in HTML, from a module or from inline markup. [Guide](https://github.com/johnhenry/domkit/blob/main/src/definable/define-component/readme.md) · module `@johnhenry/domkit/definable/define-component`

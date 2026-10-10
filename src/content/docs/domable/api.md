@@ -1,6 +1,6 @@
 ---
 title: "API"
-description: "createElement()/hyperscript, per-tag shorthands, domToText, simple-element, and dom-to-hyperscript."
+description: "createElement()/hyperscript (attributes, properties, listeners, style objects, flattened children), per-tag shorthands, domToText, simple-element, and dom-to-hyperscript."
 ---
 
 ## `createElement` — a hyperscript DOM builder
@@ -20,24 +20,136 @@ list.outerHTML;
 // <ul id="foo"><li>bar</li><li></li></ul>
 ```
 
-- **`tag` is optional.** Omit it (or pass a `Node`/string as the first
-  argument instead) and you get a `DocumentFragment` of children back, with
-  no wrapping element. `_` is shorthand for exactly that: `_(...)` ==
+- **`tag` is optional.** Omit it (or pass a child as the first argument
+  instead) and you get a `DocumentFragment` of children back, with no
+  wrapping element. `_` is shorthand for exactly that: `_(...)` ==
   `createElement(...)`.
-- **`props` is optional.** A `Node` or string passed as the second argument
-  is treated as the first child instead.
-- **`props.class`** may be a string (set as-is) or an array of strings
-  (added individually via `classList.add()`).
+- **`props` is optional.** Anything child-shaped (a string, number, `Node`,
+  array, ...) passed as the second argument is treated as the first child
+  instead.
 - **`props.children`**, if present, is prepended to any positional children
   — for compatibility with JSX transforms that pass children this way.
-- String children become text nodes; `Node` children are appended as-is.
 
-### SVG
+### Props: attributes, properties, listeners
 
 ```javascript
-import { createSVGElement, SVG_NAMESPACE } from "@johnhenry/domable/create-element";
-createSVGElement("circle", { r: "5" }).namespaceURI === SVG_NAMESPACE; // true
+const field = createElement("input", {
+  type: "checkbox",
+  required: true,                  // attribute: required=""
+  disabled: isLocked,              // attribute only when true; false/null/undefined omit it
+  "aria-checked": false,           // aria-*/data-*: booleans are written as "true"/"false"
+  class: ["toggle", isOn && "on"], // falsy entries skipped; or { toggle: true, on: isOn }
+  style: { color: "red", "--size": 2 },
+  ".checked": isOn,                // DOM property, not an attribute
+  ".indeterminate": isMixed,
+  onchange: (e) => save(e.target.checked),            // listener for "change"
+  "@my-event": [(e) => log(e.detail), { once: true }], // listener, verbatim type + options
+});
 ```
+
+| Key | Meaning |
+| --- | --- |
+| `".name"` | Sets the DOM **property** `element.name = value`, as-is (objects stay objects; `false`/`null` are assigned, not skipped). Never an attribute. |
+| `"@type"` | `element.addEventListener(type, ...)`, with `type` used **verbatim** (case and hyphens kept, for custom events). The value is a function, an `EventListener` object (`{ handleEvent }`), or `[listener, options]`; `null`/`undefined`/`false` add nothing. A **string** value is still an attribute (as it was before), for template libraries such as Alpine.js that read `@click="..."` attributes. |
+| `on<Event>` with a **function** value | `element.addEventListener(event.toLowerCase(), fn)` — `onclick` and `onClick` both listen for `click`. Never written as an inline-handler attribute. A **string** `on*` value is still an ordinary attribute. |
+| `class` | A string (set as-is), an array of strings (falsy entries skipped, the rest added via `classList.add()`), or a `{ name: boolean }` object (truthy names added). |
+| `style` | A string (set as-is) or an object: `kebab-case` and `--custom` keys go through `style.setProperty()`, `camelCase` keys through `style[key] =`; `null`/`undefined`/`false` entries are skipped. Values are stringified — no automatic `px`. |
+| `children` | Prepended to the positional children. |
+| anything else | An attribute: `null`/`undefined`/`false` omit it, `true` sets it to `""` (a boolean attribute), any other value goes through `setAttribute()` (stringified). Exception: `aria-*`/`data-*` booleans are written as `"true"`/`"false"`, since those are string-valued attributes where `""` would mean something else. |
+
+Applied in this order: attributes and listeners, then children, then
+properties — so `createElement("select", { ".value": "b" }, ...options)`
+selects an option that already exists, and an `<input type="range">`'s
+`.value` is clamped against `min`/`max` that are already set.
+
+**Why a `.` prefix for properties (rather than a `props: {}` bag or
+guessing).** Whether a name is a property or an attribute can't be guessed
+reliably: `value` exists as both, with different meanings (initial vs.
+current), and a custom element's properties are whatever its class defines,
+possibly not yet upgraded. So it's explicit, per key. A prefix keeps every
+key flat in one object (no second, nested bag to merge), reserves no
+ordinary attribute name (a bag would need a reserved key like `props`, which
+also reads confusingly next to the function's own `props` argument), and is
+the same sigil [lit](https://lit.dev/docs/templates/expressions/) uses
+(`.value=${...}`), as `@` is its sigil for event listeners. No standard
+HTML/SVG/MathML attribute name begins with `.` or `@`.
+
+### Children
+
+```javascript
+createElement("ul", {},
+  items.map((item) => createElement("li", {}, item.name)), // arrays flatten (recursively)
+  showMore && createElement("li", {}, "more..."),          // false/null/undefined/true are skipped
+  count,                                                     // numbers/bigints become text; 0 is rendered
+);
+```
+
+- Strings, numbers and bigints become text nodes; `Node`s are appended
+  as-is.
+- `null`, `undefined`, `false` and `true` are skipped, so `cond && el`
+  works.
+- Arrays and other non-string iterables (a `NodeList`, a `Set`, a generator)
+  are flattened, recursively. Everything is collected before anything is
+  appended, so passing a live collection like `other.childNodes` moves all
+  of its nodes, not every other one.
+
+The same rules apply to `createSVGElement`, `createMathMLElement`, `_`,
+every `/html` and `/svg` shorthand, and `reactToDom` (which builds through
+`createElementNS`).
+
+### SVG and MathML
+
+```javascript
+import { createSVGElement, SVG_NAMESPACE, createMathMLElement, MATHML_NAMESPACE } from "@johnhenry/domable/create-element";
+createSVGElement("circle", { r: "5" }).namespaceURI === SVG_NAMESPACE; // true
+createMathMLElement("mrow").namespaceURI === MATHML_NAMESPACE; // true
+```
+
+`reactToDom` (below) is namespace-aware too: a React-element-shaped `<svg>`
+or `<math>` node, and everything nested inside it, is built in the correct
+namespace automatically — you don't need `createSVGElement`/
+`createMathMLElement` yourself unless you're building elements directly.
+
+### Limitations
+
+- **`createElement` builds; it doesn't update.** Listeners, properties and
+  attributes are applied once, at creation. There's no diffing,
+  re-rendering or listener removal — keep a reference and use the DOM
+  directly, or pass `{ signal }` in an `"@type": [fn, { signal }]` listener's
+  options and abort it.
+- **No synthetic event system.** A function-valued `on<Event>` prop (from
+  `createElement` or a React-shaped `onClick` through `reactToDom`) is a
+  plain `addEventListener(event.toLowerCase(), fn)`. React event names that
+  aren't just the DOM name in camelCase don't map: `onDoubleClick` listens
+  for `doubleclick` (the DOM event is `dblclick` — use `ondblclick`), and
+  React's `onChange` on an `<input>` fires per keystroke where the DOM
+  `change` event fires on commit (use `onInput`). There is no
+  capture-phase `onClickCapture` translation either; use
+  `"@click": [fn, { capture: true }]`.
+- **Listeners and properties aren't serialized.** They live on the DOM
+  object, not in its markup, so `domToText`, `domToReact` and
+  `domToHyperscript`/`domToSource` can't see them — a round trip through
+  any of those keeps only attributes.
+- **A `.property` on a custom element that isn't defined yet** becomes an
+  own property of the (not-yet-upgraded) element, which shadows the class's
+  setter once it upgrades. Define the element first, or have the class
+  re-apply such properties on upgrade (the usual "lazy property" pattern).
+- **No `px` for numbers in a `style` object.** `{ width: 10 }` sets
+  `width: 10`, which the browser ignores; write `"10px"`. (Unitless
+  properties like `opacity`, and `--custom` properties, are fine.)
+
+### Changed in 0.0.2
+
+Before 0.0.2 every prop went through `setAttribute` and every child through
+`append()` as-is. Calls that relied on that output change: a function-valued
+`on*` prop no longer writes a stringified attribute; `false`/`null`/`undefined`
+attribute values (other than `aria-*`/`data-*` booleans) are omitted rather
+than written as `"false"`/`"null"`/`"undefined"`, and `true` is `""` rather
+than `"true"`; a `style` object no longer becomes `style="[object Object]"`;
+`null`/`undefined`/boolean children are no longer rendered as text; and
+`.`-prefixed keys and non-string `@`-prefixed keys are no longer attributes.
+String `on*` and string `@*` values are still plain attributes. See the
+[changelog](https://github.com/johnhenry/domable/blob/main/CHANGELOG.md).
 
 ### Per-tag shorthands
 
@@ -164,7 +276,7 @@ deliberately different, matching what each conversion actually feeds into.
 | Export | Description |
 |--------|-------------|
 | `@johnhenry/domable` | The conversion matrix: `textToDom`, `domToText`, `domToReact`, `reactToDom`, `textToReact`, `reactToText` |
-| `@johnhenry/domable/create-element` | `createElement`, `_`, `createSVGElement`, `SVG_NAMESPACE` |
+| `@johnhenry/domable/create-element` | `createElement`, `_`, `createElementNS`, `createSVGElement`, `SVG_NAMESPACE`, `createMathMLElement`, `MATHML_NAMESPACE`, `fromString` |
 | `@johnhenry/domable/html` | Per-tag shorthand functions for every HTML element |
 | `@johnhenry/domable/svg` | Per-tag shorthand functions for every SVG element |
 | `@johnhenry/domable/text-to-dom` | `textToDom` |

@@ -55,6 +55,7 @@ Serve the repository root with any static server (for example `python3 -m http.s
 | `demo/rtl.html` | A right-to-left stage: `dir` on the root drives `config.direction` through `attachDirection`, and layouts, floating `x`, drop zones, arrow keys, splitters and snap zones mirror. |
 | `demo/ide.html` | A realistic IDE built from the pieces: a custom grid-areas layout, tab stacks, a command palette, context menus, toasts, three workspaces and session persistence. |
 | `demo/outputs.html` | Multiple outputs (sway-style displays): two stages side by side, each with its own workspaces, renderer and input adapter (`output` option), driven by one manager. Move workspaces between outputs and watch `focus/next` cross both. |
+| `demo/canvas.html` | Floating panes on a world you pan (drag empty space) and zoom (wheel around the cursor), at negative coordinates too, through the `coordinates` hook and `config.bounds: "none"`, with a switch back to a bounded stage. `e2e/canvas.spec.mjs` drives it with real pointer input at zoom 0.5 and 2. |
 | `demo/element.html` | The `<wa-stage>` custom element: no framework, no build step, fully offline. |
 | `demo/react.html` | The React bindings: `useWindowManager`, `useWindowState`, and `WindowManagerStage` with window content as React portals (and `stageRef` for its handles). **Loads React from esm.sh, so it needs network access.** |
 

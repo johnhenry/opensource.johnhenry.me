@@ -171,15 +171,15 @@
       "section": "andbox",
       "status": "ready",
       "summary": "Plain ESM, no dependencies, no Node built-ins.",
-      "npm": "0.0.6",
+      "npm": "0.1.3",
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/andbox": "https://cdn.jsdelivr.net/npm/@johnhenry/andbox@0.0.6/src/index.mjs"
+          "@johnhenry/andbox": "https://cdn.jsdelivr.net/npm/@johnhenry/andbox@0.1.3/src/index.mjs"
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/andbox@0.0.6"
+        ".": "https://esm.sh/@johnhenry/andbox@0.1.3"
       }
     },
     "@johnhenry/apple-foundation-models": {
@@ -296,23 +296,23 @@
       "section": "domable",
       "status": "ready",
       "summary": "Plain ESM, no dependencies.",
-      "npm": "0.0.1",
+      "npm": "0.0.2",
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/domable": "https://cdn.jsdelivr.net/npm/@johnhenry/domable@0.0.1/src/index.mjs"
+          "@johnhenry/domable": "https://cdn.jsdelivr.net/npm/@johnhenry/domable@0.0.2/src/index.mjs"
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/domable@0.0.1"
+        ".": "https://esm.sh/@johnhenry/domable@0.0.2"
       }
     },
     "@johnhenry/domkit": {
       "section": "domkit",
       "status": "ready",
-      "summary": "Source ESM. These docs describe domkit 0.1.0, whose module layout differs from the 0.0.4 on npm, so no CDN snippet is generated until 0.1.0 is published.",
+      "summary": "Source ESM, no dependencies. Each element is its own module, loaded from a CDN as <module>/global.mjs (the section shows how), so no single-entry CDN snippet is generated.",
       "cdn": false,
-      "npm": "0.0.4",
+      "npm": "0.1.1",
       "jsr": null
     },
     "@johnhenry/ecmanim": {
@@ -747,15 +747,15 @@
         "./vite",
         "./rollup"
       ],
-      "npm": "0.0.0",
+      "npm": "0.0.1",
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/mport": "https://cdn.jsdelivr.net/npm/@johnhenry/mport@0.0.0/src/index.mjs"
+          "@johnhenry/mport": "https://cdn.jsdelivr.net/npm/@johnhenry/mport@0.0.1/src/index.mjs"
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/mport@0.0.0"
+        ".": "https://esm.sh/@johnhenry/mport@0.0.1"
       }
     },
     "@johnhenry/oat-bootstrap": {
@@ -1161,17 +1161,17 @@
         ".",
         "./browser"
       ],
-      "npm": "0.0.0",
+      "npm": "0.1.3",
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/window-algebra": "https://cdn.jsdelivr.net/npm/@johnhenry/window-algebra@0.0.0/src/index.mjs",
-          "@johnhenry/window-algebra/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/window-algebra@0.0.0/src/browser/index.mjs"
+          "@johnhenry/window-algebra": "https://cdn.jsdelivr.net/npm/@johnhenry/window-algebra@0.1.3/src/index.mjs",
+          "@johnhenry/window-algebra/browser": "https://cdn.jsdelivr.net/npm/@johnhenry/window-algebra@0.1.3/src/browser/index.mjs"
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/window-algebra@0.0.0",
-        "./browser": "https://esm.sh/@johnhenry/window-algebra@0.0.0/browser"
+        ".": "https://esm.sh/@johnhenry/window-algebra@0.1.3",
+        "./browser": "https://esm.sh/@johnhenry/window-algebra@0.1.3/browser"
       }
     },
     "@johnhenry/wsh": {
@@ -1199,15 +1199,15 @@
       "entries": [
         "."
       ],
-      "npm": "0.0.0",
+      "npm": "0.0.1",
       "jsr": null,
       "importMap": {
         "imports": {
-          "@johnhenry/dataflow": "https://cdn.jsdelivr.net/npm/@johnhenry/dataflow@0.0.0/src/index.mjs"
+          "@johnhenry/dataflow": "https://cdn.jsdelivr.net/npm/@johnhenry/dataflow@0.0.1/src/index.mjs"
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/dataflow@0.0.0"
+        ".": "https://esm.sh/@johnhenry/dataflow@0.0.1"
       }
     },
     "@johnhenry/inspectable": {
@@ -1259,6 +1259,24 @@
         ".": "https://esm.sh/@johnhenry/patchbay@0.0.0",
         "./viewport": "https://esm.sh/@johnhenry/patchbay@0.0.0/viewport",
         "./wires": "https://esm.sh/@johnhenry/patchbay@0.0.0/wires"
+      }
+    },
+    "@johnhenry/obfo": {
+      "section": "obfo",
+      "status": "ready",
+      "summary": "Plain ESM, no dependencies. Needs a DOM: browsers, iframes, or Node with happy-dom or similar.",
+      "entries": [
+        "."
+      ],
+      "npm": "0.0.0",
+      "jsr": null,
+      "importMap": {
+        "imports": {
+          "@johnhenry/obfo": "https://cdn.jsdelivr.net/npm/@johnhenry/obfo@0.0.0/index.mjs"
+        }
+      },
+      "esmSh": {
+        ".": "https://esm.sh/@johnhenry/obfo@0.0.0"
       }
     }
   },
@@ -1327,23 +1345,7 @@
       "jsdelivr": true,
       "esmsh": true
     },
-    "@johnhenry/aimatey-middleware-andbox@0.0.3 @johnhenry/andbox@0.0.6": {
-      "date": "2026-10-07",
-      "browsers": [
-        "chromium"
-      ],
-      "jsdelivr": true,
-      "esmsh": true
-    },
     "@johnhenry/aimatey-middleware@0.3.0": {
-      "date": "2026-10-07",
-      "browsers": [
-        "chromium"
-      ],
-      "jsdelivr": true,
-      "esmsh": true
-    },
-    "@johnhenry/andbox@0.0.6": {
       "date": "2026-10-07",
       "browsers": [
         "chromium"
@@ -1392,14 +1394,6 @@
       "esmsh": true
     },
     "@johnhenry/data-plot@0.0.0": {
-      "date": "2026-10-07",
-      "browsers": [
-        "chromium"
-      ],
-      "jsdelivr": true,
-      "esmsh": true
-    },
-    "@johnhenry/domable@0.0.1": {
       "date": "2026-10-07",
       "browsers": [
         "chromium"
@@ -1544,14 +1538,6 @@
       "esmsh": true
     },
     "@johnhenry/mcp-query@0.2.1": {
-      "date": "2026-10-07",
-      "browsers": [
-        "chromium"
-      ],
-      "jsdelivr": true,
-      "esmsh": true
-    },
-    "@johnhenry/mport@0.0.0": {
       "date": "2026-10-07",
       "browsers": [
         "chromium"
@@ -1736,24 +1722,8 @@
       "jsdelivr": true,
       "esmsh": true
     },
-    "@johnhenry/window-algebra@0.0.0": {
-      "date": "2026-10-07",
-      "browsers": [
-        "chromium"
-      ],
-      "jsdelivr": true,
-      "esmsh": true
-    },
     "@johnhenry/wsh@0.23.0": {
       "date": "2026-10-07",
-      "browsers": [
-        "chromium"
-      ],
-      "jsdelivr": true,
-      "esmsh": true
-    },
-    "@johnhenry/dataflow@0.0.0": {
-      "date": "2026-10-10",
       "browsers": [
         "chromium"
       ],
@@ -1769,6 +1739,62 @@
       "esmsh": true
     },
     "@johnhenry/patchbay@0.0.0": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/aimatey-middleware-andbox@0.0.3 @johnhenry/andbox@0.1.3": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/andbox@0.1.3": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/dataflow@0.0.1": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/domable@0.0.2": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/mport@0.0.1": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/obfo@0.0.0": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/window-algebra@0.1.3": {
       "date": "2026-10-10",
       "browsers": [
         "chromium"

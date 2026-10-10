@@ -5,6 +5,8 @@ sidebar:
   order: 0
 ---
 
+import Install from '../../../components/Install.astro';
+
 **`@johnhenry/obfo`** (Object Form) converts HTML forms into nested JavaScript objects, and back. It reads the structure
 you mark up with a few `data-obfo-*` attributes: `{}` and `[]` containers become objects and arrays, inputs become
 values, and everything else (labels, headings, layout `div`s) is looked through. The same structure works in the other
@@ -39,13 +41,7 @@ More in [Limitations and traps](/obfo/limitations/).
 
 ## Install
 
-```sh
-npm install @johnhenry/obfo
-```
-
-Not yet on npm: the first publish of `@johnhenry/obfo` is pending. The published package is still the unscoped
-[`obfo`](https://www.npmjs.com/package/obfo) 0.0.9, which reads forms but has none of `fill`, `observe`,
-`formFromObject` or `cast: "auto"`.
+<Install pkg="@johnhenry/obfo" />
 
 **Provenance:** previously published as `obfo`, last unscoped version 0.0.9 (2024-07-27). `@johnhenry/obfo` restarts at
 `0.0.0` under the family's convention for adopted packages, so the number means "new address", not "new code". Under

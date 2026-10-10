@@ -11,7 +11,7 @@ import Install from '../../../components/Install.astro';
 
 <Install pkg="@johnhenry/window-algebra" />
 
-**Provenance:** a new package, never published under another name. `0.0.0` is its first version under any name, not a sign of immaturity. Under npm's caret rules `^0.0.0` matches only `0.0.0`, so pin the exact version until a deliberate `0.1.0`.
+**Provenance:** a new package, never published under another name. `0.0.0` was its first version under any name, not a sign of immaturity. Since 0.1.0 a `^0.1.0` range follows the `0.1.x` releases (under npm's caret rules `^0.0.0` matched only `0.0.0`); breaking changes land only in a minor release, listed in the [changelog](https://github.com/johnhenry/window-algebra/blob/main/CHANGELOG.md).
 
 Node ≥ 26 (`engines.node`) for the pure core in Node. In the browser, use it through a bundler, or with no build step through an import map. Import maps don't read `package.json` `exports`, so map each entry point you use to its file:
 
@@ -62,7 +62,7 @@ const wm = createWindowManager({
   state: createState({ layout: { type: "master-stack", ratio: 0.6 }, config: { gap: 6 } }),
   renderer: createDomRenderer({ root, surfaceFor: surfaces }),
   schedule: createFrameScheduler(), // many commands → one commit per frame
-  history: true,                    // undo/redo for window management
+  history: true,                    // undo/redo for window management (or { limit, ignore: ["window/focus", ...] })
 });
 attachInput({ root, wm });          // pointer, keyboard focus sync, drag and drop
 

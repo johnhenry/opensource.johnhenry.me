@@ -166,6 +166,10 @@ limitations, the ones that follow from what CDNs and import maps are, come after
   rather than racing again, and the default v1 race still mixes builds (raw
   jsDelivr/unpkg files against jspm's transformed output). For consistent builds, use a
   router such as `createRouter({ "*": race(jsDelivr(), unpkg()) })`.
+- **The v1 functions accept only JSON and CSS import attributes** (since 0.0.1). Per-call
+  `importOptions` other than none, `{ with: { type: "json" } }` or `{ with: { type: "css" } }`
+  reject with a `TypeError` before anything is imported; use `createRouter({ importer })` for
+  others. See [The v1 API](/mport/api/v1/#mport-and-mporturl).
 
 ### Bundler plugins
 
