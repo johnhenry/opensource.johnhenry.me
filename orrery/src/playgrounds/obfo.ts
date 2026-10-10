@@ -195,7 +195,7 @@ const playground: Playground = {
 
       <section class="panel">
         <h3>2 · <code>fill(form, object)</code>: JSON back into the same form</h3>
-        <p class="hint"><code>fill</code> walks the same structure as <code>obfo</code> and writes what is present: keys you leave out keep their fields, arrays never grow, and with <code>{ dispatch: true }</code> it fires <code>input</code>/<code>change</code>, so the live object above updates too.</p>
+        <p class="hint"><code>fill</code> walks the same structure as <code>obfo</code> and writes what is present: keys you leave out keep their fields, arrays never grow, and with <code>{ dispatch: true }</code> it fires <code>input</code>/<code>change</code>, so the live object above updates too. <a href="https://opensource.johnhenry.me/obfo/fill/" target="_blank" rel="noopener">fill docs ↗</a></p>
         <div class="grid-2">
           <textarea class="code" data-fill spellcheck="false" aria-label="JSON to fill into the form"></textarea>
           <div>
@@ -211,6 +211,7 @@ const playground: Playground = {
 
       <section class="panel">
         <h3>3 · <code>formFromObject(json)</code>: a form generated from JSON</h3>
+        <p class="hint">Edit the JSON and the form is rebuilt; edit the form and the object below follows. <a href="https://opensource.johnhenry.me/obfo/form-from-object/" target="_blank" rel="noopener">formFromObject docs ↗</a></p>
         <div class="fl-actions" data-gen-presets></div>
         <div class="grid-2">
           <div>
@@ -228,7 +229,7 @@ const playground: Playground = {
 
       <section class="panel">
         <h3>The cast rules, computed live</h3>
-        <p class="hint">Each row is a one-field form read twice by the real <code>obfo()</code>: with no options, and with <code>{ cast: "auto" }</code>.</p>
+        <p class="hint">Each row is a one-field form read twice by the real <code>obfo()</code>: with no options, and with <code>{ cast: "auto" }</code>. <a href="https://opensource.johnhenry.me/obfo/typed-values/" target="_blank" rel="noopener">typed values docs ↗</a></p>
         <table class="fl-table fl-rules" data-rules><thead><tr><th>element</th><th>no cast</th><th><code>cast: "auto"</code></th><th></th></tr></thead><tbody></tbody></table>
       </section>
 

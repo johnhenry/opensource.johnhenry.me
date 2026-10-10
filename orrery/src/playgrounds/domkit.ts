@@ -148,7 +148,7 @@ const playground: Playground = {
               <ul class="dk-log" data-ce-log></ul>
             </div>
           </div>
-          <p class="hint">A real <code>&lt;textarea&gt;</code> does the editing (so caret, IME, undo and screen readers are the browser's own), with a mirror painting the highlights through the CSS Custom Highlight API. It is form-associated through <code>ElementInternals</code>: <code>new FormData(form)</code> includes it, <code>required</code> makes the form invalid while it is empty, and <code>form.reset()</code> restores its default. <kbd>Esc</kbd> then <kbd>Tab</kbd> moves focus out.</p>
+          <p class="hint">A real <code>&lt;textarea&gt;</code> does the editing (so caret, IME, undo and screen readers are the browser's own), with a mirror painting the highlights through the CSS Custom Highlight API. It is form-associated through <code>ElementInternals</code>: <code>new FormData(form)</code> includes it, <code>required</code> makes the form invalid while it is empty, and <code>form.reset()</code> restores its default. <kbd>Esc</kbd> then <kbd>Tab</kbd> moves focus out. <a href="https://opensource.johnhenry.me/domkit/code-editor/" target="_blank" rel="noopener">code-editor docs ↗</a></p>
         </section>
 
         <section class="dk-panel" data-panel="combo">

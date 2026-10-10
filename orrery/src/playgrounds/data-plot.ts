@@ -161,7 +161,7 @@ const playground: Playground = {
       <div class="grid-2">
         <section class="panel">
           <h3>Data: the <code>&lt;table id="dp-data"&gt;</code> the plot reads</h3>
-          <p class="hint">Click a cell and type. Numbers are numbers, text is text; the plot watches the table and redraws (marks keep their element, so they animate).</p>
+          <p class="hint">Click a cell and type. Numbers are numbers, text is text; the plot watches the table and redraws (marks keep their element, so they animate). <a href="https://opensource.johnhenry.me/data-plot/data/" target="_blank" rel="noopener">data docs ↗</a> · <a href="https://opensource.johnhenry.me/data-plot/marks/" target="_blank" rel="noopener">marks docs ↗</a></p>
           <div class="dp-table-wrap"><table id="dp-data" class="dp-table" data-table></table></div>
           <div class="dp-actions">
             <button class="btn" data-add>add a row</button>
