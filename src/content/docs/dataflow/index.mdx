@@ -5,11 +5,7 @@ sidebar:
   order: 0
 ---
 
-:::caution[Not yet on npm]
-`@johnhenry/dataflow` is a new package (0.0.0) and has not been published. Until it is, work from a clone of the
-[repository](https://github.com/johnhenry/dataflow). The install command below is what installation will look like once
-it is published.
-:::
+import Install from '../../../components/Install.astro';
 
 **`@johnhenry/dataflow`** is an async dataflow scheduler. Nodes depend on other nodes; your async `run(id)` computes a
 node; dataflow decides **when** each node runs and remembers **how** its last run went. It never holds your values, so
@@ -45,9 +41,7 @@ More in [Limitations and traps](/dataflow/limitations/).
 
 ## Install
 
-```sh
-npm install @johnhenry/dataflow
-```
+<Install pkg="@johnhenry/dataflow" />
 
 **Provenance:** a new package, never published under another name. Under npm's caret rules `^0.0.0` matches only
 `0.0.0`, so pin exactly until a deliberate `0.1.0`.

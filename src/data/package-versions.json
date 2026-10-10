@@ -1191,6 +1191,75 @@
       "lazyOptional": [
         "@noble/post-quantum/ml-kem.js"
       ]
+    },
+    "@johnhenry/dataflow": {
+      "section": "dataflow",
+      "status": "ready",
+      "summary": "Plain ESM, no dependencies, no DOM: runs in browsers, Workers and Node.",
+      "entries": [
+        "."
+      ],
+      "npm": "0.0.0",
+      "jsr": null,
+      "importMap": {
+        "imports": {
+          "@johnhenry/dataflow": "https://cdn.jsdelivr.net/npm/@johnhenry/dataflow@0.0.0/src/index.mjs"
+        }
+      },
+      "esmSh": {
+        ".": "https://esm.sh/@johnhenry/dataflow@0.0.0"
+      }
+    },
+    "@johnhenry/inspectable": {
+      "section": "inspectable",
+      "status": "ready",
+      "summary": "Plain ESM, no dependencies. The root and ./serialize entries have no DOM (ship them into a Worker); ./element and ./global render previews.",
+      "entries": [
+        ".",
+        "./serialize",
+        "./element",
+        "./global"
+      ],
+      "npm": "0.0.0",
+      "jsr": null,
+      "importMap": {
+        "imports": {
+          "@johnhenry/inspectable": "https://cdn.jsdelivr.net/npm/@johnhenry/inspectable@0.0.0/src/index.mjs",
+          "@johnhenry/inspectable/element": "https://cdn.jsdelivr.net/npm/@johnhenry/inspectable@0.0.0/src/element.mjs",
+          "@johnhenry/inspectable/global": "https://cdn.jsdelivr.net/npm/@johnhenry/inspectable@0.0.0/src/global.mjs",
+          "@johnhenry/inspectable/serialize": "https://cdn.jsdelivr.net/npm/@johnhenry/inspectable@0.0.0/src/serialize.mjs"
+        }
+      },
+      "esmSh": {
+        ".": "https://esm.sh/@johnhenry/inspectable@0.0.0",
+        "./serialize": "https://esm.sh/@johnhenry/inspectable@0.0.0/serialize",
+        "./element": "https://esm.sh/@johnhenry/inspectable@0.0.0/element",
+        "./global": "https://esm.sh/@johnhenry/inspectable@0.0.0/global"
+      }
+    },
+    "@johnhenry/patchbay": {
+      "section": "patchbay",
+      "status": "ready",
+      "summary": "Plain ESM, no dependencies. Viewport math and wirePath() are DOM-free; gestures and wires need a DOM. Optional stylesheet at ./patchbay.css.",
+      "entries": [
+        ".",
+        "./viewport",
+        "./wires"
+      ],
+      "npm": "0.0.0",
+      "jsr": null,
+      "importMap": {
+        "imports": {
+          "@johnhenry/patchbay": "https://cdn.jsdelivr.net/npm/@johnhenry/patchbay@0.0.0/src/index.mjs",
+          "@johnhenry/patchbay/viewport": "https://cdn.jsdelivr.net/npm/@johnhenry/patchbay@0.0.0/src/viewport.mjs",
+          "@johnhenry/patchbay/wires": "https://cdn.jsdelivr.net/npm/@johnhenry/patchbay@0.0.0/src/wires.mjs"
+        }
+      },
+      "esmSh": {
+        ".": "https://esm.sh/@johnhenry/patchbay@0.0.0",
+        "./viewport": "https://esm.sh/@johnhenry/patchbay@0.0.0/viewport",
+        "./wires": "https://esm.sh/@johnhenry/patchbay@0.0.0/wires"
+      }
     }
   },
   "verified": {
@@ -1677,6 +1746,30 @@
     },
     "@johnhenry/wsh@0.23.0": {
       "date": "2026-10-07",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/dataflow@0.0.0": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/inspectable@0.0.0": {
+      "date": "2026-10-10",
+      "browsers": [
+        "chromium"
+      ],
+      "jsdelivr": true,
+      "esmsh": true
+    },
+    "@johnhenry/patchbay@0.0.0": {
+      "date": "2026-10-10",
       "browsers": [
         "chromium"
       ],
