@@ -123,9 +123,7 @@ are. None of these is a dependency.
 - **[window-algebra](/window-algebra/)**: floating windows with drag, resize, stacking and undo. Pass patchbay's
   `coordinates` (`toStage`, `scale`) to window-algebra's renderer and input adapter, and its floating windows live on a
   zoomable, unbounded canvas (with `config: { bounds: "none" }`). The `coordinates` option is new in window-algebra
-  0.1.1 ([window-algebra#9](https://github.com/johnhenry/window-algebra/pull/9)); its full reference is the repository's
-  [`docs/api/browser.md`](https://github.com/johnhenry/window-algebra/blob/main/docs/api/browser.md) until this site's
-  window-algebra pages are re-ported.
+  0.1.1; see its [Zoomed and unbounded stages](/window-algebra/api/browser/#zoomed-and-unbounded-stages-a-canvas).
 - **[dataflow](/dataflow/)**: a node graph's edges are dataflow's `deps`. Draw each dependency as a wire with
   `` wires.set(`${dep}->${id}`, ...) `` and color it by the source's run state.
 - **[ecmanim](/ecmanim/)**: an interactive ecmanim canvas

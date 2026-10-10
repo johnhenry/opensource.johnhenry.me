@@ -2,10 +2,11 @@
 title: "Limitations and traps"
 description: "What dataflow leaves to you: it doesn't store values (but keeps what run returns), cancellation is cooperative, no equality cut-off, linear scans, one process, and listeners that must not throw."
 sidebar:
-  order: 3
+  order: 4
 ---
 
-Traps first: the behavior you won't guess from the type signatures. Each was checked against the 0.0.0 source.
+Traps first: the behavior you won't guess from the type signatures. Each was checked against the 0.0.0 source, and the
+skip rules against 0.0.1's.
 
 ## It doesn't store values
 
@@ -36,6 +37,11 @@ them cheap (schedule rendering rather than doing it inline). One that throws is 
 browser, the console's uncaught-error path), like an `EventTarget` listener: the other listeners still run and scheduling
 carries on.
 
+## No first-to-finish race
+
+Glitch-freedom means a node with skip-consuming inputs runs once all of them settled, never on the first one. Make
+branches mutually exclusive and coalesce them instead; see [Skipping](/dataflow/skipping/#patterns).
+
 ## Scans are linear
 
 Finding dependents walks every node; that is fine for hundreds or a few thousand nodes (a notebook, a spreadsheet tab),
@@ -51,6 +57,9 @@ The graph is in-memory and not shared across tabs or machines.
   [States](/dataflow/states-and-guarantees/#states).
 - **`set()` on an existing node doesn't rerun it**, even when its `deps` changed. Call `invalidate(id)`.
 - **`idle()` resolves while paused**, even with work queued.
+- **A skip doesn't clear your stored value.** The scheduler never had it: drop it yourself when `run` returns a skip or
+  `onChange` reports `skipped`.
+- **`SKIP` can't cross `postMessage`.** It's a symbol; a Worker returns its own marker and `run` maps it to `SKIP`.
 - **Unknown ids are ignored silently** by `run`, `invalidate` and `delete`; `get` returns `undefined`.
 - **Run order within one flush follows queue order** among nodes whose inputs are ready; only upstream/downstream order
   is guaranteed. Use `order()` if you need a deterministic topological order for something else.

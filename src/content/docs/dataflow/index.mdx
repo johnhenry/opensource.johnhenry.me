@@ -30,6 +30,9 @@ signatures.
   something you can terminate (a Worker), then call `reset()`.
 - **Errors make dependents wait, not fail.** When a node throws, only that node is `error`; its dependents become
   `waiting` and rerun by themselves once it's fixed. A pane showing "waiting" downstream of an error is correct.
+- **A skip spreads without running anything.** When `run` returns `SKIP`, every dependent becomes `skipped` without its
+  `run` being called, unless it declared `consumesSkip`; and the value you stored for those nodes before is still
+  yours to drop. See [Skipping](/dataflow/skipping/).
 - **`set()` never runs anything, even when it changes a node's dependencies.** Follow it with `invalidate(id)` (or
   `run(id)`) when a node's inputs change.
 - **There is no equality cut-off.** A node that reran and returned the same value still reruns every autorun dependent.
@@ -44,7 +47,7 @@ More in [Limitations and traps](/dataflow/limitations/).
 <Install pkg="@johnhenry/dataflow" />
 
 **Provenance:** a new package, never published under another name. Under npm's caret rules `^0.0.0` matches only
-`0.0.0`, so pin exactly until a deliberate `0.1.0`.
+`0.0.0` (and `^0.0.1` only `0.0.1`), so pin exactly until a deliberate `0.1.0`; skip values need `0.0.1`.
 
 ## Quick start
 
@@ -88,8 +91,10 @@ microtask (or whatever `schedule` you pass). `await flow.idle()` waits for the g
 ## The pages here
 
 - [States and guarantees](/dataflow/states-and-guarantees/): the six statuses, what each state object carries, and the
-  five guarantees (glitch-free, newest run wins, errors wait, manual nodes stay put, cycles are refused).
-- [API](/dataflow/api/): `createDataflow()` and every graph method.
+  guarantees (glitch-free, newest run wins, errors wait, manual nodes stay put, cycles are refused, skips spread).
+- [Skipping](/dataflow/skipping/): `SKIP`, `skip(reason)` and `isSkip`, the `skipped` status, `consumesSkip` and
+  `ctx.skipped`, and the coalesce and if/else patterns (0.0.1).
+- [API](/dataflow/api/): `createDataflow()`, every graph method, and the skip exports.
 - [Limitations and traps](/dataflow/limitations/): what is yours to handle.
 
 ## Examples
@@ -102,6 +107,7 @@ they show (`npm run examples`, plain Node 26, no browser):
 | `01-a-spreadsheet-recomputes-only-what-changed.mjs` | `invalidate("price")` reruns exactly `price -> tip -> total`, in dependency order, once each; an unrelated cell with no inputs is not rerun. |
 | `02-a-slow-stale-run-never-overwrites-a-newer-one.mjs` | A slow first run that settles after a fast second run is dropped: its `AbortSignal` fires and `state.result` keeps the newer value. |
 | `03-errors-make-dependents-wait-not-fail.mjs` | A failing node leaves its dependents `waiting`, not `error`, and fixing it reruns the whole chain without any extra calls. |
+| `04-skip-values.mjs` | Two mutually exclusive branches return `SKIP` / `skip(reason)`; the skip spreads to a dependent without running it, a `consumesSkip` coalesce takes whichever branch produced a value, and the skipped chain recovers when its branch applies again. |
 
 ## Family
 

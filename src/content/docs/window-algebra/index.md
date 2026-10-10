@@ -39,7 +39,7 @@ const tree = derive(state);                                     // a JSON layout
 const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0 …, no pixels
 ```
 
-> **Provenance:** a new package, never published under another name. `0.0.0` is its
+> **Provenance:** a new package, never published under another name. `0.0.0` was its
 > first version under any name, not a sign of immaturity. Published on 2026-10-03; the
 > source is at [github.com/johnhenry/window-algebra](https://github.com/johnhenry/window-algebra).
 
@@ -72,7 +72,13 @@ const html = toHTML(compile(tree, presentationContext(state))); // flex: 0.6 1 0
   the pure command catalog.
 - [Right-to-left layouts](/window-algebra/rtl/): `config.direction` and
   `attachDirection`.
-- [Examples](/window-algebra/examples/): six self-verifying Node scripts, seventeen
+- [Zoomed and unbounded stages](/window-algebra/api/browser/#zoomed-and-unbounded-stages-a-canvas):
+  the `coordinates` hook and `config.bounds: "none"` for floating windows on a pannable,
+  zoomable canvas (0.1.1).
+- [Keeping commands out of undo](/window-algebra/api/manager/#keeping-commands-out-of-undo):
+  `history: { limit, ignore }` and a per-command `history: false`, so selecting a window
+  is not what Cmd+Z undoes (0.1.3).
+- [Examples](/window-algebra/examples/): six self-verifying Node scripts, eighteen
   browser demo pages, the browser test suite and the benchmark.
 - [Limitations and traps](/window-algebra/limitations/): read this before shipping.
 - [Adding a new layout](/window-algebra/adding-a-layout/).

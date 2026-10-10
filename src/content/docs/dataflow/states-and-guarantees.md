@@ -1,6 +1,6 @@
 ---
 title: "States and guarantees"
-description: "dataflow's six node statuses, what every state object carries, and its five scheduling guarantees: glitch-free propagation, newest run wins, errors wait, manual nodes stay put, cycles are refused."
+description: "dataflow's six node statuses, what every state object carries, and its scheduling guarantees: glitch-free propagation, newest run wins, errors wait, manual nodes stay put, cycles are refused, skips spread."
 sidebar:
   order: 1
 ---
@@ -13,6 +13,7 @@ sidebar:
 | `waiting` | Asked to run, but an input is missing, errored, or hasn't run yet. Runs by itself once the input arrives. |
 | `running` | `run` was called and hasn't settled. |
 | `done` | The last run resolved. `state.result` holds what `run` returned. |
+| `skipped` | The last run returned `SKIP` / `skip(reason)`, or an input was skipped and the skip spread here (0.0.1, see [Skipping](/dataflow/skipping/)). `state.skip` is `{ source, reason }`. |
 | `error` | The last run threw or rejected (`state.error`), or the node is on a dependency cycle (`state.cycle === true`). |
 
 Every state also carries `version` (settled runs), `runId` (started runs) and `stale` (a manual node whose inputs or
@@ -24,10 +25,11 @@ Things the table doesn't say:
   `running`. If a UI needs a "queued" badge, track your own calls.
 - **"Never run" and "asked to run" differ.** A node nobody asked to run stays `idle` when an input fails. A node that was
   queued (by `run`, `runAll` or an upstream change) becomes `waiting` instead, and runs once its input recovers.
-- **`waiting` resolves only when an input settles `done`.** Adding a missing input with `set()` doesn't wake its
-  dependents; running that input does.
-- **`version` counts settled runs, errors included.** `runId` also moves when a run is superseded, the node is marked
-  `waiting`, or the graph is `reset()`, so a late result can always be recognized as stale.
+- **`waiting` resolves only when an input settles** (`done`, or `skipped`, which then spreads). Adding a missing input
+  with `set()` doesn't wake its dependents; running that input does.
+- **`version` counts settled runs, errors and the node's own skips included.** A skip spreading from an input isn't a
+  run, so it leaves `version` alone. `runId` also moves when a run is superseded (including by a spreading skip), the
+  node is marked `waiting`, or the graph is `reset()`, so a late result can always be recognized as stale.
 - **`result` is cleared on error** (`result: undefined`) and by `reset()`.
 - **Listeners get a copy.** `onChange` and `subscribe` receive a snapshot of the state, and `get(id)` returns a copy too;
   mutating either changes nothing in the scheduler.
@@ -44,6 +46,9 @@ Things the table doesn't say:
   `stale: true` until you `run` it.
 - **Cycles are refused, not looped.** Every node on a cycle goes to `error` with `cycle: true` as soon as the edge is
   added, and comes back to `idle` when the cycle is broken. A self-dependency is a cycle.
+- **Skips spread, they don't stall.** A node that returns `SKIP` is `skipped`, and so is every dependent, without
+  running, until one that declared `consumesSkip` decides what to do. Nothing changes for a graph that never skips. See
+  [Skipping](/dataflow/skipping/).
 
 What "newest run wins" does not cover:
 
