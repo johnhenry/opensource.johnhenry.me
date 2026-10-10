@@ -94,6 +94,9 @@ export default defineConfig({
           { label: 'canvas-fx', directory: 'canvas-fx' },
           { label: 'data-plot', directory: 'data-plot' },
           { label: 'webwire', directory: 'webwire' },
+          { label: 'dataflow', directory: 'dataflow' },
+          { label: 'inspectable', directory: 'inspectable' },
+          { label: 'patchbay', directory: 'patchbay' },
         ].map(({ label, directory }) => ({
           label,
           collapsed: true,

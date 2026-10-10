@@ -50,6 +50,9 @@ hue (see `src/styles/circuit-bridge.css`).
 | html-modules | `html-modules/` | 165° — same fallback as signalle: no real dependency either direction (on any existing section, or on mport/window-algebra, added with it); splits the ordinary 20° 155°(temporals/css-signals)–175°(semantic-chunker) gap ≈10°/10° |
 | mport | `mport/` | 230° — same fallback; splits the 220°(http-fields)–240°(agent-query) gap ≈10°/10° |
 | window-algebra | `window-algebra/` | 290° — same fallback; splits the 280°(ecmanim)–300°(raijin) gap ≈10°/10° |
+| inspectable | `inspectable/` | 125° — same fallback (no `package.json` dependency on, from, or among the three sections added with it); splits the 115°(oat)–135°(isomorphic-jj) gap ≈10°/10° |
+| dataflow | `dataflow/` | 250° — same fallback; splits the 240°(agent-query)–260°(jth) gap ≈10°/10° |
+| patchbay | `patchbay/` | 350° — same fallback; splits the 340°(wsh/browsermesh/dialback)–360°(tester, 0°) gap ≈10°/10° |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -191,6 +194,18 @@ gaps were picked far apart (165°, 230°, 290°) so the new sections sit
 addition has only 20° gaps left to split: nine of them (25°–45°, 95°–115°,
 115°–135°, 175°–195°, 240°–260°, 260°–280°, 300°–320°, 320°–340°,
 340°–360°), after which a real repack, or a policy change, is needed.
+
+dataflow, inspectable, and patchbay were added together (2026-10-09, built
+for the miso spatial notebook) and took the same fallback. safe-fragment
+had meanwhile taken 105° (95°–115°), leaving eight ordinary 20° gaps. None
+of the three carries a `package.json` dependency of any kind on an existing
+section, none is depended on, and they don't depend on each other: their
+READMEs' `## Family` sections describe how an app composes them (andbox
+holds the values, inspectable previews them, dataflow decides when cells
+run, patchbay draws the canvas), not a dependency. Each splits an ordinary
+20° gap ≈10°/10°, in gaps spread ≥100° from each other: inspectable 125°,
+dataflow 250°, patchbay 350°. Five ordinary 20° gaps remain (25°–45°,
+175°–195°, 260°–280°, 300°–320°, 320°–340°).
 
 ### Install blocks and package versions
 
