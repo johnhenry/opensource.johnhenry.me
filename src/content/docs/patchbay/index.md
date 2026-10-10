@@ -27,8 +27,8 @@ wire helpers need a DOM.
   zoom, so the page doesn't scroll while the pointer is over it, and neither does scrollable content inside it. Mark such
   content (an output panel, a map, an interactive animation camera) with **`data-patchbay-ignore`**: wheel and drag
   inside it are left alone. The attribute must be on an element inside the stage.
-- **`wheel: "zoom"` swaps pinch too.** Trackpad pinch arrives as a Ctrl+wheel event, so in `"zoom"` mode, where
-  modifier+wheel pans, a pinch pans instead of zooming.
+- **Ctrl+wheel is a pinch.** Trackpad pinch arrives as a Ctrl+wheel event, so Ctrl+wheel always zooms. Under
+  `wheel: "zoom"` (plain wheel zooms), the pan-instead modifier is ⌘.
 - **Keyboard zoom and pan only work while the stage element itself has focus.** Give it `tabindex="0"`. Keys pressed
   while a card or a field inside the stage is focused are ignored.
 - **Space-drag is document-wide.** Holding Space anywhere outside a text field arms drag-to-pan, even over your content,

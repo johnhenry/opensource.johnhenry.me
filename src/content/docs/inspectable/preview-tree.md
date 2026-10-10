@@ -59,9 +59,8 @@ expanding it lists those properties.
 **Errors** list `message`, `cause` (when set), `errors` (for an `AggregateError`) and any other own enumerable properties
 as entries; the stack is in `source`.
 
-**Promises** always preview as `{ type: "promise", text: "Promise", source: "pending" }`, whatever their state:
-serialization is synchronous and can't observe it. Use [`promiseState()`](/inspectable/api/#promisestatepromise--wait--0-)
-first.
+**Promises** preview as `{ type: "promise", text: "Promise" }` with no state: serialization is synchronous and can't
+observe it. Use [`promiseState()`](/inspectable/api/#promisestatepromise--wait--0-) first.
 
 **Getters.** Own accessor properties appear as `{ type: "getter", text: "(…)" }` and are never invoked. Getters on a
 prototype (a class's `get` members) don't appear at all, because only own properties are listed.

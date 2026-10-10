@@ -29,16 +29,12 @@ If you need a hard kill, run in something you can terminate (a Worker), terminat
 restarting it. With [andbox](/andbox/), a timeout that hard-kills the Worker takes every value with it; `reset()` then
 `runAll()` recomputes them.
 
-## A throwing listener wedges the graph
+## Listeners run inside the scheduler
 
-`onChange` and `subscribe` listeners are called synchronously from inside the scheduler, and an exception from one is not
-caught.
-
-- From a call such as `set()`, the exception propagates out of that call.
-- While a run is settling, the exception rejects an internal promise (an unhandled rejection) and the rest of the
-  settlement is skipped: dependents that were queued never start, and `idle()` never resolves.
-
-Wrap listener bodies in `try`/`catch` if they do anything that can fail (rendering, for example).
+`onChange` and `subscribe` listeners are called synchronously, from inside `set()`, `run()` and every settlement, so keep
+them cheap (schedule rendering rather than doing it inline). One that throws is reported through `reportError` (in a
+browser, the console's uncaught-error path), like an `EventTarget` listener: the other listeners still run and scheduling
+carries on.
 
 ## Scans are linear
 
@@ -51,7 +47,7 @@ The graph is in-memory and not shared across tabs or machines.
 
 ## Smaller traps
 
-- **`pending` is never reported** to listeners or by `get()`, although it is in the `Status` type. See
+- **A queued node keeps its previous status** until it starts `running`; there is no "queued" state. See
   [States](/dataflow/states-and-guarantees/#states).
 - **`set()` on an existing node doesn't rerun it**, even when its `deps` changed. Call `invalidate(id)`.
 - **`idle()` resolves while paused**, even with work queued.

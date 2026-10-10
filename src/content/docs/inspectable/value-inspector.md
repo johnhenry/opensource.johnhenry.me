@@ -35,8 +35,8 @@ renders into an open shadow root, so page selectors don't reach inside it: theme
   `inspector.expand()` returns after `release()`), the node says so. Replace the preview when its cell reruns rather
   than leaving a stale one open.
 - **No `expand`, no lazy children.** Without an `expand` property, opening a node that only has a `handle` shows
-  `(no longer available)`, the same as a released handle. (`renderPreview()` called without `expand` says
-  `(not expandable here)` instead.) Previews from the stateless `serialize()` have no handles, so they never need one.
+  `(not expandable here)`, as `renderPreview()` does without one; setting `expand` later re-renders. Previews from the
+  stateless `serialize()` have no handles, so they never need one.
 - **An element's markup is only in a tooltip.** For an `element` node, `source` goes into the `title` attribute and
   nowhere else. A function's source is in its tooltip and also shown as a block when the node is opened; an error's
   stack is shown when the error is opened.

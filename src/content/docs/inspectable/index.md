@@ -32,7 +32,7 @@ Zero dependencies. ESM. The serializer touches no DOM, so it runs in Workers, if
   design. Scope handles per cell or per result, and release the scope when the cell reruns.
 - **`release(scope)` only drops handles created with that scope.** Handles from a `serialize()` call without `scope`
   are freed only by `release()` with no argument.
-- **A promise always previews as pending.** The serializer is synchronous and can't read a promise's state. Await
+- **A promise's preview has no state.** The serializer is synchronous and can't read it. Await
   [`promiseState()`](/inspectable/api/#promisestatepromise--wait--0-) first, then serialize what it returns.
 - **`text` is a description, not a parser-grade representation.** Don't `eval` or re-parse it.
 - **Only own, enumerable properties appear.** Getters defined on a class prototype, and non-enumerable own properties,

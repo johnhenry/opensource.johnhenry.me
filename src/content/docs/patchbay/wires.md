@@ -33,9 +33,10 @@ rightward and loops back in from the left. An unknown direction name falls back 
   added after `patchbay-wire`; `title` becomes an SVG `<title>` (a tooltip). The path also carries `data-wire="<id>"`.
 - **`retain(ids)` deletes every wire not listed**, which makes syncing with a node graph one call:
   `wires.retain(edges.map(edgeId))` before re-`set`ting the current edges.
-- **Wire paths don't receive pointer events with the stock stylesheet.** `patchbay.css` gives `.patchbay-wires`
-  `pointer-events: none` so wires never block clicks on your content, and the paths inherit it. To make a wire clickable
-  through `element(id)`, set `pointer-events: stroke` (or `visibleStroke`) on its path.
+- **Only wires with a `title` receive pointer events with the stock stylesheet.** `patchbay.css` gives
+  `.patchbay-wires` `pointer-events: none` so wires never block clicks on your content; a wire with a `title` gets
+  `pointer-events: visibleStroke` so its tooltip shows. To make another wire clickable through `element(id)`, set
+  `pointer-events: stroke` on its path. A drag that starts on a wire still pans, like empty canvas.
 
 ## `connectDrag(options)`
 

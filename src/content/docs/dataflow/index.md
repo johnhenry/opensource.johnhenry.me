@@ -38,9 +38,8 @@ signatures.
   `run(id)`) when a node's inputs change.
 - **There is no equality cut-off.** A node that reran and returned the same value still reruns every autorun dependent.
   Compare and return early in your own `run` if that matters.
-- **Listeners must not throw.** `onChange` and `subscribe` listeners run synchronously inside the scheduler. One that
-  throws while a run settles stops that settlement half-way: queued dependents never start and `idle()` never
-  resolves.
+- **Listeners run synchronously inside the scheduler.** Keep them cheap. One that throws is reported (through
+  `reportError`, like an `EventTarget` listener) and affects neither the other listeners nor scheduling.
 
 More in [Limitations and traps](/dataflow/limitations/).
 

@@ -11,7 +11,6 @@ sidebar:
 | --- | --- |
 | `idle` | Never run, or reset. |
 | `waiting` | Asked to run, but an input is missing, errored, or hasn't run yet. Runs by itself once the input arrives. |
-| `pending` | Queued; starts once everything upstream has settled. (Internal; you see it as the absence of `running`.) |
 | `running` | `run` was called and hasn't settled. |
 | `done` | The last run resolved. `state.result` holds what `run` returned. |
 | `error` | The last run threw or rejected (`state.error`), or the node is on a dependency cycle (`state.cycle === true`). |
@@ -21,9 +20,8 @@ definition changed since its last run).
 
 Things the table doesn't say:
 
-- **`pending` is never reported.** It exists in the `Status` type, but no listener ever receives it and `get(id)` never
-  returns it. A queued node keeps showing its previous status (often `done`) until it starts `running`. If a UI needs a
-  "queued" badge, track your own calls.
+- **There is no "queued" status.** A queued node keeps showing its previous status (often `done`) until it starts
+  `running`. If a UI needs a "queued" badge, track your own calls.
 - **"Never run" and "asked to run" differ.** A node nobody asked to run stays `idle` when an input fails. A node that was
   queued (by `run`, `runAll` or an upstream change) becomes `waiting` instead, and runs once its input recovers.
 - **`waiting` resolves only when an input settles `done`.** Adding a missing input with `set()` doesn't wake its

@@ -67,8 +67,9 @@ they queue wait for `resume()`, which flushes everything queued meanwhile.
 `autorun(id)` is `undefined` for an unknown id. `dependents(id)` lists direct dependents only.
 
 **`subscribe(fn)`**. `fn(id, state)` is called for every state change of every node. The returned function removes the
-listener (it returns `true` the first time, `false` after). Listeners run synchronously and an exception from one is not
-caught; see [Limitations and traps](/dataflow/limitations/#a-throwing-listener-wedges-the-graph).
+listener (it returns `true` the first time, `false` after). Listeners run synchronously; an exception from one is
+reported through `reportError` and doesn't affect other listeners or scheduling. See
+[Limitations and traps](/dataflow/limitations/#listeners-run-inside-the-scheduler).
 
 **`idle()`**. Polls on `setTimeout(0)` turns until nothing is queued and no node is `running`. It also resolves whenever
 the graph is paused, with work still queued, so `await flow.idle()` after `pause()` does not mean "settled".
