@@ -281,3 +281,19 @@ header.header {
    is thematic only. This also avoids a 23rd fallback stop while every gap is
    20 degrees or less. */
 :root[data-tool='webwire']          { --hue: 208; }
+/* dataflow, inspectable and patchbay (added together, 2026-10-09; built for
+   the miso spatial notebook): the same fallback as the 2026-09-28 trio and
+   safe-fragment. Re-checked against the registry as it stands: every gap
+   between adjacent stops is 20 degrees or less, so no arc is >=20 degrees
+   from every stop. None of the three has a genuine package-level link to
+   share a stop with: their package.json files carry no dependency of any
+   kind (dev-only happy-dom aside), no family package depends on them, and
+   they don't depend on each other. Their READMEs' Family sections describe
+   composition in the app (andbox holds the values, inspectable previews
+   them, dataflow schedules, patchbay draws), not dependencies. So each
+   splits an ordinary 20 degree gap ~10/10, in three gaps spread >=100
+   degrees from each other (125, 250, 350). Five ordinary 20 degree gaps
+   remain: 25-45, 175-195, 260-280, 300-320, 320-340. */
+:root[data-tool='inspectable']      { --hue: 125; } /* splits the 115(oat)-135(isomorphic-jj) gap */
+:root[data-tool='dataflow']         { --hue: 250; } /* splits the 240(agent-query)-260(jth) gap */
+:root[data-tool='patchbay']         { --hue: 350; } /* splits the 340(wsh/browsermesh/dialback)-360(tester, 0) gap */
