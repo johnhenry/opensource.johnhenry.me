@@ -97,6 +97,7 @@ export default defineConfig({
           { label: 'dataflow', directory: 'dataflow' },
           { label: 'inspectable', directory: 'inspectable' },
           { label: 'patchbay', directory: 'patchbay' },
+          { label: 'obfo', directory: 'obfo' },
         ].map(({ label, directory }) => ({
           label,
           collapsed: true,

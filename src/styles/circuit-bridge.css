@@ -297,3 +297,12 @@ header.header {
 :root[data-tool='inspectable']      { --hue: 125; } /* splits the 115(oat)-135(isomorphic-jj) gap */
 :root[data-tool='dataflow']         { --hue: 250; } /* splits the 240(agent-query)-260(jth) gap */
 :root[data-tool='patchbay']         { --hue: 350; } /* splits the 340(wsh/browsermesh/dialback)-360(tester, 0) gap */
+/* obfo (adopted 2026-10-10; built for miso's form panes): the same fallback.
+   Re-checked: every gap between adjacent stops is still 20 degrees or less.
+   obfo has no package-level link to an existing section: its package.json
+   has no dependencies (dev-only happy-dom, typescript and Playwright), no
+   family package depends on it, and its README's Family section (signalle,
+   dataflow) describes composition in an app, not a dependency. So it splits
+   the ordinary 175-195 gap ~10/10. Four ordinary 20 degree gaps remain:
+   25-45, 260-280, 300-320, 320-340. */
+:root[data-tool='obfo']             { --hue: 185; } /* splits the 175(semantic-chunker)-195(spintax) gap */
