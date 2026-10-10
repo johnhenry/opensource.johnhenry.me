@@ -64,10 +64,6 @@ depend on it; the others share a theme.
 - **[dialback](/dialback/)**: its `Server` had reimplemented both server-side
   conversions. The dialback repository's `main` now declares `@johnhenry/webwire` as a
   dependency; the published `0.0.3` does not.
-- **[prism](https://github.com/johnhenry/prism)**: an HTTP inspector whose
-  `timed-fetch.mjs` calls `toNodeRequestOptions()` for connection details and keeps its
-  own socket-timing hooks. Its `main` declares the dependency; it has no docs section
-  here and is not on npm.
 - **[http-converter](/http-converter/)** and **[http-fields](/http-fields/)**: no
   dependency in either direction; neighbours by topic only. http-converter turns HTTP
   *text formats* (raw HTTP, HAR, cURL) into `Request`/`Response`; webwire connects
