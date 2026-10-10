@@ -92,3 +92,11 @@
 .pg-workbench iframe.wb-tt-frame { display: block; width: 100%; height: 640px; border: 1px solid var(--line); border-radius: 10px; background: #0d1117; }
 @media (max-width: 720px) { .pg-workbench iframe.wb-tt-frame { height: 760px; } }
 .pg-workbench .wb-explain-body h4 { margin: 14px 0 4px; font-family: var(--f-display); color: var(--ink); font-size: 14px; }
+
+/* window-algebra 0.1.3: the focus/raise history toggle and the visible undo stack */
+.pg-workbench .wb-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.pg-workbench .wb-toggle input { accent-color: var(--accent); }
+.pg-workbench .wb-undo-stack { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: wb-step; }
+.pg-workbench .wb-undo-stack li { font-family: var(--f-mono); font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--ink); }
+.pg-workbench .wb-undo-stack li.redo { border-style: dashed; background: transparent; color: var(--ink-3); }
+.pg-workbench .wb-undo-stack li.empty { border-color: var(--line); background: transparent; color: var(--ink-3); }

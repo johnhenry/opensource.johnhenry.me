@@ -204,7 +204,11 @@ const TITLES: Record<ToolId, string> = { notes: 'Notes', clips: 'Clips (untruste
 /** The profile switcher: "auto" is the per-note choice (markup -> article-v1, none -> plain-text-v1); the rest force one profile on every note. */
 const PROFILES = ['article-v1', 'ui-v1', 'email-v1', 'plain-text-v1'] as const;
 type ProfileChoice = 'auto' | (typeof PROFILES)[number];
-const DEFAULTS = { l: 'master-stack', w: 'notes,clips', p: '', pf: 'auto' };
+const DEFAULTS = { l: 'master-stack', w: 'notes,clips', p: '', pf: 'auto', fr: false };
+
+/** window-algebra 0.1.3: command types the manager applies and logs but never makes an undo step (`history.ignore`). */
+const IGNORED = ['window/focus', 'window/raise'] as const;
+const isIgnoredType = (type: unknown) => (IGNORED as readonly unknown[]).includes(type);
 
 /* ---- persistence: window-algebra's own serialize()/load() for the layout, localStorage for the notes, a BroadcastChannel for tabs ----
  * Planet-specific names, so no other planet's storage or channel is touched. Window state crosses tabs through the stage's `sync`
@@ -454,6 +458,7 @@ const EXPLAIN = `
 <h4>window-algebra</h4>
 <ul>
   <li><b>State is data, so history is free.</b> <code>&lt;wa-stage&gt;</code> draws the windows from an immutable state, and the manager records every command: <b>Undo</b> / <b>Redo</b> call <code>wm.undo()</code> / <code>wm.redo()</code>, and the whole of a drag is one step (commands that share a <code>gesture</code> token). Try it: swap a layout, close a window, undo. History covers the windows, not the notes' text. <code>wm.setLayout()</code> changes the whole arrangement without remounting a window.</li>
+  <li><b>Selection is not an edit (0.1.3).</b> The manager is created with <code>history: { ignore: ['window/focus', 'window/raise'] }</code>: clicking a window focuses and raises it, the command is applied and logged, but it is not an undo step, so Undo goes straight back to the last real change. Turn on <b>focus/raise in undo history</b> to see the old behaviour: the desk then marks those commands <code>history: true</code> (a command's own flag wins over the list), and every click lands on the undo stack. The stack is listed beside the buttons. For window-algebra on a zoomed, pannable canvas (the <code>coordinates</code> hook), see the <a href="#/notebook">Patchbay Notebook</a>.</li>
   <li><b>Floating windows are keyboard-reachable.</b> <b>Float focused</b> is <code>wm.toggleFloating()</code>. With input <code>keyboard: true</code>, <kbd>Alt+Shift+Arrows</kbd> move the focused floating window by <code>floatStep</code> (10 px) and <kbd>Ctrl+Alt+Shift+Arrows</kbd> resize it; the readout shows the placement. The Sanitizer report opens floating.</li>
   <li><b>Pop-out.</b> <b>Pop out</b> (or the chrome's own button) uses <code>attachPopouts</code>: the window's live DOM, shadow roots and all, moves into a real browser window and back. It needs a user gesture and a browser that allows pop-ups; a blocked one is reported, not thrown.</li>
   <li><b>The rest of the shell:</b> built-in chrome (<code>chrome: true</code>), the command palette (<kbd>Ctrl/Cmd+Shift+P</kbd>), and persistence plus two-tab sync, below.</li>
@@ -527,7 +532,9 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
         <button class="btn" data-act="undo" disabled>Undo</button>
         <button class="btn" data-act="redo" disabled>Redo</button>
         <span class="stat" data-history>0 steps</span>
-        <span class="wb-why">window-algebra logs every command, so undo and redo walk the desk's history; a whole drag is one step. Windows only, not note text.</span>
+        <label class="wb-toggle" title="Off: history: { ignore: ['window/focus', 'window/raise'] }. On: those commands are marked history: true, the behaviour before window-algebra 0.1.3."><input type="checkbox" data-fr> focus/raise in undo history</label>
+        <span class="wb-why">Undo and redo walk the desk's history; a whole drag is one step. With the toggle off (window-algebra 0.1.3's <code>history.ignore</code>), clicking a window is not a step. Windows only, not note text.</span>
+        <ol class="wb-undo-stack" data-undo-stack aria-label="Undo stack, oldest first"></ol>
       </div>
       <div class="wb-row wb-feature" role="group" aria-label="Floating windows">
         <span class="wb-label">Floating</span>
@@ -568,9 +575,13 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
   // --- the desk's initial state: restored or seeded on a throwaway manager, so the real manager's history starts clean at this state
   // (a load() or the first create()s would otherwise be steps that Undo could walk back through to an empty desk) ---
   const seed = createWindowManager({ state: createState({ layout: startLayout.spec as any, config: { gap: 8, inset: 8 } }) });
+  // Focus/raise in undo history (the toggle): off = the manager's `history.ignore`; on = mark them `history: true`.
+  let focusInHistory = init.fr === true;
+  const mark = <C extends { type: string }>(command: C): C => (focusInHistory && isIgnoredType(command.type) ? { ...command, history: true } : command);
+  const focusOn = (m: WindowManager, id: string) => m.focus(id, focusInHistory ? ({ history: true } as any) : undefined);
   const openOn = (m: WindowManager, id: ToolId) => {
     const win = (m.getState().windows as Wins)[id];
-    if (win) { if (win.status === 'minimized') m.restore(id); m.focus(id); return; }
+    if (win) { if (win.status === 'minimized') m.restore(id); focusOn(m, id); return; }
     const t = TOOLS[id];
     m.create({ id, title: TITLES[id], ...(t.floating ? { mode: 'floating', placement: t.floating(stage) } : {}) } as any);
   };
@@ -595,7 +606,7 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     }
   }
   // --- the window manager: state is data; the stage renders it ---
-  const wm: WindowManager = createWindowManager({ state: seed.getState(), history: 100 });
+  const wm: WindowManager = createWindowManager({ state: seed.getState(), history: { limit: 100, ignore: [...IGNORED] } });
   const layoutNow = () => layoutOn(wm);
   const openTool = (id: ToolId) => openOn(wm, id);
   const closeTool = (id: ToolId) => { if ((wm.getState().windows as Wins)[id]) wm.close(id); };
@@ -622,12 +633,36 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     // attachSync on a BroadcastChannel of this planet's own: the layout follows across tabs. onSync repaints the tab counter.
     sync: { channel: CHANNEL, onSync: () => showTabs(), onError: (e: Error) => console.warn('[workbench] sync', e) },
     // keyboard: Alt+Shift+Arrows move and Ctrl+Alt+Shift+Arrows resize the focused floating window; F6 cycles focus.
-    input: { keyboard: true, announce: true, touch: { pinch: true, swipe: { tabs: true } } },
+    // dispatch: the adapter's commands go through `mark`, so the toggle decides whether a click's focus/raise is an undo step.
+    input: { keyboard: true, announce: true, touch: { pinch: true, swipe: { tabs: true } }, dispatch: (command: any) => wm.dispatch(mark(command)) },
   } as any);
 
   // --- UI state ---
   let preset = String(init.p ?? '');
-  const syncUrl = () => writeState({ l: layoutNow(), w: openNow().join(','), p: preset, pf: ctx.profile }, defaults);
+  const syncUrl = () => writeState({ l: layoutNow(), w: openNow().join(','), p: preset, pf: ctx.profile, fr: focusInHistory }, defaults);
+  const frBox = $<HTMLInputElement>('[data-fr]');
+  frBox.checked = focusInHistory;
+  const stackEl = $('[data-undo-stack]');
+  /* The visible undo stack. window-algebra's history holds whole states, not labels, so this mirrors which commands became
+     steps, by the manager's own rules: a gesture is one step, an ignored command (unless marked history: true) is logged but
+     is never a step, a load (another tab's sync) is a step, and a new step clears redo. */
+  const past: string[] = [];
+  let future: string[] = [];
+  let lastGesture: unknown = null;
+  const stepLabel = (c: any) => `${String(c.type).replace(/^window\//, '')}${c.id ? ` ${c.id}` : ''}${c.type === 'layout/set' ? ` ${c.layout?.type ?? ''}` : ''}`;
+  let prevState = wm.getState();
+  const trackHistory = (state: unknown, events: any[], command: any) => {
+    const changed = state !== prevState;
+    prevState = state as any;
+    if (command && changed) {
+      const token = command.gesture;
+      if (token != null && future.length === 0 && lastGesture === token) { /* the rest of one drag: the same step */ }
+      else if (command.history === false || (isIgnoredType(command.type) && command.history !== true)) lastGesture = null;
+      else { past.push(stepLabel(command)); if (past.length > 100) past.shift(); future = []; lastGesture = token ?? null; }
+    } else if (!command && events.some((e) => e?.type === 'state/loaded')) { past.push('sync from another tab'); future = []; lastGesture = null; }
+    if (!wm.canUndo) past.length = 0;
+    if (!wm.canRedo) future = [];
+  };
   const poppedOut = () => TOOL_IDS.filter((id) => (wm.getState().windows as Wins)[id]?.status === 'popped-out');
 
   function refresh() {
@@ -639,14 +674,19 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     for (const b of root.querySelectorAll<HTMLElement>('[data-profile]')) b.setAttribute('aria-pressed', String(b.dataset.profile === ctx.profile));
     const removed = sanitizeLog.length + [...ctx.rendered.values()].reduce((n, r) => n + (r.report ? removalsOf(r.report).length : 0), 0);
     pipeline.innerHTML = `
-      <span class="wb-stage-chip"><b>window-algebra</b> ${open.length} windows · ${esc(layout)} · ${wm.log.length} history step${wm.log.length === 1 ? '' : 's'}</span><span class="wb-arrow">→</span>
+      <span class="wb-stage-chip"><b>window-algebra</b> ${open.length} windows · ${esc(layout)} · ${past.length} undo step${past.length === 1 ? '' : 's'} · ${wm.log.length} logged</span><span class="wb-arrow">→</span>
       <span class="wb-stage-chip"><b>safe-fragment</b> ${esc(boot.engine)} engine · ${esc(ctx.profile)} · ${removed} removed · <span class="${executed() ? 'bad' : 'ok'}">${executed()} ran</span></span><span class="wb-arrow">→</span>
       <span class="wb-stage-chip"><b>html-modules</b> ${boot.components} components</span>`;
     // history
     undoBtn.disabled = !wm.canUndo;
     redoBtn.disabled = !wm.canRedo;
-    historyEl.textContent = `${wm.log.length} step${wm.log.length === 1 ? '' : 's'}`;
-    historyEl.dataset.steps = String(wm.log.length);
+    historyEl.textContent = `${past.length} undo step${past.length === 1 ? '' : 's'} · ${wm.log.length} logged`;
+    historyEl.title = 'Undo steps: what Undo walks back. Logged: every command applied (wm.log), focus and raise included.';
+    historyEl.dataset.steps = String(past.length);
+    historyEl.dataset.logged = String(wm.log.length);
+    historyEl.dataset.redo = String(future.length);
+    stackEl.innerHTML = [...past.slice(-8).map((l) => `<li>${esc(l)}</li>`), ...future.slice(0, 4).map((l) => `<li class="redo">${esc(l)}</li>`)].join('') || '<li class="empty">empty</li>';
+    stackEl.dataset.depth = String(past.length);
     // floating: the focused window's placement, which the arrow keys change
     const fid = state.focus.window as string | null;
     const win = fid ? state.windows[fid] : null;
@@ -662,7 +702,7 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     popBtn.textContent = pops.length ? 'Pop back in' : 'Pop out';
     popBtn.dataset.popped = String(pops.length);
   }
-  const unsubscribe = wm.subscribe(() => { saveWm(); refresh(); syncUrl(); });
+  const unsubscribe = wm.subscribe((state, events, command) => { trackHistory(state, events, command); saveWm(); refresh(); syncUrl(); });
   sanitizeListeners.add(refresh);
   refresh();
   syncUrl();
@@ -693,7 +733,7 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     saveNotes();
     wm.setLayout(LAYOUTS[0].spec as any);
     for (const id of ['notes', 'clips'] as ToolId[]) openTool(id);
-    wm.focus('notes');
+    focusOn(wm, 'notes');
     ctx.emit();
     saveWm();
     say('desk reset: default windows, seed notes, saved state cleared');
@@ -740,7 +780,7 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
       const note = ctx.notes.find((n) => n.title === XSS_TITLE);
       if (note) ctx.selected = note.id;
       ctx.emit();
-      wm.focus('report');
+      focusOn(wm, 'report');
       await sleep(600);
       if (disposed) return;
       say(executed() === 0 ? 'payload neutralised: 0 handlers ran. Open the report for what was removed.' : `WARNING: ${executed()} handler(s) ran`);
@@ -764,8 +804,8 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
         if (openNow().includes(id)) closeTool(id); else openTool(id);
       } else if (t.dataset.act === 'palette') stage.palette?.open();
       else if (t.dataset.act === 'reset') resetDesk();
-      else if (t.dataset.act === 'undo') { wm.undo(); say('undo'); }
-      else if (t.dataset.act === 'redo') { wm.redo(); say('redo'); }
+      else if (t.dataset.act === 'undo') { if (past.length) future.unshift(past.pop()!); lastGesture = null; wm.undo(); refresh(); say('undo'); }
+      else if (t.dataset.act === 'redo') { if (future.length) past.push(future.shift()!); lastGesture = null; wm.redo(); refresh(); say('redo'); }
       else if (t.dataset.act === 'float') floatFocused();
       else if (t.dataset.act === 'popout') togglePop();
       else if (t.dataset.act === 'copy') { syncUrl(); await sleep(200); await copyLink(); say('link copied'); }
@@ -774,6 +814,12 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
   // Only the room's own controls: window-algebra's views carry data-* attributes of their own (data-layout, ...).
   const controls = $('.wb-controls');
   controls.addEventListener('click', onClick);
+  const onFr = () => {
+    focusInHistory = frBox.checked;
+    say(focusInHistory ? 'focus and raise are undo steps again (each command marked history: true)' : "focus and raise are kept out of undo (history: { ignore: ['window/focus', 'window/raise'] })");
+    syncUrl();
+  };
+  frBox.addEventListener('change', onFr);
 
   // --- cross-tab: notes arrive through the storage event (window state arrives through the stage's sync) ---
   const onStorage = (event: StorageEvent) => {
@@ -803,6 +849,7 @@ function mountDesk(host: HTMLElement, boot: Boot): () => void {
     removeEventListener('storage', onStorage);
     removeEventListener('message', onMessage);
     controls.removeEventListener('click', onClick);
+    frBox.removeEventListener('change', onFr);
     unsubscribe();
     sanitizeListeners.delete(refresh);
     ctx.onChange.clear();

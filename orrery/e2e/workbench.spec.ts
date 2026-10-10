@@ -379,6 +379,38 @@ test.describe('window-algebra: history, keyboard and pop-out', () => {
     expect(mine(errors)).toEqual([]);
   });
 
+  test('focus and raise stay out of undo (window-algebra 0.1.3 history.ignore) unless the toggle puts them back', async ({ page }) => {
+    const errors = watch(page);
+    await openDesk(page);
+    const steps = page.locator('[data-history]');
+    const stack = page.locator('[data-undo-stack]');
+    const bar = (id: string) => page.locator(`wa-stage wm-view[data-view="${id}"] [data-wm-handle="move"]`);
+    await expect(steps).toHaveAttribute('data-steps', '0');
+    // toggle off (the default): clicking windows focuses them, is logged, and is not an undo step
+    await bar('clips').click();
+    await bar('notes').click();
+    await expect(steps).toHaveAttribute('data-steps', '0');
+    await expect.poll(async () => Number(await steps.getAttribute('data-logged'))).toBeGreaterThan(0);
+    await expect(page.locator('[data-act="undo"]')).toBeDisabled();
+    // a real change is a step, and Undo goes straight back to it past any later clicks
+    await pressed(page, 'data-layout', 'grid').click();
+    await bar('clips').click();
+    await expect(steps).toHaveAttribute('data-steps', '1');
+    await expect(stack).toContainText('layout/set grid');
+    // toggle on: every focus is a step again (the commands are marked history: true)
+    await page.locator('[data-fr]').check();
+    await bar('notes').click();
+    await expect(steps).toHaveAttribute('data-steps', '2');
+    await expect(stack).toContainText('focus notes');
+    await bar('clips').click();
+    await expect(steps).toHaveAttribute('data-steps', '3');
+    await page.locator('[data-act="undo"]').click();
+    await expect(steps).toHaveAttribute('data-steps', '2');
+    await expect(page.locator('[data-floatbox]')).toContainText('Notes'); // the undo took focus back to Notes
+    await expect.poll(() => page.url()).toContain('fr=true'); // the toggle is part of the deep link
+    expect(mine(errors)).toEqual([]);
+  });
+
   test('a floating window moves and resizes from the keyboard (Alt+Shift+Arrows, Ctrl+Alt+Shift+Arrows)', async ({ page }) => {
     const errors = watch(page);
     await openDesk(page);
