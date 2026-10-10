@@ -23,10 +23,10 @@ npm run build    # static output in dist/
 | Iteration Pipes | `@johnhenry/iteration` | Assemble transducer pipelines and watch tokens flow through them, including bounded async concurrency. |
 | Chunker Scope | `@johnhenry/semantic-chunker` | Split text at topic boundaries with eleven cut strategies and a similarity seismograph. |
 | Header Fields | `@johnhenry/http-fields` | Parse and re-serialize RFC 8941 / 9651 structured headers with a typed tree and a normalisation diff. |
-| Andbox Cell | `@johnhenry/andbox` | Run code in a Worker sandbox with gated host capabilities, rate limits and a kill switch. |
+| Andbox Cell | `@johnhenry/andbox` | Run code in a Worker sandbox with gated host capabilities, rate limits and a kill switch; `mode: 'iframe'` renders real DOM in an opaque-origin frame; `network` with a visitor-editable `allowedHosts` and a live request log. |
 | Tester Console | `@johnhenry/tester` | A real TAP suite runs in-browser against the sibling packages. Write your own generator tests. |
 | Signalle Loom | `@johnhenry/signalle` | Fine-grained signals shown as a live dependency graph. Watch exactly which nodes re-run. |
-| Domable Prism | `@johnhenry/domable` | HTML text, DOM nodes and React-shaped objects converted every direction, plus hyperscript and custom elements. |
+| Domable Prism | `@johnhenry/domable` | HTML text, DOM nodes and React-shaped objects converted every direction, plus hyperscript (with 0.0.2's listener, `.prop`, style-object props) and custom elements. |
 | HTTP Converter | `@johnhenry/http-converter` | Raw HTTP, HAR, cURL and fetch() translated into each other with auto-detection. |
 | Optical Transport | `@johnhenry/oat-sender`, `oat-receiver` | Fountain-coded QR frames carry a signed artifact; loopback receiver decodes at 70% frame loss. |
 | Browsermesh Swarm | `@johnhenry/browsermesh-primitives`, `-pod` | Open two tabs: they discover each other, merge CRDTs, verify signed chat, enforce paint grants. |
@@ -36,7 +36,7 @@ npm run build    # static output in dist/
 | Domkit Workshop | `@johnhenry/domkit` | Live `<code-editor>` (form-associated), `<infinite-combo-box>` with a paged, abortable search function, `<stylable-select>`, an `<attribute-cycler>` tone switcher, `<hot-key>`, `<drill-menu>` and `<swipe-input>`, each with its attributes editable. |
 | Data Plot Studio | `@johnhenry/data-plot` | Edit the `<table>` a `<data-plot>` reads and the chart follows: dots, bars, lines, legends and Chernoff faces, switchable channels and layers, and a width slider that reflows with no redraw. Takes Tensor Bench's loss curve. |
 | JSX Studio | `@johnhenry/fileable`, `servable`, `hostable` | JSX → file tree with hashes, → request dispatcher, → multi-host gateway. Run requests in-page. |
-| Untrusted Desk | `@johnhenry/window-algebra`, `safe-fragment`, `html-modules` | A tiling desk of untrusted notes: window-algebra windows (undo/redo, keyboard-movable floating windows, pop-out, persistence, two-tab sync), safe-fragment under a switchable profile with an XSS preset, and a strict-CSP, Trusted Types frame; the components are html-modules. The import-map and no-bundler story lives on the Import Router planet. |
+| Untrusted Desk | `@johnhenry/window-algebra`, `safe-fragment`, `html-modules` | A tiling desk of untrusted notes: window-algebra windows (undo/redo with focus/raise kept out of history and a visible undo stack, keyboard-movable floating windows, pop-out, persistence, two-tab sync), safe-fragment under a switchable profile with an XSS preset, and a strict-CSP, Trusted Types frame; the components are html-modules. The import-map and no-bundler story lives on the Import Router planet. |
 | Import Router | `@johnhenry/mport` | Routing scenarios (outage, race, circuit breaker, lockfile pinning, prefer, tampered mirror, `router.import()` failover) with timelines, health and the compiled import map + lockfile, on a simulated or the real network; a no-bundler Preact + htm app in a strict-CSP frame that allows its import map only by mport's hash, with tamper controls and a CDN up/down/broken switch; mport's examples run in-page as proofs. |
 | Agent Query | `@johnhenry/mcp-query`, `mcp-gate` | In-page MCP server, reactive cache inspector, policy gate with approvals, wire timeline. |
 | Laya Playground | `@johnhenry/laya` | Typed questions answered by an on-device model on WebGPU. Laya plays Snake. Demo mode if no model. |
@@ -48,6 +48,7 @@ npm run build    # static output in dist/
 | Tool by Code | `@johnhenry/aimatey-middleware-andbox` | A mock LLM with no tool calling writes code; the middleware extracts, adapts and runs it in a sandbox, fully traced. |
 | Tensor Bench | `@johnhenry/math-plus-*` | Live-trained autograd MLP with its computation graph, FFT and filters, image kernels (CPU/WebGPU), units. |
 | Grapher Cells | `@johnhenry/math-grapher` | A notebook over the real reactive-cell MCP server, with a dependency graph and an agent console. |
+| Patchbay Notebook | `@johnhenry/patchbay`, `dataflow`, `window-algebra`, `andbox`, `inspectable` | A spatial notebook: cells are floating windows on a pan/zoom canvas, wires are dependencies with live run states (running, done, error, waiting, skipped, stale), code runs in a Worker and only lazy previews come back. |
 | Leserve Wire | `@johnhenry/leserve` | Edit a `(request) => Response` handler, fire requests, see the raw HTTP wire. Real Node via the companion. |
 | Servant Hall | `@johnhenry/servant` | Fetch-event server script with a middleware chain, HTTP and WebSocket panels, and a dispatch trace. |
 | Dialback Tunnel | `@johnhenry/dialback` | The browser is the agent behind the NAT; public requests are tunnelled back down its own socket. |
