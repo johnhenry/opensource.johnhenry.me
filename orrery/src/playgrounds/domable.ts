@@ -119,6 +119,35 @@ const DEFAULT_HS = `h('article', { class: ['card', 'glow'] },
       'stroke-width': '2', fill: 'none' }))
 )`;
 
+/** domable 0.0.2's createElement props, all in one tree: listeners, `.prop` properties, style objects, skipped values, nested arrays. */
+const DEFAULT_PROPS = `let count = 0;
+const shown = h('output', {}, '0');
+return h('div', {
+    class: ['demo', count > 0 && 'touched'],        // falsy class entries are skipped
+    style: { display: 'grid', gap: '10px', '--tint': 'tomato', borderLeft: '3px solid var(--tint)' },
+  },
+  h('button', {
+    type: 'button',
+    onclick: () => { shown.textContent = String(++count); emit('click', count); }, // a function: a listener
+    '@pointerenter': [() => emit('pointerenter'), { once: true }],             // verbatim type + options
+    'aria-pressed': false,                         // aria-*/data-*: written as "false"
+    disabled: false,                               // false: no attribute at all
+    title: null,                                   // null: no attribute at all
+  }, 'clicked ', shown, ' times'),
+  h('label', {}, 'volume ',
+    h('input', {
+      type: 'range', min: 0, max: 10,
+      '.value': 7,                                 // a property, set after min/max exist
+      oninput: (e) => emit('input', e.target.value),
+    })),
+  h('ul', {},
+    h('li', {}, 'one'),
+    [h('li', {}, 'two'), [h('li', {}, 'three'), [h('li', {}, 'four')]]], // nested arrays flatten
+    null, false, undefined, true,                  // skipped
+    h('li', {}, 0),                                // 0 is rendered as text
+  ),
+)`;
+
 const DEFAULT_CE = `<style>
   :host { display: block; font-family: system-ui, sans-serif; max-width: 340px; }
   .card { border: 1px solid #22415a; border-radius: 14px; padding: 16px 18px;
@@ -487,6 +516,23 @@ const playground: Playground = {
             <pre class="code" data-el="hs-text"></pre>
           </div>
         </div>
+      </section>
+
+      <section class="panel props" data-el="props-section">
+        <header class="sec-h"><h2>createElement props</h2>
+          <span class="stat">domable 0.0.2: a function <code>on*</code> is a listener, a <code>".name"</code> key is a property, <code>style</code> takes an object, <code>null</code>/<code>false</code> are skipped, nested arrays flatten. In scope: <code>h</code> = createElement, <code>emit(...)</code> writes to the event log.</span></header>
+        <div class="hs-grid">
+          <textarea class="code" data-el="props-code" spellcheck="false" aria-label="createElement props code"></textarea>
+          <div class="hs-out">
+            <div class="preview small props-stage" data-el="props-preview"></div>
+            <div class="stat">events from the live tree (the real node, not a copy, so its listeners work):</div>
+            <ol class="props-events" data-el="props-events"><li class="stat">interact with the tree above</li></ol>
+            <div class="stat">domToText(result): no inline handlers, no value attribute:</div>
+            <pre class="code" data-el="props-text"></pre>
+          </div>
+        </div>
+        <div class="stat props-caption">what each prop became, checked on the element:</div>
+        <div class="props-table" data-el="props-table"></div>
       </section>
 
       <section class="panel ce">
@@ -974,6 +1020,97 @@ const playground: Playground = {
       renderHsText();
     }));
 
+    // ------------------------------------------------------------------ createElement props (0.0.2)
+    const propsTa = $<HTMLTextAreaElement>('props-code');
+    const propsPrev = $('props-preview');
+    const propsEvents = $('props-events');
+    const propsTable = $('props-table');
+    const propsText = $('props-text');
+    const propsShadow = propsPrev.attachShadow({ mode: 'open' });
+    propsShadow.innerHTML = `<style>
+      :host { display:block; }
+      .stage { padding: 14px; font-family: system-ui, sans-serif; color: var(--code-ink, #dfe9f5); }
+      .demo { padding: 4px 12px; }
+      button { font: inherit; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+      ul { margin: 0; padding-left: 20px; }
+    </style><div class="stage"></div>`;
+    const propsStage = propsShadow.querySelector('.stage') as HTMLDivElement;
+    type PropRow = { el: string; key: string; kind: string; check: string; ok: boolean };
+    /** Reads back what createElement actually did to `el` for one prop, by the README's rules (not by re-implementing them). */
+    function checkProp(el: Element, key: string, value: unknown): PropRow {
+      const tag = `<${el.localName}>`;
+      if (key.startsWith('.')) {
+        const name = key.slice(1);
+        const prop = (el as any)[name];
+        const attr = el.getAttribute(name);
+        return { el: tag, key, kind: 'property', check: `el.${name} = ${JSON.stringify(prop)} · attribute ${attr === null ? 'absent' : JSON.stringify(attr)}`, ok: String(prop) === String(value) };
+      }
+      if (key.startsWith('@') && typeof value !== 'string') {
+        return { el: tag, key, kind: 'listener', check: `addEventListener(${JSON.stringify(key.slice(1))}) · attribute ${el.hasAttribute(key) ? 'present' : 'absent'}`, ok: !el.hasAttribute(key) };
+      }
+      if (/^on/i.test(key) && typeof value === 'function') {
+        return { el: tag, key, kind: 'listener', check: `addEventListener(${JSON.stringify(key.slice(2).toLowerCase())}) · ${key.toLowerCase()} attribute ${el.hasAttribute(key) ? 'present' : 'absent'}`, ok: !el.hasAttribute(key) };
+      }
+      if (key === 'style' && value && typeof value === 'object') {
+        return { el: tag, key, kind: 'style object', check: `style="${(el as HTMLElement).getAttribute('style') ?? ''}"`, ok: !!(el as HTMLElement).getAttribute('style') };
+      }
+      if (key === 'class' && typeof value !== 'string') {
+        return { el: tag, key, kind: 'class list', check: `class="${el.getAttribute('class') ?? ''}"`, ok: true };
+      }
+      if (value === null || value === undefined || value === false) {
+        const present = el.hasAttribute(key);
+        const isString = /^(aria|data)-/.test(key) && value === false;
+        return { el: tag, key, kind: isString ? 'attribute' : 'skipped', check: present ? `${key}="${el.getAttribute(key)}"` : 'no attribute', ok: isString ? el.getAttribute(key) === 'false' : !present };
+      }
+      return { el: tag, key, kind: 'attribute', check: `${key}="${el.getAttribute(key) ?? ''}"`, ok: el.hasAttribute(key) };
+    }
+    function runProps() {
+      const rows: PropRow[] = [];
+      let skipped = 0, flattened = 0;
+      const countKids = (kids: unknown[], depth: number) => {
+        for (const k of kids) {
+          if (k === null || k === undefined || k === false || k === true) skipped++;
+          else if (Array.isArray(k)) { if (depth >= 0) flattened++; countKids(k, depth + 1); }
+        }
+      };
+      // createElement itself does the work; this wrapper only remembers the props it was given, to check them afterwards.
+      const made: Array<{ el: Element; props: Record<string, unknown> }> = [];
+      const hRec = (tag: unknown, props?: unknown, ...children: unknown[]) => {
+        const el = (createElement as (...a: unknown[]) => Node)(tag, props, ...children);
+        const isProps = props !== null && typeof props === 'object' && !Array.isArray(props) && !(props instanceof Node);
+        countKids(isProps ? children : [props, ...children], 0);
+        if (el instanceof Element && isProps) made.push({ el, props: props as Record<string, unknown> });
+        return el;
+      };
+      const events: string[] = [];
+      const emit = (...args: unknown[]) => {
+        events.unshift(`${new Date().toLocaleTimeString()} · ${args.map((a) => String(a)).join(' ')}`);
+        propsEvents.innerHTML = events.slice(0, 6).map((e) => `<li>${esc(e)}</li>`).join('');
+        propsEvents.dataset.count = String(events.length);
+      };
+      try {
+        const factory = new Function('h', 'emit', `"use strict";\n${propsTa.value}`) as (h: unknown, emit: unknown) => unknown;
+        const res = factory(hRec, emit);
+        if (!(res instanceof Node)) throw new Error('Expected a Node: end with return h(...)');
+        propsStage.replaceChildren(res); // the real node: its listeners and properties are live
+        for (const { el, props } of made) for (const [k, v] of Object.entries(props)) rows.push(checkProp(el, k, v));
+        propsTable.innerHTML = `<table><thead><tr><th>element</th><th>key</th><th>became</th><th>checked on the element</th></tr></thead><tbody>${rows.map((r) => `<tr data-kind="${esc(r.kind)}"><td>${esc(r.el)}</td><td><code>${esc(r.key)}</code></td><td>${esc(r.kind)}</td><td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? '✓' : '✗'} ${esc(r.check)}</td></tr>`).join('')}</tbody></table>
+          <p class="stat">children: ${skipped} skipped (null/false/undefined/true) · ${flattened} array${flattened === 1 ? '' : 's'} flattened</p>`;
+        propsTable.dataset.rows = String(rows.length);
+        propsTable.dataset.skipped = String(skipped);
+        propsTable.dataset.flattened = String(flattened);
+        propsText.textContent = domToText(res);
+        propsTa.classList.remove('bad');
+        propsEvents.innerHTML = '<li class="stat">interact with the tree above</li>';
+        delete propsEvents.dataset.count;
+      } catch (err) {
+        propsTa.classList.add('bad');
+        propsText.textContent = `⚠ ${(err as Error)?.message ?? err}`;
+      }
+    }
+    let propsDeb = 0;
+    on(propsTa, 'input', () => { propsDeb = debounce(propsDeb, runProps, 260); });
+
     // ------------------------------------------------------------------ custom element
     const ceHtml = $<HTMLTextAreaElement>('ce-html');
     const ceMode = $<HTMLSelectElement>('ce-mode');
@@ -1208,6 +1345,7 @@ const playground: Playground = {
     root.querySelector(`.preset[data-preset="${initPreset}"]`)?.classList.add('on');
     setActivePane(initPane, false);
     hsTa.value = DEFAULT_HS;
+    propsTa.value = DEFAULT_PROPS;
     ceHtml.value = DEFAULT_CE;
     renderAttrRows();
     syncDefineLabel();
@@ -1219,6 +1357,7 @@ const playground: Playground = {
     fromHTML();
     requestAnimationFrame(() => drawEdges());
     runHs();
+    runProps();
     define();
     tagfnCode.value = TAGFN_DEFAULTS.html;
     runTagFn();
