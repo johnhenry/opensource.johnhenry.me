@@ -1,6 +1,6 @@
 import type { Playground } from '../registry';
 import { createSandbox as mkSandbox, gateCapabilities as gate, createNetworkFetch, createStdio } from '@johnhenry/andbox';
-import type { Sandbox, GateStatsResult as GateStats } from '@johnhenry/andbox';
+import type { Sandbox, IframeSandbox, GateStatsResult as GateStats, SandboxFetchInit } from '@johnhenry/andbox';
 import { readState, writeState, copyLink } from '../state';
 import './andbox.css';
 
@@ -210,6 +210,58 @@ const fmtArg = (a: unknown) => {
   try { return JSON.stringify(a) ?? String(a); } catch { return String(a); }
 };
 
+// ---- mode: 'iframe' (0.1.2): code that renders a real DOM, in a sandboxed opaque-origin frame ----
+const IFRAME_CODE = `// This runs in <iframe sandbox="allow-scripts" srcdoc>: an opaque origin with
+// its own window and document. It draws real DOM, and can still call host capabilities.
+const data = await host.call('data'); // from the page, over the frame's MessagePort
+const svgNS = 'http://www.w3.org/2000/svg';
+const svg = document.createElementNS(svgNS, 'svg');
+svg.setAttribute('viewBox', '0 0 320 120');
+data.forEach((v, i) => {
+  const bar = document.createElementNS(svgNS, 'rect');
+  bar.setAttribute('x', 12 + i * 38); bar.setAttribute('width', 28);
+  bar.setAttribute('y', 110 - v * 10); bar.setAttribute('height', v * 10);
+  bar.setAttribute('rx', 4); bar.setAttribute('class', 'bar');
+  bar.innerHTML = '<animate attributeName="height" from="0" to="' + v * 10 + '" dur="0.6s" />';
+  svg.append(bar);
+});
+const button = document.createElement('button');
+let clicks = 0;
+button.textContent = 'click me (a real button in the frame)';
+button.onclick = () => { button.textContent = 'clicked ' + (++clicks) + '×'; };
+document.body.append(svg, button); // the frame is fresh each run (its <style> came from the html option)
+
+// The origin boundary, checked from inside:
+let parentDocument;
+try { parent.document; parentDocument = 'readable?!'; } catch (e) { parentDocument = e.name; }
+let storage;
+try { localStorage.length; storage = 'readable?!'; } catch (e) { storage = e.name; }
+return { origin: location.origin, parentDocument, localStorage: storage, bars: data.length };`;
+
+// ---- network (0.1.3): a host function behind the sandbox's fetch ----
+const NETWORK_CODE = `// fetch() here is andbox's shim: each request goes to the host, where
+// network.allowedHosts (the list above) decides, and network.fetch makes it.
+const targets = [
+  'favicon.svg',                          // this site's own static file (relative: resolved against baseURL)
+  'https://httpbin.org/get?from=andbox',  // a public, CORS-enabled echo service
+  'https://httpbin.org/status/418',       // a non-2xx answer still comes back as a Response
+  'https://example.com/',                 // not on the list unless you add it
+];
+const results = [];
+for (const url of targets) {
+  try {
+    const res = await fetch(url);
+    const body = await res.text();
+    results.push(res.status + ' ' + res.url + ' (' + body.length + ' bytes)');
+  } catch (e) {
+    results.push('rejected ' + url + ': ' + e.message);
+  }
+}
+return results;`;
+
+type NetVerdict = 'pending' | 'allowed' | 'refused' | 'failed';
+interface NetRow { t: number; method: string; url: string; verdict: NetVerdict; status?: number; note?: string }
+
 type Kind = 'sys' | 'call' | 'deny' | 'console' | 'kill' | 'result' | 'error';
 interface LogRow { t: number; kind: Kind; key: string; text: string; count: number }
 type PKind = 'req' | 'res' | 'deny' | 'con';
@@ -305,6 +357,44 @@ const playground: Playground = {
         "timeout" can only be noticed after the code already finished.</p>
         <div class="ab-engines-bar"><button class="btn" data-a="engines">▶ run in worker / inline / data-uri</button><span class="stat" data-el="engineNote"></span></div>
         <div class="ab-engine-rows" data-el="engineRows"></div>
+      </div>
+      <div class="panel ab-iframe-panel" data-el="iframePanel">
+        <h3 class="ab-h">mode: 'iframe' <span class="stat">createSandbox({ mode: 'iframe', container, html })</span></h3>
+        <p class="ab-engines-p">Code that needs a real DOM runs in a sandboxed <code>&lt;iframe sandbox="allow-scripts" srcdoc&gt;</code>
+        without <code>allow-same-origin</code>: the browser gives it an opaque origin, its own <code>window</code> and <code>document</code>,
+        and no access to this page, its cookies or its storage. It still reaches the host through <code>host.call()</code>
+        (here a <code>data</code> capability), and its <code>return</code> value comes back by structured clone. The frame below is the live
+        <code>sandbox.iframe</code>; the result shows what the code saw when it tried to reach out.</p>
+        <div class="ab-iframe-grid">
+          <textarea class="code" spellcheck="false" aria-label="iframe sandbox code" data-el="iframeCode"></textarea>
+          <div class="ab-iframe-side">
+            <div class="ab-engines-bar"><button class="btn primary" data-a="iframeRun">▶ run in a sandboxed frame</button><span class="stat" data-el="iframeNote"></span></div>
+            <div class="ab-iframe-host" data-el="iframeHost"></div>
+            <pre class="code ab-iframe-result" data-el="iframeResult">–</pre>
+          </div>
+        </div>
+      </div>
+      <div class="panel ab-net-panel" data-el="netPanel">
+        <h3 class="ab-h">network <span class="stat">createSandbox({ network: { allowedHosts, fetch } })</span></h3>
+        <p class="ab-engines-p">Worker mode removes <code>fetch</code>. With <code>network</code>, andbox installs a <code>fetch</code> in the sandbox that
+        sends each request to the host, so libraries that call the global <code>fetch</code> work. Since andbox 0.2.0 <code>allowedHosts</code> is
+        required: there is no network unless you say which hosts. Here it is the function form, <code>(url) =&gt; list.includes(url.hostname)</code>,
+        asked on the host for every request and reading the list below each time, so an edit applies to the next request. A refused host never
+        reaches <code>network.fetch</code> (the page's own <code>fetch</code>, with a log around it). Credentials are the host's choice
+        (<code>'omit'</code>). One browser limit of the function form: the page's <code>fetch</code> hides a redirect's target, so andbox cannot
+        check the next hop and a redirect fails instead of being followed; these endpoints don't redirect.</p>
+        <div class="ab-engines-bar">
+          <label class="field ab-net-hosts">allowed hosts (comma-separated)<input data-el="netHosts" spellcheck="false" autocomplete="off"></label>
+          <button class="btn primary" data-a="netRun">▶ run the requests</button>
+          <span class="stat" data-el="netNote"></span>
+        </div>
+        <div class="ab-net-grid">
+          <textarea class="code" spellcheck="false" aria-label="network sandbox code" data-el="netCode"></textarea>
+          <div>
+            <div class="ab-net-log" role="log" aria-label="request log" data-el="netLog"><div class="ab-net-empty">no requests yet</div></div>
+            <pre class="code ab-net-result" data-el="netResult">–</pre>
+          </div>
+        </div>
       </div>`;
     host.appendChild(root);
 
@@ -790,6 +880,133 @@ const playground: Playground = {
     const onEnginesClick = () => { void onEngines(); };
     enginesBtn.addEventListener('click', onEnginesClick);
 
+    // ---- mode: 'iframe' ---------------------------------------------------
+    const iframeCode = $<HTMLTextAreaElement>('[data-el=iframeCode]');
+    const iframeHost = $<HTMLElement>('[data-el=iframeHost]');
+    const iframeResult = $<HTMLElement>('[data-el=iframeResult]');
+    const iframeNote = $<HTMLElement>('[data-el=iframeNote]');
+    const iframeRunBtn = $<HTMLButtonElement>('[data-a=iframeRun]');
+    iframeCode.value = IFRAME_CODE;
+    let frameBox: IframeSandbox | null = null;
+    /** The frame is its own document: hand it the page's current colours, so it matches light and dark. */
+    const frameHtml = () => {
+      // Resolve each token to a plain colour here: its declared value may lean on other variables the frame doesn't have.
+      const probe = document.createElement('span');
+      root.append(probe);
+      const v = (name: string, fallback: string) => { probe.style.color = `var(${name}, ${fallback})`; return getComputedStyle(probe).color || fallback; };
+      const html = `<style>html,body{margin:0;background:${v('--bg-inset', '#111')};color:${v('--ink', '#eee')};font:13px system-ui,sans-serif}
+        body{padding:10px;display:grid;gap:8px;justify-items:start}svg{width:100%;height:auto;max-height:170px;display:block}
+        .bar{fill:${v('--accent', '#6cf')}}button{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid ${v('--accent', '#6cf')};background:transparent;color:inherit;cursor:pointer}</style>`;
+      probe.remove();
+      return html;
+    };
+    async function runIframe() {
+      iframeRunBtn.disabled = true;
+      iframeNote.textContent = 'creating the frame…';
+      try {
+        const old = frameBox; frameBox = null;
+        if (old) await old.dispose();
+        const sb = await mkSandbox({
+          mode: 'iframe',
+          container: iframeHost,
+          html: frameHtml(),
+          defaultTimeoutMs: 5000,
+          capabilities: { data: () => Array.from({ length: 8 }, () => 2 + Math.round(Math.random() * 8)) },
+          onConsole: (level: string, ...args: unknown[]) => { iframeNote.textContent = `console.${level}: ${args.map((a) => fmtArg(a)).join(' ')}`; },
+          onFrame: (frame: HTMLIFrameElement) => { frame.className = 'ab-iframe'; frame.title = 'andbox iframe sandbox (opaque origin)'; },
+        });
+        if (!alive) { void sb.dispose(); return; }
+        frameBox = sb;
+        const value = await sb.evaluate(iframeCode.value);
+        if (!alive) return;
+        iframeResult.textContent = JSON.stringify(value, null, 2) ?? 'undefined';
+        iframeNote.textContent = `sandbox.iframe.sandbox = "${sb.iframe?.getAttribute('sandbox') ?? ''}"`;
+      } catch (e) {
+        iframeResult.textContent = `${(e as Error).name}: ${(e as Error).message}`;
+        iframeNote.textContent = 'threw';
+      } finally {
+        iframeRunBtn.disabled = false;
+      }
+    }
+    const onIframeRun = () => { void runIframe(); };
+    iframeRunBtn.addEventListener('click', onIframeRun);
+
+    // ---- network: a host function, an editable allowlist, a live request log ----
+    const netHostsIn = $<HTMLInputElement>('[data-el=netHosts]');
+    const netCode = $<HTMLTextAreaElement>('[data-el=netCode]');
+    const netLogEl = $<HTMLElement>('[data-el=netLog]');
+    const netResult = $<HTMLElement>('[data-el=netResult]');
+    const netNote = $<HTMLElement>('[data-el=netNote]');
+    const netRunBtn = $<HTMLButtonElement>('[data-a=netRun]');
+    netHostsIn.value = [location.hostname, 'httpbin.org'].join(', ');
+    netCode.value = NETWORK_CODE;
+    const netRows: NetRow[] = [];
+    let netT0 = 0;
+    let netBox: Sandbox | null = null;
+    function renderNet() {
+      netLogEl.innerHTML = netRows.length
+        ? netRows.map((r) => `<div class="ab-net-row" data-verdict="${r.verdict}"><span class="t">+${r.t.toFixed(0)}ms</span><span class="v">${r.verdict}</span><span class="s">${r.status ?? ''}</span><span class="u">${esc(r.method)} ${esc(r.url)}${r.note ? `<em>${esc(r.note)}</em>` : ''}</span></div>`).join('')
+        : '<div class="ab-net-empty">no requests yet</div>';
+      const by = (v: NetVerdict) => netRows.filter((r) => r.verdict === v).length;
+      netLogEl.dataset.allowed = String(by('allowed'));
+      netLogEl.dataset.refused = String(by('refused'));
+      netLogEl.dataset.failed = String(by('failed'));
+    }
+    /** The visitor's list, read again on every request: editing it while requests are in flight takes effect at once. */
+    const currentHosts = () => netHostsIn.value.split(/[\s,]+/).map((h) => h.trim().toLowerCase()).filter(Boolean);
+    const pendingRows = new Map<string, NetRow>();
+    /** network.allowedHosts, the function form (andbox 0.2.0): andbox asks it on the host before any request leaves. */
+    const allowedHosts = (url: URL) => {
+      const ok = currentHosts().includes(url.hostname);
+      const row: NetRow = { t: performance.now() - netT0, method: 'GET', url: url.href, verdict: ok ? 'pending' : 'refused' };
+      if (!ok) row.note = `refused by allowedHosts: ${url.hostname} is not in the list`;
+      else pendingRows.set(url.href, row);
+      netRows.push(row);
+      if (alive) renderNet();
+      return ok;
+    };
+    /** network.fetch: called only for what allowedHosts let through. It makes the request and logs the status. */
+    async function hostFetch(url: string, init: SandboxFetchInit) {
+      const row = pendingRows.get(url) ?? { t: performance.now() - netT0, method: init.method, url, verdict: 'pending' as NetVerdict };
+      pendingRows.delete(url);
+      row.method = init.method;
+      try {
+        const res = await fetch(url, init as RequestInit);
+        row.verdict = 'allowed'; row.status = res.status;
+        return res;
+      } catch (e) {
+        row.verdict = 'failed'; row.note = (e as Error).message;
+        throw e;
+      } finally {
+        if (alive) renderNet();
+      }
+    }
+    async function runNet() {
+      const hosts = currentHosts();
+      if (!hosts.length) { netNote.textContent = 'list at least one host (no network at all means leaving network out)'; return; }
+      netRunBtn.disabled = true;
+      netRows.length = 0; pendingRows.clear(); renderNet();
+      netResult.textContent = '…';
+      netNote.textContent = `allowed now: ${hosts.join(', ')}`;
+      netT0 = performance.now();
+      try {
+        const old = netBox; netBox = null;
+        if (old) await old.dispose();
+        const sb = await mkSandbox({ network: { allowedHosts, fetch: hostFetch }, defaultTimeoutMs: 20000 });
+        if (!alive) { void sb.dispose(); return; }
+        netBox = sb;
+        const value = await sb.evaluate(netCode.value);
+        if (!alive) return;
+        netResult.textContent = JSON.stringify(value, null, 2) ?? 'undefined';
+      } catch (e) {
+        netResult.textContent = `${(e as Error).name}: ${(e as Error).message}`;
+      } finally {
+        netRunBtn.disabled = false;
+      }
+    }
+    const onNetRun = () => { void runNet(); };
+    netRunBtn.addEventListener('click', onNetRun);
+
     // default state: the saved (or linked) preset, with any overrides from the URL
     const startPreset = PRESETS.find(p => p.id === state.preset) ?? PRESETS[0];
     currentPresetId = startPreset.id;
@@ -803,6 +1020,7 @@ const playground: Playground = {
     }
     setState('idle');
     run().catch(e => { resultEl.textContent = String(e); });
+    void runIframe(); // the frame panel renders with zero input too (the network panel waits for a click: it calls public hosts)
 
     return () => {
       alive = false;
@@ -819,6 +1037,10 @@ const playground: Playground = {
       maxBytesIn.removeEventListener('input', onMaxBytesChange);
       copyLinkBtn.removeEventListener('click', onCopyLink);
       enginesBtn.removeEventListener('click', onEnginesClick);
+      iframeRunBtn.removeEventListener('click', onIframeRun);
+      netRunBtn.removeEventListener('click', onNetRun);
+      void frameBox?.dispose().catch(() => {});
+      void netBox?.dispose().catch(() => {});
       abort?.abort();
       abort = null;
       stdio?.end();
