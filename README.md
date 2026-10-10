@@ -53,6 +53,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | inspectable | `inspectable/` | 125° — same fallback (no `package.json` dependency on, from, or among the three sections added with it); splits the 115°(oat)–135°(isomorphic-jj) gap ≈10°/10° |
 | dataflow | `dataflow/` | 250° — same fallback; splits the 240°(agent-query)–260°(jth) gap ≈10°/10° |
 | patchbay | `patchbay/` | 350° — same fallback; splits the 340°(wsh/browsermesh/dialback)–360°(tester, 0°) gap ≈10°/10° |
+| obfo | `obfo/` | 185° — same fallback (no `package.json` dependency on or from any section); splits the 175°(semantic-chunker)–195°(spintax) gap ≈10°/10° |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -206,6 +207,12 @@ run, patchbay draws the canvas), not a dependency. Each splits an ordinary
 20° gap ≈10°/10°, in gaps spread ≥100° from each other: inspectable 125°,
 dataflow 250°, patchbay 350°. Five ordinary 20° gaps remain (25°–45°,
 175°–195°, 260°–280°, 300°–320°, 320°–340°).
+
+obfo (adopted 2026-10-10 from the unscoped `obfo`, for miso's form panes)
+took the same fallback: it has no dependencies, nothing depends on it, and
+its `## Family` section (signalle, dataflow) describes composition in an
+app. It splits the 175°–195° gap at 185°. Four ordinary 20° gaps remain
+(25°–45°, 260°–280°, 300°–320°, 320°–340°).
 
 ### Install blocks and package versions
 
