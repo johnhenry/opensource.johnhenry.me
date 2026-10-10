@@ -1,7 +1,7 @@
 # ORRERY
 
 An interactive, browser-native tour of the [@johnhenry open-source ecosystem](https://opensource.johnhenry.me/).
-Forty-one planets, and nothing is a screenshot: every planet imports the real npm package and runs it live in your browser.
+Forty-two planets, and nothing is a screenshot: every planet imports the real npm package and runs it live in your browser.
 
 ```bash
 npm install
