@@ -1,0 +1,49 @@
+.pg-data-plot { display: grid; gap: 16px; }
+.pg-data-plot h3 { margin: 0 0 8px; font-size: 16px; }
+.pg-data-plot .hint { color: var(--ink-2); font-size: 13px; line-height: 1.55; margin: 4px 0 10px; }
+.pg-data-plot .dp-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.pg-data-plot .dp-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-data-plot .btn[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-data-plot .dp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* The stage: the plot inherits the page's ink, so axes and faces follow the theme. */
+.pg-data-plot .dp-stage { color: var(--ink); }
+.pg-data-plot .dp-frame { margin: 0 auto; transition: width .2s; min-width: 0; padding-top: 22px; }
+.pg-data-plot data-plot { --plot-margin: 20px 20px 44px 56px; font-family: var(--f-mono); }
+.pg-data-plot plot-axis .plot-tick { color: var(--ink-2); }
+.pg-data-plot plot-axis .plot-axis-label { color: var(--ink); }
+.pg-data-plot plot-legend { background: color-mix(in srgb, var(--bg-panel) 80%, transparent); padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); }
+.pg-data-plot plot-marks > .plot-dot { border: 1.5px solid color-mix(in srgb, var(--bg-panel) 70%, transparent); background: var(--color, var(--accent)); box-shadow: 0 0 10px color-mix(in srgb, var(--color, var(--accent)) 50%, transparent); }
+.pg-data-plot plot-line path { stroke: var(--color, var(--accent)); stroke-width: 2.5; }
+
+/* Bars: a mark stretched down to the axis. */
+.pg-data-plot plot-marks.dp-bars > .dp-bar {
+  bottom: 0; translate: -50% 0;
+  block-size: calc(var(--y) * 100%);
+  inline-size: calc(var(--bandwidth, .05) * 100%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--color, var(--accent)) 70%, transparent), var(--color, var(--accent)));
+  border-radius: 6px 6px 0 0;
+  transition: --x .5s, --y .5s, --bandwidth .5s;
+}
+.pg-data-plot plot-marks.dp-faces > chernoff-face { width: 4.2em; height: 4.2em; --chernoff-face-stroke: var(--ink); --chernoff-face-fill: color-mix(in srgb, var(--accent) 25%, transparent); }
+
+.pg-data-plot .dp-readout { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.pg-data-plot .dp-readout .bad { color: var(--error); }
+.pg-data-plot .dp-sizing { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; }
+.pg-data-plot .dp-sizing input[type="range"] { padding: 0; }
+
+/* The editable source table. */
+.pg-data-plot .dp-table-wrap { overflow: auto; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; }
+.pg-data-plot .dp-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 12.5px; }
+.pg-data-plot .dp-table th { position: sticky; top: 0; background: var(--bg-inset); text-align: left; padding: 6px 10px; color: var(--accent); border-bottom: 1px solid var(--line); }
+.pg-data-plot .dp-table td { padding: 5px 10px; border-bottom: 1px solid var(--line); outline: none; }
+.pg-data-plot .dp-table td:hover { background: var(--bg-inset); }
+.pg-data-plot .dp-table td:focus { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pg-data-plot .dp-json { margin-top: 12px; }
+.pg-data-plot .dp-json summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.pg-data-plot .dp-json textarea { margin-top: 8px; min-height: 200px; font-size: 12px; }
+
+.pg-data-plot .dp-layers, .pg-data-plot .dp-checks { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin-bottom: 10px; }
+.pg-data-plot .dp-channels { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.pg-data-plot .dp-markup { font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--accent); }
+.pg-data-plot .what p { color: var(--ink-2); font-size: 14px; line-height: 1.6; max-width: 80ch; }

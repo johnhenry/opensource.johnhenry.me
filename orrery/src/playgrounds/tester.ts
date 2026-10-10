@@ -506,6 +506,55 @@ async function* suitePackfile(): AsyncGenerator<Assertion> {
   }
 }
 
+async function* suiteObfo(): AsyncGenerator<Assertion> {
+  try {
+    const { default: obfo, fill, formFromObject } = await import('@johnhenry/obfo');
+    const form = document.createElement('form');
+    form.setAttribute('data-obfo-container', '{}');
+    form.innerHTML = '<input name="age" type="number" value="20"><input name="ok" type="checkbox" checked><div data-obfo-container="[]" data-obfo-name="tags"><input value="a"><input value="b"></div>';
+    yield deepequal(obfo(form, { cast: 'auto' }), { age: 20, ok: true, tags: ['a', 'b'] }, 'obfo(form, { cast: "auto" }) reads a nested object with typed values');
+    fill(form, { age: 36, tags: ['x'] }, { cast: 'auto' });
+    yield deepequal(obfo(form, { cast: 'auto' }), { age: 36, ok: true, tags: ['x', 'b'] }, 'fill() writes what is present and leaves the rest');
+    const value = { title: 'Notes', count: 3, done: false, tags: ['a'], owner: null };
+    yield deepequal(obfo(formFromObject(value)), value, 'formFromObject() builds a form that reads back as the same JSON');
+  } catch (err) {
+    yield fail(`obfo suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+async function* suiteDomkit(): AsyncGenerator<Assertion> {
+  try {
+    await import('@johnhenry/domkit/code-editor/global.mjs');
+    const form = document.createElement('form');
+    form.innerHTML = '<code-editor name="snippet" language="js" required></code-editor>';
+    document.body.append(form);
+    try {
+      const editor = form.querySelector('code-editor') as HTMLElement & { value: string; resolvedLanguage: string | null };
+      yield ok(customElements.get('code-editor') !== undefined, '<code-editor> is registered by its global.mjs');
+      yield ok(!form.checkValidity(), 'a required, empty <code-editor> makes its form invalid');
+      editor.value = 'let x = 1;';
+      yield equal(new FormData(form).get('snippet'), 'let x = 1;', 'its value is submitted with the form (ElementInternals)');
+      yield equal(editor.resolvedLanguage, 'js', 'resolvedLanguage reflects the language attribute');
+    } finally { form.remove(); }
+  } catch (err) {
+    yield fail(`domkit suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
+async function* suiteDataPlot(): AsyncGenerator<Assertion> {
+  try {
+    const { linear, band, readTable } = await import('@johnhenry/data-plot');
+    yield equal(linear([0, 10])(5), 0.5, 'linear([0, 10]) maps 5 to the middle');
+    const b = band(['a', 'b'], 0);
+    yield equal(b('b'), 0.75, 'band(["a", "b"]) maps "b" to its band center');
+    const t = document.createElement('table');
+    t.innerHTML = '<thead><tr><th>city</th><th>rain</th></tr></thead><tbody><tr><td>Oslo</td><td>760</td></tr></tbody>';
+    yield deepequal(readTable(t), [{ city: 'Oslo', rain: 760 }], 'readTable() turns a table into rows, numeric text into numbers');
+  } catch (err) {
+    yield fail(`data-plot suite crashed before assertions ran: ${describeError(err)}`);
+  }
+}
+
 async function* suiteTensor(): AsyncGenerator<Assertion> {
   try {
     const { Tensor } = await import('@johnhenry/math-plus-tensor-core');
@@ -927,6 +976,9 @@ const SUITES: Suite[] = [
   { id: 'circuit', name: 'circuit · tokens.css defines --hue', pkgName: '@erisera-code/circuit', roomId: 'circuit', run: suiteCircuit },
   { id: 'letterpress', name: 'letterpress · header-matched route request', pkgName: '@johnhenry/letterpress', roomId: 'letterpress', run: suiteLetterpress },
   { id: 'packfile', name: 'packfile · toArchive/fromArchive round trip', pkgName: '@johnhenry/packfile', roomId: 'packfile', run: suitePackfile },
+  { id: 'obfo', name: 'obfo · read, fill and generate a form', pkgName: '@johnhenry/obfo', roomId: 'obfo', run: suiteObfo },
+  { id: 'domkit', name: 'domkit · <code-editor> is form-associated', pkgName: '@johnhenry/domkit', roomId: 'domkit', run: suiteDomkit },
+  { id: 'data-plot', name: 'data-plot · scales and readTable()', pkgName: '@johnhenry/data-plot', roomId: 'data-plot', run: suiteDataPlot },
   { id: 'tensor', name: 'math-plus-tensor-core · elementwise add', pkgName: '@johnhenry/math-plus-tensor-core', roomId: 'tensor', run: suiteTensor },
   { id: 'grapher', name: 'math-grapher · module loads', pkgName: '@johnhenry/math-grapher', roomId: 'grapher', run: suiteGrapher },
   { id: 'toolcode', name: 'aimatey-middleware-andbox · adaptPythonisms() on an f-string', pkgName: '@johnhenry/aimatey-middleware-andbox', roomId: 'toolcode', run: suiteToolcode },

@@ -1,0 +1,55 @@
+.pg-obfo { display: grid; gap: 16px; }
+.pg-obfo h3 { margin: 0 0 10px; font-size: 16px; }
+.pg-obfo .hint { color: var(--ink-2); font-size: 13px; margin: 4px 0 10px; }
+.pg-obfo .fl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.pg-obfo .fl-head h3 { margin: 0; flex: 1 1 280px; }
+.pg-obfo .fl-seg { display: inline-flex; gap: 6px; }
+.pg-obfo .btn[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: transparent; }
+.pg-obfo .btn[aria-pressed="true"] code { color: inherit; }
+.pg-obfo .fl-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+
+/* The editable form (and the generated one): plain HTML, styled lightly. */
+.pg-obfo .fl-form, .pg-obfo .fl-generated form { display: grid; gap: 10px; padding: 14px; border: 1px dashed var(--accent-border); border-radius: 10px; background: var(--bg-inset); }
+.pg-obfo .fl-form input:not([type="checkbox"], [type="radio"], [type="range"]),
+.pg-obfo .fl-form select, .pg-obfo .fl-form textarea,
+.pg-obfo .fl-generated input:not([type="checkbox"]), .pg-obfo .fl-generated textarea {
+  padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-panel); min-width: 0;
+}
+.pg-obfo .fl-f { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); font-family: var(--f-mono); }
+.pg-obfo .fl-check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+.pg-obfo .fl-radios { display: flex; flex-wrap: wrap; gap: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.pg-obfo .fl-radios legend, .pg-obfo .fl-box legend { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); padding: 0 4px; }
+.pg-obfo .fl-box { display: grid; gap: 8px; border: 1px solid var(--accent-border); border-radius: 8px; padding: 8px 10px 10px; margin: 0; }
+.pg-obfo .fl-box legend code { color: var(--accent); }
+.pg-obfo .fl-box > input { width: 100%; }
+.pg-obfo .fl-row { display: grid; grid-template-columns: 1fr 6em auto; gap: 6px; align-items: center; }
+.pg-obfo .fl-note { margin: 0; font-size: 12px; color: var(--ink-3); font-style: italic; }
+.pg-obfo .fl-form button[type="submit"] { justify-self: start; opacity: .6; font-size: 12px; }
+.pg-obfo .fl-generated form fieldset { border: 1px solid var(--accent-border); border-radius: 8px; display: grid; gap: 6px; padding: 6px 10px 10px; }
+.pg-obfo .fl-generated form legend { font-family: var(--f-mono); font-size: 12px; color: var(--accent); }
+.pg-obfo .fl-generated label { display: grid; gap: 3px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); }
+
+.pg-obfo .fl-out { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.pg-obfo .fl-call code { font-size: 12px; color: var(--accent); }
+.pg-obfo .fl-json { max-height: 460px; }
+.pg-obfo .fl-json.small { max-height: 260px; margin-top: 8px; }
+.pg-obfo .fl-markup { margin-top: 10px; }
+.pg-obfo .fl-markup summary, .pg-obfo .fl-diff summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.pg-obfo .fl-markup textarea { min-height: 220px; font-size: 12px; }
+.pg-obfo textarea.code { min-height: 220px; }
+
+.pg-obfo .fl-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.pg-obfo .fl-table th, .pg-obfo .fl-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.pg-obfo .fl-table th { color: var(--ink-2); font-weight: 600; }
+.pg-obfo .fl-rules .fl-auto { color: var(--accent); font-weight: 600; }
+
+.pg-obfo .fl-roundtrip { margin-top: 8px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-inset); font-size: 13px; }
+.pg-obfo .fl-roundtrip.ok { border-color: var(--success); background: var(--success-soft); }
+.pg-obfo .fl-roundtrip.warn { border-color: var(--warning, var(--accent)); }
+.pg-obfo .fl-roundtrip.bad { border-color: var(--error); color: var(--error); }
+.pg-obfo .fl-roundtrip ul { margin: 6px 0; padding-left: 18px; }
+.pg-obfo .what p { color: var(--ink-2); font-size: 14px; line-height: 1.6; max-width: 80ch; }
+
+@media (max-width: 640px) {
+  .pg-obfo .fl-row { grid-template-columns: 1fr; }
+}

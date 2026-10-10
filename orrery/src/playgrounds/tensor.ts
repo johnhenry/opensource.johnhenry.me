@@ -14,6 +14,7 @@ import {
 // so this room emits one per train step — also gated by hasSink() — for the global dock to show.
 import { hasSink, tensorSummary } from '@johnhenry/math-plus-telemetry';
 import { readState, writeState, copyLink } from '../state';
+import { handoffButton } from '../bus';
 import './tensor.css';
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -213,7 +214,16 @@ function mountGrad(root: HTMLElement, st: State, save: () => void): () => void {
   const lossC = el('canvas', 'losscurve'); lossC.width = 520; lossC.height = 150;
   const lossHead = el('div', 'subhead', 'loss (binary cross-entropy, log scale)');
   const code = el('pre', 'code calls');
-  right.append(lossHead, lossC, el('div', 'subhead', 'the calls, verbatim'), code);
+  // Handoff: the loss curve as rows for Data Plot Studio (a line over step).
+  const toPlot = handoffButton({
+    from: 'tensor', to: 'data-plot', kind: 'rows', label: 'Plot the loss in Data Plot Studio',
+    getPayload: () => {
+      const n = history.length, stride = Math.max(1, Math.ceil(n / 120)), rows: { step: number; loss: number }[] = [];
+      for (let i = 0; i < n; i += stride) rows.push({ step: Math.round((i * step) / Math.max(1, n)), loss: Number(history[i].toPrecision(4)) });
+      return { rows, x: 'step', y: 'loss', line: true, title: 'loss from Tensor Bench', yLabel: 'BCE loss' };
+    },
+  });
+  right.append(lossHead, lossC, toPlot, el('div', 'subhead', 'the calls, verbatim'), code);
 
   const graphPanel = el('div', 'panel graph-panel');
   const graphHead = el('div', 'subhead', 'computation graph of one forward pass · edges carry tensors, labels show ‖∂L/∂tensor‖ after backward');
