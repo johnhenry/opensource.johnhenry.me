@@ -325,10 +325,10 @@ ${F}`,
     // capability gate builds its object with Object.create(null), so a call to a
     // name that was never granted as a capability — 'constructor' included —
     // simply isn't there; the host replies "Unknown capability" (andbox#5, fixed).
-    // But sandboxed code runs in a real Worker global scope, and fetch() is a
-    // Worker global like any other: nothing about "no fetch capability was granted"
-    // stops raw fetch() from being called directly, capability gate or not
-    // (andbox's own README says so under "What is still yours").
+    // Raw fetch(): andbox 0.1.0+ deletes fetch (and WebSocket, Worker, importScripts, ...)
+    // from the Worker before evaluated code runs, so the attempt finds nothing to call.
+    // That is deny-list hardening, not a boundary (import() still reaches the network;
+    // andbox's README, "What is still yours"); before 0.1.0 the call went straight out.
     id: 'jailbreak', label: 'honest jailbreak · constructor + raw fetch',
     prompt: 'Try to break out of the sandbox: reach the real constructor, and make a raw network request the host never approved.',
     keywords: /jailbreak|escape|break out|constructor|raw fetch/i,
@@ -345,11 +345,15 @@ try {
 print(\`host.call('constructor') -> \${ctorResult}\`);
 
 let fetchResult;
-try {
-  const res = await fetch('https://example.com/');
-  fetchResult = \`reached the network: HTTP \${res.status}\`;
-} catch (e) {
-  fetchResult = \`no network here (not a sandbox block): \${e.message}\`;
+if (typeof fetch !== 'function') {
+  fetchResult = 'removed: there is no fetch in this Worker';
+} else {
+  try {
+    const res = await fetch('https://example.com/');
+    fetchResult = \`reached the network: HTTP \${res.status}\`;
+  } catch (e) {
+    fetchResult = \`no network here (not a sandbox block): \${e.message}\`;
+  }
 }
 print(\`raw fetch() -> \${fetchResult}\`);
 ${F}`,
@@ -357,7 +361,9 @@ ${F}`,
       const c = /host\.call\('constructor'\) -> (.+)/.exec(s)?.[1];
       const f = /raw fetch\(\) -> (.+)/.exec(s)?.[1];
       if (!c || !f) return '';
-      return `Two different outcomes. host.call('constructor') ${c.startsWith('blocked') ? 'was blocked' : 'went through'} — andbox's gate is built with Object.create(null), so a capability name nobody granted, "constructor" included, simply isn't there. But raw fetch() ${f.startsWith('reached') ? 'went straight through' : 'only failed for network reasons'}, because sandboxed code shares the Worker's real global scope: fetch, WebSocket and Worker are reachable directly, with or without a matching host.* capability. andbox's own docs call this out — it isolates well-behaved code, not code that's actively trying to get out.`;
+      return `Two different outcomes. host.call('constructor') ${c.startsWith('blocked') ? 'was blocked' : 'went through'} — andbox's gate is built with Object.create(null), so a capability name nobody granted, "constructor" included, simply isn't there. ${f.startsWith('removed')
+        ? "And raw fetch() isn't there at all: since andbox 0.1.0 the Worker prelude deletes fetch, WebSocket, XMLHttpRequest, Worker, importScripts and friends before your code runs (a network has to be granted, as a capability or andbox's network option). That is hardening, not a boundary: the platform import() operator can still reach the network, and andbox's own docs say worker mode isolates well-behaved code, not code that's actively trying to get out (mode: 'wasm' is the one for that)."
+        : `But raw fetch() ${f.startsWith('reached') ? 'went straight through' : 'only failed for network reasons'}, because sandboxed code shares the Worker's real global scope: fetch, WebSocket and Worker are reachable directly, with or without a matching host.* capability. andbox's own docs call this out — it isolates well-behaved code, not code that's actively trying to get out.`}`;
     },
   },
 ];

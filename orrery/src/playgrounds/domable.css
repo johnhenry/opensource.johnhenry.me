@@ -186,3 +186,18 @@
      rule above for the same fix at the top level. */
   .pg-domable .regsc-grid, .pg-domable .mathml-grid, .pg-domable .mathml-out { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* createElement props (domable 0.0.2) */
+.pg-domable .props-events { margin: 0; padding-left: 20px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); min-height: 1.5em; }
+.pg-domable .props-table { overflow-x: auto; }
+.pg-domable .props-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pg-domable .props-table th, .pg-domable .props-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pg-domable .props-table th { font-family: var(--f-mono); font-weight: 600; color: var(--ink-3); font-size: 11px; }
+.pg-domable .props-table td { font-family: var(--f-mono); overflow-wrap: anywhere; }
+.pg-domable .props-table td:nth-child(-n+3) { white-space: nowrap; overflow-wrap: normal; }
+.pg-domable .props-caption { margin: 12px 0 4px; }
+.pg-domable .props-table td.ok { color: var(--success); }
+.pg-domable .props-table td.bad { color: var(--error); }
+.pg-domable .props-table tr[data-kind="listener"] td:nth-child(3) { color: var(--accent); }
+.pg-domable .props-table tr[data-kind="property"] td:nth-child(3) { color: var(--info); }
+.pg-domable .props-table p { margin: 6px 0 0; }

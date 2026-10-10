@@ -110,7 +110,7 @@ const sources = import.meta.glob('./playgrounds/*.ts', { query: '?raw', import: 
 
 const DOCS: Record<string, string> = {
   signals: 'css-signals', chunker: 'semantic-chunker', fields: 'http-fields', converter: 'http-converter',
-  mesh: 'browsermesh', jj: 'isomorphic-jj', studio: 'servable', mcpq: 'agent-query', laya: 'laya-js', objectify: 'objectify', toolcode: 'aimatey-middleware-andbox', tensor: 'math', grapher: 'math', afm: 'apple-foundation-models',
+  mesh: 'browsermesh', jj: 'isomorphic-jj', studio: 'servable', mcpq: 'agent-query', laya: 'laya-js', objectify: 'objectify', toolcode: 'aimatey-middleware-andbox', tensor: 'math', grapher: 'math', afm: 'apple-foundation-models', notebook: 'patchbay',
   // @johnhenry/iteration is a page under /math/, not its own top-level docs section
   // (see registry.ts's PKG_DOCS, which is the ground-truthed source for this fold).
   iteration: 'math',
