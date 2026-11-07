@@ -316,3 +316,12 @@ header.header {
    exchange, not a dependency. So it splits the ordinary 25-45 gap ~10/10.
    Three ordinary 20 degree gaps remain: 260-280, 300-320, 320-340. */
 :root[data-tool='sitefile']         { --hue: 35; }  /* splits the 25(ai-matey)-45(circuit) gap */
+
+/* sigil (adopted 2026-11-07 from the unscoped `liedenticon`): the same
+   fallback. Re-checked: every gap between adjacent stops is still 20 degrees
+   or less. sigil has no package-level link to an existing section: its
+   package.json has no dependencies of any kind, no family package depends on
+   it, and its README's Family section says it is a leaf (johnhenry/lib only
+   vendors an old copy). So it splits the ordinary 260-280 gap ~10/10. Two
+   ordinary 20 degree gaps remain: 300-320, 320-340. */
+:root[data-tool='sigil']      { --hue: 270; } /* splits the 260(jth)-280(ecmanim) gap */

@@ -1,0 +1,145 @@
+---
+title: "sigil"
+description: "Deterministic SVG and PNG identicons from any string: an email, a username or a hex digest. Zero dependencies, plain ES modules."
+---
+
+import Install from '../../../components/Install.astro';
+
+**`@johnhenry/sigil`** turns any string into a small, symmetric, colored
+identicon, as SVG markup or a PNG. The same string always gives the same
+image. Zero dependencies, shipped as plain ES modules, runs in Node and
+browsers.
+
+> Previously published as `liedenticon` (last unscoped release 1.0.1).
+> Renamed to `@johnhenry/sigil` (repo: johnhenry/sigil) and restarted at
+> 0.0.0 on joining the @johnhenry family: a new address, not a sign of
+> immaturity. Hex hashes render exactly as they did in 1.0.1.
+
+## Install
+
+<Install pkg="@johnhenry/sigil" />
+
+## Quick start
+
+```javascript
+import { SVG, PNG } from "@johnhenry/sigil";
+
+// SVG markup (assigning it converts it to a string)
+document.querySelector("#avatar").innerHTML = new SVG("ada@example.com");
+
+// A PNG data URI for <img src>
+document.querySelector("img").src = new PNG("ada@example.com", { size: 128 });
+```
+
+## What to pass as the hash
+
+Any string. How it's read depends on what it looks like:
+
+- **15 or more hex digits** (an MD5, SHA-1 or SHA-256 hex digest): used as
+  is. The first 15 digits pick the cells and the last 7 pick the hue, the
+  identicon.js scheme.
+- **Anything else** (an email, a username, a short id): first turned into 32
+  hex digits by a small built-in digest, then drawn the same way.
+
+The built-in digest is not cryptographic; it only spreads strings across the
+icon space. To match another identicon tool, hash the string the way that
+tool does (for example `md5(email)`) and pass the hex. `normalizeHash(input)`
+returns the hex string that will actually be drawn.
+
+## Output
+
+| Call | Returns |
+| --- | --- |
+| `String(new SVG(hash))` | SVG markup |
+| `new SVG(hash).toString(true)` | `data:image/svg+xml;charset=utf-8,…` (percent-encoded) |
+| `new SVG(hash).toString(true, true)` | `data:image/svg+xml;base64,…` |
+| `String(new PNG(hash))` | `data:image/png;base64,…` |
+| `new PNG(hash).toString(false)` | bare base64 PNG |
+
+The two classes have opposite `toString` defaults on purpose: SVG's useful
+default is markup, a PNG's is the data URI. To write a PNG file in Node:
+
+```javascript
+import { writeFile } from "node:fs/promises";
+import { PNG } from "@johnhenry/sigil";
+
+const icon = new PNG("ada@example.com", { size: 256 });
+await writeFile("ada.png", Buffer.from(icon.toString(false), "base64"));
+```
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `size` | `64` | Width and height in pixels. |
+| `padding` | `0` | A fraction of `size` (`0.2`) or a percentage string (`"20%"`). |
+| `foreground` | derived | The cell color. By default a hue taken from the hash. |
+| `background` | transparent | The background color. |
+| `saturation` | `0.75` | Saturation (0-1) of the derived foreground. |
+| `brightness` | `0.5` | Lightness (0-1) of the derived foreground. |
+
+`null` for either color means "use the default". Colors can be hex strings of
+1, 2, 3, 4, 6 or 8 digits (with or without `#`; the 2, 4 and 8 digit forms
+carry alpha), numbers (`0xRRGGBB`, or `0xRRGGBBAA` above `0xffffff`), or
+`[r, g, b]` / `[r, g, b, a]` arrays. `colorToArray(color)` normalizes any of
+them to `[r, g, b, a]`.
+
+## Adding a new output format
+
+`SVG` and `PNG` extend `Graphic`, which validates the options and derives the
+colors, then calls `renderImage`. The exported `render` helper walks the
+mirrored 5x5 grid and calls your `rectangle` function once per cell:
+
+```javascript
+import Graphic, { render } from "@johnhenry/sigil/graphic";
+
+class Text extends Graphic {
+  renderImage(hash, size, padding, background, foreground) {
+    const rows = Array.from({ length: 5 }, () => Array(5).fill(" "));
+    const image = { color: (c) => (c === background ? "  " : "██") };
+    render(hash, { size: 5, padding: 0, background, foreground }, image, (x, y, w, h, cell) => {
+      rows[y][x] = cell;
+    });
+    return rows.map((row) => row.join("")).join("\n");
+  }
+  toString() {
+    return this.image;
+  }
+}
+
+console.log(String(new Text("ada@example.com")));
+```
+
+## Honest limitations
+
+- **Not a security feature.** An identicon helps people tell accounts apart at
+  a glance; it does not prove identity. There are 2^15 patterns and similar
+  hues are easy to confuse.
+- **The PNG encoder doesn't compress.** It writes stored deflate blocks, so a
+  256px PNG is about 66 KB. Use SVG when size matters.
+- **`0xRRGGBBAA` numbers can't express a zero red channel with alpha**:
+  `0x00ff00ff` is the number `0xff00ff`, opaque magenta. Use `"#00ff00ff"` or
+  an array instead.
+
+## What changed from 1.0.1
+
+Fixed in 0.0.0: non-hex and short hashes all rendered with `NaN` color
+channels; PNGs of 256px and larger were corrupt; numeric colors lost leading
+zero channels; `foreground: 0` was ignored and `background: null` threw; a
+stray `console.log`; the SVG `utf8` data URI wasn't URL-encoded. The package
+is now ES modules only. The full list is in the
+[CHANGELOG](https://github.com/johnhenry/sigil/blob/main/CHANGELOG.md).
+
+## Family
+
+sigil is a leaf: it doesn't depend on any sibling package and none
+depends on it. Its output is a plain SVG string or a PNG data URI, so it drops
+into anything that takes markup or an image URL.
+
+## License
+
+MIT for John Henry's work, together with the BSD licenses of
+[identicon.js](https://github.com/stewartlord/identicon.js) (Stewart Lord)
+and PNGlib (Robert Eisele), from which parts of the package are derived. All
+three notices are in
+[LICENSE](https://github.com/johnhenry/sigil/blob/main/LICENSE).
