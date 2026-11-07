@@ -306,3 +306,13 @@ header.header {
    the ordinary 175-195 gap ~10/10. Four ordinary 20 degree gaps remain:
    25-45, 260-280, 300-320, 320-340. */
 :root[data-tool='obfo']             { --hue: 185; } /* splits the 175(semantic-chunker)-195(spintax) gap */
+
+/* sitefile (adopted 2026-11-06; the family's static build orchestrator): the
+   same fallback. Re-checked: every gap between adjacent stops is still 20
+   degrees or less. sitefile has no package-level link to an existing section:
+   its package.json has no dependencies (dev-only @johnhenry/packfile for an
+   interop test, typescript, @types/node), no family package depends on it, and
+   its README's Family section (fileable, packfile) describes file formats they
+   exchange, not a dependency. So it splits the ordinary 25-45 gap ~10/10.
+   Three ordinary 20 degree gaps remain: 260-280, 300-320, 320-340. */
+:root[data-tool='sitefile']         { --hue: 35; }  /* splits the 25(ai-matey)-45(circuit) gap */

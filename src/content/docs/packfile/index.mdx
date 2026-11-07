@@ -53,7 +53,23 @@ another's router:
   same `wbn` package packfile itself depends on — not via a dependency on
   packfile. The resulting `.wbn` is directly readable by this package's own
   `fromArchive()` and servable via `createRouter()`, no unpacking to disk
-  needed.
+  needed. File names containing `#`, `?` or `%` don't survive that trip yet
+  ([fileable#20](https://github.com/johnhenry/fileable/issues/20)), and an
+  empty `<Dir>` isn't kept.
+- **[sitefile](/sitefile/)** — Sitefile's `EXPORT / AS wbn BASE <url>`
+  writes a plain (not gzipped) Web Bundle. `fromWebBundle(buffer, { baseURL })`
+  from [`./web-bundle`](/packfile/web-bundle/) reads it back into exactly the
+  exported files, and `createRouter()` serves it. Fixed on main, in the next
+  release: `fromArchive(buffer, { baseURL })` (or, without `baseURL`, the
+  origin of the bundle's primary URL) reads bundles built for a real site
+  ([packfile#18](https://github.com/johnhenry/packfile/issues/18)), so a
+  Sitefile `EXPORT … AS wbn COMPRESSION gzip` reads with plain
+  `fromArchive()`, and Sitefile's HEADER values and exact-path REDIRECTs are
+  in the bundle's responses for `createWebBundleRouter()`. For a non-ASCII path, pass
+  `createRouter()` the path as a string rather than a `Request`
+  ([packfile#20](https://github.com/johnhenry/packfile/issues/20)). The full
+  table of what works between the three packages, and the open gaps, is on
+  [Sitefile's Family page](/sitefile/family/).
 - **[`@johnhenry/servable`](https://github.com/johnhenry/servable)** —
   `createRouter()` returns a `(Request | path, ctx?) => Response` handler
   (aliased as `.fetch`), the exact shape servable's `Route`'s `handler` prop

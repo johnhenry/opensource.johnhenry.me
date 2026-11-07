@@ -99,6 +99,23 @@ Things that aren't obvious from the API surface alone:
   built tree across two `render()` calls with different options (a normal
   SDK pattern) is safe — each call clones before touching anything.
 
+## Family
+
+- **[servable](/servable/)** mounts a fileable tree as static routes, in the same process and without writing to
+  disk (`<Group from={tree}>`); fileable is servable's optional peer dependency. The
+  [tutorial](/fileable/tutorial/) walks through both halves.
+- **[packfile](/packfile/)** reads `<Dir encode="wbn">` output with `fromArchive()` and serves it with
+  `createRouter()`; fileable depends on the `wbn` package, not on packfile. File names containing `#`, `?` or `%` don't
+  survive the trip yet ([fileable#20](https://github.com/johnhenry/fileable/issues/20)), and an empty `<Dir>` isn't
+  kept.
+- **[sitefile](/sitefile/)** takes fileable output as a build input: the loose directory (`COPY ./generated/ /`) or an
+  `encode="zip"` archive (`IMPORT gen FROM ./site.zip AS tree`). The `encode="wbn"` archive isn't readable by Sitefile
+  yet ([sitefile#141](https://github.com/johnhenry/sitefile/issues/141)). Neither package depends on the other.
+  Sitefile's repository also has an example plugin (`examples/fileable/`, on main) that renders a fileable tree inside
+  a build with the in-memory `toFiles()`; `cmd` is refused there, since a plugin cannot start processes.
+
+The table of every hand-off between fileable, packfile and Sitefile is on [Sitefile's Family page](/sitefile/family/).
+
 ## Status
 
 169 tests, zero runtime surprises left unguarded that a scratch-directory

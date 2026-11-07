@@ -54,6 +54,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | dataflow | `dataflow/` | 250° — same fallback; splits the 240°(agent-query)–260°(jth) gap ≈10°/10° |
 | patchbay | `patchbay/` | 350° — same fallback; splits the 340°(wsh/browsermesh/dialback)–360°(tester, 0°) gap ≈10°/10° |
 | obfo | `obfo/` | 185° — same fallback (no `package.json` dependency on or from any section); splits the 175°(semantic-chunker)–195°(spintax) gap ≈10°/10° |
+| sitefile | `sitefile/` | 35° — same fallback (no `package.json` dependency on or from any section; packfile is a devDependency for an interop test); splits the 25°(ai-matey)–45°(circuit) gap ≈10°/10° |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -213,6 +214,12 @@ took the same fallback: it has no dependencies, nothing depends on it, and
 its `## Family` section (signalle, dataflow) describes composition in an
 app. It splits the 175°–195° gap at 185°. Four ordinary 20° gaps remain
 (25°–45°, 260°–280°, 300°–320°, 320°–340°).
+
+sitefile (adopted 2026-11-06, a new package never published under any name)
+took the same fallback: it has no runtime dependencies, nothing depends on it,
+and its `## Family` section (fileable, packfile) describes the file formats
+they exchange. It splits the 25°–45° gap at 35°. Three ordinary 20° gaps
+remain (260°–280°, 300°–320°, 320°–340°).
 
 ### Install blocks and package versions
 

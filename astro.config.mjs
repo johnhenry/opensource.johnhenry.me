@@ -69,6 +69,7 @@ export default defineConfig({
           { label: 'servable', directory: 'servable' },
           { label: 'hostable', directory: 'hostable' },
           { label: 'packfile', directory: 'packfile' },
+          { label: 'sitefile', directory: 'sitefile' },
           { label: 'leserve', directory: 'leserve' },
           { label: 'servant', directory: 'servant' },
           { label: 'letterpress', directory: 'letterpress' },
