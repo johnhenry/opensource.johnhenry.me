@@ -1278,6 +1278,13 @@
       "esmSh": {
         ".": "https://esm.sh/@johnhenry/obfo@0.0.0"
       }
+    },
+    "@johnhenry/liedenticon": {
+      "section": "liedenticon",
+      "status": "ready",
+      "summary": "Plain ESM, no dependencies.",
+      "npm": "0.0.0",
+      "jsr": null
     }
   },
   "verified": {
