@@ -30,7 +30,7 @@ tree; `EXPORT` writes the last stage's tree out.
 | `REDIRECT <from> <to> [STATUS 301\|302\|303\|307\|308]`, `HEADER <pattern> <Name>: <value>` | `/_redirects` and `/_headers` for Netlify / Cloudflare Pages, also honoured by `sitefile serve`. |
 | `CHECKLINKS [--warn] [--external]` | Fails (or warns) on links to files that do not exist, with file and line. |
 | `FINGERPRINT [--overwrite] <pattern>… [MANIFEST <dest>]` | Renames assets to `name.<hash>.ext`, rewrites the HTML and CSS that reference them, and writes a JSON manifest. |
-| `EXPORT <path> [AS directory\|zip\|tar\|tgz\|wbn\|oci] [BASE <url>] [AT <root>] [COMPRESSION gzip\|none]` | Must be last. `wbn` needs `BASE` (or `--base-url`); `oci` writes a single-layer image under `AT` (default `/srv/www`); `COMPRESSION` is for `oci` only. |
+| `EXPORT <path> [AS directory\|zip\|tar\|tgz\|wbn\|oci] [BASE <url>] [AT <root>] [COMPRESSION gzip\|none]` | Must be last. `wbn` needs `BASE` (or `--base-url`); `oci` writes a single-layer image under `AT` (default `/srv/www`); `COMPRESSION` is for `oci` only (on main, in the next release, also `wbn`: `gzip` wraps the bundle, sitefile#143). |
 
 ## Templates
 

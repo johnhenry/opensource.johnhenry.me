@@ -47,7 +47,9 @@ Read these before the reference. Each one is a deliberate rule that a first buil
   directly (see [Family](/sitefile/family/)), but `IMPORT … AS tree` cannot yet read the gzip-wrapped bundles that
   fileable's `encode="wbn"` and packfile's `toArchive()` write (sitefile#141). Import their directory or zip output
   instead.
-- **`COMPRESSION` is for OCI exports only.** On any other format it is a validation error.
+- **`COMPRESSION` is for OCI exports only in 0.0.0.** On any other format it is a validation error. Fixed on main, in
+  the next release: `AS wbn COMPRESSION gzip` (or `-o site.wbn.gz`) writes the gzip-wrapped bundle the rest of the
+  family uses (sitefile#143).
 - **The npm package is the TypeScript implementation.** The Rust binary is faster and is the only one with the editor
   language server (`sitefile lsp`); it builds from the repository with `cargo install --path rust`, and prebuilt
   binaries are not published yet. Both produce byte-identical output.
