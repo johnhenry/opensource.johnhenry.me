@@ -82,7 +82,7 @@ export default defineConfig({
           { label: 'css-signals', directory: 'css-signals' },
           { label: 'semantic-chunker', directory: 'semantic-chunker' },
           { label: 'spintax', directory: 'spintax' },
-          { label: 'liedenticon', directory: 'liedenticon' },
+          { label: 'sigil', directory: 'sigil' },
           { label: 'tester', directory: 'tester' },
           { label: 'domable', directory: 'domable' },
           { label: 'hashish', directory: 'hashish' },

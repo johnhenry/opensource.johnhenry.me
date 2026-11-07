@@ -55,7 +55,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | patchbay | `patchbay/` | 350° — same fallback; splits the 340°(wsh/browsermesh/dialback)–360°(tester, 0°) gap ≈10°/10° |
 | obfo | `obfo/` | 185° — same fallback (no `package.json` dependency on or from any section); splits the 175°(semantic-chunker)–195°(spintax) gap ≈10°/10° |
 | sitefile | `sitefile/` | 35° — same fallback (no `package.json` dependency on or from any section; packfile is a devDependency for an interop test); splits the 25°(ai-matey)–45°(circuit) gap ≈10°/10° |
-| liedenticon | `liedenticon/` | 270° — same fallback (no dependencies of any kind; nothing depends on it); splits the 260°(jth)–280°(ecmanim) gap ≈10°/10° |
+| sigil | `sigil/` | 270° — same fallback (no dependencies of any kind; nothing depends on it); splits the 260°(jth)–280°(ecmanim) gap ≈10°/10° |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets
@@ -222,7 +222,7 @@ and its `## Family` section (fileable, packfile) describes the file formats
 they exchange. It splits the 25°–45° gap at 35°. Three ordinary 20° gaps
 remain (260°–280°, 300°–320°, 320°–340°).
 
-liedenticon (adopted 2026-11-07 from the unscoped `liedenticon`) took the
+sigil (adopted 2026-11-07 from the unscoped `liedenticon`) took the
 same fallback: it has no dependencies, nothing depends on it, and its
 `## Family` section says it is a leaf. It splits the 260°–280° gap at 270°.
 Two ordinary 20° gaps remain (300°–320°, 320°–340°).

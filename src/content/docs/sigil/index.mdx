@@ -1,28 +1,28 @@
 ---
-title: "liedenticon"
+title: "sigil"
 description: "Deterministic SVG and PNG identicons from any string: an email, a username or a hex digest. Zero dependencies, plain ES modules."
 ---
 
 import Install from '../../../components/Install.astro';
 
-**`@johnhenry/liedenticon`** turns any string into a small, symmetric, colored
+**`@johnhenry/sigil`** turns any string into a small, symmetric, colored
 identicon, as SVG markup or a PNG. The same string always gives the same
 image. Zero dependencies, shipped as plain ES modules, runs in Node and
 browsers.
 
 > Previously published as `liedenticon` (last unscoped release 1.0.1).
-> Renamed to `@johnhenry/liedenticon` and restarted at 0.0.0 on joining the
-> @johnhenry family: a new address, not a sign of immaturity. Hex hashes
-> render exactly as they did in 1.0.1.
+> Renamed to `@johnhenry/sigil` (repo: johnhenry/sigil) and restarted at
+> 0.0.0 on joining the @johnhenry family: a new address, not a sign of
+> immaturity. Hex hashes render exactly as they did in 1.0.1.
 
 ## Install
 
-<Install pkg="@johnhenry/liedenticon" />
+<Install pkg="@johnhenry/sigil" />
 
 ## Quick start
 
 ```javascript
-import { SVG, PNG } from "@johnhenry/liedenticon";
+import { SVG, PNG } from "@johnhenry/sigil";
 
 // SVG markup (assigning it converts it to a string)
 document.querySelector("#avatar").innerHTML = new SVG("ada@example.com");
@@ -61,7 +61,7 @@ default is markup, a PNG's is the data URI. To write a PNG file in Node:
 
 ```javascript
 import { writeFile } from "node:fs/promises";
-import { PNG } from "@johnhenry/liedenticon";
+import { PNG } from "@johnhenry/sigil";
 
 const icon = new PNG("ada@example.com", { size: 256 });
 await writeFile("ada.png", Buffer.from(icon.toString(false), "base64"));
@@ -91,7 +91,7 @@ colors, then calls `renderImage`. The exported `render` helper walks the
 mirrored 5x5 grid and calls your `rectangle` function once per cell:
 
 ```javascript
-import Graphic, { render } from "@johnhenry/liedenticon/graphic";
+import Graphic, { render } from "@johnhenry/sigil/graphic";
 
 class Text extends Graphic {
   renderImage(hash, size, padding, background, foreground) {
@@ -128,11 +128,11 @@ channels; PNGs of 256px and larger were corrupt; numeric colors lost leading
 zero channels; `foreground: 0` was ignored and `background: null` threw; a
 stray `console.log`; the SVG `utf8` data URI wasn't URL-encoded. The package
 is now ES modules only. The full list is in the
-[CHANGELOG](https://github.com/johnhenry/liedenticon/blob/main/CHANGELOG.md).
+[CHANGELOG](https://github.com/johnhenry/sigil/blob/main/CHANGELOG.md).
 
 ## Family
 
-liedenticon is a leaf: it doesn't depend on any sibling package and none
+sigil is a leaf: it doesn't depend on any sibling package and none
 depends on it. Its output is a plain SVG string or a PNG data URI, so it drops
 into anything that takes markup or an image URL.
 
@@ -142,4 +142,4 @@ MIT for John Henry's work, together with the BSD licenses of
 [identicon.js](https://github.com/stewartlord/identicon.js) (Stewart Lord)
 and PNGlib (Robert Eisele), from which parts of the package are derived. All
 three notices are in
-[LICENSE](https://github.com/johnhenry/liedenticon/blob/main/LICENSE).
+[LICENSE](https://github.com/johnhenry/sigil/blob/main/LICENSE).
