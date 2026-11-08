@@ -9,7 +9,7 @@ A Sitefile can come from someone else: a Git URL, a theme image, a shared stage.
 untrusted input. Templates, imports and WebAssembly plugins are data. JavaScript plugins and external tools are code,
 and they run only when you name them on the command line.
 
-## What Sitefile guarantees
+## What sitefile guarantees
 
 - **Local reads stay inside the build context.** No `..`, absolute paths or symlinks out. Hard-linked files are refused
   (`E_HARDLINK`) unless `--allow-hardlinks`, because a hard link can alias a file outside the context.

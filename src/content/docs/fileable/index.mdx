@@ -109,12 +109,12 @@ Things that aren't obvious from the API surface alone:
   survive the trip yet ([fileable#20](https://github.com/johnhenry/fileable/issues/20)), and an empty `<Dir>` isn't
   kept.
 - **[sitefile](/sitefile/)** takes fileable output as a build input: the loose directory (`COPY ./generated/ /`) or an
-  `encode="zip"` archive (`IMPORT gen FROM ./site.zip AS tree`). The `encode="wbn"` archive isn't readable by Sitefile
+  `encode="zip"` archive (`IMPORT gen FROM ./site.zip AS tree`). The `encode="wbn"` archive isn't readable by sitefile
   yet ([sitefile#141](https://github.com/johnhenry/sitefile/issues/141)). Neither package depends on the other.
-  Sitefile's repository also has an example plugin (`examples/fileable/`, on main) that renders a fileable tree inside
+  sitefile's repository also has an example plugin (`examples/fileable/`, on main) that renders a fileable tree inside
   a build with the in-memory `toFiles()`; `cmd` is refused there, since a plugin cannot start processes.
 
-The table of every hand-off between fileable, packfile and Sitefile is on [Sitefile's Family page](/sitefile/family/).
+The table of every hand-off between fileable, packfile and sitefile is on [sitefile's Family page](/sitefile/family/).
 
 ## Status
 
