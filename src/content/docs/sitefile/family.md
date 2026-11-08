@@ -1,6 +1,6 @@
 ---
 title: "Family"
-description: "Sitefile, fileable and packfile: which one to use, and every hand-off between them (directories, zips, Web Bundles), with what works today, the workarounds and the open issues."
+description: "sitefile, fileable and packfile: which one to use, and every hand-off between them (directories, zips, Web Bundles), with what works today, the workarounds and the open issues."
 sidebar:
   order: 5
 ---
@@ -23,17 +23,17 @@ the rest of the row says.
 
 | From | To | How | Status |
 | --- | --- | --- | --- |
-| fileable, loose output | Sitefile | `COPY ./generated/ /` | Works |
-| fileable, `encode="zip"` | Sitefile | `IMPORT gen FROM ./site.zip AS tree`, then `COPY gen:/ /` | Works, same output as loose |
-| fileable, `encode="wbn"` | Sitefile | `IMPORT … AS tree` | **Not yet** ([sitefile#141](https://github.com/johnhenry/sitefile/issues/141)) |
-| fileable tree, rendered during a build | Sitefile | a JavaScript `TRANSFORM` plugin calling fileable's in-memory `toFiles()` | An example in Sitefile's repository (`examples/fileable/`, on main; not part of the npm package). fileable is vendored into the plugin folder, and `cmd`, local `src=` and `env://` are refused in the sandbox |
+| fileable, loose output | sitefile | `COPY ./generated/ /` | Works |
+| fileable, `encode="zip"` | sitefile | `IMPORT gen FROM ./site.zip AS tree`, then `COPY gen:/ /` | Works, same output as loose |
+| fileable, `encode="wbn"` | sitefile | `IMPORT … AS tree` | **Not yet** ([sitefile#141](https://github.com/johnhenry/sitefile/issues/141)) |
+| fileable tree, rendered during a build | sitefile | a JavaScript `TRANSFORM` plugin calling fileable's in-memory `toFiles()` | An example in sitefile's repository (`examples/fileable/`, on main; not part of the npm package). fileable is vendored into the plugin folder, and `cmd`, local `src=` and `env://` are refused in the sandbox |
 | fileable, `encode="wbn"` | packfile | `fromArchive()`, `createRouter()` | Works, with the file-name limits below; tested in fileable |
-| Sitefile, `EXPORT / AS wbn BASE <url>` | packfile | `fromWebBundle(buffer, { baseURL })`, then `createRouter()` | Works; tested in both repositories (packfile reads a bundle written by the published 0.0.0) |
-| Sitefile `.wbn` | packfile `fromArchive()` | with 0.0.0 / 0.2.0: gzip it, and export with `BASE https://packfile.invalid/` | Works with that workaround. **Fixed on main, in the next release:** `EXPORT … AS wbn COMPRESSION gzip` (or `-o site.wbn.gz`) writes the gzip ([sitefile#143](https://github.com/johnhenry/sitefile/issues/143)), and `fromArchive()` takes its base from a `baseURL` option or the bundle's primary URL, so any `BASE` reads back ([packfile#18](https://github.com/johnhenry/packfile/issues/18)) |
-| Sitefile `HEADER` / `REDIRECT` | packfile `createWebBundleRouter()` | — | **Not applied** in 0.0.0: only the `/_headers` and `/_redirects` files are in the bundle. **Fixed on main, in the next release:** each response carries its HEADER values, and exact-path 301/302/303/307/308 REDIRECTs are 3xx responses with `location` ([sitefile#144](https://github.com/johnhenry/sitefile/issues/144)). Splats, `200` rewrites and `404` rules stay in `/_redirects` only |
-| packfile `toArchive()` | Sitefile | `IMPORT … AS tree` | **Not yet** ([sitefile#141](https://github.com/johnhenry/sitefile/issues/141)) |
+| sitefile, `EXPORT / AS wbn BASE <url>` | packfile | `fromWebBundle(buffer, { baseURL })`, then `createRouter()` | Works; tested in both repositories (packfile reads a bundle written by the published 0.0.0) |
+| sitefile `.wbn` | packfile `fromArchive()` | with 0.0.0 / 0.2.0: gzip it, and export with `BASE https://packfile.invalid/` | Works with that workaround. **Fixed on main, in the next release:** `EXPORT … AS wbn COMPRESSION gzip` (or `-o site.wbn.gz`) writes the gzip ([sitefile#143](https://github.com/johnhenry/sitefile/issues/143)), and `fromArchive()` takes its base from a `baseURL` option or the bundle's primary URL, so any `BASE` reads back ([packfile#18](https://github.com/johnhenry/packfile/issues/18)) |
+| sitefile `HEADER` / `REDIRECT` | packfile `createWebBundleRouter()` | — | **Not applied** in 0.0.0: only the `/_headers` and `/_redirects` files are in the bundle. **Fixed on main, in the next release:** each response carries its HEADER values, and exact-path 301/302/303/307/308 REDIRECTs are 3xx responses with `location` ([sitefile#144](https://github.com/johnhenry/sitefile/issues/144)). Splats, `200` rewrites and `404` rules stay in `/_redirects` only |
+| packfile `toArchive()` | sitefile | `IMPORT … AS tree` | **Not yet** ([sitefile#141](https://github.com/johnhenry/sitefile/issues/141)) |
 
-## fileable → Sitefile
+## fileable → sitefile
 
 ```
 COPY ./generated/ /
@@ -48,11 +48,11 @@ fileable's `encode="wbn"` writes gzip around a Web Bundle, and `IMPORT … AS tr
 with `E_TYPE` ("gzip content is not a tar archive"). Use the directory or zip form until sitefile#141 lands.
 
 To render a fileable tree inside a build instead, without a directory or zip in between, see the plugin example in
-Sitefile's repository, `examples/fileable/` (on main; it is an example, not part of the npm package). fileable's `cmd`
+sitefile's repository, `examples/fileable/` (on main; it is an example, not part of the npm package). fileable's `cmd`
 attribute, local `src=` paths and `env://` fail there with `E_PLUGIN`, since a plugin cannot start processes, read
 outside its folder or see the environment.
 
-## Sitefile → packfile
+## sitefile → packfile
 
 `EXPORT / AS wbn BASE https://site.example/` writes a plain b2 Web Bundle. packfile reads it back into exactly the
 exported files and serves it:
@@ -71,7 +71,7 @@ const handler = createRouter(files);   // (Request | path) => Promise<Response>
 - **Pass a path string for non-ASCII paths.** `handler(new Request('https://site.example/docs/ünï/page.html'))` returns
   404 because the pathname isn't percent-decoded; `handler('/docs/ünï/page.html')` works
   ([packfile#20](https://github.com/johnhenry/packfile/issues/20)).
-- **The bundle's entry at the bare base URL is skipped.** Sitefile stores the index page there as well as at
+- **The bundle's entry at the bare base URL is skipped.** sitefile stores the index page there as well as at
   `/index.html`; read it as `index.html`.
 - **`HEADER` and `REDIRECT` rules aren't applied by 0.0.0.** They're in the bundle as `/_headers` and `/_redirects`
   files, which packfile serves as ordinary files. Fixed on main, in the next release
@@ -81,18 +81,18 @@ const handler = createRouter(files);   // (Request | path) => Promise<Response>
   `/_redirects`, for a host that reads it.
 
 packfile's own archive format (`toArchive()` / `fromArchive()`) is gzip around the same kind of bundle, under the fixed
-base URL `https://packfile.invalid/`. With the published versions, a Sitefile bundle exported with that `BASE` is read
+base URL `https://packfile.invalid/`. With the published versions, a sitefile bundle exported with that `BASE` is read
 by `fromArchive(bundle, { compressed: false })` as is, or by plain `fromArchive()` once gzipped; a bundle with any
-other `BASE` reads back as an empty map. Fixed on main, in the next release: Sitefile writes the gzip itself
+other `BASE` reads back as an empty map. Fixed on main, in the next release: sitefile writes the gzip itself
 (`EXPORT / AS wbn BASE <url> COMPRESSION gzip`, or `-o site.wbn.gz`), and `fromArchive()` accepts `{ baseURL }` or,
-without it, uses the origin of the bundle's primary URL. Sitefile writes a primary URL only when the site has
+without it, uses the origin of the bundle's primary URL. sitefile writes a primary URL only when the site has
 `/index.html`, and the derived base is the origin (`https://site.example/`), so a `BASE` with a path such as
 `https://site.example/blog/` gives keys like `blog/index.html` unless you pass that `baseURL`.
 
-Sitefile's `test/packfile-interop.test.ts` covers the files and bytes, a served page with its MIME type, a 404, and the
+sitefile's `test/packfile-interop.test.ts` covers the files and bytes, a served page with its MIME type, a 404, and the
 gzip relationship (on main, also the gzip export and the baked-in headers and redirects); packfile is a development
-dependency of Sitefile for that test only. packfile's `test/sitefile-fixture.test.mjs` reads a bundle written by the
-published Sitefile 0.0.0.
+dependency of sitefile for that test only. packfile's `test/sitefile-fixture.test.mjs` reads a bundle written by the
+published sitefile 0.0.0.
 
 ## fileable → packfile
 

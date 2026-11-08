@@ -43,7 +43,7 @@ Read these before the reference. Each one is a deliberate rule that a first buil
   on every redirect, unless you pass `--allow-http` / `--allow-private-network`.
 - **`EXPORT` comes last, and a Web Bundle needs a base URL.** `EXPORT / AS wbn` needs `BASE https://…` (or
   `--base-url`), because every file in a bundle is stored under an absolute URL.
-- **Sitefile's `.wbn` is a plain Web Bundle; the rest of the family gzips theirs.** packfile reads Sitefile's bundles
+- **sitefile's `.wbn` is a plain Web Bundle; the rest of the family gzips theirs.** packfile reads sitefile's bundles
   directly (see [Family](/sitefile/family/)), but `IMPORT … AS tree` cannot yet read the gzip-wrapped bundles that
   fileable's `encode="wbn"` and packfile's `toArchive()` write (sitefile#141). Import their directory or zip output
   instead.
@@ -65,7 +65,7 @@ Not yet on npm: the first publish of `@johnhenry/sitefile` is pending.
 
 Node 26 or later (`engines`). No runtime dependencies.
 
-**Provenance:** a new package. Sitefile was never published to npm under any name, and `0.0.0` is its first version.
+**Provenance:** a new package. sitefile was never published to npm under any name, and `0.0.0` is its first version.
 Under npm's caret rules `^0.0.0` matches only `0.0.0`, so pin exactly until a deliberate `0.1.0`.
 
 ## Quick start
@@ -96,11 +96,11 @@ sitefile serve --watch .               # build in memory, serve on 127.0.0.1, li
 
 ## Where it fits
 
-Sitefile is the build orchestrator among the family's static tools. It runs the pipeline; its siblings write file trees
+sitefile is the build orchestrator among the family's static tools. It runs the pipeline; its siblings write file trees
 in code and serve the result, and they meet at file formats rather than imports:
 
-- **[fileable](/fileable/)** writes trees in JSX (scaffolding, codegen). Its output directory or zip is a Sitefile input.
-- **[packfile](/packfile/)** reads and serves Web Bundles. It reads Sitefile's `EXPORT … AS wbn` output back into the
+- **[fileable](/fileable/)** writes trees in JSX (scaffolding, codegen). Its output directory or zip is a sitefile input.
+- **[packfile](/packfile/)** reads and serves Web Bundles. It reads sitefile's `EXPORT … AS wbn` output back into the
   exported files and serves it as a `(Request) => Response` handler.
 
 [Family](/sitefile/family/) has the details and a decision guide.
@@ -111,5 +111,5 @@ in code and serve the result, and they meet at file formats rather than imports:
 - [Command line](/sitefile/cli/): build, validate, graph and why, bake, watch, images and serve, export formats
 - [Plugins](/sitefile/plugins/): JavaScript and WebAssembly renderers, the sandbox, external tools
 - [Security model](/sitefile/security/): what a build of someone else's Sitefile can and cannot do
-- [Family](/sitefile/family/): Sitefile, fileable and packfile together
-- [Sitefile and Docker](/sitefile/docker/): site images Docker runs, Dockerfile stages, shared registries and credentials
+- [Family](/sitefile/family/): sitefile, fileable and packfile together
+- [sitefile and Docker](/sitefile/docker/): site images Docker runs, Dockerfile stages, shared registries and credentials
