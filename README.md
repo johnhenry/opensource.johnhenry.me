@@ -56,6 +56,7 @@ hue (see `src/styles/circuit-bridge.css`).
 | obfo | `obfo/` | 185° — same fallback (no `package.json` dependency on or from any section); splits the 175°(semantic-chunker)–195°(spintax) gap ≈10°/10° |
 | sitefile | `sitefile/` | 35° — same fallback (no `package.json` dependency on or from any section; packfile is a devDependency for an interop test); splits the 25°(ai-matey)–45°(circuit) gap ≈10°/10° |
 | sigil | `sigil/` | 270° — same fallback (no dependencies of any kind; nothing depends on it); splits the 260°(jth)–280°(ecmanim) gap ≈10°/10° |
+| sitefile-desktop | `sitefile-desktop/` | 35° — shares with sitefile: the app's `Cargo.toml` has a real dependency on the sitefile crate (used by `sfd-local` and `sfd-ffi`), so it embeds sitefile and shares its `~/.sitefile` store with the CLI — a genuine technical link, not just thematic |
 
 This table must match `src/styles/circuit-bridge.css` exactly — that file is
 the source of truth for what actually renders (see `Head.astro`, which sets

@@ -70,6 +70,7 @@ export default defineConfig({
           { label: 'hostable', directory: 'hostable' },
           { label: 'packfile', directory: 'packfile' },
           { label: 'sitefile', directory: 'sitefile' },
+          { label: 'sitefile-desktop', directory: 'sitefile-desktop' },
           { label: 'leserve', directory: 'leserve' },
           { label: 'servant', directory: 'servant' },
           { label: 'letterpress', directory: 'letterpress' },

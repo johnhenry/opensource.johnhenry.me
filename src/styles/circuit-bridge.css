@@ -317,6 +317,14 @@ header.header {
    Three ordinary 20 degree gaps remain: 260-280, 300-320, 320-340. */
 :root[data-tool='sitefile']         { --hue: 35; }  /* splits the 25(ai-matey)-45(circuit) gap */
 
+/* sitefile-desktop (adopted 2026-11-21; the Mac app for sitefile): hue-shares
+   sitefile's stop. Real technical link, not a thematic one: the app's
+   Cargo.toml depends on the sitefile crate (`sitefile = { git =
+   "https://github.com/johnhenry/sitefile", rev = ... }`, used by sfd-local and
+   sfd-ffi), so it embeds sitefile and reads and writes the same ~/.sitefile
+   store as the CLI. No new stop, so the registry is unchanged. */
+:root[data-tool='sitefile-desktop']   { --hue: 35; }  /* shares sitefile's stop */
+
 /* sigil (adopted 2026-11-07 from the unscoped `liedenticon`): the same
    fallback. Re-checked: every gap between adjacent stops is still 20 degrees
    or less. sigil has no package-level link to an existing section: its
