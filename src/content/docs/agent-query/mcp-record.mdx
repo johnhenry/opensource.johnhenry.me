@@ -1,0 +1,204 @@
+---
+title: '@johnhenry/mcp-record'
+description: Record real MCP server traffic to a cassette and replay it offline as a deterministic mock — VCR for the Model Context Protocol.
+---
+
+import Install from '../../../components/Install.astro';
+
+<Install pkg="@johnhenry/mcp-record" dev />
+
+Point it at a live MCP server, exercise it, and `mcp-record` captures every request and response into a `*.tape.json` cassette. Later, replay the cassette as a real, offline MCP server. Your tests, demos, and CI then run against the data the server actually returned — with no subprocess, no network, no flakiness, and no API keys.
+
+```bash
+npx @johnhenry/mcp-record --help   # run it without installing
+```
+
+## Requirements
+
+- **Node >= 26** (`engines.node`).
+- [`@johnhenry/mcp-query`](/agent-query/mcp-query/) `^0.7.0`, [`@johnhenry/mcp-contract`](/agent-query/mcp-contract/) `^0.1.0` (the CLI's connector), the official MCP SDK (`@modelcontextprotocol/client` and `@modelcontextprotocol/server`, `^2.0.0`), and `zod` `^4.2.0` are regular dependencies and install with the package. If your own code imports the SDK, as the examples below do, list `@modelcontextprotocol/client` in your own `package.json` too.
+- Modern-era task sequences (see [Cassette format 2](#cassette-format-2)) need `@modelcontextprotocol/client` >= 2.3.0.
+
+The package is pre-1.0: the cassette format is versioned and older versions are read compatibly, but the library API may still change in minor releases.
+
+## When to reach for it
+
+A cassette stores real request and response pairs; a [contract](/agent-query/mcp-contract/) stores only the shape.
+
+| | captures | replay returns |
+|---|---|---|
+| `mcp-contract` `mockFromContract` | schemas and annotations | placeholder content |
+| `mcp-record` `replayServer` | the real request and response pairs | the actual recorded results |
+
+Use a contract to assert that a server's surface has not drifted. Use a cassette when a test needs the server's real output but must be fast, offline, and frozen.
+
+## CLI
+
+The binary is `mcp-record`. This is what `mcp-record --help` prints in 0.1.0:
+
+```text
+mcp-record: record a live MCP server's traffic to a cassette, replay it offline
+
+usage:
+  mcp-record record  (--command CMD [--args "A B"] | --url URL [--bearer T] [--header "K: V"] | --server NAME)
+                     [--out tape.json] [--call 'tool(arg: 1)']... [--redact path]... [--era legacy|auto]
+  mcp-record replay  --cassette tape.json     serve the cassette over stdio as a mock MCP server
+  mcp-record inspect tape.json                summarize a cassette and verify its integrity hash
+  mcp-record --help
+
+Cassettes are sealed with a SHA-256 integrity hash; edit with care. Captured traffic is verbatim: use
+--redact to mask fields before writing. Docs: https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-record
+```
+
+```bash
+# 1. Record: the capability surface plus the real results of specific calls
+npx mcp-record record \
+  --command node --args server.mjs \
+  --out demo.tape.json \
+  --call 'echo(message: "hello")' \
+  --call 'get-sum:{"a":2,"b":3}'
+
+# 2. Replay: serve the cassette as an offline MCP server over stdio
+npx mcp-record replay --cassette demo.tape.json
+
+# 3. Inspect: summarize a cassette and verify its integrity hash
+npx mcp-record inspect demo.tape.json
+```
+
+`record` always captures the listings the server supports (`tools/list`, `resources/list`, `resources/templates/list`, `prompts/list`) plus the server's identity and capabilities. Each `--call` additionally records that tool's real result. A call that fails is reported on stderr and recording continues. Without `--out` the cassette JSON goes to stdout; with it, a summary goes to stderr:
+
+```text
+wrote demo.tape.json
+recorded from: demo@1.0.0
+format: 2, legacy era (2025-11-25)
+capabilities: tools
+interactions: 3
+  tools/call: 2
+  tools/list: 1
+```
+
+`inspect` prints the same summary. It refuses a cassette whose contents no longer match its integrity hash.
+
+| Flag | Meaning |
+|---|---|
+| `--command CMD` `--args "A B"` | spawn a local stdio server |
+| `--url URL` | a hosted Streamable HTTP endpoint (this sends real traffic; mind rate limits and terms of service) |
+| `--bearer T`, `--header "K: V"` | auth and extra headers; `--header` is repeatable |
+| `--server NAME` | a server named in `.mcp.json` or `~/.mcp-query/servers.json` (the same registry as `mcp-contract`) |
+| `--out FILE` | where to write the cassette |
+| `--call SPEC` | record a tool call; repeatable. Accepts `tool:{"a":1}` or `tool(a: 1)` |
+| `--redact PATH` | mask the value at a dot-path with `"[REDACTED]"`; repeatable |
+| `--era legacy\|auto` | `legacy` (the default) uses the `initialize` handshake; `auto` tries `server/discover` first, for a 2026-07-28 server |
+| `--cassette FILE` | (`replay`) the cassette to serve |
+
+The source also accepts `--config FILE`, which reads the server registry from that file alone; the help text does not list it. `replay` is always stdio, and drops in where the real server would go:
+
+```jsonc
+{ "mcpServers": { "demo": {
+  "command": "npx",
+  "args": ["mcp-record", "replay", "--cassette", "demo.tape.json"]
+}}}
+```
+
+### Secrets
+
+Traffic is captured verbatim; there is no automatic secret detection. Mask the fields you know are sensitive with `--redact`, naming the dot-path into the recorded interaction:
+
+```bash
+mcp-record record --command node --args server.mjs --out demo.tape.json \
+  --call 'echo(message: "secret")' \
+  --redact params.arguments.message \
+  --redact result.content.0.text
+```
+
+A path that does not exist on a given interaction is skipped silently, so check the cassette before committing it.
+
+## Library API
+
+Record by wrapping any transport; replay as a server or as a transport factory.
+
+```js
+import { readFile, writeFile } from 'node:fs/promises';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { createCassette, sealCassette, loadCassette, recordTransport, replayTransport } from '@johnhenry/mcp-record';
+
+// Record, once, against the real server.
+const cassette = createCassette();
+const live = new Client({ name: 'app', version: '1' }, { capabilities: {} });
+await live.connect(recordTransport(new StdioClientTransport({ command: 'node', args: ['server.mjs'] }), cassette));
+await live.callTool({ name: 'echo', arguments: { message: 'hi' } });
+await live.close();
+sealCassette(cassette); // stamp the integrity hash
+await writeFile('tape.json', JSON.stringify(cassette, null, 2));
+
+// Replay, in tests, offline.
+const tape = loadCassette(await readFile('tape.json', 'utf8')); // verifies the hash
+const offline = new Client({ name: 'test', version: '1' }, { capabilities: {} });
+await offline.connect(replayTransport(tape)());
+console.log(await offline.callTool({ name: 'echo', arguments: { message: 'hi' } }));
+```
+
+`replayTransport(cassette)` returns a `() => Transport` factory, so a recorded server slots into [`mcp-query`](/agent-query/mcp-query/) exactly where the live one was:
+
+```js
+import { MCPClient } from '@johnhenry/mcp-query';
+
+const client = new MCPClient({ servers: { demo: { transport: replayTransport(tape) } } });
+await client.connect();
+await client.callTool('demo.get-sum', { a: 2, b: 3 });
+```
+
+`replayServer(cassette)` returns an SDK `Server` to connect to any server transport. Other exports: `redactPaths(paths, mask?)` (the rule behind `--redact`, passed as `recordTransport(inner, cassette, { redact })`), `upgradeCassette`, `cassetteHash`, `interactionKey`, `tagInteraction`, `scrubFileBytes`, and `CASSETTE_VERSION`.
+
+Recording taps the transport through `mcp-query`'s transport-instrumentation seam, so nothing in the SDK is patched. Notifications are ignored, and server-initiated sampling and elicitation exchanges are out of scope for this release.
+
+## Browser entry
+
+The package has a `browser` export condition that bundlers pick up on their own. It re-exports the whole library API — `createCassette`, `recordTransport`, `replayTransport`, `replayServer`, `sealCassette`, `loadCassette`, and the rest — with **no `node:` module in the bundle**. Hashing uses a built-in synchronous SHA-256 instead of `node:crypto` and produces byte-identical hashes, so a cassette sealed in Node loads in the browser and the other way round.
+
+What is not in the browser entry is the CLI and file access. Reading and writing tapes is yours to do with `fetch` or `File`; `loadCassette` takes a JSON string:
+
+```js
+import { loadCassette, replayTransport } from '@johnhenry/mcp-record';
+import { Client } from '@modelcontextprotocol/client';
+
+const tape = loadCassette(await (await fetch('/fixtures/demo.tape.json')).text());
+const client = new Client({ name: 'demo', version: '1' }, { capabilities: {} });
+await client.connect(replayTransport(tape)());
+```
+
+A test in the package bundles the entry for a browser platform and fails if a `node:` module appears.
+
+## Cassette format 2
+
+Cassettes carry a `version`. This build writes **2** and reads **1** (and cassettes with no `version`). A v1 file is upgraded in memory on load: its integrity seal is checked against the original hash first, then reissued in the new format. A newer version than the build understands is refused.
+
+A cassette holds `recordedFrom` (the server's name and version), `capabilities`, the `interactions` (each `method`, `params`, and `result` or `error`), and `integrity`. Format 2 adds:
+
+- **`protocol`**: `era` (`modern` or `legacy`), the negotiated `version`, and `supportedVersions`. On a 2026-07-28 connection there is no `initialize`; the header is filled from `server/discover` (record with `--era auto`, or any client using `versionNegotiation: auto`). `replayTransport` serves a modern cassette through the SDK's era-aware handler, so a modern client negotiates with `server/discover` against the replay too. The integrity hash covers this header as well as the interactions.
+- **`kind` and `mrtr` tags** on interactions, derived from the wire: multi round-trip requests (an `input_required` result is round 0, and each retry carrying `requestState` or `inputResponses` is the next round), task exchanges (`tasks/*` and task handles), and skill calls (`skills/*`).
+
+Replay behavior:
+
+- A retry matches on its `inputResponses` and `requestState`, so round 0 and round N never mix. Matching is exact by default; `replayTransport(cassette, { looseInputResponses: true })` opts in to replaying a recorded retry against different answers (same method, params, and `requestState`).
+- `tasks/get` polling replays the recorded statuses in order, and the terminal status sticks. `tasks/update`, `tasks/cancel`, `skills/list`, and `skills/get` replay like any other method.
+- Repeated identical calls replay their recorded results in order, with the last one sticking. Matching is by method and canonical params; volatile `_meta` (progress tokens and the like) is ignored.
+- A call that returned a protocol error is recorded and re-raised on replay. The replay server advertises the recorded `serverInfo` and capabilities.
+
+**No file bytes are stored.** Under the experimental MCP files extension, an inline file argument (an object with a string `id`, a string `mimeType`, a numeric `size`, and base64 `data`) is stored as its metadata plus a SHA-256 `digest`, with `data` dropped and `dataOmitted: true`. Replay matching applies the same reduction, so a replayed call carrying the same bytes still matches.
+
+**The integrity hash is tamper-evidence, not a signature.** It detects accidental or hand edits, not who recorded the file. A cassette that was never sealed loads unchecked.
+
+Limits in 0.1.0:
+
+- `mcp-record replay` (stdio) serves the classic handshake only; a modern client should use `replayTransport`.
+- On SDK 2.0.0, `tasks/*` are era-gated off the 2026-07-28 wire, so task sequences on a modern connection need SDK >= 2.3.0. Legacy-era task sequences work on every SDK.
+- `record --call` drives tool calls only, with no answers to multi round-trip requests. Record richer flows through `recordTransport` around your own client.
+
+## Related
+
+- [`mcp-query`](/agent-query/mcp-query/) — the client whose transport seam the recorder uses, and where a replayed server plugs in as an upstream.
+- [`mcp-contract`](/agent-query/mcp-contract/) — pins a server's shape and fails CI on drift; the CLI connector `mcp-record` uses comes from it.
+- [`mcp-gate`](/agent-query/mcp-gate/) — the runtime policy proxy for MCP servers; record and contract cover the testing side.
+- Source: [`packages/mcp-record`](https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-record) in the `mcp-query` monorepo.

@@ -1,0 +1,191 @@
+---
+title: '@johnhenry/mcp-contract'
+description: Contract testing and breaking-change detection for MCP servers — pin a server's tools, resources, and prompts to a file, then fail CI when a live server drifts incompatibly.
+---
+
+import Install from '../../../components/Install.astro';
+
+<Install pkg="@johnhenry/mcp-contract" dev />
+
+Pins an MCP server's capability surface — tools (with input and output JSON Schemas and annotations), resources, resource templates, and prompts — to a versioned `mcp.contract.json`, then compares a live server against it and classifies every difference as **breaking**, **compatible**, or **drift**. `verify` exits non-zero on any breaking change, so it drops straight into CI.
+
+It is the dual of [`mcp-query`](/agent-query/mcp-query/) codegen: codegen turns a server into types at development time; `mcp-contract` checks at every build that the server still honors them. The same role `buf breaking` plays for protobuf.
+
+```bash
+npx @johnhenry/mcp-contract --help   # run it without installing
+```
+
+## Requirements
+
+- **Node >= 26** (`engines.node`).
+- [`@johnhenry/mcp-query`](/agent-query/mcp-query/) `^0.7.0` and the official MCP SDK (`@modelcontextprotocol/client` and `@modelcontextprotocol/server`, `^2.0.0`) are regular dependencies and install with the package. If your own code imports the SDK, as the examples below do, list `@modelcontextprotocol/client` in your own `package.json` too.
+- `--dpop` (OAuth sender-constrained tokens) additionally needs `@modelcontextprotocol/client` >= 2.1.0; on an older SDK it stops with an error rather than sending bearer tokens.
+
+The package is pre-1.0: the contract file format is versioned and read compatibly across versions, but the library API may still change in minor releases.
+
+## When to reach for it
+
+MCP servers are dynamic: tools appear and vanish, an argument quietly becomes required, a read-only tool turns destructive. Codegen and any policy you wrote (for example in [`mcp-gate`](/agent-query/mcp-gate/)) are snapshots of a server at one moment. A contract is the safety net that tells you the moment the live server no longer matches.
+
+Use a contract to assert that a server's **surface** has not drifted. If your tests need the server's real outputs instead, record a cassette with [`mcp-record`](/agent-query/mcp-record/).
+
+## CLI
+
+The binary is `mcp-contract`. This is what `mcp-contract --help` prints in 0.1.0:
+
+```text
+mcp-contract: pin, verify, diff and mock an MCP server's capability surface
+
+usage:
+  mcp-contract snapshot (--command CMD [--args "A B"] | --url URL [--bearer T] [--header "K: V"] | --server NAME) [--out mcp.contract.json]
+  mcp-contract verify   <same connection flags> --contract mcp.contract.json [--used "a,b"] [--used-by src/mcp.gen.ts]
+  mcp-contract diff     old.contract.json new.contract.json
+  mcp-contract mock     --contract mcp.contract.json     serve the contracted surface over stdio
+  mcp-contract auth     --url URL                         run the OAuth flow and cache tokens
+  mcp-contract --help
+
+verify exits non-zero on any BREAKING change. Docs: https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-contract
+```
+
+```bash
+# 1. Pin the surface and commit mcp.contract.json
+npx mcp-contract snapshot --command node --args server.mjs --out mcp.contract.json
+
+# 2. In CI: fail the build if the live server drifted in a breaking way
+npx mcp-contract verify --contract mcp.contract.json --command node --args server.mjs
+
+# 3. Human-readable diff between two pinned snapshots
+npx mcp-contract diff old.contract.json new.contract.json
+
+# 4. Serve the contracted surface as a mock MCP server over stdio
+npx mcp-contract mock --contract mcp.contract.json
+```
+
+`verify` and `diff` print their report to stderr. With no changes `verify` prints `✓ no changes — live surface matches the contract` and exits 0. If a pinned tool disappears:
+
+```text
+  ✗ BREAKING  tool get-sum — removed
+
+✗ 1 breaking, 0 compatible
+```
+
+and the exit code is 1. `snapshot` without `--out` writes the contract to stdout.
+
+### Connecting
+
+A live server is reached over stdio or Streamable HTTP. Every command that talks to one takes one of:
+
+| Flag | Meaning |
+|---|---|
+| `--command CMD` `--args "A B"` | spawn a local stdio server (`--args` is one space-separated string) |
+| `--url URL` | a hosted Streamable HTTP endpoint |
+| `--bearer T` | send `Authorization: Bearer T` |
+| `--header "K: V"` | send an arbitrary header; repeatable |
+| `--server NAME` | a server named in a `.mcp.json` (searched upward from the working directory) or `~/.mcp-query/servers.json`; the project file wins |
+
+The source also accepts `--config FILE`, which reads the registry from that file alone; the help text does not list it. Unknown flags are rejected with the list of known ones.
+
+### Consumer-driven scoping
+
+You rarely use a server's whole surface. Scope `verify` to what you call, and the provider can churn everything else:
+
+```bash
+mcp-contract verify --contract mcp.contract.json --command node --args server.mjs --used "echo,get-sum"
+mcp-contract verify --contract mcp.contract.json --command node --args server.mjs --used-by src/mcp.gen.ts
+```
+
+`--used` is a comma-separated list of ids; `--used-by` reads a source file and keeps the ids that appear in it as string literals. Scoping applies to tools, resources, templates, and prompts; capability, extension, protocol, skill, and event changes are always reported, and new additions are always reported (they are compatible).
+
+### OAuth-protected servers
+
+A hosted server that answers `401` needs a token. Either pass one with `--bearer`, or run the browser consent flow once:
+
+```bash
+mcp-contract auth --url https://host/mcp [--scope "a b c"]
+mcp-contract verify --url https://host/mcp --contract api.contract.json
+```
+
+`auth` runs the OAuth 2.1 flow itself and never sees your password. The token is cached per host under `~/.mcp-query/oauth/` and refreshed automatically by later `snapshot`, `verify`, and `diff` runs. The flags the source accepts for `auth` are `--scope`, `--out`, `--open false` (do not launch a browser), `--port` (fix the callback port, useful behind an SSH tunnel), `--dpop`, `--client-metadata-url <url|off>`, and `--expected-issuer <iss>` (refuse any other authorization server before registering).
+
+## Library API
+
+Everything the CLI does is importable:
+
+```js
+import { readFile } from 'node:fs/promises';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { captureContract, diffContract, formatDiff } from '@johnhenry/mcp-contract';
+
+const pinned = JSON.parse(await readFile('mcp.contract.json', 'utf8'));
+
+const client = new Client({ name: 'ci', version: '1' }, { capabilities: {} });
+await client.connect(new StdioClientTransport({ command: 'node', args: ['server.mjs'] }));
+const live = await captureContract(client); // drain the live server's surface
+await client.close();
+
+const diff = diffContract(pinned, live); // classify every change
+console.log(diff.breaking, diff.compatible, diff.drift);
+if (diff.breaking) throw new Error(formatDiff(diff));
+```
+
+`diffContract` takes `{ used: [...] }` as a third argument for the consumer-driven scoping above. Other exports:
+
+- `diffSchema(prev, next, 'in' | 'out')` — classify a single JSON Schema change under a variance.
+- `upgradeContract(raw)` — read a contract of any supported format version into the current shape.
+- `mockFromContract(contract)` — a test double built from a contract.
+- `usedFromSource(source, contract)` — the ids a source file references.
+- `parseCallSpec` and friends — parse `tool:{"a":1}` or `tool(a: 1)` call strings.
+- Node only: `captureFrom`, `connectClient`, `buildTransport`, `connectFromFlags`, the server registry (`resolveConnect`, `loadRegistry`, `addServer`, …), and the OAuth pieces (`authenticate`, `FileOAuthProvider`, …).
+
+## Browser entry
+
+The package has a `browser` export condition that Vite, webpack, and esbuild's browser platform pick up on their own. It resolves to a subset with no Node built-ins:
+
+- **In it:** `captureContract` (from an already-connected `Client`), `diffContract`, `upgradeContract`, `diffSchema`, `formatDiff`, `mockFromContract`, `usedFromSource`, the call-spec parsers, `rejectUnknownFlags`, and the `SKILLS_EXTENSION`, `EVENTS_EXTENSION`, and `DEPRECATED_CAPABILITIES` constants.
+- **Not in it:** the stdio and HTTP connectors, the server registry, the OAuth flow, and the CLI. They need Node.
+
+That is enough to render or diff pinned contracts in a web UI. The package's own tests bundle the entry for a browser platform and fail if a `node:` module appears.
+
+## What counts as breaking
+
+Whether a schema change breaks depends on direction. **Tool input is contravariant**: the provider may accept more, but accepting less or demanding more breaks callers. **Tool output is covariant**: the provider must keep producing at least what it did.
+
+| Change | Verdict |
+|---|---|
+| Tool, resource, or prompt removed | breaking |
+| New required input argument, or optional becomes required | breaking |
+| Input narrowed (`number` to `integer`, enum shrinks) | breaking |
+| Output field removed, or a produced type widened (`integer` to `number`) | breaking |
+| Tool gains `destructiveHint`, or loses `readOnlyHint` | breaking |
+| Extension removed or its `revision` changed; server capability removed; `listChanged` or `subscribe` no longer advertised | breaking |
+| Protocol version dropped from `server/discover`'s supported versions | breaking |
+| Skill removed; event type removed, its payload schema narrowed, or a delivery mode removed | breaking |
+| New tool, resource, or prompt; new optional input argument; output gains a field | compatible |
+| Input widened (enum grows, `integer` to `number`); description change | compatible |
+| Extension, capability, or protocol version added; tool `title`, `icons`, or `_meta` changed | compatible |
+| A skill's file digest changed, or a file added or removed under a stable URI | drift |
+
+### The three classes
+
+A `diff` reports `breaking`, `compatible`, and `drift` counts. **Drift** is content changing under a stable interface — a pinned skill's files no longer match their recorded digests. It is reported, but it never fails `verify` on its own: it is not an interface break, though a review or approval of the pinned content no longer describes what the server serves.
+
+## Contract format v2
+
+`snapshot` writes `"version": 2`. On top of tools, resources, templates, and prompts, a v2 contract can carry:
+
+- `capabilities` and `extensions` (`capabilities.extensions`, each with its `revision` when the server sends one);
+- `protocol`: the `era` (`modern` or `legacy`), the `negotiated` version and, on a 2026-07-28 connection, the `supported` versions from `server/discover`;
+- per tool: `title`, `icons`, and `_meta`;
+- `cacheHints`: the `ttlMs` and `cacheScope` seen on `server/discover` and on each list call;
+- `skills` and `events`, when the server advertises the `io.modelcontextprotocol/skills` or `io.modelcontextprotocol/events` extension. Skills are pinned as identity plus a file manifest with digests; they are fetched with a raw `skills/list` request, and a failure just leaves the field out;
+- `card`: an optional server card (name plus the endpoints it lists, with their supported protocol versions). It is supplied by the caller — `captureContract(client, { card })` — and nothing is fetched on your behalf. The `snapshot` command has no flag for it. It is compared only when both the pinned and the candidate contract have one: a removed endpoint or a dropped protocol version is breaking, a changed name is drift, an added endpoint or version is compatible.
+
+v1 contracts keep working. Every reader (`verify`, `diff`, `mock`) upgrades them in memory, leaving the v2-only fields absent. **Absent means "not captured"**, so diffing a v1 pin against a live capture reports none of those fields as changes; re-run `snapshot` to start pinning them. A file with any other `version` is rejected with an error.
+
+## Related
+
+- [`mcp-query`](/agent-query/mcp-query/) — the client this package builds on; `mockFromContract` produces a double for its testing tools.
+- [`mcp-gate`](/agent-query/mcp-gate/) — governs the same servers at runtime; a contract tells you when the policy you wrote no longer matches the server.
+- [`mcp-record`](/agent-query/mcp-record/) — freezes real traffic as offline fixtures, where a contract pins only the shape.
+- Source: [`packages/mcp-contract`](https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-contract) in the `mcp-query` monorepo.
