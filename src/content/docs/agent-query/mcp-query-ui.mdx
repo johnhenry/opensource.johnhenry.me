@@ -1,0 +1,162 @@
+---
+title: '@johnhenry/mcp-query-ui'
+description: An MCP Apps host for mcp-query — mount a server's ui:// app in a sandboxed iframe, with every app-initiated call routed through your MCPClient.
+---
+
+import Install from '../../../components/Install.astro';
+
+<Install pkg="@johnhenry/mcp-query-ui" peers="@johnhenry/mcp-query @modelcontextprotocol/client" />
+
+[MCP Apps](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865, extension id `io.modelcontextprotocol/ui`) let an MCP server ship an interactive HTML UI as a `ui://` resource. This package is the host side: it mounts such an app in a sandboxed iframe using the official `@modelcontextprotocol/ext-apps` host helpers, as a thin reactive layer over the [`MCPClient`](/agent-query/mcp-query/) you already have.
+
+- The app's `tools/call` and `resources/read` are executed **by your `MCPClient`**, so the cache, every interceptor, and [`mcp-gate`](/agent-query/mcp-gate/) policy, approval and audit apply to app traffic exactly as they do to an agent's. The app is not a side channel.
+- The app's lifecycle, messages and calls are subscribable state (`subscribe` / `getState`, compatible with `useSyncExternalStore`).
+
+## Requirements
+
+- Peer dependencies: `@johnhenry/mcp-query` `>=0.5.0` and `@modelcontextprotocol/client` `^2.0.0`. `react` (`^18.0.0 || ^19.0.0`) is an optional peer, needed only for the `/react` entry.
+- `@modelcontextprotocol/ext-apps` (`^2.0.3`) is a regular dependency and installs with the package.
+- A **sandbox proxy page served from a different origin** than your app. The spec requires it, and you host it; see [Sandbox rules](#sandbox-rules).
+
+The current release is **2.1.0**, which declares `engines.node >=26.0.0`. The library itself runs in the browser.
+
+## Quick start
+
+```ts
+import { MCPClient } from '@johnhenry/mcp-query';
+import { createAppHost, mcpAppsExtensions, mountIframe } from '@johnhenry/mcp-query-ui';
+
+const client = new MCPClient({
+  servers: { dash: { transport: () => /* ... */ } },
+  extensions: mcpAppsExtensions(), // tell servers this client can render MCP Apps
+});
+await client.connect();
+
+const host = createAppHost({ client, server: 'dash' });
+
+// Resolve the app from a tool's _meta.ui.resourceUri (or pass { uri: 'ui://...' })
+const session = await host.open({ tool: 'show_dashboard', toolInput: { range: '7d' } });
+await mountIframe(session, {
+  container: document.getElementById('app'),
+  sandboxUrl: 'https://sandbox.example.com/proxy.html', // a DIFFERENT origin from this page
+});
+
+session.subscribe(() => console.log(session.getState().status)); // loaded -> connecting -> ready -> closed
+await session.close(); // teardown handshake, iframe removed
+```
+
+### React
+
+```tsx
+import { useMcpApp } from '@johnhenry/mcp-query-ui/react';
+
+function App({ host }) {
+  const { containerRef, state, error } = useMcpApp(host, {
+    tool: 'show_dashboard',
+    toolInput: { range: '7d' },
+    sandboxUrl: 'https://sandbox.example.com/proxy.html',
+  });
+  return (
+    <>
+      <div ref={containerRef} />
+      {error && <p>Could not open the app: {error.message}</p>}
+      <ul>{state?.calls.map((c) => <li key={c.id}>{c.target}: {c.outcome}</li>)}</ul>
+    </>
+  );
+}
+```
+
+`useMcpApp` opens on mount and tears down on unmount, or when `uri`, `tool` or `sandboxUrl` change. `useAppSession(session)` and `useAppSessions(host)` are the plain subscription hooks.
+
+## What the host handles
+
+| Direction | Handling |
+|---|---|
+| host to app | the `ui/initialize` handshake, then tool input and result once the app reports `initialized`; `session.sendToolResult()` for later results |
+| app `tools/call` | rejected unless the tool's `_meta.ui.visibility` includes `"app"`, then `client.callTool(...)` |
+| app `resources/read` | `client.readResource(...)` |
+| app `ui/message` | appended to `state.messages`, then your `onMessage`. Treat it as untrusted input before forwarding it to a model or chat |
+| app `ui/open-link` | **refused by default**; `onOpenLink` opts in, and only `http(s)` URLs are ever offered |
+| app teardown request, size changes | the session closes; `state.size` updates |
+
+Downloads, `resources/templates/list` and `prompts/get` are not forwarded.
+
+### Opt-in app capabilities
+
+Four more requests are off by default and enabled one by one with `appCapabilities`:
+
+| Capability | Wire method | Executed by | Approval |
+|---|---|---|---|
+| `resourcesList` | `resources/list` | the client's interceptor chain | broker `confirm`, if a broker is set |
+| `promptsList` | `prompts/list` | the client's interceptor chain | broker `confirm`, if a broker is set |
+| `sampling` | `sampling/createMessage` | `broker.handleSampling` | **required**: `createAppHost` throws without a broker |
+| `updateModelContext` | `ui/update-model-context` | your `onUpdateModelContext` | broker `confirm`, if a broker is set |
+
+```ts
+createAppHost({
+  client,
+  server: 'dash',
+  appCapabilities: { resourcesList: true, promptsList: true, updateModelContext: true },
+  interactions, // an InteractionBroker; defaults to client.interactions
+  onUpdateModelContext: (ctx, session) => model.addContext(ctx),
+  approvalTimeoutMs: 60_000, // deny if no human answers
+});
+```
+
+A request for a capability that is off is refused and appears in `state.calls` with `outcome: "denied"`. Interactions are filed under the peer `mcp-app:<ui uri>`, not the server's name, so a broker policy that auto-allows a server's own sampling does not auto-allow an app's. Sampling is deprecated in the core protocol; it is offered only so existing apps keep working behind a human or policy gate.
+
+## Running under the gate
+
+Every app-initiated operation is a normal `MCPClient` operation, so point the host at a gate's client and its policy decides:
+
+```ts
+import { createGate } from '@johnhenry/mcp-gate';
+
+const gate = await createGate({
+  upstreams: { dash: { /* ... */ } },
+  policy: { allow: ['dash.*'], approve: ['dash.save_*'], deny: ['dash.delete_*'] },
+  approval: { handler: async (req) => ((await askUser(req)) ? 'allow' : 'deny') },
+  audit: (e) => log(e),
+});
+const host = createAppHost({ client: gate.client, server: 'dash' });
+```
+
+- Denied calls never reach the upstream. `approve` holds the call until your handler or a human decides, and fails closed. The app sees a JSON-RPC error and `state.calls[i].outcome` is `denied`.
+- **The `ui://` resource read is gated too.** A policy with an `allow` list must include `server.ui://...` or the app will not load.
+- Every call carries the principal `mcp-app:<ui uri>`, so audit entries and approval requests identify app traffic.
+- App-only tools (`visibility: ["app"]`) are callable by the app and hidden from the model. Model-only tools are never callable by an app.
+
+## Sandbox rules
+
+- **Double iframe, different origin.** `mountIframe` throws if `sandboxUrl` has the same origin as the host page, or is plain `http` anywhere but localhost. The app itself runs in an inner frame with `sandbox="allow-scripts"`: an opaque origin.
+- **CSP from metadata, never loosened.** The domains the server declares for the app are the ceiling. Each source must look like an `http(s)` or `ws(s)` origin, so hostile metadata cannot inject directives. With nothing declared, the policy is the spec's restrictive default (`default-src 'none'`, `connect-src 'none'`, `frame-src 'none'`). `session.resource.cspHeader` is the exact header value; log it for audit.
+- **A host can tighten freely.** `createAppHost({ frame })` narrows CSP directives and drops declared permissions; `mountIframe({ sandbox, iframe })` narrows the inner sandbox and lets you supply the iframe element. Anything wider than what the app declared needs an explicit `unsafeLoosen: true`. No flag lifts the different-origin rule or gives the inner frame `allow-same-origin` through `sandbox.inner`.
+- **Only the sandbox iframe is heard.** The transport accepts a message only when its `event.source` is the sandbox iframe's window.
+- **You own the proxy page.** It must apply the CSP to the inner document, relay every non-sandbox message unchanged in both directions, and never originate requests of its own. The [ext-apps repository](https://github.com/modelcontextprotocol/ext-apps) has a reference host and sandbox page to start from, and the `mcp-query` inspector app carries a working local one.
+
+## API
+
+```ts
+createAppHost({ client, server, frame?, appCapabilities?, interactions?, onMessage?, onOpenLink?, ... }): AppHost
+host.open({ uri | tool, toolInput?, toolResult? }): Promise<AppSession>
+host.getSessions() / host.subscribe(cb) / host.closeAll()
+
+session.resource   // { html, csp, cspHeader, permissions, allow, ... }
+session.getState() // { status, error?, appInfo?, size?, messages[], calls[] }
+session.subscribe(cb) / session.whenReady(timeoutMs?) / session.sendToolResult(r) / session.close()
+
+mountIframe(session, { container, sandboxUrl, title?, sandbox?, iframe? })
+mcpAppsExtensions() // pass as MCPClientConfig.extensions
+buildAppCsp(csp) / sanitizeCsp(csp, allow?) / isSafeCspSource(s)
+
+// '@johnhenry/mcp-query-ui/react'
+useMcpApp(host, options) / useAppSession(session) / useAppSessions(host)
+```
+
+`status` is one of `loading`, `loaded`, `connecting`, `ready`, `closing`, `closed`, `error`. A call's `outcome` is `pending`, `ok`, `denied` or `error`. The package README has the full option list.
+
+## Related
+
+- [`mcp-query`](/agent-query/mcp-query/) — the client every app call runs through.
+- [`mcp-gate`](/agent-query/mcp-gate/) — policy, approval and audit for that traffic.
+- Source: [`packages/mcp-query-ui`](https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-query-ui) in the `mcp-query` monorepo.
