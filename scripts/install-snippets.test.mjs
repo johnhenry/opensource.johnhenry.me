@@ -60,3 +60,11 @@ test('identifier makes a JS name from a specifier', () => {
   assert.equal(identifier('@johnhenry/window-algebra/browser'), 'windowAlgebraBrowser');
   assert.equal(identifier('@johnhenry/safe-fragment'), 'safeFragment');
 });
+
+test('esmShUrl pins transitive dependencies with ?deps= only when asked', async () => {
+  const { esmShUrl, esmShImports } = await import('../src/lib/install-snippets.mjs');
+  assert.equal(esmShUrl('@j/a', '1.0.0'), 'https://esm.sh/@j/a@1.0.0');
+  assert.equal(esmShUrl('@j/a', '1.0.0', './react', ['zod@4.6.5']), 'https://esm.sh/@j/a@1.0.0/react?deps=zod@4.6.5');
+  const pinned = { packages: { '@j/a': { npm: '1.0.0', esmShDeps: ['zod@4.6.5', 'x@1'] } } };
+  assert.deepEqual(esmShImports(['@j/a'], pinned), [{ specifier: '@j/a', url: 'https://esm.sh/@j/a@1.0.0?deps=zod@4.6.5,x@1' }]);
+});

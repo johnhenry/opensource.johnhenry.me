@@ -18,7 +18,7 @@ npx @johnhenry/mcp-contract --help   # run it without installing
 ## Requirements
 
 - **Node >= 26** (`engines.node`).
-- [`@johnhenry/mcp-query`](/agent-query/mcp-query/) `^0.7.0` and the official MCP SDK (`@modelcontextprotocol/client` and `@modelcontextprotocol/server`, `^2.0.0`) are regular dependencies and install with the package. If your own code imports the SDK, as the examples below do, list `@modelcontextprotocol/client` in your own `package.json` too.
+- [`@johnhenry/mcp-query`](/agent-query/mcp-query/) `^0.8.0` and the official MCP SDK (`@modelcontextprotocol/client` and `@modelcontextprotocol/server`, `^2.0.0`) are regular dependencies and install with the package. If your own code imports the SDK, as the examples below do, list `@modelcontextprotocol/client` in your own `package.json` too.
 - `--dpop` (OAuth sender-constrained tokens) additionally needs `@modelcontextprotocol/client` >= 2.1.0; on an older SDK it stops with an error rather than sending bearer tokens.
 
 The package is pre-1.0: the contract file format is versioned and read compatibly across versions, but the library API may still change in minor releases.
@@ -31,20 +31,25 @@ Use a contract to assert that a server's **surface** has not drifted. If your te
 
 ## CLI
 
-The binary is `mcp-contract`. This is what `mcp-contract --help` prints in 0.1.0:
+The binary is `mcp-contract`. This is what `mcp-contract --help` prints in 0.2.0:
 
 ```text
 mcp-contract: pin, verify, diff and mock an MCP server's capability surface
 
 usage:
   mcp-contract snapshot (--command CMD [--args "A B"] | --url URL [--bearer T] [--header "K: V"] | --server NAME) [--out mcp.contract.json]
+                        [--era auto|legacy]  handshake used for the capture (default auto, also on verify/diff); recorded as protocol.era
+                        [--card URL|auto]   also pin the server's Server Card (auto: <url>/server-card); on verify/diff too, to compare it
   mcp-contract verify   <same connection flags> --contract mcp.contract.json [--used "a,b"] [--used-by src/mcp.gen.ts]
   mcp-contract diff     old.contract.json new.contract.json
   mcp-contract mock     --contract mcp.contract.json     serve the contracted surface over stdio
   mcp-contract auth     --url URL                         run the OAuth flow and cache tokens
   mcp-contract --help
 
-verify exits non-zero on any BREAKING change. Docs: https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-contract
+verify exits non-zero on any BREAKING change. --era auto (default) probes server/discover first, bounded by a timeout, and falls back to initialize; a stdio server is started again for the probe. --era legacy skips the probe (a registry entry's `era` applies when unset).
+A contract pinned with one handshake verifies against a capture made with the other without a breaking change: what only the modern handshake
+carries (supported protocol versions, cache hints) is "not captured" on the legacy side, and the report says the capture era differs.
+Docs: https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-contract
 ```
 
 ```bash
@@ -84,6 +89,10 @@ A live server is reached over stdio or Streamable HTTP. Every command that talks
 | `--server NAME` | a server named in a `.mcp.json` (searched upward from the working directory) or `~/.mcp-query/servers.json`; the project file wins |
 
 The source also accepts `--config FILE`, which reads the registry from that file alone; the help text does not list it. Unknown flags are rejected with the list of known ones.
+
+### Which handshake a capture uses
+
+Since 0.2.0, `snapshot`, `verify`, and `diff` capture with `--era auto`: they probe `server/discover` first (bounded, 5 seconds by default) and fall back to `initialize`. Against a server that speaks 2026-07-28, the contract gains the supported protocol versions and cache hints; a 2025-era server is captured as before. `--era legacy` keeps the 0.1.0 capture, and a registry entry can pin `"era": "legacy"` for one server (the flag wins over the pin). A stdio server is started one extra time for the probe.
 
 ### Consumer-driven scoping
 

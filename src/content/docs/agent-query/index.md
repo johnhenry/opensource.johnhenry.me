@@ -48,7 +48,7 @@ The rename went deeper than the package name: CLI binaries, cache namespaces, st
 
 ## Versions
 
-The renamed packages restarted at `0.0.0` and have since moved on. Current npm releases: `@johnhenry/mcp-query` **0.7.0**, `@johnhenry/mcp-gate` **0.8.0** (which continues its original line), `@johnhenry/mcp-query-tanstack` **2.1.0**, `@johnhenry/mcp-query-ui` **2.1.0**, `@johnhenry/mcp-contract` **0.1.0**, `@johnhenry/mcp-record` **0.1.0**, `@johnhenry/a2a-query` **0.1.0**, `@johnhenry/a2a-query-tanstack` **0.1.1**, `@johnhenry/acp-query` **0.1.0**, and `@johnhenry/agent-query-core` **0.3.0**. The `mcp-*` packages declare `engines.node >=26.0.0`.
+The renamed packages restarted at `0.0.0` and have since moved on. Current npm releases: `@johnhenry/mcp-query` **0.8.0**, `@johnhenry/mcp-gate` **0.9.0** (which continues its original line), `@johnhenry/mcp-query-tanstack` **2.1.0**, `@johnhenry/mcp-query-ui` **3.0.0**, `@johnhenry/mcp-contract` **0.2.0**, `@johnhenry/mcp-record` **0.2.0**, `@johnhenry/a2a-query` **0.1.0**, `@johnhenry/a2a-query-tanstack` **0.1.1**, `@johnhenry/acp-query` **0.1.0**, and `@johnhenry/agent-query-core` **0.3.0**. The `mcp-*` packages declare `engines.node >=26.0.0`.
 
 Both `a2a-query` and `acp-query` published early releases before the rename that recommended installing via an `@rc` dist-tag — that dist-tag and those versions no longer exist. Plain `npm install @johnhenry/a2a-query` / `acp-query` gets the current code; ignore any `@rc` instruction you find in an older cached copy of either README.
 
