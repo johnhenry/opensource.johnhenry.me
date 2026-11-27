@@ -678,6 +678,29 @@
         ".": "https://esm.sh/@johnhenry/mcp-gate@0.4.0"
       }
     },
+    "@johnhenry/mcp-contract": {
+      "section": "agent-query",
+      "status": "partial",
+      "cdn": false,
+      "summary": "A \"browser\" export condition resolves to a Node-free subset (capture from a connected Client, diffContract, upgradeContract, diffSchema, formatDiff, mockFromContract). The stdio/HTTP connectors, the server registry, the OAuth flow and the mcp-contract CLI are Node. No CDN snippet: the package pulls in @johnhenry/mcp-query and the MCP SDK.",
+      "nodeEntries": [
+        "mcp-contract CLI",
+        "connectors, registry and OAuth"
+      ],
+      "npm": "0.1.0",
+      "jsr": null
+    },
+    "@johnhenry/mcp-record": {
+      "section": "agent-query",
+      "status": "partial",
+      "cdn": false,
+      "summary": "A \"browser\" export condition resolves to the whole library API with no node: module (built-in SHA-256). Only the mcp-record CLI is Node. No CDN snippet: the package pulls in @johnhenry/mcp-query and the MCP SDK.",
+      "nodeEntries": [
+        "mcp-record CLI"
+      ],
+      "npm": "0.1.0",
+      "jsr": null
+    },
     "@johnhenry/mcp-query": {
       "section": "agent-query",
       "status": "partial",

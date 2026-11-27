@@ -26,14 +26,14 @@ await client.connect();
 client.listTools('fs'); // a synchronous cache read once connected
 ```
 
-The current release is **0.2.1**, which declares `engines.node >=22.0.0`.
+The current release is **0.7.0**, which declares `engines.node >=26.0.0`.
 
 ## SDK dependency
 
-`mcp-query` peer-depends on `@modelcontextprotocol/client` and `@modelcontextprotocol/server`, both pinned to exactly `2.0.0` — the v2 split packages, not the v1 monolith `@modelcontextprotocol/sdk`. Install them alongside it:
+`mcp-query` peer-depends on `@modelcontextprotocol/client` and `@modelcontextprotocol/server`, both `^2.0.0` — the v2 split packages, not the v1 monolith `@modelcontextprotocol/sdk`. Install them alongside it:
 
 ```bash
-npm install @johnhenry/mcp-query @modelcontextprotocol/client@2.0.0 @modelcontextprotocol/server@2.0.0
+npm install @johnhenry/mcp-query @modelcontextprotocol/client @modelcontextprotocol/server
 ```
 
 React (`^19.2.7`) and `@opentelemetry/api` (`^1.9.0`) are optional peers, needed only for the `/react` and `/otel` subpaths. The client transports (stdio, Streamable HTTP, SSE) are re-exported from `@johnhenry/mcp-query/transports`, so application code doesn't need to import the SDK directly.
@@ -101,6 +101,6 @@ npx @johnhenry/mcp-query mcp-query-inspect   # inspect a server
 
 ## What else is in the repository
 
-[`johnhenry/mcp-query`](https://github.com/johnhenry/mcp-query) is a monorepo of 9 packages and 10 apps, but only **three publish to npm** — this package, [`mcp-query-tanstack`](/agent-query/mcp-query-tanstack/), and [`mcp-gate`](/agent-query/mcp-gate/).
+[`johnhenry/mcp-query`](https://github.com/johnhenry/mcp-query) is a monorepo of packages and demo apps. **Six packages publish to npm**: this one, [`mcp-query-tanstack`](/agent-query/mcp-query-tanstack/), [`mcp-gate`](/agent-query/mcp-gate/), [`mcp-contract`](/agent-query/mcp-contract/), [`mcp-record`](/agent-query/mcp-record/), and `@johnhenry/mcp-query-ui` (UI components; see the [package source](https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-query-ui)).
 
-The rest are internal (`mcp-contract`, `mcp-bench`, `mcp-lint`, `mcp-record`, `mcp-docs`, `cli`) or demo applications (approvals, composer, console, inspector, notebook, ops-cockpit, prompt-studio, switchboard, and others). They're worth reading as usage examples; they aren't installable.
+The rest are internal (`mcp-bench`, `mcp-lint`, `mcp-docs`, `cli`) or demo applications (approvals, composer, console, inspector, notebook, ops-cockpit, prompt-studio, switchboard, and others). They're worth reading as usage examples; they aren't installable.
