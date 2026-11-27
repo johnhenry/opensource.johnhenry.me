@@ -712,7 +712,7 @@
         "mcp-contract CLI",
         "connectors, registry and OAuth"
       ],
-      "npm": "0.1.0",
+      "npm": "0.2.0",
       "jsr": null
     },
     "@johnhenry/mcp-gate": {
@@ -723,7 +723,7 @@
         "createGate()",
         "mcp-gate CLI"
       ],
-      "npm": "0.8.0",
+      "npm": "0.9.0",
       "jsr": null,
       "esmShDeps": [
         "zod@4.6.5"
@@ -731,9 +731,9 @@
       "importMap": {
         "imports": {
           "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
-          "@johnhenry/mcp-gate": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-gate@0.8.0/dist/index.browser.js",
-          "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.7.0/dist/index.js",
-          "@johnhenry/mcp-query/server": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.7.0/dist/server/index.js",
+          "@johnhenry/mcp-gate": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-gate@0.9.0/dist/index.browser.js",
+          "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.8.0/dist/index.js",
+          "@johnhenry/mcp-query/server": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.8.0/dist/server/index.js",
           "@modelcontextprotocol/client": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.4.0/dist/index.mjs",
           "@modelcontextprotocol/client/_shims": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.4.0/dist/shimsBrowser.mjs",
           "@modelcontextprotocol/core/internal": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/core@2.4.0/dist/internal.mjs",
@@ -749,7 +749,7 @@
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/mcp-gate@0.8.0?deps=zod@4.6.5"
+        ".": "https://esm.sh/@johnhenry/mcp-gate@0.9.0?deps=zod@4.6.5"
       }
     },
     "@johnhenry/mcp-query": {
@@ -759,7 +759,7 @@
       "nodeEntries": [
         "./transports"
       ],
-      "npm": "0.7.0",
+      "npm": "0.8.0",
       "jsr": null,
       "esmShDeps": [
         "zod@4.6.5"
@@ -767,7 +767,7 @@
       "importMap": {
         "imports": {
           "@johnhenry/agent-query-core": "https://cdn.jsdelivr.net/npm/@johnhenry/agent-query-core@0.1.0-rc.4/dist/index.js",
-          "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.7.0/dist/index.js",
+          "@johnhenry/mcp-query": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query@0.8.0/dist/index.js",
           "@modelcontextprotocol/client": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.4.0/dist/index.mjs",
           "@modelcontextprotocol/client/_shims": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.4.0/dist/shimsBrowser.mjs",
           "@modelcontextprotocol/core/internal": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/core@2.4.0/dist/internal.mjs",
@@ -781,7 +781,7 @@
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/mcp-query@0.7.0?deps=zod@4.6.5"
+        ".": "https://esm.sh/@johnhenry/mcp-query@0.8.0?deps=zod@4.6.5"
       }
     },
     "@johnhenry/mcp-query-tanstack": {
@@ -826,15 +826,15 @@
         ".",
         "./react"
       ],
-      "npm": "2.1.0",
+      "npm": "3.0.0",
       "jsr": null,
       "esmShDeps": [
         "zod@4.6.5"
       ],
       "importMap": {
         "imports": {
-          "@johnhenry/mcp-query-ui": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query-ui@2.1.0/dist/index.js",
-          "@johnhenry/mcp-query-ui/react": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query-ui@2.1.0/dist/react.js",
+          "@johnhenry/mcp-query-ui": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query-ui@3.0.0/dist/index.js",
+          "@johnhenry/mcp-query-ui/react": "https://cdn.jsdelivr.net/npm/@johnhenry/mcp-query-ui@3.0.0/dist/react.js",
           "@modelcontextprotocol/client": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.4.0/dist/index.mjs",
           "@modelcontextprotocol/client/_shims": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/client@2.4.0/dist/shimsBrowser.mjs",
           "@modelcontextprotocol/core": "https://cdn.jsdelivr.net/npm/@modelcontextprotocol/core@2.4.0/dist/index.mjs",
@@ -850,8 +850,8 @@
         }
       },
       "esmSh": {
-        ".": "https://esm.sh/@johnhenry/mcp-query-ui@2.1.0?deps=zod@4.6.5",
-        "./react": "https://esm.sh/@johnhenry/mcp-query-ui@2.1.0/react?deps=zod@4.6.5"
+        ".": "https://esm.sh/@johnhenry/mcp-query-ui@3.0.0?deps=zod@4.6.5",
+        "./react": "https://esm.sh/@johnhenry/mcp-query-ui@3.0.0/react?deps=zod@4.6.5"
       }
     },
     "@johnhenry/mcp-record": {
@@ -862,7 +862,7 @@
       "nodeEntries": [
         "mcp-record CLI"
       ],
-      "npm": "0.1.0",
+      "npm": "0.2.0",
       "jsr": null
     },
     "@johnhenry/mport": {
@@ -1650,7 +1650,7 @@
       "jsdelivr": true,
       "esmsh": true
     },
-    "@johnhenry/mcp-gate@0.8.0": {
+    "@johnhenry/mcp-gate@0.9.0": {
       "date": "2026-11-27",
       "browsers": [
         "chromium"
@@ -1666,7 +1666,7 @@
       "jsdelivr": true,
       "esmsh": true
     },
-    "@johnhenry/mcp-query-ui@2.1.0": {
+    "@johnhenry/mcp-query-ui@3.0.0": {
       "date": "2026-11-27",
       "browsers": [
         "chromium"
@@ -1674,7 +1674,7 @@
       "jsdelivr": true,
       "esmsh": true
     },
-    "@johnhenry/mcp-query@0.7.0": {
+    "@johnhenry/mcp-query@0.8.0": {
       "date": "2026-11-27",
       "browsers": [
         "chromium"

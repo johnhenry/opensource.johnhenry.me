@@ -26,7 +26,7 @@ await client.connect();
 client.listTools('fs'); // a synchronous cache read once connected
 ```
 
-The current release is **0.7.0**, which declares `engines.node >=26.0.0`.
+The current release is **0.8.0**, which declares `engines.node >=26.0.0`.
 
 ## SDK dependency
 
@@ -101,7 +101,7 @@ npx -p @johnhenry/mcp-query mcp-query-codegen   # generate typed clients
 npx -p @johnhenry/mcp-query mcp-query-inspect   # inspect a server
 ```
 
-In 0.7.0 both commands exit without printing anything when run this way or from `node_modules/.bin` ([mcp-query#127](https://github.com/johnhenry/mcp-query/issues/127), fixed in the next release). Until then, run the file directly: `node node_modules/@johnhenry/mcp-query/dist/cli/inspect.js`.
+Both need 0.8.0 or later: in earlier releases they exit without printing anything when run from an install.
 
 ## What else is in the repository
 

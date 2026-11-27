@@ -18,7 +18,7 @@ import Install from '../../../components/Install.astro';
 - `@modelcontextprotocol/ext-apps` (`^2.0.3`) is a regular dependency and installs with the package.
 - A **sandbox proxy page served from a different origin** than your app. The spec requires it, and you host it; see [Sandbox rules](#sandbox-rules).
 
-The current release is **2.1.0**, which declares `engines.node >=26.0.0`. The library itself runs in the browser.
+The current release is **3.0.0**, which declares `engines.node >=26.0.0`. The library itself runs in the browser.
 
 ## Quick start
 
@@ -130,9 +130,22 @@ const host = createAppHost({ client: gate.client, server: 'dash' });
 
 - **Double iframe, different origin.** `mountIframe` throws if `sandboxUrl` has the same origin as the host page, or is plain `http` anywhere but localhost. The app itself runs in an inner frame with `sandbox="allow-scripts"`: an opaque origin.
 - **CSP from metadata, never loosened.** The domains the server declares for the app are the ceiling. Each source must look like an `http(s)` or `ws(s)` origin, so hostile metadata cannot inject directives. With nothing declared, the policy is the spec's restrictive default (`default-src 'none'`, `connect-src 'none'`, `frame-src 'none'`). `session.resource.cspHeader` is the exact header value; log it for audit.
-- **A host can tighten freely.** `createAppHost({ frame })` narrows CSP directives and drops declared permissions; `mountIframe({ sandbox, iframe })` narrows the inner sandbox and lets you supply the iframe element. Anything wider than what the app declared needs an explicit `unsafeLoosen: true`. No flag lifts the different-origin rule or gives the inner frame `allow-same-origin` through `sandbox.inner`.
+- **A host can tighten freely.** `createAppHost({ frame })` narrows CSP directives and drops declared permissions; `mountIframe({ sandbox, iframe })` narrows the inner sandbox and lets you supply the iframe element. Anything wider than what the app declared needs an explicit `unsafeLoosen: true`. No flag lifts the different-origin rule or gives the inner frame `allow-same-origin`.
 - **Only the sandbox iframe is heard.** The transport accepts a message only when its `event.source` is the sandbox iframe's window.
 - **You own the proxy page.** It must apply the CSP to the inner document, relay every non-sandbox message unchanged in both directions, and never originate requests of its own. The [ext-apps repository](https://github.com/modelcontextprotocol/ext-apps) has a reference host and sandbox page to start from, and the `mcp-query` inspector app carries a working local one.
+
+## Migrating to 3.0
+
+The one breaking change is the deprecated `mountIframe({ innerSandbox })` string, which is now validated exactly like `sandbox.inner`. It throws on `allow-same-origin`, on an unknown token, on any token beyond `allow-scripts` without `sandbox: { unsafeLoosen: true }`, and when both `innerSandbox` and `sandbox.inner` are passed. Move the value to `sandbox.inner`:
+
+```ts
+// 2.x
+mountIframe(session, { container, sandboxUrl, innerSandbox: 'allow-scripts allow-forms' });
+// 3.0
+mountIframe(session, { container, sandboxUrl, sandbox: { inner: 'allow-scripts allow-forms', unsafeLoosen: true } });
+```
+
+A host that passed only `allow-scripts`, a subset of it, or nothing is unaffected.
 
 ## API
 
