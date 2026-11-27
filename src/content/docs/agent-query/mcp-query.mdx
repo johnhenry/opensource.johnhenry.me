@@ -91,16 +91,20 @@ A note learned the hard way: servers gate each elicitation mode on its own sub-c
 - `@johnhenry/mcp-query/metrics` — metrics collection
 - `@johnhenry/mcp-query/redis` — a Redis-backed L2 cache store for multi-node setups
 - `@johnhenry/mcp-query/otel` — an OpenTelemetry tracing interceptor
+- `@johnhenry/mcp-query/discovery` — Server Card and AI Catalog discovery: hardened fetches, card parsing, and a comparison of a card against the live server
+- `@johnhenry/mcp-query/browser-bundle` — one self-contained ES module with the MCP SDK client, `zod`, and `agent-query-core` inlined, for hosts that vendor their dependencies
 
 ## Binaries
 
 ```bash
-npx @johnhenry/mcp-query mcp-query-codegen   # generate typed clients
-npx @johnhenry/mcp-query mcp-query-inspect   # inspect a server
+npx -p @johnhenry/mcp-query mcp-query-codegen   # generate typed clients
+npx -p @johnhenry/mcp-query mcp-query-inspect   # inspect a server
 ```
+
+In 0.7.0 both commands exit without printing anything when run this way or from `node_modules/.bin` ([mcp-query#127](https://github.com/johnhenry/mcp-query/issues/127), fixed in the next release). Until then, run the file directly: `node node_modules/@johnhenry/mcp-query/dist/cli/inspect.js`.
 
 ## What else is in the repository
 
-[`johnhenry/mcp-query`](https://github.com/johnhenry/mcp-query) is a monorepo of packages and demo apps. **Six packages publish to npm**: this one, [`mcp-query-tanstack`](/agent-query/mcp-query-tanstack/), [`mcp-gate`](/agent-query/mcp-gate/), [`mcp-contract`](/agent-query/mcp-contract/), [`mcp-record`](/agent-query/mcp-record/), and `@johnhenry/mcp-query-ui` (UI components; see the [package source](https://github.com/johnhenry/mcp-query/tree/main/packages/mcp-query-ui)).
+[`johnhenry/mcp-query`](https://github.com/johnhenry/mcp-query) is a monorepo of packages and demo apps. **Six packages publish to npm**: this one, [`mcp-query-tanstack`](/agent-query/mcp-query-tanstack/), [`mcp-gate`](/agent-query/mcp-gate/), [`mcp-contract`](/agent-query/mcp-contract/), [`mcp-record`](/agent-query/mcp-record/), and [`mcp-query-ui`](/agent-query/mcp-query-ui/).
 
 The rest are internal (`mcp-bench`, `mcp-lint`, `mcp-docs`, `cli`) or demo applications (approvals, composer, console, inspector, notebook, ops-cockpit, prompt-studio, switchboard, and others). They're worth reading as usage examples; they aren't installable.

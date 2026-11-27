@@ -12,6 +12,7 @@ The premise: most code that talks to an MCP or A2A server **is not itself an age
 |---|---|
 | [`@johnhenry/mcp-query`](/agent-query/mcp-query/) | Reactive, cached MCP client. TanStack Query keys + RTK Query tags + LSP-client lifecycle, on the official v2 MCP SDK. |
 | [`@johnhenry/mcp-query-tanstack`](/agent-query/mcp-query-tanstack/) | TanStack Query bridge — `queryOptions`/`mutationOptions` factories with zero extra refetches |
+| [`@johnhenry/mcp-query-ui`](/agent-query/mcp-query-ui/) | MCP Apps host — mount a server's `ui://` app in a sandboxed iframe, with app calls routed through the client and its gate |
 | [`@johnhenry/mcp-gate`](/agent-query/mcp-gate/) | Config-driven MCP security proxy — authorization, human-in-the-loop approval, DLP redaction, rate limiting, circuit breaking, audit |
 | [`@johnhenry/mcp-contract`](/agent-query/mcp-contract/) | Contract testing for MCP servers — pin a server's tools, resources, and prompts, then fail CI on breaking drift |
 | [`@johnhenry/mcp-record`](/agent-query/mcp-record/) | Record real MCP traffic to a cassette and replay it offline as a deterministic mock |
