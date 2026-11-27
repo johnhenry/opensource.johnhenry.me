@@ -59,15 +59,21 @@ export function mergedImportMap(names, data, { integrity = false } = {}) {
   };
 }
 
-export function esmShUrl(name, version, subpath = '.') {
-  return `${ESM_SH}/${name}@${version}${subpath === '.' ? '' : subpath.slice(1)}`;
+/**
+ * `deps` (curated `esmShDeps`, e.g. ["zod@4.6.5"]) pins a transitive dependency
+ * with esm.sh's `?deps=`, for when esm.sh's own build of the version it would
+ * pick is broken.
+ */
+export function esmShUrl(name, version, subpath = '.', deps = []) {
+  const query = deps.length ? `?deps=${deps.join(',')}` : '';
+  return `${ESM_SH}/${name}@${version}${subpath === '.' ? '' : subpath.slice(1)}${query}`;
 }
 
 /** [{ specifier, url }] for every entry point of every package, served by esm.sh. */
 export function esmShImports(names, data) {
   return names.flatMap((n) => {
     const p = data.packages[n];
-    return (p.entries ?? ['.']).map((sub) => ({ specifier: specifierFor(n, sub), url: esmShUrl(n, p.npm, sub) }));
+    return (p.entries ?? ['.']).map((sub) => ({ specifier: specifierFor(n, sub), url: esmShUrl(n, p.npm, sub, p.esmShDeps) }));
   });
 }
 

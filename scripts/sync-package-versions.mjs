@@ -10,7 +10,7 @@
 // browser, a raw-CDN import map pinned to that exact version plus the esm.sh
 // URLs (plus, where curated `sri: true`, an SRI hash of every raw file the map
 // loads). The curated fields (section, status, summary, entries, nodeEntries,
-// cdn, mapLazyDeps, sri) are left alone. Lazily imported hard dependencies are
+// cdn, mapLazyDeps, sri, esmShDeps) are left alone. Lazily imported hard dependencies are
 // mapped too unless `mapLazyDeps: false` (ecmanim's renderers: mathjax-full
 // does not load raw from a CDN).
 //
@@ -73,7 +73,7 @@ async function syncOne(name) {
     const sortKeys = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
     const scopes = Object.fromEntries(Object.entries(sortKeys(r.scopes)).map(([k, v]) => [k, sortKeys(v)]));
     pkg.importMap = Object.keys(scopes).length ? { imports: sortKeys(r.imports), scopes } : { imports: sortKeys(r.imports) };
-    pkg.esmSh = Object.fromEntries((pkg.entries ?? ['.']).map((sub) => [sub, esmShUrl(name, npm, sub)]));
+    pkg.esmSh = Object.fromEntries((pkg.entries ?? ['.']).map((sub) => [sub, esmShUrl(name, npm, sub, pkg.esmShDeps)]));
     // SRI for every raw file the graph loads, for an import map's `integrity`.
     // Only where curated `sri: true` (the family page's worked example): for a
     // large package it is hundreds of hashes that churn on every release.
